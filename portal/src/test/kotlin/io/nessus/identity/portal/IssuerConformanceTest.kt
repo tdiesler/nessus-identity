@@ -1,6 +1,7 @@
 package io.nessus.identity.portal
 
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.kotest.matchers.string.shouldNotBeEmpty
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.Max
 import org.junit.jupiter.api.AfterAll
@@ -79,7 +80,9 @@ class IssuerConformanceTest : AbstractConformanceTest() {
         nextStep()
 
         val ctType = "CTWalletSamePreAuthorisedInTime"
-        val userPin = "5797"
+
+        val userPin = "5577"
+        UserPinHolder.setUserPin(userPin)
 
         // Enter the did:key
         driver.findElement(By.name("userPinInTime")).sendKeys(userPin)
@@ -115,7 +118,9 @@ class IssuerConformanceTest : AbstractConformanceTest() {
         nextStep()
 
         val ctType = "CTWalletSamePreAuthorisedDeferred"
-        val userPin = "5797"
+
+        val userPin = "5577"
+        UserPinHolder.setUserPin(userPin)
 
         // Enter the did:key
         driver.findElement(By.name("userPinDeferred")).sendKeys(userPin)

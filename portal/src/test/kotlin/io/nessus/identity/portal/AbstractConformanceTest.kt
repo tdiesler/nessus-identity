@@ -5,6 +5,7 @@ import io.nessus.identity.service.ConfigProvider
 import io.nessus.identity.service.LoginContext
 import org.junit.jupiter.api.TestInstance
 import org.openqa.selenium.By
+import org.openqa.selenium.JavascriptExecutor
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
@@ -24,7 +25,7 @@ open class AbstractConformanceTest : AbstractActionsTest() {
     fun startPortalServer() {
         System.setProperty("webdriver.chrome.driver", "/opt/homebrew/bin/chromedriver")
         val options = ChromeOptions().apply {
-            //addArguments("--headless=new")
+            addArguments("--headless=new")
         }
         driver = ChromeDriver(options)
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))

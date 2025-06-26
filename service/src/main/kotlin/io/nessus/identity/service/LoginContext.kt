@@ -31,6 +31,7 @@ open class LoginContext() {
         get() = _walletInfo ?: throw IllegalStateException("No walletInfo")
         set(wi) {
             _walletInfo = wi
+            registry[subjectId] = this
         }
 
     var didInfo: DidInfo
@@ -42,7 +43,7 @@ open class LoginContext() {
 
     val did get() = didInfo.did
     val walletId get() = walletInfo.id
-    val subjectId get() = getSubjectId(walletId, did)
+    val subjectId get() = getSubjectId(walletId, maybeDidInfo?.did ?: "")
 
     companion object {
 

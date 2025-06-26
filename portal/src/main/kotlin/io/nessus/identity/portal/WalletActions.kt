@@ -6,7 +6,6 @@ import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.OpenID4VCI
-import id.walt.oid4vc.OpenID4VCI.parseCredentialOfferRequestUrl
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.CredentialOffer
@@ -43,11 +42,6 @@ object WalletActions {
         val walletId = cex.walletInfo.id
         val format = credRes.format as CredentialFormat
         return walletService.addCredential(walletId, format, credRes.toSignedJWT())
-    }
-
-    suspend fun fetchCredentialOfferFromUri(offerUri: String): CredentialOffer {
-        val offer = parseAndResolveCredentialOfferRequestUrl(offerUri)
-        return offer
     }
 
     suspend fun resolveOfferedCredentials(cex: CredentialExchange, offer: CredentialOffer): OfferedCredential {
@@ -251,18 +245,5 @@ object WalletActions {
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
-
-    // [TODO] Cannot create CredentialOffer from json
-    // https://github.com/walt-id/waltid-identity/issues/1104
-    private suspend fun parseAndResolveCredentialOfferRequestUrl(offerUri: String): CredentialOffer {
-        val credOfferRequest = parseCredentialOfferRequestUrl(offerUri)
-        val credOffer = http.get(credOfferRequest.credentialOfferUri as String).bodyAsText().let {
-            log.info { "CredentialOffer: $it" }
-            val json = Json { ignoreUnknownKeys = true }
-            json.decodeFromString<CredentialOffer.Draft11>(it)
-        }
-        return credOffer
-    }
-
 }
 

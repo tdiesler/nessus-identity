@@ -117,6 +117,9 @@ class WalletConformanceTest : AbstractConformanceTest() {
         driver.findElement(By.id("pre-auth-in-time-credential-same-device")).click()
         nextStep()
 
+        val userPin = extractUserPinCode()
+        log.info { "Extracted PIN code: $userPin" }
+
         // Click the "Initiate" link
         val mainTab = driver.windowHandle
         val ctType = "CTWalletSamePreAuthorisedInTime"
@@ -156,6 +159,9 @@ class WalletConformanceTest : AbstractConformanceTest() {
         driver.findElement(By.id("pre-auth-deferred-credential-same-device")).click()
         nextStep()
 
+        val userPin = extractUserPinCode()
+        log.info { "Extracted PIN code: $userPin" }
+
         // Click the "Initiate" link
         val mainTab = driver.windowHandle
         val ctType = "CTWalletSamePreAuthorisedDeferred"
@@ -186,6 +192,17 @@ class WalletConformanceTest : AbstractConformanceTest() {
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
+
+    private fun extractUserPinCode(): String {
+        val jsExecutor = driver as JavascriptExecutor
+        val pinElement = driver.findElement(By.xpath("//*[contains(text(), 'The required PIN-code will be')]"))
+        val pinElementText = jsExecutor.executeScript("return arguments[0].textContent;", pinElement) as String
+        val pinRegex = Regex("PIN-code will be (\\d{4})")
+        val pinMatch = pinRegex.find(pinElementText)
+        val pinCode = pinMatch!!.groupValues[1]
+        UserPinHolder.setUserPin(pinCode)
+        return pinCode
+    }
 
     private fun fixupInitiateHref(ctx: LoginContext, link: WebElement): WebElement {
 

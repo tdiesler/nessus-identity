@@ -25,7 +25,7 @@
     <body>
         <h3>Nessus Identity - EBSI Conformance Portal</h3>
 
-        <#if hasWalletId>
+        <#if hasWalletId && hasDidKey>
             <p/>
             ${walletName}
             <table>
@@ -34,6 +34,9 @@
                     <td><input type="text" value="${did!}" size="80" readonly/>&nbsp;<a style="font-size: small;" href="/logout">logout</a></td>
                 </tr>
             </table>
+        <#elseif hasWalletId && !hasDidKey>
+            <p/>
+            ${walletName}
             <#if !did??>
                 <p/>
                 Please create did:key:jwk_jcs-pub identifier from ECDSA_Secp256r1 key algorithm in the <a href="${devWalletUrl}" target="_blank">Dev Wallet</a><br/>
@@ -67,7 +70,7 @@
             <li><a href="https://hub.ebsi.eu/conformance/build-solutions/verifier-functional-flows">Verify Credentials</a></li>
         </ul>
 
-        <#if hasWalletId>
+        <#if hasDidKey>
 
             <h3>View Metadata</h3>
             <table>

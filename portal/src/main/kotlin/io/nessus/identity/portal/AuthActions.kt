@@ -505,8 +505,8 @@ object AuthActions {
         )
         val formData = tokenRequest.toHttpParameters()
 
-        WalletActions.log.info { "Send Token Request $tokenReqUrl" }
-        WalletActions.log.info { "  ${Json.encodeToString(tokenRequest)}" }
+        log.info { "Send Token Request $tokenReqUrl" }
+        log.info { "  ${Json.encodeToString(tokenRequest)}" }
 
         val res = http.post(tokenReqUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
@@ -519,7 +519,7 @@ object AuthActions {
             throw HttpStatusException(res.status, res.bodyAsText())
 
         val tokenResponseJson = res.bodyAsText()
-        WalletActions.log.info { "Token Response: $tokenResponseJson" }
+        log.info { "Token Response: $tokenResponseJson" }
 
         val tokenResponse = TokenResponse.fromJSONString(tokenResponseJson).also {
             cex.accessToken = SignedJWT.parse(it.accessToken)
@@ -533,12 +533,12 @@ object AuthActions {
 
         val tokenRequest = TokenRequest.PreAuthorizedCode(
             preAuthorizedCode = grant.preAuthorizedCode as String,
-            userPIN = System.getenv("EBSI__PREAUTHORIZED_PIN") // [TODO] get actual user input
+            userPIN = UserPinHolder.getUserPin()
         )
         val formData = tokenRequest.toHttpParameters()
 
-        WalletActions.log.info { "Send Token Request $tokenReqUrl" }
-        WalletActions.log.info { "  ${Json.encodeToString(tokenRequest)}" }
+        log.info { "Send Token Request $tokenReqUrl" }
+        formData.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" }}}
 
         val res = http.post(tokenReqUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
@@ -551,7 +551,7 @@ object AuthActions {
             throw HttpStatusException(res.status, res.bodyAsText())
 
         val tokenResponseJson = res.bodyAsText()
-        WalletActions.log.info { "Token Response: $tokenResponseJson" }
+        log.info { "Token Response: $tokenResponseJson" }
 
         val tokenResponse = TokenResponse.fromJSONString(tokenResponseJson).also {
             cex.accessToken = SignedJWT.parse(it.accessToken)

@@ -2,6 +2,7 @@ package io.nessus.identity.portal
 
 import com.nimbusds.jwt.SignedJWT
 import freemarker.cache.ClassTemplateLoader
+import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.requests.TokenRequest
@@ -163,12 +164,13 @@ class PortalServer {
         val ctx = getLoginContextFromSession(call)
         val model = mutableMapOf(
             "hasWalletId" to (ctx?.maybeWalletInfo?.name?.isNotBlank() ?: false),
+            "hasDidKey" to (ctx?.maybeDidInfo?.did?.isNotBlank() ?: false),
             "walletName" to ctx?.maybeWalletInfo?.name,
             "did" to ctx?.maybeDidInfo?.did,
             "demoWalletUrl" to serviceConfig.demoWalletUrl,
             "devWalletUrl" to serviceConfig.devWalletUrl,
         )
-        if (ctx?.hasDidInfo == true) {
+        if (ctx?.hasWalletInfo == true) {
             model["subjectId"] = ctx.subjectId
             model["walletUri"] = "${ConfigProvider.walletEndpointUri}/${ctx.subjectId}"
             model["issuerUri"] = "${ConfigProvider.issuerEndpointUri}/${ctx.subjectId}"
@@ -483,7 +485,7 @@ class PortalServer {
 
         val oid4vcOfferUri = "openid-credential-offer://?credential_offer_uri=$credOfferUri"
 
-        val credOffer = WalletActions.fetchCredentialOfferFromUri(oid4vcOfferUri)
+        val credOffer = OpenID4VCI.parseAndResolveCredentialOfferRequestUrl(oid4vcOfferUri)
         val offeredCred = WalletActions.resolveOfferedCredentials(cex, credOffer)
         val tokenResponse = credOffer.getPreAuthorizedGrantDetails()?.let {
             AuthActions.sendTokenRequestPreAuthorized(cex, it)
