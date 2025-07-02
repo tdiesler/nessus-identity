@@ -4,6 +4,6 @@ object ServiceProvider {
 
     val walletService = run {
         val serviceConfig = ConfigProvider.requireServiceConfig()
-        WalletService.build(serviceConfig.walletApiUrl)
+        WalletService(serviceConfig.walletApiUrl)
     }
 }

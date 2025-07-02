@@ -5,6 +5,7 @@ import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.util.Base64URL
+import id.walt.oid4vc.data.dif.PresentationDefinition
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -17,9 +18,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Test
 
-class WalletServiceTest {
-
-    val walletService = WalletService.build()
+class WalletServiceTest : AbstractServiceTest() {
 
     // Authentication --------------------------------------------------------------------------------------------------
 
@@ -65,6 +64,32 @@ class WalletServiceTest {
         }
     }
 
+    // Credentials -----------------------------------------------------------------------------------------------------
+
+    @Test
+    fun listCredentials() {
+        runBlocking {
+            authLoginWithWallet(Max)
+            val credentials = walletService.listCredentials()
+            credentials.shouldNotBeNull()
+        }
+    }
+
+    @Test
+    fun findCredentials() {
+
+        val json = loadResourceAsString("presentation-definition.json")
+        val vpdef = Json.decodeFromString<PresentationDefinition>(json)
+        log.info { "PresentationDefinition: $vpdef" }
+
+        runBlocking {
+            authLoginWithWallet(Max)
+            walletService.findCredentials(vpdef).forEach { (_, wc) ->
+                print("${wc.parsedDocument?.get("type")}\n")
+            }
+        }
+    }
+
     // Keys ------------------------------------------------------------------------------------------------------------
 
     @Test
@@ -91,7 +116,7 @@ class WalletServiceTest {
     fun listDids() {
         runBlocking {
             authLoginWithWallet(Max)
-            val res: Array<DidInfo> = walletService.listDids()
+            val res = walletService.listDids()
             res.shouldNotBeEmpty()
         }
     }
@@ -146,22 +171,5 @@ class WalletServiceTest {
         runBlocking {
             walletService.logout()
         }
-    }
-
-    // Private ---------------------------------------------------------------------------------------------------------
-
-    private suspend fun authLogin(user: User): LoginContext {
-        if (!walletService.hasLoginContext()) {
-            walletService.login(user.toLoginParams())
-        }
-        return walletService.getLoginContext()
-    }
-
-    private suspend fun authLoginWithWallet (user: User): LoginContext {
-        val ctx = authLogin(user)
-        if (ctx.maybeWalletInfo == null) {
-            ctx.walletInfo = walletService.listWallets().first()
-        }
-        return ctx
     }
 }

@@ -11,15 +11,16 @@ import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.GrantDetails
+import id.walt.oid4vc.data.dif.DescriptorMapping
 import id.walt.oid4vc.data.dif.InputDescriptor
 import id.walt.oid4vc.data.dif.InputDescriptorConstraints
 import id.walt.oid4vc.data.dif.InputDescriptorField
 import id.walt.oid4vc.data.dif.PresentationDefinition
+import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.oid4vc.data.dif.VCFormatDefinition
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.TokenRequest
 import id.walt.oid4vc.responses.TokenResponse
-import id.walt.oid4vc.util.http
 import id.walt.w3c.utils.VCFormat
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
@@ -36,11 +37,14 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.openqa.selenium.internal.Require.state
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.Date
 import kotlin.collections.component1
 import kotlin.collections.component2
+import kotlin.collections.first
+import kotlin.text.Charsets.UTF_8
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -80,24 +84,25 @@ object AuthActions {
         }
     }
 
-    suspend fun handleAuthorizationRequestCallback(
-        cex: CredentialExchange,
-        queryParams: Map<String, List<String>>
-    ): String {
+    suspend fun handleIDTokenRequest(cex: CredentialExchange, queryParams: Map<String, List<String>>): String {
 
         // Verify required query params
-        for (key in listOf("client_id", "nonce", "state", "redirect_uri", "request_uri")) {
+        for (key in listOf("client_id", "nonce", "state", "redirect_uri", "request_uri", "response_type")) {
             queryParams[key] ?: throw IllegalStateException("Cannot find $key")
         }
 
         // The Wallet answers the ID Token Request by providing the id_token in the redirect_uri as instructed by response_mode of direct_post.
         // The id_token must be signed with the DID document's authentication key.
 
-        val authAud = queryParams["client_id"]!!.first()
+        val clientId = queryParams["client_id"]!!.first()
         val nonce = queryParams["nonce"]!!.first()
         val state = queryParams["state"]!!.first()
         val redirectUri = queryParams["redirect_uri"]!!.first()
         val requestUri = queryParams["request_uri"]!!.first()
+        val responseType = queryParams["response_type"]!!.first()
+
+        if (responseType != "id_token")
+            throw IllegalStateException("Unexpected response_type: $responseType")
 
         log.info { "Trigger IDToken Request: $requestUri" }
         var res = http.get(requestUri)
@@ -124,7 +129,7 @@ object AuthActions {
         val idTokenClaims = JWTClaimsSet.Builder()
             .issuer(cex.didInfo.did)
             .subject(cex.didInfo.did)
-            .audience(authAud)
+            .audience(clientId)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
             .claim("nonce", nonce)
@@ -202,6 +207,156 @@ object AuthActions {
         }
 
         return idTokenRedirect
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    suspend fun handleVPTokenRequest(cex: CredentialExchange, queryParams: Map<String, List<String>>): String {
+
+        // Verify required query params
+        for (key in listOf("client_id", "request_uri", "response_type")) {
+            queryParams[key] ?: throw IllegalStateException("Cannot find $key")
+        }
+
+        val clientId = queryParams["client_id"]!!.first()
+        val requestUri = queryParams["request_uri"]!!.first()
+        val responseType = queryParams["response_type"]!!.first()
+
+        if (responseType != "vp_token")
+            throw IllegalStateException("Unexpected response_type: $responseType")
+
+        if (!requestUri.startsWith(authEndpointUri))
+            throw IllegalStateException("Unexpected request_uri: $requestUri")
+
+        val queryParams = urlQueryToMap(requestUri)
+        val reqObjectId = queryParams["request_object"]
+        if (reqObjectId == null)
+            throw IllegalStateException("No request_object in: $requestUri")
+
+        val reqObject = cex.getRequestObject(reqObjectId) as? AuthorizationRequest
+            ?: throw IllegalStateException("No request_object for: $reqObjectId")
+
+        log.info { "VPToken Request: ${Json.encodeToString(reqObject)}" }
+
+        val nonce = reqObject.nonce
+            ?: throw IllegalStateException("No nonce in: $reqObject")
+
+        val state = reqObject.state
+            ?: throw IllegalStateException("No state in: $reqObject")
+
+        val redirectUri = reqObject.redirectUri
+            ?: throw IllegalStateException("No redirectUri in: $reqObject")
+
+        val vpdef = reqObject.presentationDefinition
+            ?: throw IllegalStateException("No presentationDefinition in: $reqObject")
+
+        val jti = "${Uuid.random()}"
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(300) // 5 mins expiry
+
+        val kid = cex.didInfo.authenticationId()
+        val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType.JWT)
+            .keyID(kid)
+            .build()
+
+        val vpJson = """{
+            "@context": [ "https://www.w3.org/2018/credentials/v1" ],
+            "id": "$jti",
+            "type": [ "VerifiablePresentation" ],
+            "holder": "${cex.didInfo.did}",
+            "verifiableCredential": []
+        }"""
+        val vpObj = JSONObjectUtils.parse(vpJson)
+
+        @Suppress("UNCHECKED_CAST")
+        val vcArray = vpObj["verifiableCredential"] as MutableList<String>
+
+        val descriptorMap = mutableListOf<DescriptorMapping>()
+        val vpSubmission = PresentationSubmission(
+            id = "${Uuid.random()}",
+            definitionId = vpdef.id,
+            descriptorMap = descriptorMap
+        )
+
+        val matchingCredentials = walletService.findCredentials(vpdef).toMap()
+
+        for (ind in vpdef.inputDescriptors) {
+
+            val wc = matchingCredentials[ind.id]
+            if (wc == null) {
+                log.warn { "No matching credential for: ${ind.id}" }
+                continue
+            }
+
+            log.info { "Found matching credential for: ${ind.id}" }
+
+            val n = vcArray.size
+            val dm = DescriptorMapping(
+                id = ind.id,
+                format = VCFormat.jwt_vp,
+                path = "$.vp.verifiableCredential[$n]",
+            )
+
+            descriptorMap.add(dm)
+            vcArray.add(wc.document)
+        }
+
+        val vpSubmissionJson = Json.encodeToString(vpSubmission)
+
+        val vpTokenClaims = JWTClaimsSet.Builder()
+            .jwtID(jti)
+            .issuer(cex.didInfo.did)
+            .subject(cex.didInfo.did)
+            .audience(clientId)
+            .issueTime(Date.from(iat))
+            .expirationTime(Date.from(exp))
+            .claim("nonce", nonce)
+            .claim("state", state)
+            .claim("vp", vpObj)
+            .build()
+
+        val vpTokenJwt = SignedJWT(vpTokenHeader, vpTokenClaims)
+        log.info { "VPToken Header: ${vpTokenJwt.header}" }
+        log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
+
+        val signingInput = Json.encodeToString(createFlattenedJwsJson(vpTokenHeader, vpTokenClaims))
+        val signedEncoded = walletService.signWithKey(kid, signingInput)
+
+        log.info { "VPToken: $signedEncoded" }
+        if (!verifyJwt(SignedJWT.parse(signedEncoded), cex.didInfo))
+            throw IllegalStateException("VPToken signature verification failed")
+
+        // Send VPToken  -----------------------------------------------------------------------------------------------
+        //
+
+        log.info { "Send VPToken: $redirectUri" }
+        val formData = mapOf(
+            "vp_token" to signedEncoded,
+            "presentation_submission" to vpSubmissionJson,
+            "state" to state,
+        ).also {
+            it.forEach { (k, v) -> log.info { "  $k=$v" } }
+        }
+
+        val res = http.post(redirectUri) {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(FormDataContent(Parameters.build {
+                formData.forEach { (k, v) -> append(k, v) }
+            }))
+        }
+
+        if (res.status != HttpStatusCode.Found)
+            throw HttpStatusException(res.status, res.bodyAsText())
+
+        val location = res.headers["location"]?.also {
+            log.info { "VPToken Response: $it" }
+        } ?: throw IllegalStateException("Cannot find 'location' in headers")
+
+        val authCode = urlQueryToMap(location)["code"]?.also {
+            cex.authCode = it
+        } ?: throw IllegalStateException("No authorization code")
+
+        return ""
     }
 
     @OptIn(ExperimentalUuidApi::class)

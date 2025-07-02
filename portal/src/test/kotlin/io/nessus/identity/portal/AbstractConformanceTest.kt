@@ -5,7 +5,8 @@ import io.nessus.identity.service.ConfigProvider
 import io.nessus.identity.service.LoginContext
 import org.junit.jupiter.api.TestInstance
 import org.openqa.selenium.By
-import org.openqa.selenium.JavascriptExecutor
+import org.openqa.selenium.Dimension
+import org.openqa.selenium.Point
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
@@ -29,6 +30,14 @@ open class AbstractConformanceTest : AbstractActionsTest() {
         }
         driver = ChromeDriver(options)
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
+
+        val screenSize = java.awt.Toolkit.getDefaultToolkit().screenSize
+        val screenWidth = screenSize.width
+        val screenHeight = screenSize.height
+
+        // Move to right half
+        driver.manage().window().position = Point(screenWidth / 2, 0)
+        driver.manage().window().size = Dimension(screenWidth / 2, screenHeight)
 
         embeddedServer = PortalServer().createServer()
         embeddedServer.start(wait = false)

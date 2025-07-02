@@ -42,6 +42,13 @@ fun main() {
     server.start(wait = true)
 }
 
+@Serializable
+data class CookieData(val wid: String, var did: String? = null) {
+    companion object {
+        const val NAME = "CookieData"
+    }
+}
+
 class HttpStatusException(val status: HttpStatusCode, override val message: String) : RuntimeException(message) {
     override fun toString(): String {
         val s = "${javaClass.getName()}[code=$status]"
@@ -196,8 +203,7 @@ class PortalServer {
             return call.respond(HttpStatusCode.BadRequest, "Missing email or password")
 
         runBlocking {
-            walletService.loginWallet(LoginParams(LoginType.EMAIL, email, password))
-            val ctx = walletService.getLoginContext()
+            val ctx = walletService.loginWallet(LoginParams(LoginType.EMAIL, email, password))
             walletService.findDidByPrefix("did:key")?.also {
                 ctx.didInfo = it
             }
@@ -206,7 +212,7 @@ class PortalServer {
         }
     }
 
-    // Handle Authorization requests -----------------------------------------------------------------------------------
+    // Handle Authorization Requests -----------------------------------------------------------------------------------
     //
     suspend fun handleAuthRequests(call: RoutingCall, subId: String) {
 
@@ -254,9 +260,16 @@ class PortalServer {
 
         // Callback as part of the Authorization Request
         //
-        if (path == "/auth/$subId" && queryParams["response_type"] == "id_token") {
-            val cex = requireCredentialExchange(subId)
-            return handleAuthorizationRequestCallback(call, cex)
+        if (path == "/auth/$subId") {
+            val responseType = queryParams["response_type"]
+            if (responseType == "id_token") {
+                val cex = requireCredentialExchange(subId)
+                return handleIDTokenRequest(call, cex)
+            }
+            if (responseType == "vp_token") {
+                val cex = requireCredentialExchange(subId)
+                return handleVPTokenRequest(call, cex)
+            }
         }
 
         call.respondText(
@@ -296,7 +309,7 @@ class PortalServer {
         )
     }
 
-    // Handle Issuer requests ------------------------------------------------------------------------------------------
+    // Handle Issuer Requests ------------------------------------------------------------------------------------------
     //
     suspend fun handleIssuerRequests(call: RoutingCall, subId: String) {
 
@@ -328,35 +341,7 @@ class PortalServer {
         )
     }
 
-    // LoginContext ----------------------------------------------------------------------------------------------------
-
-    private suspend fun requireLoginContext(subId: String): LoginContext {
-
-        // We expect the user to have logged in previously and have a valid Did
-        //
-        var ctx = LoginContext.findLoginContext(subId)
-
-        // Fallback
-        if (ctx == null) {
-            val cfg = ConfigProvider.requireWalletConfig()
-            if (cfg.userEmail.isNotBlank() && cfg.userPassword.isNotBlank()) {
-                val loginParams = LoginParams(LoginType.EMAIL, cfg.userEmail, cfg.userPassword)
-                walletService.loginWallet(loginParams)
-                ctx = walletService.getLoginContext()
-            }
-        }
-
-        ctx ?: throw IllegalStateException("Login required")
-
-        if (ctx.maybeDidInfo == null) {
-            ctx.didInfo = walletService.findDidByPrefix("did:key")
-                ?: throw IllegalStateException("Cannot find required did in wallet")
-        }
-
-        return ctx
-    }
-
-    // Authorization ---------------------------------------------------------------------------------------------------
+    // Handle Authorization Requests -----------------------------------------------------------------------------------
 
     private suspend fun handleAuthorizationMetadataRequest(call: RoutingCall, ctx: LoginContext) {
 
@@ -376,18 +361,15 @@ class PortalServer {
         val queryParams = call.parameters.toMap()
         val authReq = AuthorizationRequest.fromHttpParameters(queryParams)
         log.info { "Authorization Request: ${Json.encodeToString(authReq)}" }
-        queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" }}}
+        queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
         val idTokenRedirectUrl = AuthActions.handleAuthorizationRequest(cex, authReq)
         call.respondRedirect(idTokenRedirectUrl)
     }
 
-    /**
-     * Handle the callback as response of an AuthorizationRequest that this Wallet sent
-     */
-    private suspend fun handleAuthorizationRequestCallback(call: RoutingCall, cex: CredentialExchange) {
+    private suspend fun handleIDTokenRequest(call: RoutingCall, cex: CredentialExchange) {
 
-        AuthActions.handleAuthorizationRequestCallback(cex, call.parameters.toMap())
+        AuthActions.handleIDTokenRequest(cex, call.parameters.toMap())
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -396,9 +378,17 @@ class PortalServer {
         )
     }
 
-    /**
-     * Client requests key details
-     */
+    private suspend fun handleVPTokenRequest(call: RoutingCall, cex: CredentialExchange) {
+
+        AuthActions.handleVPTokenRequest(cex, call.parameters.toMap())
+
+        call.respondText(
+            status = HttpStatusCode.Accepted,
+            contentType = ContentType.Text.Plain,
+            text = "Accepted"
+        )
+    }
+
     private suspend fun handleAuthDirectPost(call: RoutingCall, cex: CredentialExchange) {
 
         val postParams = call.receiveParameters().toMap()
@@ -455,6 +445,7 @@ class PortalServer {
                 val cex = requireCredentialExchange(subId)
                 AuthActions.handleTokenRequestAuthCode(cex, tokenRequest)
             }
+
             is TokenRequest.PreAuthorizedCode -> {
                 val cex = CredentialExchange(requireLoginContext(subId))
                 AuthActions.handleTokenRequestPreAuthorized(cex, tokenRequest)
@@ -468,7 +459,7 @@ class PortalServer {
         )
     }
 
-    // Holder ----------------------------------------------------------------------------------------------------------
+    // Handle Wallet Requests ------------------------------------------------------------------------------------------
 
     // Request and present Verifiable Credentials
     // https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows
@@ -523,7 +514,7 @@ class PortalServer {
         )
     }
 
-    // Issuer ----------------------------------------------------------------------------------------------------------
+    // Handle Issuer Requests ------------------------------------------------------------------------------------------
 
     private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: LoginContext) {
 
@@ -575,10 +566,31 @@ class PortalServer {
         return ctx
     }
 
-    @Serializable
-    data class CookieData(val wid: String, var did: String? = null) {
-        companion object {
-            const val NAME = "CookieData"
+    // LoginContext ----------------------------------------------------------------------------------------------------
+
+    private suspend fun requireLoginContext(subId: String): LoginContext {
+
+        // We expect the user to have logged in previously and have a valid Did
+        //
+        var ctx = LoginContext.findLoginContext(subId)
+
+        // Fallback
+        if (ctx == null) {
+            val cfg = ConfigProvider.requireWalletConfig()
+            if (cfg.userEmail.isNotBlank() && cfg.userPassword.isNotBlank()) {
+                val loginParams = LoginParams(LoginType.EMAIL, cfg.userEmail, cfg.userPassword)
+                walletService.loginWallet(loginParams)
+                ctx = walletService.getLoginContext()
+            }
         }
+
+        ctx ?: throw IllegalStateException("Login required")
+
+        if (ctx.maybeDidInfo == null) {
+            ctx.didInfo = walletService.findDidByPrefix("did:key")
+                ?: throw IllegalStateException("Cannot find required did in wallet")
+        }
+
+        return ctx
     }
 }

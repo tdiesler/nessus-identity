@@ -4,6 +4,7 @@ import com.nimbusds.jwt.SignedJWT
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import id.walt.oid4vc.data.CredentialFormat
+import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.webwallet.db.models.WalletCredential
 import id.walt.webwallet.service.credentials.CredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -24,7 +25,9 @@ import kotlin.uuid.Uuid
 
 class WalletService {
 
-    val api : WalletApiClient
+    val log = KotlinLogging.logger {}
+
+    val api : WaltidApiClient
     private lateinit var ctx: LoginContext
 
     val dataSource: Lazy<DataSource> = lazy {
@@ -41,16 +44,9 @@ class WalletService {
         })
     }
 
-    private constructor(walletApiUrl: String) {
-        log.info { "WalletService: $walletApiUrl" }
-        api = WalletApiClient(walletApiUrl)
-    }
-
-    companion object {
-        val log = KotlinLogging.logger {}
-        fun build(walletApiUrl: String = "http://localhost:7001") : WalletService {
-            return WalletService(walletApiUrl)
-        }
+    constructor(apiUrl: String) {
+        log.info { "WalletService: $apiUrl" }
+        api = WaltidApiClient(apiUrl)
     }
 
     fun hasLoginContext() : Boolean {
@@ -97,9 +93,62 @@ class WalletService {
         return findWallet { w -> w.id == id }
     }
 
-    suspend fun listWallets(): Array<WalletInfo> {
+    suspend fun listWallets(): List<WalletInfo> {
         val res = api.accountWallets(ctx)
-        return res.wallets
+        return res.wallets.toList()
+    }
+
+    // Credentials -----------------------------------------------------------------------------------------------------
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun addCredential(walletId: String, format: CredentialFormat, vcJwt: SignedJWT): String {
+
+        if (format != CredentialFormat.jwt_vc)
+            throw IllegalStateException("Unsupported credential format: $format")
+
+        val credId = getCredentialId(vcJwt)
+        val walletUid = Uuid.Companion.parse(walletId)
+        val document = vcJwt.serialize()
+
+        val walletCredential = WalletCredential(
+            id = credId,
+            format = format,
+            wallet = walletUid,
+            document = document,
+            addedOn = Clock.System.now(),
+            disclosures = null,
+            deletedOn = null,
+        )
+
+        withConnection {
+            CredentialsService().add(walletUid, walletCredential)
+            log.info { "Added WalletCredential: $credId" }
+        }
+        return credId
+    }
+
+    suspend fun listCredentials(): List<WalletCredential> {
+        val res = api.credentials(ctx)
+        return res.toList()
+    }
+
+    /**
+     * For every InputDescriptor iterate over all WalletCredentials and match all constraints.
+     */
+    suspend fun findCredentials(vpdef: PresentationDefinition): List<Pair<String, WalletCredential>> {
+
+        val walletCredentials = api.credentials(ctx)
+        val foundCredentials = mutableListOf<Pair<String, WalletCredential>>()
+
+        for (ind in vpdef.inputDescriptors) {
+            for (wc in walletCredentials) {
+                if (CredentialMatcher.matchCredential(wc, ind)) {
+                    foundCredentials.add(Pair(ind.id, wc))
+                    break
+                }
+            }
+        }
+        return foundCredentials
     }
 
     // Keys ------------------------------------------------------------------------------------------------------------
@@ -120,9 +169,9 @@ class WalletService {
         return findKeyByAlgorithm(keyType.algorithm)
     }
 
-    suspend fun listKeys(): Array<Key> {
+    suspend fun listKeys(): List<Key> {
         val res: Array<KeyResponse> = api.keys(ctx)
-        return res.map { kr -> Key(kr.keyId.id, kr.algorithm) }.toTypedArray()
+        return res.map { kr -> Key(kr.keyId.id, kr.algorithm) }
     }
 
     suspend fun createKey(keyType: KeyType): Key {
@@ -160,9 +209,9 @@ class WalletService {
         return didInfo
     }
 
-    suspend fun listDids(): Array<DidInfo> {
-        val dids: Array<DidInfo> = api.dids(ctx)
-        return dids
+    suspend fun listDids(): List<DidInfo> {
+        val dids = api.dids(ctx)
+        return dids.toList()
     }
 
     suspend fun createDidKey(alias: String, keyId: String): DidInfo {
@@ -172,42 +221,13 @@ class WalletService {
         return didInfo
     }
 
-    // Credentials ------------------------------------------------------------------------------------------------------------
-
-    @OptIn(ExperimentalUuidApi::class)
-    fun addCredential(walletId: String, format: CredentialFormat, credential: SignedJWT): String {
-
-        if (format != CredentialFormat.jwt_vc)
-            throw IllegalStateException("Unsupported credential format: $format")
-
-        val credId = getCredentialId(credential)
-        val walletUid = Uuid.Companion.parse(walletId)
-        val document = credential.serialize()
-
-        val walletCredential = WalletCredential(
-            id = credId,
-            format = format,
-            wallet = walletUid,
-            document = document,
-            addedOn = Clock.System.now(),
-            disclosures = null,
-            deletedOn = null,
-        )
-
-        withConnection {
-            CredentialsService().add(walletUid, walletCredential)
-            log.info { "Added WalletCredential: $credId" }
-        }
-        return credId
-    }
+    // Private ---------------------------------------------------------------------------------------------------------
 
     private fun getCredentialId(credJwt: SignedJWT): String {
         val credClaims = Json.Default.parseToJsonElement("${credJwt.jwtClaimsSet}") as JsonObject
         val vc = credClaims["vc"] as? JsonObject ?: throw IllegalArgumentException("No 'vc' claim")
         return vc["id"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("No 'vc.id' claim")
     }
-
-    // Private ---------------------------------------------------------------------------------------------------------
 
     private fun withConnection(block: () -> Unit) {
         if (!dataSource.isInitialized()) {

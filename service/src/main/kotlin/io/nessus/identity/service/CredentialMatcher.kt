@@ -1,0 +1,54 @@
+package io.nessus.identity.service
+
+import com.jayway.jsonpath.Configuration
+import com.jayway.jsonpath.JsonPath
+import com.jayway.jsonpath.Option
+import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.dif.InputDescriptor
+import id.walt.webwallet.db.models.WalletCredential
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+object CredentialMatcher {
+
+    val log = KotlinLogging.logger {}
+
+    private val jaywayConfig: Configuration = Configuration.defaultConfiguration()
+        .addOptions(Option.DEFAULT_PATH_LEAF_TO_NULL)
+
+    fun matchCredential(wc: WalletCredential, ind: InputDescriptor): Boolean  {
+        val indId = ind.id
+        val fields = ind.constraints?.fields
+            ?: throw IllegalStateException("No constraints.fields for: $indId")
+        val numFields = fields.size
+
+        var matchCount = 0
+        for (fld in fields) {
+            if (fld.path.size != 1) {
+                log.warn { "Multiple paths not supported: ${fld.path}" }
+                matchCount = 0
+                break
+            }
+            val path = fld.path[0]
+            val filterMap = fld.filter?.toMap()
+                ?: throw IllegalStateException("No filter in: $fld")
+
+            val vcJwt = SignedJWT.parse(wc.document)
+            val vcPayload = vcJwt.payload.toString()
+            val pathValue = extractPathValues(vcPayload, path)
+
+            val containsObj = filterMap["contains"] ?: throw IllegalStateException("No filter.contains in: ${fld.filter}")
+            val wantedValue = containsObj.jsonObject["const"]?.jsonPrimitive?.content ?: throw IllegalStateException("No filter.contains.const in: ${fld.filter}")
+            if (pathValue.contains(wantedValue)) {
+                matchCount++
+            }
+        }
+
+        return matchCount == numFields
+    }
+
+    private fun extractPathValues(json: String, path: String): List<String> {
+        return JsonPath.using(jaywayConfig).parse(json).read(path)
+    }
+}

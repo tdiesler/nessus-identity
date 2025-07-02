@@ -7,6 +7,7 @@ import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import io.nessus.identity.service.LoginContext
+import kotlinx.serialization.json.JsonObject
 import java.time.Instant
 
 class CredentialExchange(ctx: LoginContext) : LoginContext(ctx.authToken, ctx.walletInfo, ctx.didInfo) {
@@ -37,6 +38,8 @@ class CredentialExchange(ctx: LoginContext) : LoginContext(ctx.authToken, ctx.wa
             ?: (issuerMetadata as? OpenIDProviderMetadata.Draft13)?.authorizationEndpoint
             ?: throw IllegalStateException("Cannot obtain authorization_server from: $issuerMetadata")
 
+    val extras = mutableMapOf<String, Any>()
+
     init {
         registry[subjectId] = this
     }
@@ -59,6 +62,14 @@ class CredentialExchange(ctx: LoginContext) : LoginContext(ctx.authToken, ctx.wa
     override fun close() {
         registry.remove(subjectId)
         super.close()
+    }
+
+    fun getRequestObject(key: String): Any? {
+        return extras[key]
+    }
+
+    fun putRequestObject(key: String, obj: Any) {
+        extras[key] = obj
     }
 
     fun validateBearerToken(bearerToken: SignedJWT) {

@@ -16,12 +16,12 @@ import java.net.URLEncoder
 import java.time.Duration
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class WalletConformanceTest : AbstractConformanceTest() {
+class WalletConformanceTestSameDevice : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
         startPortalServer()
-        prepareHolderTests()
+        prepareWalletTests(false)
     }
 
     @AfterAll
@@ -228,46 +228,5 @@ class WalletConformanceTest : AbstractConformanceTest() {
             )
         }
         return link
-    }
-
-    private fun prepareHolderTests(): LoginContext {
-
-        val ctx = userLogin(Max)
-        ctx.hasDidInfo.shouldBeTrue()
-
-        driver.get("https://hub.ebsi.eu/wallet-conformance")
-        nextStep()
-
-        // Request and present Verifiable Credentials -> Start tests
-        driver.findElement(By.cssSelector("a[href='/wallet-conformance/holder-wallet']")).click()
-        nextStep()
-
-        // Holder Wallet Conformance Testing -> Start
-        driver.findElement(By.cssSelector("a[href='/wallet-conformance/holder-wallet/flow?step=0']")).click()
-        nextStep()
-
-        // Click "Continue" button
-        driver.findElement(By.xpath("//button[.//span[text()='Continue']]")).click()
-        nextStep()
-
-        // Enter the did:key
-        driver.findElement(By.name("did")).sendKeys(ctx.did)
-        log.info { "DID: ${ctx.did}" }
-        nextStep()
-
-        // Enter the walletUri
-        driver.findElement(By.name("credential_offer_endpoint")).sendKeys(walletEndpointUri(ctx))
-        log.info { "WalletUri: ${walletEndpointUri(ctx)}" }
-        nextStep()
-
-        // Click "Continue" button
-        driver.findElement(By.xpath("//button[@type='submit'][.//span[text()='Continue']]")).click()
-        nextStep()
-
-        // QR reading capabilities -> No
-        driver.findElement(By.xpath("//button[text()='No']")).click()
-        nextStep()
-
-        return ctx
     }
 }

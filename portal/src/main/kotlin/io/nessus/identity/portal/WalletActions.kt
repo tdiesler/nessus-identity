@@ -16,11 +16,13 @@ import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import id.walt.oid4vc.responses.TokenResponse
-import id.walt.oid4vc.util.http
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.*
+import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.service.ConfigProvider.authEndpointUri
 import io.nessus.identity.service.ServiceProvider.walletService
 import io.nessus.identity.service.authenticationId
@@ -28,11 +30,15 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Base64
 import java.util.Date
 import kotlin.random.Random
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 object WalletActions {
 
@@ -70,7 +76,10 @@ object WalletActions {
         return offeredCredential
     }
 
-    fun authorizationRequestFromCredentialOffer(cex: CredentialExchange, offeredCred: OfferedCredential): AuthorizationRequest {
+    fun authorizationRequestFromCredentialOffer(
+        cex: CredentialExchange,
+        offeredCred: OfferedCredential
+    ): AuthorizationRequest {
 
         // The Wallet will start by requesting access for the desired credential from the Auth Mock (Authorisation Server).
         // The client_metadata.authorization_endpoint is used for the redirect location associated with the vp_token and id_token.
@@ -119,6 +128,7 @@ object WalletActions {
         }
     }
 
+    @OptIn(ExperimentalUuidApi::class)
     suspend fun sendAuthorizationRequest(cex: CredentialExchange, authRequest: AuthorizationRequest): String {
 
         val authReqUrl = URLBuilder("${cex.authorizationEndpoint}/authorize").apply {
@@ -128,10 +138,63 @@ object WalletActions {
         log.info { "Send AuthorizationRequest: $authReqUrl" }
         authRequest.toHttpParameters().forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val res = http.get(authReqUrl)
+        // Disable follow redirects
+        //
+        val http = HttpClient {
+            install(ContentNegotiation) {
+                json()
+            }
+            followRedirects = false
+            // install(Logging) {
+            //     logger = Logger.DEFAULT
+            //     level = LogLevel.ALL
+            // }
+        }
+
+        var res = http.get(authReqUrl)
+
+        if (res.status == HttpStatusCode.Found) {
+
+            log.error { "Redirect response: ${res.status}" }
+            res.headers.forEach { k, lst -> lst.forEach { v -> log.info { "  $k: $v" } } }
+
+            // First try access the location as given
+            val locationUri = res.headers["location"] as String
+            val urlBase = locationUri.substringBefore('?')
+            val queryParams = urlQueryToMap(locationUri)
+            res = http.get(locationUri)
+
+            // Cloudflare may reject the request because of url size limits or other WAF rules
+            // We try again using 'request_uri' syntax with an in-memory request object
+            // https://openid.net/specs/openid-connect-core-1_0.html#UseRequestUri
+            if (res.status == HttpStatusCode.BadRequest) {
+                log.warn { "Direct redirect [length=${locationUri.length}] failed with: ${res.status}" }
+                if (queryParams["request"] != null) {
+
+                    // Redirect location is expected to be an Authorization Request
+                    val queryParamsExt = queryParams.mapValues { (_, v) -> listOf(v) }
+                    val authReq = AuthorizationRequest.fromHttpParameters(queryParamsExt)
+
+                    // Store the AuthorizationRequest in memory
+                    val reqObjectId = "${Uuid.random()}"
+                    cex.putRequestObject(reqObjectId, authReq)
+
+                    log.info { "Converting 'request' to 'request_uri'" }
+
+                    // Values for the response_type and client_id parameters MUST be included using the OAuth 2.0 request syntax.
+                    val urlString = URLBuilder(urlBase).apply {
+                        parameters.append("client_id", queryParams["client_id"] as String)
+                        parameters.append("request_uri", "$urlBase?request_object=$reqObjectId")
+                        parameters.append("response_type", queryParams["response_type"] as String)
+                    }.buildString()
+                    res = http.get(urlString)
+                }
+            }
+        }
+
         if (res.status != HttpStatusCode.Accepted) {
             log.error { "Unexpected response status: ${res.status}" }
-            res.headers.forEach { k, lst -> lst.forEach { v -> log.info {"$k: $v"}}}
+            res.headers.forEach { k, lst -> lst.forEach { v -> log.info { "  $k: $v" } } }
             throw HttpStatusException(res.status, res.bodyAsText())
         }
 

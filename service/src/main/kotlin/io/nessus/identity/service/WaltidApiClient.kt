@@ -1,5 +1,6 @@
 package io.nessus.identity.service
 
+import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
@@ -35,9 +36,9 @@ val http = HttpClient {
     }
 }
 
-// WalletApiClient =====================================================================================================
+// WaltidApiClient =====================================================================================================
 
-class WalletApiClient(val baseUrl: String) {
+class WaltidApiClient(val baseUrl: String) {
 
     // Authentication --------------------------------------------------------------------------------------------------
 
@@ -76,6 +77,18 @@ class WalletApiClient(val baseUrl: String) {
             }
         }
         return handleResponse<ListWalletsResponse>(res)
+    }
+
+    // Credentials -----------------------------------------------------------------------------------------------------
+
+    suspend fun credentials(ctx: LoginContext): Array<WalletCredential> {
+        val res = http.get("$baseUrl/wallet-api/wallet/${ctx.walletId}/credentials") {
+            contentType(ContentType.Application.Json)
+            headers {
+                append(Authorization, "Bearer ${ctx.authToken}")
+            }
+        }
+        return handleResponse<Array<WalletCredential>>(res)
     }
 
     // Keys ------------------------------------------------------------------------------------------------------------
@@ -216,6 +229,14 @@ data class WalletInfo(
 data class ListWalletsResponse(
     val account: String,
     val wallets: Array<WalletInfo>
+)
+
+// Credentials ---------------------------------------------------------------------------------------------------------
+
+@Serializable
+@Suppress("ArrayInDataClass")
+data class ListWalletCredentialsResponse(
+    val credentials: Array<WalletCredential>
 )
 
 // Keys ----------------------------------------------------------------------------------------------------------------

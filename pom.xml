@@ -25,9 +25,11 @@
 
         <!-- Other versions -->
         <version.cose>1.1.1-WALT-SNAPSHOT</version.cose>
-        <version.jetbrains.exposed>0.59.0</version.jetbrains.exposed>
+        <version.google.zxing>3.5.3</version.google.zxing>
         <version.hikari>6.2.1</version.hikari>
         <version.hoplite>2.9.0</version.hoplite>
+        <version.jayway.jsonpath>2.9.0</version.jayway.jsonpath>
+        <version.jetbrains.exposed>0.59.0</version.jetbrains.exposed>
         <version.junit>5.10.0</version.junit>
         <version.kotest>5.9.1</version.kotest>
         <version.kotlin.logging>7.0.5</version.kotlin.logging>
@@ -41,10 +43,12 @@
         <version.selenium>4.33.0</version.selenium>
         <version.slf4j>2.0.6</version.slf4j>
         <version.typesafe.config>1.4.3</version.typesafe.config>
-        <version.waltid>1.0.2506201324-SNAPSHOT</version.waltid>
+        <version.waltid>1.0.2507010813-SNAPSHOT</version.waltid>
 
         <!--
-            [TODO] Remove dependency on local waltid build
+            [TODO] Remove dependency on local wallet-api build
+            // https://github.com/tdiesler/nessus-identity/issues/199
+            //
             ./gradlew :waltid-services:waltid-wallet-api:publishToMavenLocal
         -->
         <version.waltid.local>1.0.0-SNAPSHOT</version.waltid.local>
@@ -67,6 +71,7 @@
     </properties>
 
     <modules>
+        <module>api</module>
         <module>portal</module>
         <module>service</module>
     </modules>
@@ -77,6 +82,16 @@
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
                 <version>${version.logback}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.zxing</groupId>
+                <artifactId>javase</artifactId>
+                <version>${version.google.zxing}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jayway.jsonpath</groupId>
+                <artifactId>json-path</artifactId>
+                <version>${version.jayway.jsonpath}</version>
             </dependency>
             <dependency>
                 <groupId>com.nimbusds</groupId>
@@ -152,6 +167,11 @@
             <dependency>
                 <groupId>io.ktor</groupId>
                 <artifactId>ktor-client-content-negotiation-jvm</artifactId>
+                <version>${version.ktor}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.ktor</groupId>
+                <artifactId>ktor-client-logging-jvm</artifactId>
                 <version>${version.ktor}</version>
             </dependency>
             <dependency>
@@ -318,6 +338,9 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${version-maven-surefire-plugin}</version>
+                    <configuration>
+                        <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
