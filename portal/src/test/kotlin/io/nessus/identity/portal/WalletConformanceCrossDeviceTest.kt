@@ -193,5 +193,61 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         labelResult.shouldBeTrue()
     }
 
+    @Test
+    fun testCTWalletCrossPreAuthorisedDeferred() {
+
+        userLogin(Max)
+
+        // Click the collapsible element
+        driver.findElement(By.id("pre-auth-deferred-credential")).click()
+        nextStep()
+
+        val container = driver.findElement(By.id("collapsible-content-pre-auth-deferred-credential"))
+        (driver as JavascriptExecutor).executeScript("arguments[0].scrollIntoView({block: 'start'});", container)
+        nextStep()
+
+        val userPin = extractUserPinCode()
+        log.info { "Extracted PIN code: $userPin" }
+
+        // Click the "Initiate" link
+        val xpath = By.xpath(".//button[normalize-space()='Initiate (credential offering QR code)']")
+        container.findElement(xpath).click()
+        nextStep()
+
+        // Find the first <svg> element within the container
+        val svg = container.findElement(By.tagName("svg"))
+
+        // Take a screenshot of the SVG element
+        val screenshotFile = (svg as TakesScreenshot).getScreenshotAs(OutputType.FILE)
+
+        // Load it as BufferedImage for further inspection
+        val image = ImageIO.read(screenshotFile)
+        println("Image dimensions: ${image.width} x ${image.height}")
+
+        // Load image and decode with ZXing
+        val source = BufferedImageLuminanceSource(image)
+        val bitmap = BinaryBitmap(HybridBinarizer(source))
+        val result = MultiFormatReader().decode(bitmap)
+
+        val qrContent = result.text
+        println("QR Code content: $qrContent")
+
+        // Open URL in new tab
+        val originalTab = driver.windowHandle  // Save current tab
+        val targetUrl = qrContent.removePrefix("openid-credential-offer://")
+        (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
+
+        println("Opened URL in new tab: $targetUrl")
+        nextStep()
+
+        // Wait for the "Validate" label to become Yes
+        driver.switchTo().window(originalTab)
+        val checkboxId = "ct_wallet_cross_pre_authorised_deferred"
+        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
+        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
+
+        labelResult.shouldBeTrue()
+    }
+
     // Private -------------------------------------------------------------------------------------------------------
 }
