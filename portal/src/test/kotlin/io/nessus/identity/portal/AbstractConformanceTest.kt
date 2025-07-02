@@ -26,7 +26,7 @@ open class AbstractConformanceTest : AbstractActionsTest() {
     fun startPortalServer() {
         System.setProperty("webdriver.chrome.driver", "/opt/homebrew/bin/chromedriver")
         val options = ChromeOptions().apply {
-            addArguments("--headless=new")
+            //addArguments("--headless=new")
         }
         driver = ChromeDriver(options)
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
