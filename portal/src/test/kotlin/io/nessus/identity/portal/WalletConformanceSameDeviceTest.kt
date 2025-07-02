@@ -16,7 +16,7 @@ import java.net.URLEncoder
 import java.time.Duration
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class WalletConformanceTestSameDevice : AbstractWalletConformanceTest() {
+class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
@@ -192,17 +192,6 @@ class WalletConformanceTestSameDevice : AbstractWalletConformanceTest() {
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
-
-    private fun extractUserPinCode(): String {
-        val jsExecutor = driver as JavascriptExecutor
-        val pinElement = driver.findElement(By.xpath("//*[contains(text(), 'The required PIN-code will be')]"))
-        val pinElementText = jsExecutor.executeScript("return arguments[0].textContent;", pinElement) as String
-        val pinRegex = Regex("PIN-code will be (\\d{4})")
-        val pinMatch = pinRegex.find(pinElementText)
-        val pinCode = pinMatch!!.groupValues[1]
-        UserPinHolder.setUserPin(pinCode)
-        return pinCode
-    }
 
     private fun fixupInitiateHref(ctx: LoginContext, link: WebElement): WebElement {
 
