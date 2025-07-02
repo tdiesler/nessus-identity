@@ -156,7 +156,7 @@ object WalletActions {
         if (res.status == HttpStatusCode.Found) {
 
             log.error { "Redirect response: ${res.status}" }
-            res.headers.forEach { k, lst -> lst.forEach { v -> log.info { "  $k: $v" } } }
+            res.headers.forEach { k, lst -> lst.forEach { v -> log.debug { "  $k: $v" } } }
 
             // First try access the location as given
             val locationUri = res.headers["location"] as String
@@ -194,7 +194,7 @@ object WalletActions {
 
         if (res.status != HttpStatusCode.Accepted) {
             log.error { "Unexpected response status: ${res.status}" }
-            res.headers.forEach { k, lst -> lst.forEach { v -> log.info { "  $k: $v" } } }
+            res.headers.forEach { k, lst -> lst.forEach { v -> log.warn { "  $k: $v" } } }
             throw HttpStatusException(res.status, res.bodyAsText())
         }
 

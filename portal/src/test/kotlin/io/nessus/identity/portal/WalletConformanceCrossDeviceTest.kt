@@ -126,7 +126,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
 
         println("Opened URL in new tab: $targetUrl")
-        nextStep()
+        nextStep(8000)
 
         // Wait for the "Validate" label to become Yes
         driver.switchTo().window(originalTab)
@@ -238,7 +238,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
 
         println("Opened URL in new tab: $targetUrl")
-        nextStep()
+        nextStep(8000)
 
         // Wait for the "Validate" label to become Yes
         driver.switchTo().window(originalTab)

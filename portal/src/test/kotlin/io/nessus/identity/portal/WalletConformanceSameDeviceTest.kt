@@ -97,7 +97,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         // Switch back to the original tab
         driver.switchTo().window(mainTab)
         log.info { "Switched back to main tab" }
-        nextStep()
+        nextStep(5000)
 
         // Wait for the "Validate" label to become Yes
         val checkboxId = "ct_wallet_same_authorised_deferred"
@@ -181,7 +181,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         // Switch back to the original tab
         driver.switchTo().window(mainTab)
         log.info { "Switched back to main tab" }
-        nextStep()
+        nextStep(5000)
 
         // Wait for the "Validate" label to become Yes
         val checkboxId = "ct_wallet_same_pre_authorised_deferred"

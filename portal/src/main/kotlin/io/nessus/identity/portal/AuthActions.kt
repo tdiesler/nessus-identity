@@ -293,8 +293,13 @@ object AuthActions {
             val n = vcArray.size
             val dm = DescriptorMapping(
                 id = ind.id,
+                path = "$",
                 format = VCFormat.jwt_vp,
-                path = "$.vp.verifiableCredential[$n]",
+                pathNested = DescriptorMapping(
+                    id = ind.id,
+                    path = "$.vp.verifiableCredential[$n]",
+                    format = VCFormat.jwt_vc,
+                )
             )
 
             descriptorMap.add(dm)
@@ -309,6 +314,7 @@ object AuthActions {
             .subject(cex.didInfo.did)
             .audience(clientId)
             .issueTime(Date.from(iat))
+            .notBeforeTime(Date.from(iat))
             .expirationTime(Date.from(exp))
             .claim("nonce", nonce)
             .claim("state", state)
@@ -356,7 +362,7 @@ object AuthActions {
             cex.authCode = it
         } ?: throw IllegalStateException("No authorization code")
 
-        return ""
+        return authCode
     }
 
     @OptIn(ExperimentalUuidApi::class)
@@ -661,7 +667,7 @@ object AuthActions {
         val formData = tokenRequest.toHttpParameters()
 
         log.info { "Send Token Request $tokenReqUrl" }
-        log.info { "  ${Json.encodeToString(tokenRequest)}" }
+        log.info { "  $tokenRequest" } // AuthorizationCode is not @Serializable
 
         val res = http.post(tokenReqUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
