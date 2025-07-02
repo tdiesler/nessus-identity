@@ -1,5 +1,5 @@
 #
-# helm upgrade --kube-context=ebsi --install ebsi-portal ./helm -f ./helm/values-ebsi-portal.yaml
+# helm upgrade --kube-context=ebsi --install portal ./helm -f ./helm/values-portal.yaml
 #
 
 environment: k3s

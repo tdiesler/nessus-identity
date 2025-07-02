@@ -40,7 +40,7 @@ images: package
 		fi
 
 uninstall:
-	@helm --kube-context $(KUBE_CONTEXT) uninstall ebsi-portal --ignore-not-found
+	@helm --kube-context $(KUBE_CONTEXT) uninstall portal --ignore-not-found
 
 upgrade: images
-	@helm --kube-context $(KUBE_CONTEXT) upgrade --install ebsi-portal ./helm -f ./helm/values-ebsi-portal.yaml
+	@helm --kube-context $(KUBE_CONTEXT) upgrade --install portal ./helm -f ./helm/values-portal.yaml
