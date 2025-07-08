@@ -12,5 +12,5 @@ interface WalletServiceApi {
 
     suspend fun getCredentialFromOffer(ctx: FlowContext, credOffer: CredentialOffer): CredentialResponse
 
-    suspend fun getDeferredCredentialResponse(cex: FlowContext, acceptanceToken: String): CredentialResponse
+    suspend fun getDeferredCredential(cex: FlowContext, acceptanceToken: String): CredentialResponse
 }

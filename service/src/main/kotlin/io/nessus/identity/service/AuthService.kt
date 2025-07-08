@@ -9,11 +9,11 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.nessus.identity.api.AuthApi
+import io.nessus.identity.api.AuthServiceApi
 
 // WalletService =======================================================================================================
 
-object AuthService : AuthApi {
+object AuthService : AuthServiceApi {
 
     val log = KotlinLogging.logger {}
 

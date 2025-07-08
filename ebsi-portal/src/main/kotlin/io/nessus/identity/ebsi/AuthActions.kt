@@ -29,6 +29,7 @@ import io.ktor.http.*
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.service.FlowContext
 import io.nessus.identity.service.HttpStatusException
+import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.VerificationException
 import io.nessus.identity.service.createFlattenedJwsJson
@@ -71,7 +72,7 @@ object AuthActions {
     suspend fun handleAuthorizationRequest(cex: FlowContext, authReq: AuthorizationRequest): String {
 
         cex.authRequest = authReq
-        cex.issuerMetadata = IssuerActions.getIssuerMetadata(cex)
+        cex.issuerMetadata = IssuerService.getIssuerMetadata(cex)
 
         // Validate the AuthorizationRequest
         //
@@ -495,7 +496,7 @@ object AuthActions {
             ),
         )
 
-        cex.issuerMetadata = IssuerActions.getIssuerMetadata(cex)
+        cex.issuerMetadata = IssuerService.getIssuerMetadata(cex)
         cex.authRequest = preAuthorisedCodeToClientId[tokReq.preAuthorizedCode]
             ?: throw IllegalStateException("No client_id mapping for: ${tokReq.preAuthorizedCode}")
 

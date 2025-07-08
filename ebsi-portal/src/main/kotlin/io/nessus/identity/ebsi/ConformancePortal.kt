@@ -27,6 +27,7 @@ import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.FlowContext
 import io.nessus.identity.service.FlowContext.Companion.requireCredentialExchange
 import io.nessus.identity.service.HttpStatusException
+import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.toSignedJWT
@@ -479,7 +480,7 @@ class PortalServer {
             // The credential will be available with a delay of 5 seconds from the first Credential Request.
             Thread.sleep(5500)
             val acceptanceToken = credResponse.acceptanceToken as String
-            credResponse = WalletService.getDeferredCredentialResponse(ctx, acceptanceToken)
+            credResponse = WalletService.getDeferredCredential(ctx, acceptanceToken)
             credJwt = credResponse.toSignedJWT()
         }
 
@@ -501,7 +502,7 @@ class PortalServer {
 
     private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: LoginContext) {
 
-        val issuerMetadata = IssuerActions.getIssuerMetadata(ctx)
+        val issuerMetadata = IssuerService.getIssuerMetadata(ctx)
         val payload = Json.encodeToString(issuerMetadata)
         call.respondText(
             status = HttpStatusCode.OK,
@@ -515,15 +516,12 @@ class PortalServer {
         val credReq = call.receive<CredentialRequest>()
         log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
 
-        val bearerToken = call.request.headers["Authorization"]
+        val accessToken = call.request.headers["Authorization"]
             ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
             ?.removePrefix("Bearer ")
-            ?.let { SignedJWT.parse(it) }
             ?: throw IllegalArgumentException("Invalid authorization header")
 
-        cex.validateBearerToken(bearerToken)
-
-        val credentialResponse = IssuerActions.handleCredentialRequest(cex, bearerToken, credReq)
+        val credentialResponse = IssuerService.getCredentialFromRequest(cex, accessToken, credReq)
 
         call.respondText(
             status = HttpStatusCode.OK,

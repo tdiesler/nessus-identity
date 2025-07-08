@@ -1,4 +1,4 @@
-package io.nessus.identity.ebsi
+package io.nessus.identity.service
 
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
@@ -15,13 +15,16 @@ import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.data.SubjectType
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
-import io.nessus.identity.ebsi.AuthActions.log
+import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import io.nessus.identity.api.IssuerServiceApi
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.config.ConfigProvider.issuerEndpointUri
-import io.nessus.identity.service.FlowContext
-import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.createFlattenedJwsJson
-import io.nessus.identity.service.verifyJwt
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
@@ -29,20 +32,27 @@ import java.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-object IssuerActions {
+// WalletService =======================================================================================================
 
-    fun getIssuerMetadataUrl(ctx: LoginContext): String {
+object IssuerService : IssuerServiceApi {
+
+    val log = KotlinLogging.logger {}
+
+    override fun getIssuerMetadataUrl(ctx: LoginContext): String {
         val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerEndpointUri/${ctx.subjectId}")
         return metadataUrl
     }
 
-    fun getIssuerMetadata(ctx: LoginContext): OpenIDProviderMetadata {
+    override fun getIssuerMetadata(ctx: LoginContext): OpenIDProviderMetadata {
         val metadata = buildIssuerMetadata(ctx)
         return metadata
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun handleCredentialRequest(cex: FlowContext, assessToken: SignedJWT, credReq: CredentialRequest) : CredentialResponse {
+    override suspend fun getCredentialFromRequest(cex: FlowContext, accessToken: String, credReq: CredentialRequest) : CredentialResponse {
+
+        val jwtToken = SignedJWT.parse(accessToken)
+        cex.validateBearerToken(jwtToken)
 
         val iat = Instant.now()
         val expiresIn: Long = 86400

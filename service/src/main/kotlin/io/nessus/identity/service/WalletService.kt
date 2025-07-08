@@ -68,7 +68,7 @@ object WalletService : WalletServiceApi {
         return credResponse
     }
 
-    override suspend fun getDeferredCredentialResponse(cex: FlowContext, acceptanceToken: String): CredentialResponse {
+    override suspend fun getDeferredCredential(cex: FlowContext, acceptanceToken: String): CredentialResponse {
 
         val deferredCredentialEndpoint = cex.issuerMetadata.deferredCredentialEndpoint
             ?: throw IllegalStateException("No credential_endpoint")
@@ -92,6 +92,13 @@ object WalletService : WalletServiceApi {
 
         cex.credResponse = credRes
         return credRes
+    }
+
+    suspend fun resolveOpenIDProviderMetadata(issuerUrl: String): OpenIDProviderMetadata {
+        val issuerMetadataUrl = "$issuerUrl/.well-known/openid-credential-issuer"
+        return http.get(issuerMetadataUrl).bodyAsText().let {
+            OpenIDProviderMetadata.fromJSONString(it)
+        }
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
@@ -162,13 +169,6 @@ object WalletService : WalletServiceApi {
         }
 
         return offeredCredential
-    }
-
-    private suspend fun resolveOpenIDProviderMetadata(issuerUrl: String): OpenIDProviderMetadata {
-        val issuerMetadataUrl = "$issuerUrl/.well-known/openid-credential-issuer"
-        return http.get(issuerMetadataUrl).bodyAsText().let {
-            OpenIDProviderMetadata.fromJSONString(it)
-        }
     }
 
     @OptIn(ExperimentalUuidApi::class)
