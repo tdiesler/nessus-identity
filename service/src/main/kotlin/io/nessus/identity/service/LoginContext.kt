@@ -1,5 +1,7 @@
 package io.nessus.identity.service
 
+import io.nessus.identity.waltid.DidInfo
+import io.nessus.identity.waltid.WalletInfo
 import java.security.MessageDigest
 
 open class LoginContext() {
