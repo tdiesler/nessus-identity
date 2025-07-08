@@ -1,8 +1,12 @@
 package io.nessus.identity.ebsi
 
+import io.github.oshai.kotlinlogging.KotlinLogging
+import io.kotest.common.runBlocking
 import io.ktor.server.engine.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.waltid.User
+import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import org.junit.jupiter.api.TestInstance
 import org.openqa.selenium.By
 import org.openqa.selenium.Dimension
@@ -18,15 +22,36 @@ import java.time.Duration
  * brew install chromedriver
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-open class AbstractConformanceTest : AbstractActionsTest() {
+open class AbstractConformanceTest {
+
+    val log = KotlinLogging.logger {}
 
     lateinit var embeddedServer: EmbeddedServer<*, *>
     lateinit var driver: WebDriver
 
+    companion object {
+        val sessions = mutableMapOf<String, LoginContext>()
+    }
+
+    fun authLogin(user: User): LoginContext {
+        var ctx = sessions[user.email]
+        if (ctx == null) {
+            ctx = runBlocking {
+                widWalletSvc.loginWallet(user.toLoginParams()).also { ctx ->
+                    widWalletSvc.findDidByPrefix("did:key")?.also {
+                        ctx.didInfo = it
+                    }
+                }
+            }
+            sessions[user.email] = ctx
+        }
+        return ctx
+    }
+
     fun startPortalServer() {
         System.setProperty("webdriver.chrome.driver", "/opt/homebrew/bin/chromedriver")
         val options = ChromeOptions().apply {
-            //addArguments("--headless=new")
+            addArguments("--headless=new")
         }
         driver = ChromeDriver(options)
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))

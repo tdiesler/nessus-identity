@@ -22,7 +22,7 @@ abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
 
     fun prepareWalletTests(crossDevive: Boolean): LoginContext {
 
-        val ctx = userLogin(Max)
+        val ctx = authLogin(Max)
         ctx.hasDidInfo.shouldBeTrue()
 
         driver.get("https://hub.ebsi.eu/wallet-conformance")

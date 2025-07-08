@@ -2,6 +2,7 @@ package io.nessus.identity.waltid
 
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.kotest.common.runBlocking
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import java.nio.file.Files
@@ -11,9 +12,15 @@ abstract class AbstractServiceTest {
 
     val log = KotlinLogging.logger {}
 
-    suspend fun authLogin(user: User): LoginContext {
+    fun authLogin(user: User): LoginContext {
         if (!widWalletSvc.hasLoginContext()) {
-            widWalletSvc.login(user.toLoginParams())
+            runBlocking {
+                widWalletSvc.loginWallet(user.toLoginParams()).also { ctx ->
+                    widWalletSvc.findDidByPrefix("did:key")?.also {
+                        ctx.didInfo = it
+                    }
+                }
+            }
         }
         return widWalletSvc.getLoginContext()
     }

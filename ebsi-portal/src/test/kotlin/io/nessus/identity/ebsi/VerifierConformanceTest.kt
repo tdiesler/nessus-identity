@@ -71,7 +71,7 @@ class VerifierConformanceTest : AbstractConformanceTest() {
 
     private fun prepareVerifierTests(): LoginContext {
 
-        val ctx = userLogin(Max)
+        val ctx = authLogin(Max)
         ctx.hasDidInfo.shouldBeTrue()
 
         driver.get("https://hub.ebsi.eu/wallet-conformance/verifier")

@@ -34,7 +34,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     fun testCTWalletSameAuthorisedInTime() {
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
-        val ctx = userLogin(Max)
+        val ctx = authLogin(Max)
 
         // Click the collapsible element
         driver.findElement(By.id("inTime-credential-same-device")).click()
@@ -73,7 +73,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     fun testCTWalletSameAuthorisedDeferred() {
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
-        val ctx = userLogin(Max)
+        val ctx = authLogin(Max)
 
         // Click the collapsible element
         driver.findElement(By.id("deferred-credential-same-device")).click()
@@ -112,7 +112,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     fun testCTWalletSamePreAuthorisedInTime() {
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
-        val ctx = userLogin(Max)
+        val ctx = authLogin(Max)
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-in-time-credential-same-device")).click()
@@ -154,7 +154,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     fun testCTWalletSamePreAuthorisedDeferred() {
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
-        val ctx = userLogin(Max)
+        val ctx = authLogin(Max)
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-deferred-credential-same-device")).click()

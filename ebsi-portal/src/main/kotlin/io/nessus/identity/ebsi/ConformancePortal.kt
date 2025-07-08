@@ -23,6 +23,7 @@ import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.ktor.util.toMap
 import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.FlowContext
 import io.nessus.identity.service.FlowContext.Companion.requireCredentialExchange
@@ -337,7 +338,7 @@ class PortalServer {
 
     private suspend fun handleAuthorizationMetadataRequest(call: RoutingCall, ctx: LoginContext) {
 
-        val payload = Json.encodeToString(AuthActions.getAuthMetadata(ctx))
+        val payload = Json.encodeToString(AuthService.getAuthMetadata(ctx))
         call.respondText(
             status = HttpStatusCode.OK,
             contentType = ContentType.Application.Json,
@@ -355,13 +356,13 @@ class PortalServer {
         log.info { "Authorization Request: ${Json.encodeToString(authReq)}" }
         queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val idTokenRedirectUrl = AuthActions.handleAuthorizationRequest(cex, authReq)
+        val idTokenRedirectUrl = AuthService.handleAuthorizationRequest(cex, authReq)
         call.respondRedirect(idTokenRedirectUrl)
     }
 
     private suspend fun handleIDTokenRequest(call: RoutingCall, cex: FlowContext) {
 
-        AuthActions.handleIDTokenRequest(cex, call.parameters.toMap())
+        AuthService.handleIDTokenRequest(cex, call.parameters.toMap())
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -372,7 +373,7 @@ class PortalServer {
 
     private suspend fun handleVPTokenRequest(call: RoutingCall, cex: FlowContext) {
 
-        AuthActions.handleVPTokenRequest(cex, call.parameters.toMap())
+        AuthService.handleVPTokenRequest(cex, call.parameters.toMap())
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -388,12 +389,12 @@ class PortalServer {
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
         if (postParams["id_token"] != null) {
-            val redirectUrl = AuthActions.handleIDTokenResponse(cex, postParams)
+            val redirectUrl = AuthService.handleIDTokenResponse(cex, postParams)
             return call.respondRedirect(redirectUrl)
         }
 
         if (postParams["vp_token"] != null) {
-            val redirectUrl = AuthActions.handleVPTokenResponse(cex, postParams)
+            val redirectUrl = AuthService.handleVPTokenResponse(cex, postParams)
             return call.respondRedirect(redirectUrl)
         }
 
@@ -435,12 +436,12 @@ class PortalServer {
         val tokenResponse = when (tokenRequest) {
             is TokenRequest.AuthorizationCode -> {
                 val cex = requireCredentialExchange(subId)
-                AuthActions.handleTokenRequestAuthCode(cex, tokenRequest)
+                AuthService.handleTokenRequestAuthCode(cex, tokenRequest)
             }
 
             is TokenRequest.PreAuthorizedCode -> {
                 val cex = FlowContext(requireLoginContext(subId))
-                AuthActions.handleTokenRequestPreAuthorized(cex, tokenRequest)
+                AuthService.handleTokenRequestPreAuthorized(cex, tokenRequest)
             }
         }
 

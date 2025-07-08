@@ -33,7 +33,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossAuthorisedInTime() {
 
-        userLogin(Max)
+        authLogin(Max)
 
         // Click the collapsible element
         driver.findElement(By.id("inTime-credential")).click()
@@ -86,7 +86,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossAuthorisedDeferred() {
 
-        userLogin(Max)
+        authLogin(Max)
 
         // Click the collapsible element
         driver.findElement(By.id("deferred-credential")).click()
@@ -139,7 +139,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossPreAuthorisedInTime() {
 
-        userLogin(Max)
+        authLogin(Max)
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-in-time-credential")).click()
@@ -195,7 +195,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossPreAuthorisedDeferred() {
 
-        userLogin(Max)
+        authLogin(Max)
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-deferred-credential")).click()

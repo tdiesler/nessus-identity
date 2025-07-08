@@ -1,21 +1,22 @@
-package io.nessus.identity.ebsi
+package io.nessus.identity.service
 
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldEndWith
+import io.nessus.identity.waltid.AbstractServiceTest
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.Test
 
-class AuthActionsTest : AbstractActionsTest() {
+class AuthServiceTest : AbstractServiceTest() {
 
     @Test
     fun authMetadata() {
         
-        val ctx = userLogin(Max)
+        val ctx = authLogin(Max)
 
-        val metadataUrl = AuthActions.getAuthMetadataUrl(ctx)
+        val metadataUrl = AuthService.getAuthMetadataUrl(ctx)
         metadataUrl.shouldEndWith("/auth/${ctx.subjectId}/.well-known/openid-configuration")
 
-        val jsonObj = AuthActions.getAuthMetadata(ctx)
+        val jsonObj = AuthService.getAuthMetadata(ctx)
         jsonObj.shouldNotBeNull()
     }
 }
