@@ -42,7 +42,7 @@ import java.util.Date
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-// WalletService =======================================================================================================
+// AuthService =========================================================================================================
 
 object AuthService : AuthServiceApi {
 

@@ -108,3 +108,7 @@ data class DatabaseConfig(
     val username: String,
     val password: String,
 )
+
+fun DatabaseConfig.redacted(): DatabaseConfig {
+    return DatabaseConfig(jdbcUrl, username,"******")
+}

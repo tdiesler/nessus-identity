@@ -23,6 +23,7 @@ import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.ktor.util.toMap
 import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.config.redacted
 import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.FlowContext
@@ -46,22 +47,22 @@ import java.security.KeyStore
 import kotlin.text.toCharArray
 
 fun main() {
-    val server = PortalServer().createServer()
+    val server = EBSIPortal().createServer()
     server.start(wait = true)
 }
 
-class PortalServer {
+class EBSIPortal {
 
     val log = KotlinLogging.logger {}
 
     constructor() {
-        log.info { "Starting Nessus Portal Server ..." }
+        log.info { "Starting the Nessus EBSI Conformance Portal ..." }
         val serverConfig = ConfigProvider.requireServerConfig()
         val serviceConfig = ConfigProvider.requireServiceConfig()
         val databaseConfig = ConfigProvider.requireDatabaseConfig()
         log.info { "ServerConfig: ${Json.encodeToString(serverConfig)}" }
         log.info { "ServiceConfig: ${Json.encodeToString(serviceConfig)}" }
-        log.info { "DatabaseConfig: ${Json.encodeToString(databaseConfig)}" }
+        log.info { "DatabaseConfig: ${Json.encodeToString(databaseConfig.redacted())}" }
     }
 
     fun createServer(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {

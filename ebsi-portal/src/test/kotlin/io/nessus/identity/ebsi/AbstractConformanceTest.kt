@@ -64,7 +64,7 @@ open class AbstractConformanceTest {
         driver.manage().window().position = Point(screenWidth / 2, 0)
         driver.manage().window().size = Dimension(screenWidth / 2, screenHeight)
 
-        embeddedServer = PortalServer().createServer()
+        embeddedServer = EBSIPortal().createServer()
         embeddedServer.start(wait = false)
     }
 
