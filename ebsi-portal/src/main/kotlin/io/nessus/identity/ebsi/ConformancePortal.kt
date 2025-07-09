@@ -33,6 +33,7 @@ import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.toSignedJWT
 import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.types.JwtCredential
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
@@ -212,7 +213,7 @@ class PortalServer {
         val reqUri = call.request.uri
         val path = call.request.path()
 
-        log.info { "Auth Request $reqUri" }
+        log.info { "Authorization $reqUri" }
         val queryParams = urlQueryToMap(reqUri).also {
             it.forEach { (k, v) ->
                 log.info { "  $k=$v" }
@@ -279,7 +280,7 @@ class PortalServer {
         val reqUri = call.request.uri
         val path = call.request.path()
 
-        log.info { "Wallet Request $reqUri" }
+        log.info { "Wallet $reqUri" }
         val queryParams = urlQueryToMap(reqUri).also {
             it.forEach { (k, v) ->
                 log.info { "  $k=$v" }
@@ -309,7 +310,7 @@ class PortalServer {
         val reqUri = call.request.uri
         val path = call.request.path()
 
-        log.info { "Issuer Request $reqUri" }
+        log.info { "Issuer $reqUri" }
         urlQueryToMap(reqUri).also {
             it.forEach { (k, v) -> log.info { "  $k=$v" } }
         }
@@ -347,7 +348,7 @@ class PortalServer {
     }
 
     /**
-     * The Wallet requests access for the required credential from the Issuer's Authorisation Server.
+     * The Holder Wallet requests access for the required credentials from the Issuer's Authorisation Server.
      */
     private suspend fun handleAuthorizationRequest(call: RoutingCall, cex: FlowContext) {
 
@@ -356,8 +357,8 @@ class PortalServer {
         log.info { "Authorization Request: ${Json.encodeToString(authReq)}" }
         queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val idTokenRedirectUrl = AuthService.handleAuthorizationRequest(cex, authReq)
-        call.respondRedirect(idTokenRedirectUrl)
+        val redirectUrl = AuthService.handleAuthorizationRequest(cex, authReq)
+        call.respondRedirect(redirectUrl)
     }
 
     private suspend fun handleIDTokenRequest(call: RoutingCall, cex: FlowContext) {
@@ -385,7 +386,7 @@ class PortalServer {
     private suspend fun handleAuthDirectPost(call: RoutingCall, cex: FlowContext) {
 
         val postParams = call.receiveParameters().toMap()
-        log.info { "Auth DirectPost: ${call.request.uri}" }
+        log.info { "Authorization DirectPost: ${call.request.uri}" }
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
         if (postParams["id_token"] != null) {
@@ -468,7 +469,7 @@ class PortalServer {
             ?: throw HttpStatusException(HttpStatusCode.BadRequest, "No 'credential_offer_uri' param")
 
         val oid4vcOfferUri = "openid-credential-offer://?credential_offer_uri=$credOfferUri"
-        var credResponse = WalletService.getCredentialFromOfferUri(ctx, oid4vcOfferUri)
+        var credResponse = WalletService.getCredentialFromUri(ctx, oid4vcOfferUri)
 
         // In-Time CredentialResponses MUST have a 'format'
         var credJwt: SignedJWT? = null
@@ -487,6 +488,9 @@ class PortalServer {
 
         if (credJwt == null)
             throw IllegalStateException("No Credential JWT")
+
+        // Verify that we can unmarshall the credential
+        Json.decodeFromString<JwtCredential>("${credJwt.payload}")
 
         val walletId = ctx.walletInfo.id
         val format = credResponse.format as CredentialFormat
@@ -514,14 +518,12 @@ class PortalServer {
 
     private suspend fun handleCredentialRequest(call: RoutingCall, cex: FlowContext) {
 
-        val credReq = call.receive<CredentialRequest>()
-        log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
-
         val accessToken = call.request.headers["Authorization"]
             ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
             ?.removePrefix("Bearer ")
             ?: throw IllegalArgumentException("Invalid authorization header")
 
+        val credReq = call.receive<CredentialRequest>()
         val credentialResponse = IssuerService.getCredentialFromRequest(cex, accessToken, credReq)
 
         call.respondText(

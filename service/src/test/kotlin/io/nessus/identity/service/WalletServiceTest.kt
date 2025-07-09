@@ -1,4 +1,4 @@
-package io.nessus.identity.portal
+package io.nessus.identity.service
 
 import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.GrantDetails
@@ -9,20 +9,12 @@ import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
-import io.nessus.identity.service.WalletService
-import io.nessus.identity.waltid.Max
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 
 class WalletServiceTest : AbstractServiceTest() {
-
-    @Test
-    fun userLogin() {
-        val ctx = userLogin(Max)
-        ctx.walletInfo.shouldNotBeNull()
-    }
 
     @Test
     fun decodeCredentialOffer() {

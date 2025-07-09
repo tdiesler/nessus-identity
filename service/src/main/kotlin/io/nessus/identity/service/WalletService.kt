@@ -44,7 +44,7 @@ object WalletService : WalletServiceApi {
 
     val log = KotlinLogging.logger {}
 
-    override suspend fun getCredentialFromOfferUri(ctx: FlowContext, offerUri: String): CredentialResponse {
+    override suspend fun getCredentialFromUri(ctx: FlowContext, offerUri: String): CredentialResponse {
 
         val credOffer = OpenID4VCI.parseAndResolveCredentialOfferRequestUrl(offerUri)
         val credResponse = getCredentialFromOffer(ctx, credOffer)

@@ -16,15 +16,11 @@ import id.walt.oid4vc.data.SubjectType
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.api.IssuerServiceApi
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.config.ConfigProvider.issuerEndpointUri
+import io.nessus.identity.types.CredentialSchema
+import io.nessus.identity.types.JwtCredentialBuilder
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
@@ -52,50 +48,43 @@ object IssuerService : IssuerServiceApi {
     override suspend fun getCredentialFromRequest(cex: FlowContext, accessToken: String, credReq: CredentialRequest) : CredentialResponse {
 
         val jwtToken = SignedJWT.parse(accessToken)
-        cex.validateBearerToken(jwtToken)
+        cex.validateAccessToken(jwtToken)
 
-        val iat = Instant.now()
-        val expiresIn: Long = 86400
-        val exp = iat.plusSeconds(expiresIn)
+        log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
 
-        val id = "vc:nessus:conformance#${Uuid.random()}"
-        val kid = cex.didInfo.authenticationId()
+        val id = "vc:nessus#${Uuid.random()}"
         val sub = cex.authRequest.clientId
-        val types = cex.authRequest.authorizationDetails
-            ?.flatMap { it.types.orEmpty() }
-            ?.map { "\"$it\"" }
-            ?.toSet()
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(86400)
+        val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequest")
 
-        val credentialJson = """
-            {
-              "sub": "$sub",
-              "jti": "$id",
-              "iss": "${cex.did}",
-              "iat": ${iat.epochSecond},
-              "nbf": ${iat.epochSecond},
-              "exp": ${exp.epochSecond},
-              "vc": {
-                "@context": [
-                  "https://www.w3.org/2018/credentials/v1"
-                ],
-                "credentialSchema": {
-                  "id": "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
-                  "type": "FullJsonSchemaValidator2021"
-                },
-                "credentialSubject": {
-                  "id": "$sub"
-                },
-                "id": "$id",
-                "issuer": "${cex.did}",
-                "issued": "$iat",
-                "issuanceDate": "$iat",
-                "validFrom": "$iat",
-                "expirationDate": "$exp",
-                "type": $types
-              }
-            }            
-        """.trimIndent()
+        val knownTypes = setOf(
+            "CTWalletSameAuthorisedInTime",
+            "CTWalletSameAuthorisedDeferred",
+            "CTWalletSamePreAuthorisedInTime",
+            "CTWalletSamePreAuthorisedDeferred",
+            "VerifiableAttestation",
+            "VerifiableCredential",
+        )
 
+        val unknownTypes = types.filterNot { it in knownTypes }
+        if (unknownTypes.isNotEmpty()) {
+            throw IllegalStateException("Unknown credential types: $unknownTypes")
+        }
+
+        // [TODO] Derive CredentialSchema from somewhere
+        val schema = CredentialSchema(
+            "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
+            "FullJsonSchemaValidator2021"
+        )
+        val cred = JwtCredentialBuilder(id,cex.did, sub)
+            .withCredentialSchema(schema)
+            .withExpiration(exp)
+            .withTypes(types)
+            .build()
+        val credentialJson = Json.encodeToString(cred)
+
+        val kid = cex.didInfo.authenticationId()
         val credHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType.JWT)
             .keyID(kid)

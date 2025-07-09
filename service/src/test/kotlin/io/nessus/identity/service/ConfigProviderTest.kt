@@ -1,4 +1,4 @@
-package io.nessus.identity.waltid
+package io.nessus.identity.service
 
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank

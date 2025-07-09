@@ -8,7 +8,7 @@ import io.nessus.identity.service.FlowContext
 
 interface WalletServiceApi {
 
-    suspend fun getCredentialFromOfferUri(ctx: FlowContext, offerUri: String): CredentialResponse
+    suspend fun getCredentialFromUri(ctx: FlowContext, offerUri: String): CredentialResponse
 
     suspend fun getCredentialFromOffer(ctx: FlowContext, credOffer: CredentialOffer): CredentialResponse
 

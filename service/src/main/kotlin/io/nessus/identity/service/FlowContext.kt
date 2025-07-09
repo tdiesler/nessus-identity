@@ -71,7 +71,7 @@ class FlowContext(ctx: LoginContext) : LoginContext(ctx.authToken, ctx.walletInf
         extras[key] = obj
     }
 
-    fun validateBearerToken(bearerToken: SignedJWT) {
+    fun validateAccessToken(bearerToken: SignedJWT) {
 
         val claims = bearerToken.jwtClaimsSet
         val exp = claims.expirationTime?.toInstant()
