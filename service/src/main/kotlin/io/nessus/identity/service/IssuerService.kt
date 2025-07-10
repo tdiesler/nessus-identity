@@ -8,6 +8,7 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.CredentialFormat
+import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.CredentialSupported
 import id.walt.oid4vc.data.DisplayProperties
 import id.walt.oid4vc.data.GrantType
@@ -21,10 +22,16 @@ import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.config.ConfigProvider.issuerEndpointUri
 import io.nessus.identity.types.CredentialSchema
 import io.nessus.identity.types.JwtCredentialBuilder
+import io.nessus.identity.types.W3CCredentialBuilder
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import java.time.Instant
+import java.util.Date
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -34,18 +41,49 @@ object IssuerService : IssuerServiceApi {
 
     val log = KotlinLogging.logger {}
 
-    override fun getIssuerMetadataUrl(ctx: LoginContext): String {
-        val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerEndpointUri/${ctx.subjectId}")
-        return metadataUrl
-    }
+    override suspend fun createCredentialOffer(ctx: LoginContext, sub: String, types: List<String>): CredentialOffer {
+        val metadata = getIssuerMetadata(ctx) as OpenIDProviderMetadata.Draft11
+        val issuerUri = metadata.credentialIssuer as String
 
-    override fun getIssuerMetadata(ctx: LoginContext): OpenIDProviderMetadata {
-        val metadata = buildIssuerMetadata(ctx)
-        return metadata
+        // Build issuer state jwt
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(300) // 5min
+        val aud = metadata.authorizationServer
+        val kid = ctx.didInfo.authenticationId()
+
+        val header = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType.JWT)
+            .keyID(kid)
+            .build()
+        val claims = JWTClaimsSet.Builder()
+            .subject(sub)
+            .audience(aud)
+            .issueTime(Date.from(iat))
+            .expirationTime(Date.from(exp))
+            .claim("client_id", sub)
+            .claim("credential_types", types)
+            .build()
+        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(header, claims))
+        val issuerState = widWalletSvc.signWithKey(ctx, kid, signingInput)
+
+        // Build CredentialOffer
+        val vcJson = buildJsonObject {
+            put("format", JsonPrimitive("jwt_vc"))
+            put("types", JsonArray(types.map { JsonPrimitive(it) }))
+        }
+        val offer = CredentialOffer.Draft11.Builder(issuerUri)
+            .addAuthorizationCodeGrant(issuerState)
+            .addOfferedCredentialByValue(vcJson)
+            .build()
+
+        log.info { "Issuer State: $issuerState" }
+        log.info { "Credential Offer: ${Json.encodeToString(offer)}" }
+
+        return offer
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun getCredentialFromRequest(ctx: FlowContext, accessToken: String, credReq: CredentialRequest) : CredentialResponse {
+    override suspend fun getCredentialFromRequest(ctx: FlowContext, accessToken: String, credReq: CredentialRequest): CredentialResponse {
 
         val jwtToken = SignedJWT.parse(accessToken)
         ctx.validateAccessToken(jwtToken)
@@ -58,29 +96,34 @@ object IssuerService : IssuerServiceApi {
         val exp = iat.plusSeconds(86400)
         val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequest")
 
-        val knownTypes = setOf(
-            "CTWalletSameAuthorisedInTime",
-            "CTWalletSameAuthorisedDeferred",
-            "CTWalletSamePreAuthorisedInTime",
-            "CTWalletSamePreAuthorisedDeferred",
-            "VerifiableAttestation",
-            "VerifiableCredential",
-        )
-
-        val unknownTypes = types.filterNot { it in knownTypes }
-        if (unknownTypes.isNotEmpty()) {
+        val supportedCredentials = getSupportedCredentials(ctx).flatMap { it.types.orEmpty() }.toSet()
+        val unknownTypes = types.filterNot { it in supportedCredentials }
+        if (unknownTypes.isNotEmpty())
             throw IllegalStateException("Unknown credential types: $unknownTypes")
-        }
 
         // [TODO] Derive CredentialSchema from somewhere
-        val schema = CredentialSchema(
-            "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
-            "FullJsonSchemaValidator2021"
-        )
-        val cred = JwtCredentialBuilder(id,ctx.did, sub)
-            .withCredentialSchema(schema)
-            .withExpiration(exp)
-            .withTypes(types)
+        val cred = JwtCredentialBuilder()
+            .withId(id)
+            .withIssuerId(ctx.did)
+            .withSubjectId(sub)
+            .withValidFrom(iat)
+            .withValidUntil(exp)
+            .withCredential(
+                W3CCredentialBuilder()
+                    .withCredentialSchema(
+                        CredentialSchema(
+                            "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
+                            "FullJsonSchemaValidator2021"
+                        )
+                    )
+                    .withId(id)
+                    .withIssuer(ctx.did)
+                    .withCredentialSubject(sub)
+                    .withValidFrom(iat)
+                    .withValidUntil(exp)
+                    .withTypes(types)
+                    .build()
+            )
             .build()
         val credentialJson = Json.encodeToString(cred)
 
@@ -96,11 +139,11 @@ object IssuerService : IssuerServiceApi {
         log.info { "Credential Header: ${rawCredentialJwt.header}" }
         log.info { "Credential Claims: ${rawCredentialJwt.jwtClaimsSet}" }
 
-        val signingInput = Json.encodeToString(createFlattenedJwsJson(credHeader, credClaims))
+        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(credHeader, credClaims))
         val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
         val credentialJwt = SignedJWT.parse(signedEncoded)
 
-        if (!verifyJwt(credentialJwt, ctx.didInfo))
+        if (!JWTUtils.verifyJwt(credentialJwt, ctx.didInfo))
             throw IllegalStateException("Credential signature verification failed")
 
         val credentialResponse = CredentialResponse.success(CredentialFormat.jwt_vc, signedEncoded)
@@ -109,6 +152,21 @@ object IssuerService : IssuerServiceApi {
         return credentialResponse
     }
 
+    override fun getIssuerMetadataUrl(ctx: LoginContext): String {
+        val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerEndpointUri/${ctx.subjectId}")
+        return metadataUrl
+    }
+
+    override fun getIssuerMetadata(ctx: LoginContext): OpenIDProviderMetadata {
+        val metadata = buildIssuerMetadata(ctx)
+        return metadata
+    }
+
+    override fun getSupportedCredentials(ctx: LoginContext): Set<CredentialSupported> {
+        val md = getIssuerMetadata(ctx) as OpenIDProviderMetadata.Draft11
+        val supported = md.credentialSupported?.values?.toSet() as Set
+        return supported
+    }
     // Private ---------------------------------------------------------------------------------------------------------
 
     private fun buildIssuerMetadata(ctx: LoginContext): OpenIDProviderMetadata {
@@ -160,5 +218,4 @@ object IssuerService : IssuerServiceApi {
             credentialSupported = credentialSupported,
         )
     }
-
 }

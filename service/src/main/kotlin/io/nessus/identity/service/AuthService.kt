@@ -136,11 +136,11 @@ object AuthService : AuthServiceApi {
         log.info { "IDToken Header: ${idTokenJwt.header}" }
         log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
 
-        val signingInput = Json.encodeToString(createFlattenedJwsJson(idTokenHeader, idTokenClaims))
+        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(idTokenHeader, idTokenClaims))
         val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
 
         log.info { "IDToken: $signedEncoded" }
-        if (!verifyJwt(SignedJWT.parse(signedEncoded), ctx.didInfo))
+        if (!JWTUtils.verifyJwt(SignedJWT.parse(signedEncoded), ctx.didInfo))
             throw IllegalStateException("IDToken signature verification failed")
 
         // Send IDToken  -----------------------------------------------------------------------------------------------
@@ -389,11 +389,11 @@ object AuthService : AuthServiceApi {
         log.info { "VPToken Header: ${vpTokenJwt.header}" }
         log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
 
-        val signingInput = Json.encodeToString(createFlattenedJwsJson(vpTokenHeader, vpTokenClaims))
+        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(vpTokenHeader, vpTokenClaims))
         val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
 
         log.info { "VPToken: $signedEncoded" }
-        if (!verifyJwt(SignedJWT.parse(signedEncoded), ctx.didInfo))
+        if (!JWTUtils.verifyJwt(SignedJWT.parse(signedEncoded), ctx.didInfo))
             throw IllegalStateException("VPToken signature verification failed")
 
         // Send VPToken  -----------------------------------------------------------------------------------------------
@@ -599,11 +599,11 @@ object AuthService : AuthServiceApi {
         log.info { "Token Header: ${rawTokenJwt.header}" }
         log.info { "Token Claims: ${rawTokenJwt.jwtClaimsSet}" }
 
-        val signingInput = Json.encodeToString(createFlattenedJwsJson(tokenHeader, tokenClaims))
+        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(tokenHeader, tokenClaims))
         val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
         val accessToken = SignedJWT.parse(signedEncoded)
 
-        if (!verifyJwt(accessToken, ctx.didInfo))
+        if (!JWTUtils.verifyJwt(accessToken, ctx.didInfo))
             throw IllegalStateException("AccessToken signature verification failed")
 
         val tokenRespJson = """
@@ -752,7 +752,7 @@ object AuthService : AuthServiceApi {
         log.info { "IDToken Request Header: ${idTokenJwt.header}" }
         log.info { "IDToken Request Claims: ${idTokenJwt.jwtClaimsSet}" }
 
-        val signingInput = Json.encodeToString(createFlattenedJwsJson(idTokenHeader, idTokenClaims))
+        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(idTokenHeader, idTokenClaims))
         val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
 
         val idTokenRedirectUrl = URLBuilder("${authReq.redirectUri}").apply {
@@ -844,7 +844,7 @@ object AuthService : AuthServiceApi {
         log.info { "VPToken Request Header: ${idTokenJwt.header}" }
         log.info { "VPToken Request Claims: ${idTokenJwt.jwtClaimsSet}" }
 
-        val signingInput = Json.encodeToString(createFlattenedJwsJson(vpTokenHeader, vpTokenClaims))
+        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(vpTokenHeader, vpTokenClaims))
         val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
 
         val vpTokenRedirectUrl = URLBuilder("${authReq.redirectUri}").apply {

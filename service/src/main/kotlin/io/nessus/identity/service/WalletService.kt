@@ -157,6 +157,7 @@ object WalletService : WalletServiceApi {
 
         // Resolve Offered Credential
         //
+        log.info { "Credential Offer: ${Json.encodeToString(offer)}" }
         val offeredCredentials = OpenID4VCI.resolveOfferedCredentials(offer, draft11Metadata)
         log.info { "Offered Credentials: ${Json.encodeToString(offeredCredentials)}" }
         if (offeredCredentials.size > 1) log.warn { "Multiple offered credentials, using first" }
@@ -282,7 +283,7 @@ object WalletService : WalletServiceApi {
 
         val credReqClaims = claimsBuilder.build()
 
-        val signingInput = Json.encodeToString(createFlattenedJwsJson(credReqHeader, credReqClaims))
+        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(credReqHeader, credReqClaims))
         val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
         val signedCredReqJwt = SignedJWT.parse(signedEncoded)
         log.info { "Credential Request Header: ${signedCredReqJwt.header}" }

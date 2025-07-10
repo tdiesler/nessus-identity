@@ -1,5 +1,7 @@
 package io.nessus.identity.api
 
+import id.walt.oid4vc.data.CredentialOffer
+import id.walt.oid4vc.data.CredentialSupported
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
@@ -10,9 +12,13 @@ import io.nessus.identity.service.LoginContext
 
 interface IssuerServiceApi {
 
+    suspend fun createCredentialOffer(ctx: LoginContext, sub: String, types: List<String>): CredentialOffer
+
+    suspend fun getCredentialFromRequest(ctx: FlowContext, accessToken: String, credReq: CredentialRequest) : CredentialResponse
+
     fun getIssuerMetadataUrl(ctx: LoginContext): String
 
     fun getIssuerMetadata(ctx: LoginContext): OpenIDProviderMetadata
 
-    suspend fun getCredentialFromRequest(cex: FlowContext, accessToken: String, credReq: CredentialRequest) : CredentialResponse
+    fun getSupportedCredentials(ctx: LoginContext): Set<CredentialSupported>
 }

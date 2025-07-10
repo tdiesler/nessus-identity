@@ -11,11 +11,15 @@ class IssueCredentialTest : AbstractServiceTest() {
     @Test
     fun issueCredential_InTime_Test() {
         runBlocking {
-            val issuerCtx = setupWalletWithDid(Max)
-            issuerCtx.hasDidInfo shouldBe true
+            val ictx = setupWalletWithDid(Max)
+            ictx.hasDidInfo shouldBe true
 
-            val holderCtx = setupWalletWithDid(Alice)
-            holderCtx.hasDidInfo shouldBe true
+            val hctx = setupWalletWithDid(Alice)
+            hctx.hasDidInfo shouldBe true
+
+            val sub= hctx.did
+            val types = listOf("VerifiableCredential", "VerifiableAttestation", "WalletAuthorisedInTime")
+            IssuerService.createCredentialOffer(ictx, sub, types)
         }
     }
 }

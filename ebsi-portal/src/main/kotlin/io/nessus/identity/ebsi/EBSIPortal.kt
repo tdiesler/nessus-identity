@@ -206,8 +206,11 @@ class EBSIPortal {
             widWalletSvc.findDidByPrefix(ctx,"did:key")?.also {
                 ctx.didInfo = it
             }
-            val dat = CookieData(ctx.walletInfo.id, ctx.maybeDidInfo?.did)
-            setCookieDataInSession(call, dat)
+            val wid = ctx.walletInfo.id
+            val did = ctx.maybeDidInfo?.did
+            setCookieDataInSession(call, CookieData(wid, did))
+            val subjectId = LoginContext.getSubjectId(wid, did ?: "")
+            sessions[subjectId] = ctx
         }
     }
 
