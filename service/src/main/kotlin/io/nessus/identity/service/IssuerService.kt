@@ -45,15 +45,15 @@ object IssuerService : IssuerServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun getCredentialFromRequest(cex: FlowContext, accessToken: String, credReq: CredentialRequest) : CredentialResponse {
+    override suspend fun getCredentialFromRequest(ctx: FlowContext, accessToken: String, credReq: CredentialRequest) : CredentialResponse {
 
         val jwtToken = SignedJWT.parse(accessToken)
-        cex.validateAccessToken(jwtToken)
+        ctx.validateAccessToken(jwtToken)
 
         log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
 
         val id = "vc:nessus#${Uuid.random()}"
-        val sub = cex.authRequest.clientId
+        val sub = ctx.authRequest.clientId
         val iat = Instant.now()
         val exp = iat.plusSeconds(86400)
         val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequest")
@@ -77,14 +77,14 @@ object IssuerService : IssuerServiceApi {
             "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
             "FullJsonSchemaValidator2021"
         )
-        val cred = JwtCredentialBuilder(id,cex.did, sub)
+        val cred = JwtCredentialBuilder(id,ctx.did, sub)
             .withCredentialSchema(schema)
             .withExpiration(exp)
             .withTypes(types)
             .build()
         val credentialJson = Json.encodeToString(cred)
 
-        val kid = cex.didInfo.authenticationId()
+        val kid = ctx.didInfo.authenticationId()
         val credHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType.JWT)
             .keyID(kid)
@@ -97,10 +97,10 @@ object IssuerService : IssuerServiceApi {
         log.info { "Credential Claims: ${rawCredentialJwt.jwtClaimsSet}" }
 
         val signingInput = Json.encodeToString(createFlattenedJwsJson(credHeader, credClaims))
-        val signedEncoded = widWalletSvc.signWithKey(kid, signingInput)
+        val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
         val credentialJwt = SignedJWT.parse(signedEncoded)
 
-        if (!verifyJwt(credentialJwt, cex.didInfo))
+        if (!verifyJwt(credentialJwt, ctx.didInfo))
             throw IllegalStateException("Credential signature verification failed")
 
         val credentialResponse = CredentialResponse.success(CredentialFormat.jwt_vc, signedEncoded)

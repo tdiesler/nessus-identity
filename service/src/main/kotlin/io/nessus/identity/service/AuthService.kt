@@ -80,7 +80,7 @@ object AuthService : AuthServiceApi {
         }
     }
 
-    override suspend fun handleIDTokenRequest(cex: FlowContext, queryParams: Map<String, List<String>>): String {
+    override suspend fun handleIDTokenRequest(ctx: FlowContext, queryParams: Map<String, List<String>>): String {
 
         // Verify required query params
         for (key in listOf("client_id", "nonce", "state", "redirect_uri", "request_uri", "response_type")) {
@@ -115,7 +115,7 @@ object AuthService : AuthServiceApi {
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
 
-        val kid = cex.didInfo.authenticationId()
+        val kid = ctx.didInfo.authenticationId()
 
         val idTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType.JWT)
@@ -123,8 +123,8 @@ object AuthService : AuthServiceApi {
             .build()
 
         val idTokenClaims = JWTClaimsSet.Builder()
-            .issuer(cex.didInfo.did)
-            .subject(cex.didInfo.did)
+            .issuer(ctx.didInfo.did)
+            .subject(ctx.didInfo.did)
             .audience(clientId)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
@@ -137,10 +137,10 @@ object AuthService : AuthServiceApi {
         log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
 
         val signingInput = Json.encodeToString(createFlattenedJwsJson(idTokenHeader, idTokenClaims))
-        val signedEncoded = widWalletSvc.signWithKey(kid, signingInput)
+        val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
 
         log.info { "IDToken: $signedEncoded" }
-        if (!verifyJwt(SignedJWT.parse(signedEncoded), cex.didInfo))
+        if (!verifyJwt(SignedJWT.parse(signedEncoded), ctx.didInfo))
             throw IllegalStateException("IDToken signature verification failed")
 
         // Send IDToken  -----------------------------------------------------------------------------------------------
@@ -169,7 +169,7 @@ object AuthService : AuthServiceApi {
         } ?: throw IllegalStateException("Cannot find 'location' in headers")
 
         val authCode = urlQueryToMap(location)["code"]?.also {
-            cex.authCode = it
+            ctx.authCode = it
         } ?: throw IllegalStateException("No authorization code")
 
         return authCode
@@ -274,7 +274,7 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun handleVPTokenRequest(cex: FlowContext, queryParams: Map<String, List<String>>): String {
+    override suspend fun handleVPTokenRequest(ctx: FlowContext, queryParams: Map<String, List<String>>): String {
 
         // Verify required query params
         for (key in listOf("client_id", "request_uri", "response_type")) {
@@ -296,7 +296,7 @@ object AuthService : AuthServiceApi {
         if (reqObjectId == null)
             throw IllegalStateException("No request_object in: $requestUri")
 
-        val reqObject = cex.getRequestObject(reqObjectId) as? AuthorizationRequest
+        val reqObject = ctx.getRequestObject(reqObjectId) as? AuthorizationRequest
             ?: throw IllegalStateException("No request_object for: $reqObjectId")
 
         log.info { "VPToken Request: ${Json.encodeToString(reqObject)}" }
@@ -317,7 +317,7 @@ object AuthService : AuthServiceApi {
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
 
-        val kid = cex.didInfo.authenticationId()
+        val kid = ctx.didInfo.authenticationId()
         val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType.JWT)
             .keyID(kid)
@@ -327,7 +327,7 @@ object AuthService : AuthServiceApi {
             "@context": [ "https://www.w3.org/2018/credentials/v1" ],
             "id": "$jti",
             "type": [ "VerifiablePresentation" ],
-            "holder": "${cex.didInfo.did}",
+            "holder": "${ctx.didInfo.did}",
             "verifiableCredential": []
         }"""
         val vpObj = JSONObjectUtils.parse(vpJson)
@@ -342,7 +342,7 @@ object AuthService : AuthServiceApi {
             descriptorMap = descriptorMap
         )
 
-        val matchingCredentials = widWalletSvc.findCredentials(vpdef).toMap()
+        val matchingCredentials = widWalletSvc.findCredentials(ctx, vpdef).toMap()
 
         for (ind in vpdef.inputDescriptors) {
 
@@ -374,8 +374,8 @@ object AuthService : AuthServiceApi {
 
         val vpTokenClaims = JWTClaimsSet.Builder()
             .jwtID(jti)
-            .issuer(cex.didInfo.did)
-            .subject(cex.didInfo.did)
+            .issuer(ctx.didInfo.did)
+            .subject(ctx.didInfo.did)
             .audience(clientId)
             .issueTime(Date.from(iat))
             .notBeforeTime(Date.from(iat))
@@ -390,10 +390,10 @@ object AuthService : AuthServiceApi {
         log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
 
         val signingInput = Json.encodeToString(createFlattenedJwsJson(vpTokenHeader, vpTokenClaims))
-        val signedEncoded = widWalletSvc.signWithKey(kid, signingInput)
+        val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
 
         log.info { "VPToken: $signedEncoded" }
-        if (!verifyJwt(SignedJWT.parse(signedEncoded), cex.didInfo))
+        if (!verifyJwt(SignedJWT.parse(signedEncoded), ctx.didInfo))
             throw IllegalStateException("VPToken signature verification failed")
 
         // Send VPToken  -----------------------------------------------------------------------------------------------
@@ -423,7 +423,7 @@ object AuthService : AuthServiceApi {
         } ?: throw IllegalStateException("Cannot find 'location' in headers")
 
         val authCode = urlQueryToMap(location)["code"]?.also {
-            cex.authCode = it
+            ctx.authCode = it
         } ?: throw IllegalStateException("No authorization code")
 
         return authCode
@@ -541,7 +541,7 @@ object AuthService : AuthServiceApi {
         val formData = tokenRequest.toHttpParameters()
 
         log.info { "Send Token Request $tokenReqUrl" }
-        formData.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" }}}
+        formData.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
         val res = http.post(tokenReqUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
@@ -565,8 +565,8 @@ object AuthService : AuthServiceApi {
     // Private ---------------------------------------------------------------------------------------------------------
 
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun buildTokenResponse(cex: FlowContext): TokenResponse {
-        val keyJwk = cex.didInfo.publicKeyJwk()
+    private suspend fun buildTokenResponse(ctx: FlowContext): TokenResponse {
+        val keyJwk = ctx.didInfo.publicKeyJwk()
         val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
 
         val iat = Instant.now()
@@ -581,15 +581,15 @@ object AuthService : AuthServiceApi {
             .build()
 
         val claimsBuilder = JWTClaimsSet.Builder()
-            .issuer(cex.issuerMetadata.credentialIssuer)
+            .issuer(ctx.issuerMetadata.credentialIssuer)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
             .claim("nonce", nonce)
 
-        cex.maybeAuthRequest?.clientId?.also {
+        ctx.maybeAuthRequest?.clientId?.also {
             claimsBuilder.subject(it)
         }
-        cex.maybeAuthRequest?.authorizationDetails?.also {
+        ctx.maybeAuthRequest?.authorizationDetails?.also {
             val authorizationDetails: List<JsonObject> = it.map { ad -> ad.toJSON() }
             claimsBuilder.claim("authorization_details", authorizationDetails)
         }
@@ -600,10 +600,10 @@ object AuthService : AuthServiceApi {
         log.info { "Token Claims: ${rawTokenJwt.jwtClaimsSet}" }
 
         val signingInput = Json.encodeToString(createFlattenedJwsJson(tokenHeader, tokenClaims))
-        val signedEncoded = widWalletSvc.signWithKey(kid, signingInput)
+        val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
         val accessToken = SignedJWT.parse(signedEncoded)
 
-        if (!verifyJwt(accessToken, cex.didInfo))
+        if (!verifyJwt(accessToken, ctx.didInfo))
             throw IllegalStateException("AccessToken signature verification failed")
 
         val tokenRespJson = """
@@ -617,7 +617,7 @@ object AuthService : AuthServiceApi {
         """.trimIndent()
 
         val tokenResponse = TokenResponse.fromJSONString(tokenRespJson).also {
-            cex.accessToken = accessToken
+            ctx.accessToken = accessToken
         }
         log.info { "Token Response: ${Json.encodeToString(tokenResponse)}" }
         return tokenResponse
@@ -718,12 +718,12 @@ object AuthService : AuthServiceApi {
      *
      * @return The wanted redirect url
      */
-    private suspend fun sendIDTokenRequest(cex: FlowContext, authReq: AuthorizationRequest): String {
+    private suspend fun sendIDTokenRequest(ctx: FlowContext, authReq: AuthorizationRequest): String {
 
-        val issuerMetadata = cex.issuerMetadata
-        val authorizationEndpoint = cex.authorizationEndpoint
+        val issuerMetadata = ctx.issuerMetadata
+        val authorizationEndpoint = ctx.authorizationEndpoint
 
-        val keyJwk = cex.didInfo.publicKeyJwk()
+        val keyJwk = ctx.didInfo.publicKeyJwk()
         val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
 
         val iat = Instant.now()
@@ -753,7 +753,7 @@ object AuthService : AuthServiceApi {
         log.info { "IDToken Request Claims: ${idTokenJwt.jwtClaimsSet}" }
 
         val signingInput = Json.encodeToString(createFlattenedJwsJson(idTokenHeader, idTokenClaims))
-        val signedEncoded = widWalletSvc.signWithKey(kid, signingInput)
+        val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
 
         val idTokenRedirectUrl = URLBuilder("${authReq.redirectUri}").apply {
             parameters.append("client_id", authorizationEndpoint)
@@ -773,12 +773,12 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun sendVPTokenRequest(cex: FlowContext, authReq: AuthorizationRequest): String {
+    private suspend fun sendVPTokenRequest(ctx: FlowContext, authReq: AuthorizationRequest): String {
 
-        val issuerMetadata = cex.issuerMetadata
-        val authorizationEndpoint = cex.authorizationEndpoint
+        val issuerMetadata = ctx.issuerMetadata
+        val authorizationEndpoint = ctx.authorizationEndpoint
 
-        val keyJwk = cex.didInfo.publicKeyJwk()
+        val keyJwk = ctx.didInfo.publicKeyJwk()
         val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
 
         val iat = Instant.now()
@@ -845,7 +845,7 @@ object AuthService : AuthServiceApi {
         log.info { "VPToken Request Claims: ${idTokenJwt.jwtClaimsSet}" }
 
         val signingInput = Json.encodeToString(createFlattenedJwsJson(vpTokenHeader, vpTokenClaims))
-        val signedEncoded = widWalletSvc.signWithKey(kid, signingInput)
+        val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
 
         val vpTokenRedirectUrl = URLBuilder("${authReq.redirectUri}").apply {
             parameters.append("client_id", authorizationEndpoint)

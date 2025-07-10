@@ -33,14 +33,12 @@ open class LoginContext() {
         get() = _walletInfo ?: throw IllegalStateException("No walletInfo")
         set(wi) {
             _walletInfo = wi
-            registry[subjectId] = this
         }
 
     var didInfo: DidInfo
         get() = _didInfo ?: throw IllegalStateException("No didInfo")
         set(di) {
             _didInfo = di
-            registry[subjectId] = this
         }
 
     val did get() = didInfo.did
@@ -48,10 +46,6 @@ open class LoginContext() {
     val subjectId get() = getSubjectId(walletId, maybeDidInfo?.did ?: "")
 
     companion object {
-
-        // A global registry that allows us to restore a LoginContext from subjectId
-        private val registry = mutableMapOf<String, LoginContext>()
-
         /**
          * Short hash from the combination of walletId + did
          * [TODO] do we really need the walletId
@@ -63,21 +57,9 @@ open class LoginContext() {
             val subHash = sha256.digest("$wid|$did".toByteArray(Charsets.US_ASCII))
             return subHash.joinToString("") { "%02x".format(it) }.substring(0, 12)
         }
-
-        fun findLoginContext(subjectId: String): LoginContext? {
-            return registry[subjectId]
-        }
-
-        fun findLoginContext(walletId: String, did: String): LoginContext? {
-            val subjectId = getSubjectId(walletId, did)
-            return findLoginContext(subjectId)
-        }
     }
 
     open fun close() {
-        _didInfo?.also {
-            registry.remove(subjectId)
-        }
         _authToken = null
         _didInfo = null
     }

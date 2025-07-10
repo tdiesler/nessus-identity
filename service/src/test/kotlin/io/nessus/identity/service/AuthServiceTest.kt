@@ -1,5 +1,6 @@
 package io.nessus.identity.service
 
+import io.kotest.common.runBlocking
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldEndWith
 import io.nessus.identity.waltid.Max
@@ -9,13 +10,14 @@ class AuthServiceTest : AbstractServiceTest() {
 
     @Test
     fun authMetadata() {
-        
-        val ctx = authLogin(Max)
+        runBlocking {
+            val ctx = login(Max)
 
-        val metadataUrl = AuthService.getAuthMetadataUrl(ctx)
-        metadataUrl.shouldEndWith("/auth/${ctx.subjectId}/.well-known/openid-configuration")
+            val metadataUrl = AuthService.getAuthMetadataUrl(ctx)
+            metadataUrl.shouldEndWith("/auth/${ctx.subjectId}/.well-known/openid-configuration")
 
-        val jsonObj = AuthService.getAuthMetadata(ctx)
-        jsonObj.shouldNotBeNull()
+            val jsonObj = AuthService.getAuthMetadata(ctx)
+            jsonObj.shouldNotBeNull()
+        }
     }
 }

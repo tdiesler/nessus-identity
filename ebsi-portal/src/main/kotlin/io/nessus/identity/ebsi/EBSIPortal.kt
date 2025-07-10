@@ -55,6 +55,9 @@ class EBSIPortal {
 
     val log = KotlinLogging.logger {}
 
+    // Registry that allows us to restore a LoginContext from subjectId
+    private val sessions = mutableMapOf<String, LoginContext>()
+
     constructor() {
         log.info { "Starting the Nessus EBSI Conformance Portal ..." }
         val serverConfig = ConfigProvider.requireServerConfig()
@@ -136,6 +139,7 @@ class EBSIPortal {
                     getLoginContextFromSession(call)?.also { it.close() }
                     call.sessions.clear(CookieData.NAME)
                     call.respondRedirect("/")
+                    sessions.clear()
                 }
                 route("/auth/{subId}/{...}") {
                     handle {
@@ -198,8 +202,8 @@ class EBSIPortal {
             return call.respond(HttpStatusCode.BadRequest, "Missing email or password")
 
         runBlocking {
-            val ctx = widWalletSvc.loginWallet(LoginParams(LoginType.EMAIL, email, password))
-            widWalletSvc.findDidByPrefix("did:key")?.also {
+            val ctx = widWalletSvc.loginWithWallet(LoginParams(LoginType.EMAIL, email, password))
+            widWalletSvc.findDidByPrefix(ctx,"did:key")?.also {
                 ctx.didInfo = it
             }
             val dat = CookieData(ctx.walletInfo.id, ctx.maybeDidInfo?.did)
@@ -547,7 +551,7 @@ class EBSIPortal {
 
     private fun getLoginContextFromSession(call: RoutingCall): LoginContext? {
         val dat = getCookieDataFromSession(call)
-        val ctx = dat?.let { LoginContext.findLoginContext(it.wid, it.did ?: "") }
+        val ctx = dat?.let { findLoginContext(it.wid, it.did ?: "") }
         return ctx
     }
 
@@ -557,25 +561,35 @@ class EBSIPortal {
 
         // We expect the user to have logged in previously and have a valid Did
         //
-        var ctx = LoginContext.findLoginContext(subId)
+        var ctx = findLoginContext(subId)
 
         // Fallback
         if (ctx == null) {
             val cfg = ConfigProvider.requireWalletConfig()
             if (cfg.userEmail.isNotBlank() && cfg.userPassword.isNotBlank()) {
                 val loginParams = LoginParams(LoginType.EMAIL, cfg.userEmail, cfg.userPassword)
-                widWalletSvc.loginWallet(loginParams)
-                ctx = widWalletSvc.getLoginContext()
+                ctx = widWalletSvc.loginWithWallet(loginParams)
+                val subjectId = LoginContext.getSubjectId(ctx.walletInfo.id, "")
+                sessions[subjectId] = ctx
             }
         }
 
         ctx ?: throw IllegalStateException("Login required")
 
         if (ctx.maybeDidInfo == null) {
-            ctx.didInfo = widWalletSvc.findDidByPrefix("did:key")
+            ctx.didInfo = widWalletSvc.findDidByPrefix(ctx, "did:key")
                 ?: throw IllegalStateException("Cannot find required did in wallet")
         }
 
         return ctx
+    }
+
+    private fun findLoginContext(subjectId: String): LoginContext? {
+        return sessions[subjectId]
+    }
+
+    fun findLoginContext(walletId: String, did: String): LoginContext? {
+        val subjectId = LoginContext.Companion.getSubjectId(walletId, did)
+        return findLoginContext(subjectId)
     }
 }

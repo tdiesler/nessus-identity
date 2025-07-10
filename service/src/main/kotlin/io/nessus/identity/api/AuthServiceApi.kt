@@ -15,13 +15,13 @@ interface AuthServiceApi {
 
     fun getAuthMetadata(ctx: LoginContext): JsonObject
 
-    suspend fun handleAuthorizationRequest(cex: FlowContext, authReq: AuthorizationRequest): String
+    suspend fun handleAuthorizationRequest(ctx: FlowContext, authReq: AuthorizationRequest): String
 
-    suspend fun handleIDTokenRequest(cex: FlowContext, queryParams: Map<String, List<String>>): String
+    suspend fun handleIDTokenRequest(ctx: FlowContext, queryParams: Map<String, List<String>>): String
 
-    suspend fun handleVPTokenRequest(cex: FlowContext, queryParams: Map<String, List<String>>): String
+    suspend fun handleVPTokenRequest(ctx: FlowContext, queryParams: Map<String, List<String>>): String
 
-    suspend fun sendTokenRequestAuthCode(cex: FlowContext, authCode: String): TokenResponse
+    suspend fun sendTokenRequestAuthCode(ctx: FlowContext, authCode: String): TokenResponse
 
-    suspend fun sendTokenRequestPreAuthorized(cex: FlowContext, grant: GrantDetails): TokenResponse
+    suspend fun sendTokenRequestPreAuthorized(ctx: FlowContext, grant: GrantDetails): TokenResponse
 }

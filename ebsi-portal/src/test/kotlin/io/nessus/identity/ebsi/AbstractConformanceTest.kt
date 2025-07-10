@@ -37,8 +37,8 @@ open class AbstractConformanceTest {
         var ctx = sessions[user.email]
         if (ctx == null) {
             ctx = runBlocking {
-                widWalletSvc.loginWallet(user.toLoginParams()).also { ctx ->
-                    widWalletSvc.findDidByPrefix("did:key")?.also {
+                widWalletSvc.loginWithWallet(user.toLoginParams()).also { ctx ->
+                    widWalletSvc.findDidByPrefix(ctx, "did:key")?.also {
                         ctx.didInfo = it
                     }
                 }
@@ -51,7 +51,7 @@ open class AbstractConformanceTest {
     fun startPortalServer() {
         System.setProperty("webdriver.chrome.driver", "/opt/homebrew/bin/chromedriver")
         val options = ChromeOptions().apply {
-            addArguments("--headless=new")
+            //addArguments("--headless=new")
         }
         driver = ChromeDriver(options)
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
@@ -92,7 +92,7 @@ open class AbstractConformanceTest {
         return issuerUri
     }
 
-    fun awaitCheckboxResult(checkboxId: String, buttonText: String) : Boolean {
+    fun awaitCheckboxResult(checkboxId: String, buttonText: String): Boolean {
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
 

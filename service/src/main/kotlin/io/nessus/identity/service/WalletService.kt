@@ -245,7 +245,7 @@ object WalletService : WalletServiceApi {
         return cex.authCode
     }
 
-    private suspend fun sendCredentialRequest(cex: FlowContext, tokenResponse: TokenResponse): CredentialResponse {
+    private suspend fun sendCredentialRequest(ctx: FlowContext, tokenResponse: TokenResponse): CredentialResponse {
 
         val accessToken = tokenResponse.accessToken
             ?: throw IllegalStateException("No accessToken")
@@ -255,35 +255,35 @@ object WalletService : WalletServiceApi {
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
 
-        val kid = cex.didInfo.authenticationId()
+        val kid = ctx.didInfo.authenticationId()
 
         val credReqHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType("openid4vci-proof+jwt"))
             .keyID(kid)
             .build()
 
-        val credentialTypes = cex.offeredCredential.types
+        val credentialTypes = ctx.offeredCredential.types
             ?: throw IllegalStateException("No credential types")
 
-        val issuerUri = cex.issuerMetadata.credentialIssuer
-        val credentialEndpoint = cex.issuerMetadata.credentialEndpoint
+        val issuerUri = ctx.issuerMetadata.credentialIssuer
+        val credentialEndpoint = ctx.issuerMetadata.credentialEndpoint
             ?: throw IllegalStateException("No credential_endpoint")
 
         val claimsBuilder = JWTClaimsSet.Builder()
-            .issuer(cex.didInfo.did)
+            .issuer(ctx.didInfo.did)
             .audience(issuerUri)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
             .claim("nonce", cNonce)
 
-        cex.maybeAuthRequest?.state?.also {
+        ctx.maybeAuthRequest?.state?.also {
             claimsBuilder.claim("state", it)
         }
 
         val credReqClaims = claimsBuilder.build()
 
         val signingInput = Json.encodeToString(createFlattenedJwsJson(credReqHeader, credReqClaims))
-        val signedEncoded = widWalletSvc.signWithKey(kid, signingInput)
+        val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
         val signedCredReqJwt = SignedJWT.parse(signedEncoded)
         log.info { "Credential Request Header: ${signedCredReqJwt.header}" }
         log.info { "Credential Request Claims: ${signedCredReqJwt.jwtClaimsSet}" }
@@ -320,7 +320,7 @@ object WalletService : WalletServiceApi {
             log.info { "Credential Claims: ${credJwt.jwtClaimsSet}" }
         }
 
-        cex.credResponse = credRes
+        ctx.credResponse = credRes
         return credRes
     }
 }

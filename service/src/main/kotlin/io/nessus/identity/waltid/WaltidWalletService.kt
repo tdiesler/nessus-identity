@@ -29,9 +29,7 @@ import kotlin.uuid.Uuid
 class WaltidWalletService {
 
     val log = KotlinLogging.logger {}
-
-    val api : WaltidApiClient
-    private lateinit var ctx: LoginContext
+    val api: WaltidApiClient
 
     val dataSource: Lazy<DataSource> = lazy {
         val dbcfg = ConfigProvider.requireDatabaseConfig()
@@ -52,14 +50,6 @@ class WaltidWalletService {
         api = WaltidApiClient(apiUrl)
     }
 
-    fun hasLoginContext() : Boolean {
-        return ::ctx.isInitialized
-    }
-
-    fun getLoginContext() : LoginContext {
-        return ctx
-    }
-
     // Authentication --------------------------------------------------------------------------------------------------
 
     suspend fun registerUser(params: RegisterUserParams): String {
@@ -68,13 +58,14 @@ class WaltidWalletService {
 
     suspend fun login(params: LoginParams): LoginContext {
         val res = api.authLogin(params.toAuthLoginRequest())
-        ctx = LoginContext().also { it.authToken = res.token }
+        val ctx = LoginContext().also { it.authToken = res.token }
         return ctx
     }
 
-    suspend fun loginWallet(params: LoginParams): LoginContext {
-        ctx = login(params)
-        ctx.walletInfo = listWallets().first()
+    suspend fun loginWithWallet(params: LoginParams): LoginContext {
+        val ctx = login(params).also {
+            it.walletInfo = listWallets(it).first()
+        }
         return ctx
     }
 
@@ -84,19 +75,19 @@ class WaltidWalletService {
 
     // Account ---------------------------------------------------------------------------------------------------------
 
-    suspend fun findWallet(predicate: suspend (WalletInfo) -> Boolean): WalletInfo? {
+    suspend fun findWallet(ctx: LoginContext, predicate: suspend (WalletInfo) -> Boolean): WalletInfo? {
         return api.accountWallets(ctx).wallets.firstOrNull { predicate(it) }
     }
 
-    suspend fun findWalletByDid(did: String): WalletInfo? {
-        return findWallet { w -> listDids().any { it.did == did } }
+    suspend fun findWalletByDid(ctx: LoginContext, did: String): WalletInfo? {
+        return findWallet(ctx) { w -> listDids(ctx).any { it.did == did } }
     }
 
-    suspend fun findWalletById(id: String): WalletInfo? {
-        return findWallet { w -> w.id == id }
+    suspend fun findWalletById(ctx: LoginContext, id: String): WalletInfo? {
+        return findWallet(ctx) { w -> w.id == id }
     }
 
-    suspend fun listWallets(): List<WalletInfo> {
+    suspend fun listWallets(ctx: LoginContext): List<WalletInfo> {
         val res = api.accountWallets(ctx)
         return res.wallets.toList()
     }
@@ -130,7 +121,7 @@ class WaltidWalletService {
         return credId
     }
 
-    suspend fun listCredentials(): List<WalletCredential> {
+    suspend fun listCredentials(ctx: LoginContext): List<WalletCredential> {
         val res = api.credentials(ctx)
         return res.toList()
     }
@@ -138,7 +129,10 @@ class WaltidWalletService {
     /**
      * For every InputDescriptor iterate over all WalletCredentials and match all constraints.
      */
-    suspend fun findCredentials(vpdef: PresentationDefinition): List<Pair<String, WalletCredential>> {
+    suspend fun findCredentials(
+        ctx: LoginContext,
+        vpdef: PresentationDefinition
+    ): List<Pair<String, WalletCredential>> {
 
         val walletCredentials = api.credentials(ctx)
         val foundCredentials = mutableListOf<Pair<String, WalletCredential>>()
@@ -156,68 +150,68 @@ class WaltidWalletService {
 
     // Keys ------------------------------------------------------------------------------------------------------------
 
-    suspend fun findKey(predicate: suspend (Key) -> Boolean): Key? {
-        return listKeys().firstOrNull { predicate(it) }
+    suspend fun findKey(ctx: LoginContext, predicate: suspend (Key) -> Boolean): Key? {
+        return listKeys(ctx).firstOrNull { predicate(it) }
     }
 
-    suspend fun findKeyByAlgorithm(algorithm: String): Key? {
-        return findKey { k -> k.algorithm.equals(algorithm, ignoreCase = true) }
+    suspend fun findKeyByAlgorithm(ctx: LoginContext, algorithm: String): Key? {
+        return findKey(ctx) { k -> k.algorithm.equals(algorithm, ignoreCase = true) }
     }
 
-    suspend fun findKeyById(keyId: String): Key? {
-        return findKey { k -> k.id == keyId }
+    suspend fun findKeyById(ctx: LoginContext, keyId: String): Key? {
+        return findKey(ctx) { k -> k.id == keyId }
     }
 
-    suspend fun findKeyByType(keyType: KeyType): Key? {
-        return findKeyByAlgorithm(keyType.algorithm)
+    suspend fun findKeyByType(ctx: LoginContext, keyType: KeyType): Key? {
+        return findKeyByAlgorithm(ctx, keyType.algorithm)
     }
 
-    suspend fun listKeys(): List<Key> {
+    suspend fun listKeys(ctx: LoginContext): List<Key> {
         val res: Array<KeyResponse> = api.keys(ctx)
         return res.map { kr -> Key(kr.keyId.id, kr.algorithm) }
     }
 
-    suspend fun createKey(keyType: KeyType): Key {
+    suspend fun createKey(ctx: LoginContext, keyType: KeyType): Key {
         val kid = api.keysGenerate(ctx, keyType)
-        return findKeyById(kid)!!
+        return findKeyById(ctx,kid)!!
     }
 
-    suspend fun signWithDid(did: String, message: String): String {
-        val keyId = findDid { d -> d.did == did }?.keyId
+    suspend fun signWithDid(ctx: LoginContext, did: String, message: String): String {
+        val keyId = findDid(ctx) { d -> d.did == did }?.keyId
             ?: throw IllegalStateException("No such did: $did")
-        return signWithKey(keyId, message)
+        return signWithKey(ctx, keyId, message)
     }
 
-    suspend fun signWithKey(alias: String, message: String): String {
+    suspend fun signWithKey(ctx: LoginContext, alias: String, message: String): String {
         return api.keysSign(ctx, alias, message)
     }
 
     // DIDs ------------------------------------------------------------------------------------------------------------
 
-    suspend fun findDid(predicate: suspend (DidInfo) -> Boolean): DidInfo? {
-        return listDids().firstOrNull { predicate(it) }
+    suspend fun findDid(ctx: LoginContext, predicate: suspend (DidInfo) -> Boolean): DidInfo? {
+        return listDids(ctx).firstOrNull { predicate(it) }
     }
 
-    suspend fun findDidByPrefix(prefix: String): DidInfo? {
-        return findDid { d -> d.did.startsWith(prefix) }
+    suspend fun findDidByPrefix(ctx: LoginContext, prefix: String): DidInfo? {
+        return findDid(ctx) { d -> d.did.startsWith(prefix) }
     }
 
-    suspend fun getDefaultDid(): DidInfo {
-        return findDid { d -> d.default }
+    suspend fun getDefaultDid(ctx: LoginContext, ): DidInfo {
+        return findDid(ctx) { d -> d.default }
             ?: throw IllegalStateException("No default did for: $ctx.walletId")
     }
 
-    suspend fun getDidDocument(did: String): String {
+    suspend fun getDidDocument(ctx: LoginContext, did: String): String {
         val didInfo = api.did(ctx, did)
         return didInfo
     }
 
-    suspend fun listDids(): List<DidInfo> {
+    suspend fun listDids(ctx: LoginContext): List<DidInfo> {
         val dids = api.dids(ctx)
         return dids.toList()
     }
 
-    suspend fun createDidKey(alias: String, keyId: String): DidInfo {
+    suspend fun createDidKey(ctx: LoginContext, alias: String, keyId: String): DidInfo {
         val req = CreateDidKeyRequest(alias, keyId)
         val did: String = api.didsCreateDidKey(ctx, req)
         val didInfo = api.dids(ctx).first { di -> di.did == did }
