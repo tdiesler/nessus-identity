@@ -193,30 +193,4 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
-
-    private fun fixupInitiateHref(ctx: LoginContext, link: WebElement): WebElement {
-
-        val walletUri = walletEndpointUri(ctx)
-        var initiateHref = link.getAttribute("href") as String
-        log.info { "Initiate href: $initiateHref" }
-
-        val uri = URI(initiateHref)
-        val queryParams = urlQueryToMap(initiateHref).toMutableMap()
-        val encodedWalletUri = URLEncoder.encode(walletUri, "UTF-8")
-
-        if (queryParams["credential_offer_endpoint"] != encodedWalletUri) {
-            queryParams["credential_offer_endpoint"] = encodedWalletUri
-
-            val updatedQuery = queryParams.entries.joinToString("&") { (k, v) -> "$k=$v" }
-            initiateHref = "${uri.scheme}://${uri.authority}${uri.path}?$updatedQuery"
-
-            log.info { "Overriding with: $initiateHref" }
-
-            (driver as JavascriptExecutor).executeScript(
-                "arguments[0].setAttribute('href', arguments[1])",
-                link, initiateHref
-            )
-        }
-        return link
-    }
 }

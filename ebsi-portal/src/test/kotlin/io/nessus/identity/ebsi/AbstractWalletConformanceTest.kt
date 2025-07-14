@@ -3,9 +3,15 @@ package io.nessus.identity.ebsi
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.UserPinHolder
+import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.waltid.Max
 import org.openqa.selenium.By
 import org.openqa.selenium.JavascriptExecutor
+import org.openqa.selenium.WebElement
+import java.net.URI
+import java.net.URLEncoder
+import kotlin.collections.component1
+import kotlin.collections.component2
 
 abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
 
@@ -60,8 +66,35 @@ abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
         } else {
             driver.findElement(By.xpath("//button[text()='No']")).click()
         }
-        nextStep(2000)
+        nextStep()
 
         return ctx
+    }
+
+    fun fixupInitiateHref(ctx: LoginContext, link: WebElement): WebElement {
+
+        val walletUri = walletEndpointUri(ctx)
+        var initiateHref = link.getAttribute("href") as String
+        log.info { "Initiate href: $initiateHref" }
+
+        val uri = URI(initiateHref)
+        val queryParams = urlQueryToMap(initiateHref).toMutableMap()
+        val encodedWalletUri = URLEncoder.encode(walletUri, "UTF-8")
+
+        val credentialOfferEndpoint = queryParams["credential_offer_endpoint"]
+        if (credentialOfferEndpoint != encodedWalletUri) {
+            queryParams["credential_offer_endpoint"] = encodedWalletUri
+
+            val updatedQuery = queryParams.entries.joinToString("&") { (k, v) -> "$k=$v" }
+            initiateHref = "${uri.scheme}://${uri.authority}${uri.path}?$updatedQuery"
+
+            log.info { "Overriding with: $initiateHref" }
+
+            (driver as JavascriptExecutor).executeScript(
+                "arguments[0].setAttribute('href', arguments[1])",
+                link, initiateHref
+            )
+        }
+        return link
     }
 }

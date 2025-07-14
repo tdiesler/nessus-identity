@@ -96,7 +96,7 @@ class VerifierConformanceTest : AbstractConformanceTest() {
 
         // Click the collapsible element
         driver.findElement(By.id("verifiable-presentations")).click()
-        nextStep(2000)
+        nextStep()
 
         return ctx
     }
