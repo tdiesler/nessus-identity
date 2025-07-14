@@ -173,7 +173,7 @@ class IssuerConformanceTest : AbstractConformanceTest() {
 
         // Click "Continue" button
         driver.findElement(By.xpath("//button[@type='submit'][.//span[text()='Continue']]")).click()
-        nextStep()
+        nextStep(2000)
 
         return ctx
     }

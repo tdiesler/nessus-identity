@@ -60,7 +60,7 @@ abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
         } else {
             driver.findElement(By.xpath("//button[text()='No']")).click()
         }
-        nextStep()
+        nextStep(2000)
 
         return ctx
     }
