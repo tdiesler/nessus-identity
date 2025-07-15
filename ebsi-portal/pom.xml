@@ -10,9 +10,9 @@
         <version>25.1.0-SNAPSHOT</version>
     </parent>
 
-    <name>Nessus Identity :: Portal</name>
+    <name>Nessus Identity :: EBSI Conformance Portal</name>
 
-    <artifactId>nessus-identity-portal</artifactId>
+    <artifactId>nessus-identity-ebsi-portal</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>

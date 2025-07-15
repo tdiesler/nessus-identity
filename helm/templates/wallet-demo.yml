@@ -24,6 +24,8 @@ spec:
           env:
             - name: NUXT_PUBLIC_ISSUER_CALLBACK_URL
               value: "{{ $.Values.urlSchema }}://{{ $.Values.demoWalletHost }}"
+            - name: NUXT_PUBLIC_DEV_WALLET_URL
+              value: "{{ $.Values.urlSchema }}://{{ $.Values.devWalletHost }}"
             - name: PORT
               value: "7101"
           ports:

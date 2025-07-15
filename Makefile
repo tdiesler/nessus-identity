@@ -8,7 +8,7 @@ IMAGE_REGISTRY_PROD := "registry.vps6c.eu.ebsi:30443/"
 KUBE_CONTEXT_LOCAL := "docker-desktop"
 IMAGE_REGISTRY_LOCAL := ""
 
-IMAGE_NAME := nessusio/nessus-identity-portal
+IMAGE_NAME := nessusio/ebsi-portal
 IMAGE_TAG := "latest"
 
 # Set the IMAGE_REGISTRY based on the deployment TARGET
@@ -33,14 +33,14 @@ images: package
 			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
 			-t $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG) \
 			-t $(IMAGE_NAME):$(IMAGE_TAG) \
-			-f ./portal/Dockerfile ./portal;
+			-f ./ebsi-portal/Dockerfile ./ebsi-portal;
 		@if [ $(TARGET) != "local" ]; then \
 			echo "Pushing $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG) ..."; \
 			docker push $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG); \
 		fi
 
 uninstall:
-	@helm --kube-context $(KUBE_CONTEXT) uninstall portal --ignore-not-found
+	@helm --kube-context $(KUBE_CONTEXT) uninstall ebsi-portal --ignore-not-found
 
 upgrade: images
-	@helm --kube-context $(KUBE_CONTEXT) upgrade --install portal ./helm -f ./helm/values-portal.yaml
+	@helm --kube-context $(KUBE_CONTEXT) upgrade --install ebsi-portal ./helm -f ./helm/values-ebsi-portal.yaml
