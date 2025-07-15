@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: ebsi-portal
-          image: {{ $.Values.imagePrefix }}nessusio/nessus-identity-portal:{{ .version }}
+          image: {{ $.Values.imagePrefix }}nessusio/ebsi-portal:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: SERVER__PORT

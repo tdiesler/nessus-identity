@@ -32,6 +32,7 @@ import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.WalletService
+import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.service.toSignedJWT
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.JwtCredential
@@ -57,6 +58,7 @@ class EBSIPortal {
 
     // Registry that allows us to restore a LoginContext from subjectId
     private val sessions = mutableMapOf<String, LoginContext>()
+    private val versionInfo = getVersionInfo()
 
     constructor() {
         log.info { "Starting the Nessus EBSI Conformance Portal ..." }
@@ -66,6 +68,7 @@ class EBSIPortal {
         log.info { "ServerConfig: ${Json.encodeToString(serverConfig)}" }
         log.info { "ServiceConfig: ${Json.encodeToString(serviceConfig)}" }
         log.info { "DatabaseConfig: ${Json.encodeToString(databaseConfig.redacted())}" }
+        log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
     }
 
     fun createServer(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
@@ -175,6 +178,7 @@ class EBSIPortal {
             "did" to ctx?.maybeDidInfo?.did,
             "demoWalletUrl" to serviceConfig.demoWalletUrl,
             "devWalletUrl" to serviceConfig.devWalletUrl,
+            "versionInfo" to versionInfo,
         )
         if (ctx?.hasWalletInfo == true) {
             model["subjectId"] = ctx.subjectId

@@ -47,6 +47,7 @@ object ConfigProvider {
 
 @Serializable
 data class RootConfig(
+    val version: String,
     val server: ServerConfig?,
     val tls: TlsConfig?,
     val issuer: IssuerConfig?,
