@@ -115,6 +115,7 @@ class WaltidWalletService {
         )
 
         withConnection {
+            log.info { "Adding WalletCredential: ${Json.encodeToString(walletCredential)}" }
             CredentialsService().add(walletUid, walletCredential)
             log.info { "Added WalletCredential: $credId" }
         }
