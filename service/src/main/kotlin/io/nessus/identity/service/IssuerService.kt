@@ -194,7 +194,7 @@ object IssuerService : IssuerServiceApi {
                 types = listOf("VerifiableCredential", "VerifiableAttestation", "CTWalletSamePreAuthorisedDeferred")
             ),
         )
-        return OpenIDProviderMetadata.Draft11(
+        return OpenIDProviderMetadata.Draft11.create(
             issuer = baseUri,
             authorizationServer = oauthUri,
             authorizationEndpoint = "$oauthUri/authorize",

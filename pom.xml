@@ -43,7 +43,7 @@
         <version.selenium>4.33.0</version.selenium>
         <version.slf4j>2.0.6</version.slf4j>
         <version.typesafe.config>1.4.3</version.typesafe.config>
-        <version.waltid>1.0.2507110920-SNAPSHOT</version.waltid>
+        <version.waltid>1.0.2507170855-SNAPSHOT</version.waltid>
 
         <!--
             [TODO] Remove dependency on local wallet-api build
@@ -126,7 +126,7 @@
             <dependency>
                 <groupId>id.walt.openid4vc</groupId>
                 <artifactId>waltid-openid4vc-jvm</artifactId>
-                <version>${version.waltid.local}</version>
+                <version>${version.waltid}</version>
             </dependency>
             <dependency>
                 <groupId>id.walt.sdjwt</groupId>
