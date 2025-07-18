@@ -27,6 +27,8 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
     @Test
     fun testCTQualificationThroughVPExchange() {
 
+        log.info { ">>>>> CTQualificationThroughVPExchange" }
+
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
         val ctx = authLogin(Max)
 
@@ -52,7 +54,6 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
 
         // Switch back to the original tab
         driver.switchTo().window(mainTab)
-        log.info { "Switched back to main tab" }
         nextStep()
 
         // Wait for the "Validate" label to become Yes

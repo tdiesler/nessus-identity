@@ -28,7 +28,7 @@ package: clean
 	@mvn package -DskipTests
 
 # Build the Docker images
-images: package
+build-images: package
 		@docker buildx build --platform linux/amd64 \
 			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
 			-t $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG) \
@@ -42,5 +42,15 @@ images: package
 uninstall:
 	@helm --kube-context $(KUBE_CONTEXT) uninstall ebsi-portal --ignore-not-found
 
-upgrade: images
+upgrade: build-images
 	@helm --kube-context $(KUBE_CONTEXT) upgrade --install ebsi-portal ./helm -f ./helm/values-ebsi-portal.yaml
+
+update-waltid-services:
+	@cd ../waltid-identity && ./gradlew :waltid-services:waltid-wallet-api:publishToMavenLocal
+	@cd ../waltid-identity/docker-compose && \
+		docker compose build web-portal && \
+		docker compose build waltid-demo-wallet && \
+		docker compose build waltid-dev-wallet && \
+		docker compose build wallet-api && \
+		docker compose build issuer-api && \
+		docker compose build verifier-api

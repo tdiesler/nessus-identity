@@ -33,8 +33,8 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossAuthorisedInTime() {
 
-        authLogin(Max)
-
+        log.info { ">>>>> Wallet CTWalletCrossAuthorisedInTime" }
+        
         // Click the collapsible element
         driver.findElement(By.id("inTime-credential")).click()
         nextStep()
@@ -67,15 +67,17 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         println("QR Code content: $qrContent")
 
         // Open URL in new tab
-        val originalTab = driver.windowHandle  // Save current tab
+        val mainTab = driver.windowHandle  // Save current tab
         val targetUrl = qrContent.removePrefix("openid-credential-offer://")
         (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
-
         println("Opened URL in new tab: $targetUrl")
-        nextStep()
+        nextStep(4000)
 
         // Wait for the "Validate" label to become Yes
-        driver.switchTo().window(originalTab)
+        driver.switchTo().window(mainTab)
+        log.info { "Switched back to main tab" }
+        nextStep()
+
         val checkboxId = "ct_wallet_cross_authorised_in_time"
         val labelResult = awaitCheckboxResult(checkboxId, "Validate")
         log.info { "Validation: " + if (labelResult) "Yes" else "No" }
@@ -86,7 +88,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossAuthorisedDeferred() {
 
-        authLogin(Max)
+        log.info { ">>>>> Wallet CTWalletCrossAuthorisedDeferred" }
 
         // Click the collapsible element
         driver.findElement(By.id("deferred-credential")).click()
@@ -120,15 +122,17 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         println("QR Code content: $qrContent")
 
         // Open URL in new tab
-        val originalTab = driver.windowHandle  // Save current tab
+        val mainTab = driver.windowHandle  // Save current tab
         val targetUrl = qrContent.removePrefix("openid-credential-offer://")
         (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
-
         println("Opened URL in new tab: $targetUrl")
         nextStep(8000)
 
         // Wait for the "Validate" label to become Yes
-        driver.switchTo().window(originalTab)
+        driver.switchTo().window(mainTab)
+        log.info { "Switched back to main tab" }
+        nextStep()
+
         val checkboxId = "ct_wallet_cross_authorised_deferred"
         val labelResult = awaitCheckboxResult(checkboxId, "Validate")
         log.info { "Validation: " + if (labelResult) "Yes" else "No" }
@@ -139,7 +143,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossPreAuthorisedInTime() {
 
-        authLogin(Max)
+        log.info { ">>>>> Wallet CTWalletCrossPreAuthorisedInTime" }
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-in-time-credential")).click()
@@ -176,15 +180,17 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         println("QR Code content: $qrContent")
 
         // Open URL in new tab
-        val originalTab = driver.windowHandle  // Save current tab
+        val mainTab = driver.windowHandle  // Save current tab
         val targetUrl = qrContent.removePrefix("openid-credential-offer://")
         (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
-
         println("Opened URL in new tab: $targetUrl")
-        nextStep()
+        nextStep(4000)
 
         // Wait for the "Validate" label to become Yes
-        driver.switchTo().window(originalTab)
+        driver.switchTo().window(mainTab)
+        log.info { "Switched back to main tab" }
+        nextStep()
+
         val checkboxId = "ct_wallet_cross_pre_authorised_in_time"
         val labelResult = awaitCheckboxResult(checkboxId, "Validate")
         log.info { "Validation: " + if (labelResult) "Yes" else "No" }
@@ -195,7 +201,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossPreAuthorisedDeferred() {
 
-        authLogin(Max)
+        log.info { ">>>>> Wallet CTWalletCrossPreAuthorisedDeferred" }
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-deferred-credential")).click()
@@ -232,15 +238,17 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         println("QR Code content: $qrContent")
 
         // Open URL in new tab
-        val originalTab = driver.windowHandle  // Save current tab
+        val mainTab = driver.windowHandle  // Save current tab
         val targetUrl = qrContent.removePrefix("openid-credential-offer://")
         (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
-
         println("Opened URL in new tab: $targetUrl")
         nextStep(8000)
 
         // Wait for the "Validate" label to become Yes
-        driver.switchTo().window(originalTab)
+        driver.switchTo().window(mainTab)
+        log.info { "Switched back to main tab" }
+        nextStep()
+
         val checkboxId = "ct_wallet_cross_pre_authorised_deferred"
         val labelResult = awaitCheckboxResult(checkboxId, "Validate")
         log.info { "Validation: " + if (labelResult) "Yes" else "No" }

@@ -33,6 +33,8 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletSameAuthorisedInTime() {
 
+        log.info { ">>>>> Wallet CTWalletSameAuthorisedInTime" }
+
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
         val ctx = authLogin(Max)
 
@@ -51,6 +53,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         wait.until { driver.windowHandles.size > 1 }
         val newTab = driver.windowHandles.first { it != mainTab }
         driver.switchTo().window(newTab)
+        log.info { "Switched to new tab" }
         nextStep()
 
         val credentialJson = driver.findElement(By.tagName("pre")).text
@@ -72,6 +75,8 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletSameAuthorisedDeferred() {
 
+        log.info { ">>>>> Wallet CTWalletSameAuthorisedDeferred" }
+
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
         val ctx = authLogin(Max)
 
@@ -90,6 +95,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         wait.until { driver.windowHandles.size > 1 }
         val newTab = driver.windowHandles.first { it != mainTab }
         driver.switchTo().window(newTab)
+        log.info { "Switched to new tab" }
         nextStep()
 
         val credentialJson = driver.findElement(By.tagName("pre")).text
@@ -98,7 +104,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         // Switch back to the original tab
         driver.switchTo().window(mainTab)
         log.info { "Switched back to main tab" }
-        nextStep(5000)
+        nextStep()
 
         // Wait for the "Validate" label to become Yes
         val checkboxId = "ct_wallet_same_authorised_deferred"
@@ -110,6 +116,8 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
     @Test
     fun testCTWalletSamePreAuthorisedInTime() {
+
+        log.info { ">>>>> Wallet CTWalletSamePreAuthorisedInTime" }
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
         val ctx = authLogin(Max)
@@ -132,6 +140,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         wait.until { driver.windowHandles.size > 1 }
         val newTab = driver.windowHandles.first { it != mainTab }
         driver.switchTo().window(newTab)
+        log.info { "Switched to new tab" }
         nextStep()
 
         val credentialJson = driver.findElement(By.tagName("pre")).text
@@ -152,6 +161,8 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
     @Test
     fun testCTWalletSamePreAuthorisedDeferred() {
+
+        log.info { ">>>>> Wallet CTWalletSamePreAuthorisedDeferred" }
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
         val ctx = authLogin(Max)
@@ -174,6 +185,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         wait.until { driver.windowHandles.size > 1 }
         val newTab = driver.windowHandles.first { it != mainTab }
         driver.switchTo().window(newTab)
+        log.info { "Switched to new tab" }
         nextStep()
 
         val credentialJson = driver.findElement(By.tagName("pre")).text
@@ -182,7 +194,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         // Switch back to the original tab
         driver.switchTo().window(mainTab)
         log.info { "Switched back to main tab" }
-        nextStep(5000)
+        nextStep(8000)
 
         // Wait for the "Validate" label to become Yes
         val checkboxId = "ct_wallet_same_pre_authorised_deferred"
@@ -191,6 +203,4 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
         labelResult.shouldBeTrue()
     }
-
-    // Private ---------------------------------------------------------------------------------------------------------
 }

@@ -27,6 +27,8 @@ class IssuerConformanceTest : AbstractConformanceTest() {
     @Test
     fun testCTWalletSameAuthorisedInTime() {
 
+        log.info { ">>>>> Issuer CTWalletSameAuthorisedInTime" }
+
         // Click the collapsible element
         driver.findElement(By.id("in-time-credential")).click()
         nextStep()
@@ -51,6 +53,8 @@ class IssuerConformanceTest : AbstractConformanceTest() {
     @Test
     fun testCTWalletSameAuthorisedDeferred() {
 
+        log.info { ">>>>> Issuer CTWalletSameAuthorisedDeferred" }
+
         // Click the collapsible element
         driver.findElement(By.id("deferred-credential")).click()
         nextStep()
@@ -74,6 +78,8 @@ class IssuerConformanceTest : AbstractConformanceTest() {
 
     @Test
     fun testCTWalletSamePreAuthorisedInTime() {
+
+        log.info { ">>>>> Issuer CTWalletSamePreAuthorisedInTime" }
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-in-time-credential")).click()
@@ -112,6 +118,8 @@ class IssuerConformanceTest : AbstractConformanceTest() {
 
     @Test
     fun testCTWalletSamePreAuthorisedDeferred() {
+
+        log.info { ">>>>> Issuer CTWalletSamePreAuthorisedDeferred" }
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-deferred-credential")).click()

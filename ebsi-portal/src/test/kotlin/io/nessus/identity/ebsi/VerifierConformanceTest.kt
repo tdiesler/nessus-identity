@@ -24,7 +24,9 @@ class VerifierConformanceTest : AbstractConformanceTest() {
     }
 
     @Test
-    fun testIDTokenExchange() {
+    fun testVerifierIDTokenExchange() {
+
+        log.info { ">>>>> VerifierIDTokenExchange" }
 
         // Click the "Validate" link
         val validateId = "verifier_id_token_exchange"
@@ -35,7 +37,9 @@ class VerifierConformanceTest : AbstractConformanceTest() {
     }
 
     @Test
-    fun testValidCredentialInPresentation() {
+    fun testVerifierValidCredentialInPresentation() {
+
+        log.info { ">>>>> VerifierValidCredentialInPresentation" }
 
         // Click the "Validate" link
         val validateId = "verifier_vp_valid_vc"
@@ -46,7 +50,9 @@ class VerifierConformanceTest : AbstractConformanceTest() {
     }
 
     @Test
-    fun testExpiredCredentialInPresentation() {
+    fun testVerifierExpiredCredentialInPresentation() {
+
+        log.info { ">>>>> VerifierExpiredCredentialInPresentation" }
 
         // Click the "Validate" link
         val validateId = "verifier_vp_expired_vc"
@@ -57,7 +63,9 @@ class VerifierConformanceTest : AbstractConformanceTest() {
     }
 
     @Test
-    fun testRevokedCredentialInPresentation() {
+    fun testVerifierRevokedCredentialInPresentation() {
+
+        log.info { ">>>>> VerifierRevokedCredentialInPresentation" }
 
         // Click the "Validate" link
         val validateId = "verifier_vp_revoked_vc"

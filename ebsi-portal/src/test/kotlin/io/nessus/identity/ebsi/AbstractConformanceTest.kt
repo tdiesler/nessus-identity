@@ -73,7 +73,7 @@ open class AbstractConformanceTest {
         embeddedServer.stop(3000, 5000)
     }
 
-    fun nextStep(millis: Long = 1000) {
+    fun nextStep(millis: Long = 1200) {
         Thread.sleep(millis)
     }
 
