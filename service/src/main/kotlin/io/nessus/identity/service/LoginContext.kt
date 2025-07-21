@@ -43,7 +43,7 @@ open class LoginContext() {
 
     val did get() = didInfo.did
     val walletId get() = walletInfo.id
-    val subjectId get() = getSubjectId(walletId, maybeDidInfo?.did ?: "")
+    val targetId get() = getTargetId(walletId, maybeDidInfo?.did ?: "")
 
     companion object {
         /**
@@ -52,7 +52,7 @@ open class LoginContext() {
          * [TODO] complain about not being able to use base64
          * [TODO] use a more explicit hex encoder
          */
-        fun getSubjectId(wid: String, did: String): String {
+        fun getTargetId(wid: String, did: String): String {
             val sha256 = MessageDigest.getInstance("SHA-256")
             val subHash = sha256.digest("$wid|$did".toByteArray(Charsets.US_ASCII))
             return subHash.joinToString("") { "%02x".format(it) }.substring(0, 12)

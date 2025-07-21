@@ -26,8 +26,8 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.config.redacted
 import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.CookieData
-import io.nessus.identity.service.FlowContext
-import io.nessus.identity.service.FlowContext.Companion.requireCredentialExchange
+import io.nessus.identity.service.AuthContext
+import io.nessus.identity.service.AuthContext.Companion.requireCredentialExchange
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
@@ -144,22 +144,22 @@ class EBSIPortal {
                     call.respondRedirect("/")
                     sessions.clear()
                 }
-                route("/auth/{subId}/{...}") {
+                route("/auth/{svcId}/{...}") {
                     handle {
-                        val subId = call.parameters["subId"] ?: throw IllegalArgumentException("No subId")
-                        handleAuthRequests(call, subId)
+                        val svcId = call.parameters["svcId"] ?: throw IllegalArgumentException("No svcId")
+                        handleAuthRequests(call, svcId)
                     }
                 }
-                route("/wallet/{subId}/{...}") {
+                route("/wallet/{svcId}/{...}") {
                     handle {
-                        val subId = call.parameters["subId"] ?: throw IllegalArgumentException("No subId")
-                        handleWalletRequests(call, subId)
+                        val svcId = call.parameters["svcId"] ?: throw IllegalArgumentException("No svcId")
+                        handleWalletRequests(call, svcId)
                     }
                 }
-                route("/issuer/{subId}/{...}") {
+                route("/issuer/{svcId}/{...}") {
                     handle {
-                        val subId = call.parameters["subId"] ?: throw IllegalArgumentException("No subId")
-                        handleIssuerRequests(call, subId)
+                        val svcId = call.parameters["svcId"] ?: throw IllegalArgumentException("No svcId")
+                        handleIssuerRequests(call, svcId)
                     }
                 }
             }
@@ -181,10 +181,10 @@ class EBSIPortal {
             "versionInfo" to versionInfo,
         )
         if (ctx?.hasWalletInfo == true) {
-            model["subjectId"] = ctx.subjectId
-            model["walletUri"] = "${ConfigProvider.walletEndpointUri}/${ctx.subjectId}"
-            model["issuerUri"] = "${ConfigProvider.issuerEndpointUri}/${ctx.subjectId}"
-            model["authUri"] = "${ConfigProvider.authEndpointUri}/${ctx.subjectId}"
+            model["subjectId"] = ctx.targetId
+            model["walletUri"] = "${ConfigProvider.walletEndpointUri}/${ctx.targetId}"
+            model["issuerUri"] = "${ConfigProvider.issuerEndpointUri}/${ctx.targetId}"
+            model["authUri"] = "${ConfigProvider.authEndpointUri}/${ctx.targetId}"
         }
         call.respond(
             FreeMarkerContent(
@@ -213,14 +213,14 @@ class EBSIPortal {
             val wid = ctx.walletInfo.id
             val did = ctx.maybeDidInfo?.did
             setCookieDataInSession(call, CookieData(wid, did))
-            val subjectId = LoginContext.getSubjectId(wid, did ?: "")
-            sessions[subjectId] = ctx
+            val targetId = LoginContext.getTargetId(wid, did ?: "")
+            sessions[targetId] = ctx
         }
     }
 
     // Handle Authorization Requests -----------------------------------------------------------------------------------
     //
-    suspend fun handleAuthRequests(call: RoutingCall, subId: String) {
+    suspend fun handleAuthRequests(call: RoutingCall, svcId: String) {
 
         val reqUri = call.request.uri
         val path = call.request.path()
@@ -232,7 +232,7 @@ class EBSIPortal {
             }
         }
 
-        val ctx = requireLoginContext(subId)
+        val ctx = requireLoginContext(svcId)
 
         if (path.endsWith(".well-known/openid-configuration")) {
             return handleAuthorizationMetadataRequest(call, ctx)
@@ -240,40 +240,40 @@ class EBSIPortal {
 
         // authorize
         // 
-        if (path == "/auth/$subId/authorize") {
-            val cex = FlowContext(ctx)
+        if (path == "/auth/$svcId/authorize") {
+            val cex = AuthContext(ctx)
             return handleAuthorizationRequest(call, cex)
         }
 
         // direct_post
         //
-        if (path == "/auth/$subId/direct_post") {
-            val cex = requireCredentialExchange(subId)
+        if (path == "/auth/$svcId/direct_post") {
+            val cex = requireCredentialExchange(svcId)
             return handleAuthDirectPost(call, cex)
         }
 
         // jwks
         //
-        if (path == "/auth/$subId/jwks") {
+        if (path == "/auth/$svcId/jwks") {
             return handleAuthJwksRequest(call, ctx)
         }
 
         // token
         //
-        if (path == "/auth/$subId/token") {
-            return handleAuthTokenRequest(call, subId)
+        if (path == "/auth/$svcId/token") {
+            return handleAuthTokenRequest(call, svcId)
         }
 
         // Callback as part of the Authorization Request
         //
-        if (path == "/auth/$subId") {
+        if (path == "/auth/$svcId") {
             val responseType = queryParams["response_type"]
             if (responseType == "id_token") {
-                val cex = requireCredentialExchange(subId)
+                val cex = requireCredentialExchange(svcId)
                 return handleIDTokenRequest(call, cex)
             }
             if (responseType == "vp_token") {
-                val cex = requireCredentialExchange(subId)
+                val cex = requireCredentialExchange(svcId)
                 return handleVPTokenRequest(call, cex)
             }
         }
@@ -287,7 +287,7 @@ class EBSIPortal {
 
     // Handle Wallet requests ------------------------------------------------------------------------------------------
     //
-    suspend fun handleWalletRequests(call: RoutingCall, subId: String) {
+    suspend fun handleWalletRequests(call: RoutingCall, svcId: String) {
 
         val reqUri = call.request.uri
         val path = call.request.path()
@@ -299,12 +299,12 @@ class EBSIPortal {
             }
         }
 
-        val ctx = requireLoginContext(subId)
-        val cex = FlowContext(ctx)
+        val ctx = requireLoginContext(svcId)
+        val cex = AuthContext(ctx)
 
         // Handle CredentialOffer by Uri
         //
-        if (path == "/wallet/$subId" && queryParams["credential_offer_uri"] != null) {
+        if (path == "/wallet/$svcId" && queryParams["credential_offer_uri"] != null) {
             return handleCredentialOffer(call, cex)
         }
 
@@ -317,7 +317,7 @@ class EBSIPortal {
 
     // Handle Issuer Requests ------------------------------------------------------------------------------------------
     //
-    suspend fun handleIssuerRequests(call: RoutingCall, subId: String) {
+    suspend fun handleIssuerRequests(call: RoutingCall, svcId: String) {
 
         val reqUri = call.request.uri
         val path = call.request.path()
@@ -327,7 +327,7 @@ class EBSIPortal {
             it.forEach { (k, v) -> log.info { "  $k=$v" } }
         }
 
-        val ctx = requireLoginContext(subId)
+        val ctx = requireLoginContext(svcId)
 
         if (call.request.path().endsWith(".well-known/openid-credential-issuer")) {
             return handleIssuerMetadataRequest(call, ctx)
@@ -335,8 +335,8 @@ class EBSIPortal {
 
         // Handle Credential Request
         //
-        if (path == "/issuer/$subId/credential") {
-            val cex = requireCredentialExchange(subId)
+        if (path == "/issuer/$svcId/credential") {
+            val cex = requireCredentialExchange(svcId)
             return handleCredentialRequest(call, cex)
         }
 
@@ -362,31 +362,20 @@ class EBSIPortal {
     /**
      * The Holder Wallet requests access for the required credentials from the Issuer's Authorisation Server.
      */
-    private suspend fun handleAuthorizationRequest(call: RoutingCall, cex: FlowContext) {
+    private suspend fun handleAuthorizationRequest(call: RoutingCall, ctx: AuthContext) {
 
         val queryParams = call.parameters.toMap()
         val authReq = AuthorizationRequest.fromHttpParameters(queryParams)
         log.info { "Authorization Request: ${Json.encodeToString(authReq)}" }
         queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val redirectUrl = AuthService.handleAuthorizationRequest(cex, authReq)
+        val redirectUrl = AuthService.handleAuthorizationRequest(ctx, authReq)
         call.respondRedirect(redirectUrl)
     }
 
-    private suspend fun handleIDTokenRequest(call: RoutingCall, cex: FlowContext) {
+    private suspend fun handleIDTokenRequest(call: RoutingCall, ctx: AuthContext) {
 
-        AuthService.handleIDTokenRequest(cex, call.parameters.toMap())
-
-        call.respondText(
-            status = HttpStatusCode.Accepted,
-            contentType = ContentType.Text.Plain,
-            text = "Accepted"
-        )
-    }
-
-    private suspend fun handleVPTokenRequest(call: RoutingCall, cex: FlowContext) {
-
-        AuthService.handleVPTokenRequest(cex, call.parameters.toMap())
+        AuthService.handleIDTokenRequest(ctx, call.parameters.toMap())
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -395,19 +384,30 @@ class EBSIPortal {
         )
     }
 
-    private suspend fun handleAuthDirectPost(call: RoutingCall, cex: FlowContext) {
+    private suspend fun handleVPTokenRequest(call: RoutingCall, ctx: AuthContext) {
+
+        AuthService.handleVPTokenRequest(ctx, call.parameters.toMap())
+
+        call.respondText(
+            status = HttpStatusCode.Accepted,
+            contentType = ContentType.Text.Plain,
+            text = "Accepted"
+        )
+    }
+
+    private suspend fun handleAuthDirectPost(call: RoutingCall, ctx: AuthContext) {
 
         val postParams = call.receiveParameters().toMap()
         log.info { "Authorization DirectPost: ${call.request.uri}" }
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
         if (postParams["id_token"] != null) {
-            val redirectUrl = AuthService.handleIDTokenResponse(cex, postParams)
+            val redirectUrl = AuthService.handleIDTokenResponse(ctx, postParams)
             return call.respondRedirect(redirectUrl)
         }
 
         if (postParams["vp_token"] != null) {
-            val redirectUrl = AuthService.handleVPTokenResponse(cex, postParams)
+            val redirectUrl = AuthService.handleVPTokenResponse(ctx, postParams)
             return call.respondRedirect(redirectUrl)
         }
 
@@ -439,7 +439,7 @@ class EBSIPortal {
     /**
      * Client requests an Access Token
      */
-    private suspend fun handleAuthTokenRequest(call: RoutingCall, subId: String) {
+    private suspend fun handleAuthTokenRequest(call: RoutingCall, svcId: String) {
 
         val postParams = call.receiveParameters().toMap()
         log.info { "Token Request: ${call.request.uri}" }
@@ -448,12 +448,12 @@ class EBSIPortal {
         val tokenRequest = TokenRequest.fromHttpParameters(postParams)
         val tokenResponse = when (tokenRequest) {
             is TokenRequest.AuthorizationCode -> {
-                val cex = requireCredentialExchange(subId)
+                val cex = requireCredentialExchange(svcId)
                 AuthService.handleTokenRequestAuthCode(cex, tokenRequest)
             }
 
             is TokenRequest.PreAuthorizedCode -> {
-                val cex = FlowContext(requireLoginContext(subId))
+                val cex = AuthContext(requireLoginContext(svcId))
                 AuthService.handleTokenRequestPreAuthorized(cex, tokenRequest)
             }
         }
@@ -473,7 +473,7 @@ class EBSIPortal {
     // Issuer initiated flows start with the Credential Offering proposed by Issuer.
     // The Credential Offering is in redirect for same-device tests and in QR Code for cross-device tests.
     //
-    private suspend fun handleCredentialOffer(call: RoutingCall, ctx: FlowContext) {
+    private suspend fun handleCredentialOffer(call: RoutingCall, ctx: AuthContext) {
 
         // Get Credential Offer URI from the query Parameters
         //
@@ -528,7 +528,7 @@ class EBSIPortal {
         )
     }
 
-    private suspend fun handleCredentialRequest(call: RoutingCall, cex: FlowContext) {
+    private suspend fun handleCredentialRequest(call: RoutingCall, ctx: AuthContext) {
 
         val accessToken = call.request.headers["Authorization"]
             ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
@@ -536,7 +536,7 @@ class EBSIPortal {
             ?: throw IllegalArgumentException("Invalid authorization header")
 
         val credReq = call.receive<CredentialRequest>()
-        val credentialResponse = IssuerService.getCredentialFromRequest(cex, accessToken, credReq)
+        val credentialResponse = IssuerService.getCredentialFromRequest(ctx, accessToken, credReq)
 
         call.respondText(
             status = HttpStatusCode.OK,
@@ -564,11 +564,11 @@ class EBSIPortal {
 
     // LoginContext ----------------------------------------------------------------------------------------------------
 
-    private suspend fun requireLoginContext(subId: String): LoginContext {
+    private suspend fun requireLoginContext(svcId: String): LoginContext {
 
         // We expect the user to have logged in previously and have a valid Did
         //
-        var ctx = findLoginContext(subId)
+        var ctx = findLoginContext(svcId)
 
         // Fallback
         if (ctx == null) {
@@ -576,7 +576,7 @@ class EBSIPortal {
             if (cfg.userEmail.isNotBlank() && cfg.userPassword.isNotBlank()) {
                 val loginParams = LoginParams(LoginType.EMAIL, cfg.userEmail, cfg.userPassword)
                 ctx = widWalletSvc.loginWithWallet(loginParams)
-                val subjectId = LoginContext.getSubjectId(ctx.walletInfo.id, "")
+                val subjectId = LoginContext.getTargetId(ctx.walletInfo.id, "")
                 sessions[subjectId] = ctx
             }
         }
@@ -596,7 +596,7 @@ class EBSIPortal {
     }
 
     fun findLoginContext(walletId: String, did: String): LoginContext? {
-        val subjectId = LoginContext.Companion.getSubjectId(walletId, did)
+        val subjectId = LoginContext.Companion.getTargetId(walletId, did)
         return findLoginContext(subjectId)
     }
 }

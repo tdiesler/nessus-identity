@@ -44,7 +44,7 @@ object WalletService : WalletServiceApi {
 
     val log = KotlinLogging.logger {}
 
-    override suspend fun getCredentialFromUri(ctx: FlowContext, offerUri: String): CredentialResponse {
+    override suspend fun getCredentialFromUri(ctx: AuthContext, offerUri: String): CredentialResponse {
 
         val credOffer = OpenID4VCI.parseAndResolveCredentialOfferRequestUrl(offerUri)
         val credResponse = getCredentialFromOffer(ctx, credOffer)
@@ -52,25 +52,26 @@ object WalletService : WalletServiceApi {
         return credResponse
     }
 
-    override suspend fun getCredentialFromOffer(ctx: FlowContext, credOffer: CredentialOffer): CredentialResponse {
+    override suspend fun getCredentialFromOffer(ctx: AuthContext, credOffer: CredentialOffer): CredentialResponse {
 
         val offeredCred = resolveOfferedCredentials(ctx, credOffer)
 
         val tokenResponse = credOffer.getPreAuthorizedGrantDetails()?.let {
             AuthService.sendTokenRequestPreAuthorized(ctx, it)
         } ?: run {
-            val authRequest = authorizationRequestFromCredentialOffer(ctx, offeredCred)
+            val issuerState = credOffer.grants[GrantType.authorization_code.value]?.issuerState
+            val authRequest = authorizationRequestFromCredentialOffer(ctx, offeredCred, issuerState)
             val authCode = sendAuthorizationRequest(ctx, authRequest)
             AuthService.sendTokenRequestAuthCode(ctx, authCode)
         }
 
-        val credResponse = sendCredentialRequest(ctx, tokenResponse)
+        val credResponse = sendCredentialRequest(ctx, offeredCred, tokenResponse)
         return credResponse
     }
 
-    override suspend fun getDeferredCredential(cex: FlowContext, acceptanceToken: String): CredentialResponse {
+    override suspend fun getDeferredCredential(ctx: AuthContext, acceptanceToken: String): CredentialResponse {
 
-        val deferredCredentialEndpoint = cex.issuerMetadata.deferredCredentialEndpoint
+        val deferredCredentialEndpoint = ctx.issuerMetadata.deferredCredentialEndpoint
             ?: throw IllegalStateException("No credential_endpoint")
 
         log.info { "Send Deferred Credential Request: $deferredCredentialEndpoint" }
@@ -90,7 +91,6 @@ object WalletService : WalletServiceApi {
         log.info { "Credential Header: ${credJwt.header}" }
         log.info { "Credential Claims: ${credJwt.jwtClaimsSet}" }
 
-        cex.credResponse = credRes
         return credRes
     }
 
@@ -103,7 +103,7 @@ object WalletService : WalletServiceApi {
 
     // Private ---------------------------------------------------------------------------------------------------------
 
-    private fun authorizationRequestFromCredentialOffer(cex: FlowContext, offeredCred: OfferedCredential): AuthorizationRequest {
+    private fun authorizationRequestFromCredentialOffer(ctx: AuthContext, offeredCred: OfferedCredential, issuerState: String?): AuthorizationRequest {
 
         // The Wallet will start by requesting access for the desired credential from the Auth Mock (Authorisation Server).
         // The client_metadata.authorization_endpoint is used for the redirect location associated with the vp_token and id_token.
@@ -115,22 +115,20 @@ object WalletService : WalletServiceApi {
         val codeVerifierHash = sha256.digest(codeVerifier.toByteArray(Charsets.US_ASCII))
         val codeChallenge = Base64.getUrlEncoder().withoutPadding().encodeToString(codeVerifierHash)
 
-        cex.authRequestCodeVerifier = codeVerifier
+        ctx.authRequestCodeVerifier = codeVerifier
 
         // Build AuthRequestUrl
         //
-        val authEndpointUri = "$authEndpointUri/${cex.subjectId}"
-        val credentialIssuer = cex.issuerMetadata.credentialIssuer
+        val authEndpointUri = "$authEndpointUri/${ctx.targetId}"
+        val credentialIssuer = ctx.issuerMetadata.credentialIssuer
         val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, credentialIssuer)
         val clientMetadata =
             OpenIDClientMetadata(customParameters = mapOf("authorization_endpoint" to JsonPrimitive(authEndpointUri)))
-        val issuerState = cex.credentialOffer.grants[GrantType.authorization_code.value]?.issuerState
-            ?: throw NoSuchElementException("Missing authorization_code.issuer_state")
 
         val authRequest = AuthorizationRequest(
             scope = setOf("openid"),
-            clientId = cex.didInfo.did,
-            state = cex.walletId,
+            clientId = ctx.didInfo.did,
+            state = ctx.walletId,
             clientMetadata = clientMetadata,
             codeChallenge = codeChallenge,
             codeChallengeMethod = "S256",
@@ -138,19 +136,20 @@ object WalletService : WalletServiceApi {
             redirectUri = authEndpointUri,
             issuerState = issuerState
         ).also {
-            cex.authRequestCodeVerifier = codeVerifier
-            cex.authRequest = it
+            ctx.authRequestCodeVerifier = codeVerifier
+            ctx.authRequest = it
         }
 
         return authRequest
     }
 
-    private suspend fun resolveOfferedCredentials(ctx: FlowContext, offer: CredentialOffer): OfferedCredential {
+    private suspend fun resolveOfferedCredentials(ctx: AuthContext, offer: CredentialOffer): OfferedCredential {
 
         // Get issuer Metadata
         //
         val issuerMetadata = resolveOpenIDProviderMetadata(offer.credentialIssuer)
         log.info { "Issuer Metadata: ${Json.encodeToString(issuerMetadata)}" }
+        ctx.issuerMetadata = issuerMetadata
 
         val draft11Metadata = issuerMetadata as? OpenIDProviderMetadata.Draft11
             ?: throw IllegalStateException("Expected Draft11 metadata, but got ${issuerMetadata::class.simpleName}")
@@ -163,19 +162,13 @@ object WalletService : WalletServiceApi {
         if (offeredCredentials.size > 1) log.warn { "Multiple offered credentials, using first" }
         val offeredCredential = offeredCredentials.first()
 
-        ctx.also {
-            it.credentialOffer = offer
-            it.offeredCredential = offeredCredential
-            it.issuerMetadata = issuerMetadata
-        }
-
         return offeredCredential
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun sendAuthorizationRequest(cex: FlowContext, authRequest: AuthorizationRequest): String {
+    private suspend fun sendAuthorizationRequest(ctx: AuthContext, authRequest: AuthorizationRequest): String {
 
-        val authReqUrl = URLBuilder("${cex.authorizationEndpoint}/authorize").apply {
+        val authReqUrl = URLBuilder("${ctx.authorizationEndpoint}/authorize").apply {
             authRequest.toHttpParameters().forEach { (k, lst) -> lst.forEach { v -> parameters.append(k, v) } }
         }.buildString()
 
@@ -221,7 +214,7 @@ object WalletService : WalletServiceApi {
 
                     // Store the AuthorizationRequest in memory
                     val reqObjectId = "${Uuid.random()}"
-                    cex.putRequestObject(reqObjectId, authReq)
+                    ctx.putRequestObject(reqObjectId, authReq)
 
                     log.info { "Converting 'request' to 'request_uri'" }
 
@@ -242,11 +235,11 @@ object WalletService : WalletServiceApi {
             throw HttpStatusException(res.status, res.bodyAsText())
         }
 
-        log.info { "AuthorizationCode: ${cex.authCode}" }
-        return cex.authCode
+        log.info { "AuthorizationCode: ${ctx.authCode}" }
+        return ctx.authCode
     }
 
-    private suspend fun sendCredentialRequest(ctx: FlowContext, tokenResponse: TokenResponse): CredentialResponse {
+    private suspend fun sendCredentialRequest(ctx: AuthContext, offeredCred: OfferedCredential, tokenResponse: TokenResponse): CredentialResponse {
 
         val accessToken = tokenResponse.accessToken
             ?: throw IllegalStateException("No accessToken")
@@ -263,7 +256,7 @@ object WalletService : WalletServiceApi {
             .keyID(kid)
             .build()
 
-        val credentialTypes = ctx.offeredCredential.types
+        val credentialTypes = offeredCred.types
             ?: throw IllegalStateException("No credential types")
 
         val issuerUri = ctx.issuerMetadata.credentialIssuer
@@ -321,7 +314,6 @@ object WalletService : WalletServiceApi {
             log.info { "Credential Claims: ${credJwt.jwtClaimsSet}" }
         }
 
-        ctx.credResponse = credRes
         return credRes
     }
 }

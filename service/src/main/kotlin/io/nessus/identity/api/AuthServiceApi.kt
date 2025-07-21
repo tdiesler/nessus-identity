@@ -3,7 +3,7 @@ package io.nessus.identity.api
 import id.walt.oid4vc.data.GrantDetails
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.responses.TokenResponse
-import io.nessus.identity.service.FlowContext
+import io.nessus.identity.service.AuthContext
 import io.nessus.identity.service.LoginContext
 import kotlinx.serialization.json.JsonObject
 
@@ -15,13 +15,13 @@ interface AuthServiceApi {
 
     fun getAuthMetadata(ctx: LoginContext): JsonObject
 
-    suspend fun handleAuthorizationRequest(ctx: FlowContext, authReq: AuthorizationRequest): String
+    suspend fun handleAuthorizationRequest(ctx: AuthContext, authReq: AuthorizationRequest): String
 
-    suspend fun handleIDTokenRequest(ctx: FlowContext, queryParams: Map<String, List<String>>): String
+    suspend fun handleIDTokenRequest(ctx: AuthContext, queryParams: Map<String, List<String>>): String
 
-    suspend fun handleVPTokenRequest(ctx: FlowContext, queryParams: Map<String, List<String>>): String
+    suspend fun handleVPTokenRequest(ctx: AuthContext, queryParams: Map<String, List<String>>): String
 
-    suspend fun sendTokenRequestAuthCode(ctx: FlowContext, authCode: String): TokenResponse
+    suspend fun sendTokenRequestAuthCode(ctx: AuthContext, authCode: String): TokenResponse
 
-    suspend fun sendTokenRequestPreAuthorized(ctx: FlowContext, grant: GrantDetails): TokenResponse
+    suspend fun sendTokenRequestPreAuthorized(ctx: AuthContext, grant: GrantDetails): TokenResponse
 }

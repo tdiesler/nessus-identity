@@ -15,7 +15,7 @@ class IssuerServiceTest : AbstractServiceTest() {
             val ctx = login(Max)
 
             val metadataUrl = IssuerService.getIssuerMetadataUrl(ctx)
-            metadataUrl.shouldEndWith("/issuer/${ctx.subjectId}/.well-known/openid-credential-issuer")
+            metadataUrl.shouldEndWith("/issuer/${ctx.targetId}/.well-known/openid-credential-issuer")
 
             val jsonObj = IssuerService.getIssuerMetadata(ctx).toJSON()
             jsonObj["credentials_supported"].shouldNotBeNull().jsonArray

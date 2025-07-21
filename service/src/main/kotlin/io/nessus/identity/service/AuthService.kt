@@ -49,7 +49,7 @@ object AuthService : AuthServiceApi {
     val log = KotlinLogging.logger {}
 
     override fun getAuthMetadataUrl(ctx: LoginContext): String {
-        val metadataUrl = OpenID4VCI.getOpenIdProviderMetadataUrl("$authEndpointUri/${ctx.subjectId}")
+        val metadataUrl = OpenID4VCI.getOpenIdProviderMetadataUrl("$authEndpointUri/${ctx.targetId}")
         return metadataUrl
     }
 
@@ -61,10 +61,10 @@ object AuthService : AuthServiceApi {
     /**
      * Handle AuthorizationRequest from remote Holder to this Issuer's Auth Endpoint
      */
-    override suspend fun handleAuthorizationRequest(cex: FlowContext, authReq: AuthorizationRequest): String {
+    override suspend fun handleAuthorizationRequest(ctx: AuthContext, authReq: AuthorizationRequest): String {
 
-        cex.authRequest = authReq
-        cex.issuerMetadata = IssuerService.getIssuerMetadata(cex)
+        ctx.authRequest = authReq
+        ctx.issuerMetadata = IssuerService.getIssuerMetadata(ctx)
 
         // Validate the AuthorizationRequest
         //
@@ -72,15 +72,15 @@ object AuthService : AuthServiceApi {
 
         val isVPTokenRequest = authReq.scope.any { it.contains("vp_token") }
         if (isVPTokenRequest) {
-            val redirectUrl = sendVPTokenRequest(cex, authReq)
+            val redirectUrl = sendVPTokenRequest(ctx, authReq)
             return redirectUrl
         } else {
-            val redirectUrl = sendIDTokenRequest(cex, authReq)
+            val redirectUrl = sendIDTokenRequest(ctx, authReq)
             return redirectUrl
         }
     }
 
-    override suspend fun handleIDTokenRequest(ctx: FlowContext, queryParams: Map<String, List<String>>): String {
+    override suspend fun handleIDTokenRequest(ctx: AuthContext, queryParams: Map<String, List<String>>): String {
 
         // Verify required query params
         for (key in listOf("client_id", "nonce", "state", "redirect_uri", "request_uri", "response_type")) {
@@ -176,7 +176,7 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun handleIDTokenResponse(cex: FlowContext, postParams: Map<String, List<String>>): String {
+    fun handleIDTokenResponse(ctx: AuthContext, postParams: Map<String, List<String>>): String {
 
         val idToken = postParams["id_token"]?.firstOrNull()
             ?: throw IllegalStateException("No id_token")
@@ -187,11 +187,11 @@ object AuthService : AuthServiceApi {
 
         // [TODO] validate IDToken
 
-        cex.authCode = "${Uuid.random()}"
+        ctx.authCode = "${Uuid.random()}"
 
-        val authReq = cex.authRequest
+        val authReq = ctx.authRequest
         val idTokenRedirect = URLBuilder("${authReq.redirectUri}").apply {
-            parameters.append("code", cex.authCode)
+            parameters.append("code", ctx.authCode)
             authReq.state?.also { state ->
                 parameters.append("state", state)
             }
@@ -206,7 +206,7 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun handleVPTokenResponse(cex: FlowContext, postParams: Map<String, List<String>>): String {
+    fun handleVPTokenResponse(ctx: AuthContext, postParams: Map<String, List<String>>): String {
 
         val vpToken = postParams["vp_token"]?.firstOrNull()
             ?: throw IllegalStateException("No vp_token")
@@ -229,7 +229,7 @@ object AuthService : AuthServiceApi {
             }
         }
 
-        val authReq = cex.authRequest
+        val authReq = ctx.authRequest
         val urlBuilder = URLBuilder("${authReq.redirectUri}")
 
         val vcArray = vpClaims.getClaim("vp")
@@ -258,8 +258,8 @@ object AuthService : AuthServiceApi {
         }
 
         if (validationError == null) {
-            cex.authCode = "${Uuid.random()}"
-            urlBuilder.parameters.append("code", cex.authCode)
+            ctx.authCode = "${Uuid.random()}"
+            urlBuilder.parameters.append("code", ctx.authCode)
         }
         if (authReq.state != null) {
             urlBuilder.parameters.append("state", "${authReq.state}")
@@ -274,7 +274,7 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun handleVPTokenRequest(ctx: FlowContext, queryParams: Map<String, List<String>>): String {
+    override suspend fun handleVPTokenRequest(ctx: AuthContext, queryParams: Map<String, List<String>>): String {
 
         // Verify required query params
         for (key in listOf("client_id", "request_uri", "response_type")) {
@@ -430,10 +430,7 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun handleTokenRequestAuthCode(
-        cex: FlowContext,
-        tokReq: TokenRequest.AuthorizationCode
-    ): TokenResponse {
+    suspend fun handleTokenRequestAuthCode(ctx: AuthContext, tokReq: TokenRequest.AuthorizationCode): TokenResponse {
 
         val grantType = tokReq.grantType
         val codeVerifier = tokReq.codeVerifier
@@ -442,19 +439,16 @@ object AuthService : AuthServiceApi {
 
         // Verify token request
         //
-        if (tokReq.clientId != cex.authRequest.clientId)
+        if (tokReq.clientId != ctx.authRequest.clientId)
             throw IllegalArgumentException("Invalid client_id: ${tokReq.clientId}")
 
         // [TODO] verify token request code challenge
 
-        val tokenResponse = buildTokenResponse(cex)
+        val tokenResponse = buildTokenResponse(ctx)
         return tokenResponse
     }
 
-    suspend fun handleTokenRequestPreAuthorized(
-        cex: FlowContext,
-        tokReq: TokenRequest.PreAuthorizedCode
-    ): TokenResponse {
+    suspend fun handleTokenRequestPreAuthorized(ctx: AuthContext, tokenReq: TokenRequest.PreAuthorizedCode): TokenResponse {
 
         // [TODO] Externalize pre-authorization code mapping
         val ebsiClientId =
@@ -488,22 +482,22 @@ object AuthService : AuthServiceApi {
             ),
         )
 
-        cex.issuerMetadata = IssuerService.getIssuerMetadata(cex)
-        cex.authRequest = preAuthorisedCodeToClientId[tokReq.preAuthorizedCode]
-            ?: throw IllegalStateException("No client_id mapping for: ${tokReq.preAuthorizedCode}")
+        ctx.issuerMetadata = IssuerService.getIssuerMetadata(ctx)
+        ctx.authRequest = preAuthorisedCodeToClientId[tokenReq.preAuthorizedCode]
+            ?: throw IllegalStateException("No client_id mapping for: ${tokenReq.preAuthorizedCode}")
 
-        val tokenResponse = buildTokenResponse(cex)
+        val tokenResponse = buildTokenResponse(ctx)
         return tokenResponse
     }
 
-    override suspend fun sendTokenRequestAuthCode(cex: FlowContext, authCode: String): TokenResponse {
+    override suspend fun sendTokenRequestAuthCode(ctx: AuthContext, authCode: String): TokenResponse {
 
-        val tokenReqUrl = "${cex.authorizationEndpoint}/token"
+        val tokenReqUrl = "${ctx.authorizationEndpoint}/token"
 
         val tokenRequest = TokenRequest.AuthorizationCode(
-            clientId = cex.didInfo.did,
-            redirectUri = cex.authRequest.redirectUri,
-            codeVerifier = cex.authRequestCodeVerifier,
+            clientId = ctx.didInfo.did,
+            redirectUri = ctx.authRequest.redirectUri,
+            codeVerifier = ctx.authRequestCodeVerifier,
             code = authCode,
         )
         val formData = tokenRequest.toHttpParameters()
@@ -525,14 +519,14 @@ object AuthService : AuthServiceApi {
         log.info { "Token Response: $tokenResponseJson" }
 
         val tokenResponse = TokenResponse.fromJSONString(tokenResponseJson).also {
-            cex.accessToken = SignedJWT.parse(it.accessToken)
+            ctx.accessToken = SignedJWT.parse(it.accessToken)
         }
         return tokenResponse
     }
 
-    override suspend fun sendTokenRequestPreAuthorized(cex: FlowContext, grant: GrantDetails): TokenResponse {
+    override suspend fun sendTokenRequestPreAuthorized(ctx: AuthContext, grant: GrantDetails): TokenResponse {
 
-        val tokenReqUrl = "${cex.authorizationEndpoint}/token"
+        val tokenReqUrl = "${ctx.authorizationEndpoint}/token"
 
         val tokenRequest = TokenRequest.PreAuthorizedCode(
             preAuthorizedCode = grant.preAuthorizedCode as String,
@@ -557,7 +551,7 @@ object AuthService : AuthServiceApi {
         log.info { "Token Response: $tokenResponseJson" }
 
         val tokenResponse = TokenResponse.fromJSONString(tokenResponseJson).also {
-            cex.accessToken = SignedJWT.parse(it.accessToken)
+            ctx.accessToken = SignedJWT.parse(it.accessToken)
         }
         return tokenResponse
     }
@@ -565,7 +559,7 @@ object AuthService : AuthServiceApi {
     // Private ---------------------------------------------------------------------------------------------------------
 
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun buildTokenResponse(ctx: FlowContext): TokenResponse {
+    private suspend fun buildTokenResponse(ctx: AuthContext): TokenResponse {
         val keyJwk = ctx.didInfo.publicKeyJwk()
         val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
 
@@ -624,7 +618,7 @@ object AuthService : AuthServiceApi {
     }
 
     private fun buildAuthEndpointMetadata(ctx: LoginContext): JsonObject {
-        val baseUrl = "$authEndpointUri/${ctx.subjectId}"
+        val baseUrl = "$authEndpointUri/${ctx.targetId}"
         return Json.parseToJsonElement(
             """
             {
@@ -718,7 +712,7 @@ object AuthService : AuthServiceApi {
      *
      * @return The wanted redirect url
      */
-    private suspend fun sendIDTokenRequest(ctx: FlowContext, authReq: AuthorizationRequest): String {
+    private suspend fun sendIDTokenRequest(ctx: AuthContext, authReq: AuthorizationRequest): String {
 
         val issuerMetadata = ctx.issuerMetadata
         val authorizationEndpoint = ctx.authorizationEndpoint
@@ -773,7 +767,7 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun sendVPTokenRequest(ctx: FlowContext, authReq: AuthorizationRequest): String {
+    private suspend fun sendVPTokenRequest(ctx: AuthContext, authReq: AuthorizationRequest): String {
 
         val issuerMetadata = ctx.issuerMetadata
         val authorizationEndpoint = ctx.authorizationEndpoint

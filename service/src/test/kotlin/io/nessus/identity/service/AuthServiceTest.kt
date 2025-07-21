@@ -14,7 +14,7 @@ class AuthServiceTest : AbstractServiceTest() {
             val ctx = login(Max)
 
             val metadataUrl = AuthService.getAuthMetadataUrl(ctx)
-            metadataUrl.shouldEndWith("/auth/${ctx.subjectId}/.well-known/openid-configuration")
+            metadataUrl.shouldEndWith("/auth/${ctx.targetId}/.well-known/openid-configuration")
 
             val jsonObj = AuthService.getAuthMetadata(ctx)
             jsonObj.shouldNotBeNull()

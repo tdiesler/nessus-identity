@@ -78,17 +78,17 @@ open class AbstractConformanceTest {
     }
 
     fun authEndpointUri(ctx: LoginContext): String {
-        val authUri = "${ConfigProvider.authEndpointUri}/${ctx.subjectId}"
+        val authUri = "${ConfigProvider.authEndpointUri}/${ctx.targetId}"
         return authUri
     }
 
     fun walletEndpointUri(ctx: LoginContext): String {
-        val walletUri = "${ConfigProvider.walletEndpointUri}/${ctx.subjectId}"
+        val walletUri = "${ConfigProvider.walletEndpointUri}/${ctx.targetId}"
         return walletUri
     }
 
     fun issuerEndpointUri(ctx: LoginContext): String {
-        val issuerUri = "${ConfigProvider.issuerEndpointUri}/${ctx.subjectId}"
+        val issuerUri = "${ConfigProvider.issuerEndpointUri}/${ctx.targetId}"
         return issuerUri
     }
 

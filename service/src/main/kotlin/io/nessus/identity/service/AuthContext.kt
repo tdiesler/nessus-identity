@@ -1,15 +1,12 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.CredentialOffer
-import id.walt.oid4vc.data.OfferedCredential
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.requests.AuthorizationRequest
-import id.walt.oid4vc.responses.CredentialResponse
 import java.time.Instant
 import kotlin.collections.set
 
-class FlowContext(ctx: LoginContext) : LoginContext(ctx.authToken, ctx.walletInfo, ctx.didInfo) {
+class AuthContext(ctx: LoginContext) : LoginContext(ctx.authToken, ctx.walletInfo, ctx.didInfo) {
 
     // State that is required before access
     //
@@ -17,11 +14,6 @@ class FlowContext(ctx: LoginContext) : LoginContext(ctx.authToken, ctx.walletInf
 
     lateinit var authCode: String
     lateinit var accessToken: SignedJWT
-
-    lateinit var credentialOffer: CredentialOffer
-    lateinit var offeredCredential: OfferedCredential
-
-    lateinit var credResponse: CredentialResponse
 
     // State that may optionally be provided
     //
@@ -40,26 +32,26 @@ class FlowContext(ctx: LoginContext) : LoginContext(ctx.authToken, ctx.walletInf
     val extras = mutableMapOf<String, Any>()
 
     init {
-        registry[subjectId] = this
+        registry[targetId] = this
     }
 
     companion object {
 
         // A global registry that allows us to resolve a CredentialExchange from subjectId
-        private val registry = mutableMapOf<String, FlowContext>()
+        private val registry = mutableMapOf<String, AuthContext>()
 
-        fun resolveCredentialExchange(subId: String): FlowContext? {
+        fun resolveCredentialExchange(subId: String): AuthContext? {
             return registry[subId]
         }
 
-        fun requireCredentialExchange(subId: String): FlowContext {
+        fun requireCredentialExchange(subId: String): AuthContext {
             return resolveCredentialExchange(subId)
                 ?: throw IllegalStateException("Cannot resolve CredentialExchange for: $subId")
         }
     }
 
     override fun close() {
-        registry.remove(subjectId)
+        registry.remove(targetId)
         super.close()
     }
 

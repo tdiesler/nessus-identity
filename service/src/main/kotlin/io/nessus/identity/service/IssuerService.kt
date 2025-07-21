@@ -27,7 +27,6 @@ import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import java.time.Instant
@@ -83,7 +82,7 @@ object IssuerService : IssuerServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun getCredentialFromRequest(ctx: FlowContext, accessToken: String, credReq: CredentialRequest): CredentialResponse {
+    override suspend fun getCredentialFromRequest(ctx: AuthContext, accessToken: String, credReq: CredentialRequest): CredentialResponse {
 
         val jwtToken = SignedJWT.parse(accessToken)
         ctx.validateAccessToken(jwtToken)
@@ -153,7 +152,7 @@ object IssuerService : IssuerServiceApi {
     }
 
     override fun getIssuerMetadataUrl(ctx: LoginContext): String {
-        val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerEndpointUri/${ctx.subjectId}")
+        val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerEndpointUri/${ctx.targetId}")
         return metadataUrl
     }
 
@@ -170,8 +169,8 @@ object IssuerService : IssuerServiceApi {
     // Private ---------------------------------------------------------------------------------------------------------
 
     private fun buildIssuerMetadata(ctx: LoginContext): OpenIDProviderMetadata {
-        val baseUri = "$issuerEndpointUri/${ctx.subjectId}"
-        val oauthUri = "$authEndpointUri/${ctx.subjectId}"
+        val baseUri = "$issuerEndpointUri/${ctx.targetId}"
+        val oauthUri = "$authEndpointUri/${ctx.targetId}"
         val credentialSupported = mapOf(
             "CTWalletSameAuthorisedInTime" to CredentialSupported(
                 format = CredentialFormat.jwt_vc,
