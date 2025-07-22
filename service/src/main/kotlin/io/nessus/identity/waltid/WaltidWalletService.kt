@@ -9,20 +9,16 @@ import id.walt.webwallet.db.models.WalletCredential
 import id.walt.webwallet.service.credentials.CredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.config.ConfigProvider
-import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialMatcher
+import io.nessus.identity.service.LoginContext
 import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.jetbrains.exposed.sql.Database
 import javax.sql.DataSource
-import kotlin.apply
-import kotlin.collections.any
-import kotlin.collections.first
-import kotlin.collections.firstOrNull
-import kotlin.collections.map
-import kotlin.text.trim
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -58,13 +54,16 @@ class WaltidWalletService {
 
     suspend fun login(params: LoginParams): LoginContext {
         val res = api.authLogin(params.toAuthLoginRequest())
-        val ctx = LoginContext().also { it.authToken = res.token }
+        val ctx = LoginContext().also {
+            it.putAttachment(AUTH_TOKEN_ATTACHMENT_KEY, res.token)
+        }
         return ctx
     }
 
     suspend fun loginWithWallet(params: LoginParams): LoginContext {
         val ctx = login(params).also {
-            it.walletInfo = listWallets(it).first()
+            val wi = listWallets(it).first()
+            it.putAttachment(WALLET_INFO_ATTACHMENT_KEY, wi)
         }
         return ctx
     }

@@ -7,30 +7,49 @@ import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.requests.TokenRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
-import io.ktor.server.engine.*
-import io.ktor.server.freemarker.*
-import io.ktor.server.netty.*
-import io.ktor.server.plugins.calllogging.*
-import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.statuspages.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
-import io.ktor.server.sessions.*
+import io.ktor.server.engine.EmbeddedServer
+import io.ktor.server.engine.connector
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.engine.sslConnector
+import io.ktor.server.freemarker.FreeMarker
+import io.ktor.server.freemarker.FreeMarkerContent
+import io.ktor.server.netty.Netty
+import io.ktor.server.netty.NettyApplicationEngine
+import io.ktor.server.plugins.calllogging.CallLogging
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.httpMethod
+import io.ktor.server.request.path
+import io.ktor.server.request.receive
+import io.ktor.server.request.receiveParameters
+import io.ktor.server.request.uri
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondRedirect
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.RoutingCall
+import io.ktor.server.routing.get
+import io.ktor.server.routing.post
+import io.ktor.server.routing.route
+import io.ktor.server.routing.routing
+import io.ktor.server.sessions.Sessions
+import io.ktor.server.sessions.cookie
+import io.ktor.server.sessions.sessions
 import io.ktor.util.toMap
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.config.redacted
+import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.CookieData
-import io.nessus.identity.service.AuthContext
-import io.nessus.identity.service.AuthContext.Companion.requireCredentialExchange
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.OIDCContext
+import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.service.toSignedJWT
@@ -45,7 +64,6 @@ import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 import java.io.File
 import java.security.KeyStore
-import kotlin.text.toCharArray
 
 fun main() {
     val server = EBSIPortal().createServer()
@@ -208,9 +226,9 @@ class EBSIPortal {
         runBlocking {
             val ctx = widWalletSvc.loginWithWallet(LoginParams(LoginType.EMAIL, email, password))
             widWalletSvc.findDidByPrefix(ctx,"did:key")?.also {
-                ctx.didInfo = it
+                ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
             }
-            val wid = ctx.walletInfo.id
+            val wid = ctx.walletId
             val did = ctx.maybeDidInfo?.did
             setCookieDataInSession(call, CookieData(wid, did))
             val targetId = LoginContext.getTargetId(wid, did ?: "")
@@ -241,14 +259,14 @@ class EBSIPortal {
         // authorize
         // 
         if (path == "/auth/$svcId/authorize") {
-            val cex = AuthContext(ctx)
+            val cex = OIDCContext(ctx)
             return handleAuthorizationRequest(call, cex)
         }
 
         // direct_post
         //
         if (path == "/auth/$svcId/direct_post") {
-            val cex = requireCredentialExchange(svcId)
+            val cex = OIDCContextRegistry.assert(svcId)
             return handleAuthDirectPost(call, cex)
         }
 
@@ -269,11 +287,11 @@ class EBSIPortal {
         if (path == "/auth/$svcId") {
             val responseType = queryParams["response_type"]
             if (responseType == "id_token") {
-                val cex = requireCredentialExchange(svcId)
+                val cex = OIDCContextRegistry.assert(svcId)
                 return handleIDTokenRequest(call, cex)
             }
             if (responseType == "vp_token") {
-                val cex = requireCredentialExchange(svcId)
+                val cex = OIDCContextRegistry.assert(svcId)
                 return handleVPTokenRequest(call, cex)
             }
         }
@@ -300,7 +318,7 @@ class EBSIPortal {
         }
 
         val ctx = requireLoginContext(svcId)
-        val cex = AuthContext(ctx)
+        val cex = OIDCContext(ctx)
 
         // Handle CredentialOffer by Uri
         //
@@ -336,7 +354,7 @@ class EBSIPortal {
         // Handle Credential Request
         //
         if (path == "/issuer/$svcId/credential") {
-            val cex = requireCredentialExchange(svcId)
+            val cex = OIDCContextRegistry.assert(svcId)
             return handleCredentialRequest(call, cex)
         }
 
@@ -362,7 +380,7 @@ class EBSIPortal {
     /**
      * The Holder Wallet requests access for the required credentials from the Issuer's Authorisation Server.
      */
-    private suspend fun handleAuthorizationRequest(call: RoutingCall, ctx: AuthContext) {
+    private suspend fun handleAuthorizationRequest(call: RoutingCall, ctx: OIDCContext) {
 
         val queryParams = call.parameters.toMap()
         val authReq = AuthorizationRequest.fromHttpParameters(queryParams)
@@ -373,7 +391,7 @@ class EBSIPortal {
         call.respondRedirect(redirectUrl)
     }
 
-    private suspend fun handleIDTokenRequest(call: RoutingCall, ctx: AuthContext) {
+    private suspend fun handleIDTokenRequest(call: RoutingCall, ctx: OIDCContext) {
 
         AuthService.handleIDTokenRequest(ctx, call.parameters.toMap())
 
@@ -384,7 +402,7 @@ class EBSIPortal {
         )
     }
 
-    private suspend fun handleVPTokenRequest(call: RoutingCall, ctx: AuthContext) {
+    private suspend fun handleVPTokenRequest(call: RoutingCall, ctx: OIDCContext) {
 
         AuthService.handleVPTokenRequest(ctx, call.parameters.toMap())
 
@@ -395,7 +413,7 @@ class EBSIPortal {
         )
     }
 
-    private suspend fun handleAuthDirectPost(call: RoutingCall, ctx: AuthContext) {
+    private suspend fun handleAuthDirectPost(call: RoutingCall, ctx: OIDCContext) {
 
         val postParams = call.receiveParameters().toMap()
         log.info { "Authorization DirectPost: ${call.request.uri}" }
@@ -448,12 +466,12 @@ class EBSIPortal {
         val tokenRequest = TokenRequest.fromHttpParameters(postParams)
         val tokenResponse = when (tokenRequest) {
             is TokenRequest.AuthorizationCode -> {
-                val cex = requireCredentialExchange(svcId)
+                val cex = OIDCContextRegistry.assert(svcId)
                 AuthService.handleTokenRequestAuthCode(cex, tokenRequest)
             }
 
             is TokenRequest.PreAuthorizedCode -> {
-                val cex = AuthContext(requireLoginContext(svcId))
+                val cex = OIDCContext(requireLoginContext(svcId))
                 AuthService.handleTokenRequestPreAuthorized(cex, tokenRequest)
             }
         }
@@ -473,7 +491,7 @@ class EBSIPortal {
     // Issuer initiated flows start with the Credential Offering proposed by Issuer.
     // The Credential Offering is in redirect for same-device tests and in QR Code for cross-device tests.
     //
-    private suspend fun handleCredentialOffer(call: RoutingCall, ctx: AuthContext) {
+    private suspend fun handleCredentialOffer(call: RoutingCall, ctx: OIDCContext) {
 
         // Get Credential Offer URI from the query Parameters
         //
@@ -504,7 +522,7 @@ class EBSIPortal {
         // Verify that we can unmarshall the credential
         Json.decodeFromString<JwtCredential>("${credJwt.payload}")
 
-        val walletId = ctx.walletInfo.id
+        val walletId = ctx.walletId
         val format = credResponse.format as CredentialFormat
         widWalletSvc.addCredential(walletId, format, credJwt)
 
@@ -528,7 +546,7 @@ class EBSIPortal {
         )
     }
 
-    private suspend fun handleCredentialRequest(call: RoutingCall, ctx: AuthContext) {
+    private suspend fun handleCredentialRequest(call: RoutingCall, ctx: OIDCContext) {
 
         val accessToken = call.request.headers["Authorization"]
             ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
@@ -576,7 +594,7 @@ class EBSIPortal {
             if (cfg.userEmail.isNotBlank() && cfg.userPassword.isNotBlank()) {
                 val loginParams = LoginParams(LoginType.EMAIL, cfg.userEmail, cfg.userPassword)
                 ctx = widWalletSvc.loginWithWallet(loginParams)
-                val subjectId = LoginContext.getTargetId(ctx.walletInfo.id, "")
+                val subjectId = LoginContext.getTargetId(ctx.walletId, "")
                 sessions[subjectId] = ctx
             }
         }
@@ -584,8 +602,9 @@ class EBSIPortal {
         ctx ?: throw IllegalStateException("Login required")
 
         if (ctx.maybeDidInfo == null) {
-            ctx.didInfo = widWalletSvc.findDidByPrefix(ctx, "did:key")
+            val didInfo = widWalletSvc.findDidByPrefix(ctx, "did:key")
                 ?: throw IllegalStateException("Cannot find required did in wallet")
+            ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, didInfo)
         }
 
         return ctx

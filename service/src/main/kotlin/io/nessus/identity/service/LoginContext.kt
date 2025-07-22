@@ -1,45 +1,23 @@
 package io.nessus.identity.service
 
+import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.waltid.DidInfo
 import io.nessus.identity.waltid.WalletInfo
 import java.security.MessageDigest
 
-open class LoginContext() {
+open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : AttachmentContext(attachments) {
 
-    constructor(authToken: String, walletInfo: WalletInfo, didInfo: DidInfo) : this() {
-        _authToken = authToken
-        _walletInfo = walletInfo
-        _didInfo = didInfo
-    }
+    val maybeWalletInfo get() = getAttachment(WALLET_INFO_ATTACHMENT_KEY)
+    val maybeDidInfo get() = getAttachment(DID_INFO_ATTACHMENT_KEY)
 
-    private var _authToken: String? = null // The wallet-api auth token
-    private var _walletInfo: WalletInfo? = null
-    private var _didInfo: DidInfo? = null
+    val hasWalletInfo get() = hasAttachment(WALLET_INFO_ATTACHMENT_KEY)
+    val hasDidInfo get() = hasAttachment(DID_INFO_ATTACHMENT_KEY)
 
-    val maybeAuthToken get() = _authToken
-    val maybeWalletInfo get() = _walletInfo
-    val maybeDidInfo get() = _didInfo
-
-    val hasWalletInfo get() = _walletInfo != null
-    val hasDidInfo get() = _didInfo != null
-
-    var authToken: String
-        get() = _authToken ?: throw IllegalStateException("No authToken")
-        set(token) {
-            _authToken = token
-        }
-
-    var walletInfo: WalletInfo
-        get() = _walletInfo ?: throw IllegalStateException("No walletInfo")
-        set(wi) {
-            _walletInfo = wi
-        }
-
-    var didInfo: DidInfo
-        get() = _didInfo ?: throw IllegalStateException("No didInfo")
-        set(di) {
-            _didInfo = di
-        }
+    val authToken get() = assertAttachment(AUTH_TOKEN_ATTACHMENT_KEY)
+    val walletInfo get() = assertAttachment(WALLET_INFO_ATTACHMENT_KEY)
+    val didInfo get() = assertAttachment(DID_INFO_ATTACHMENT_KEY)
 
     val did get() = didInfo.did
     val walletId get() = walletInfo.id
@@ -60,7 +38,7 @@ open class LoginContext() {
     }
 
     open fun close() {
-        _authToken = null
-        _didInfo = null
+        removeAttachment(AUTH_TOKEN_ATTACHMENT_KEY)
+        removeAttachment(DID_INFO_ATTACHMENT_KEY)
     }
 }

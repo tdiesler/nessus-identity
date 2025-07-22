@@ -2,6 +2,8 @@ package io.nessus.identity.service
 
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.User
@@ -28,11 +30,12 @@ abstract class AbstractServiceTest {
 
     suspend fun loginWithWallet (user: User): LoginContext {
         val ctx = login(user).also {
-            it.walletInfo = widWalletSvc.listWallets(it).first()
+            val wi = widWalletSvc.listWallets(it).first()
+            it.putAttachment(WALLET_INFO_ATTACHMENT_KEY, wi)
         }
         if (ctx.maybeDidInfo == null) {
             widWalletSvc.findDidByPrefix(ctx, "did:key")?.also {
-                ctx.didInfo = it
+                ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
             }
         }
         return ctx
@@ -62,14 +65,13 @@ abstract class AbstractServiceTest {
             }
         }
         if (ctx.maybeDidInfo == null) {
-            val didInfo = widWalletSvc.findDidByPrefix(ctx, "did:key")
+            var didInfo = widWalletSvc.findDidByPrefix(ctx, "did:key")
             if (didInfo == null) {
                 val key = widWalletSvc.findKeyByType(ctx, KeyType.SECP256R1)
                     ?: widWalletSvc.createKey(ctx, KeyType.SECP256R1)
-                ctx.didInfo = widWalletSvc.createDidKey(ctx, "", key.id)
-            } else {
-                ctx.didInfo = didInfo
+                didInfo = widWalletSvc.createDidKey(ctx, "", key.id)
             }
+            ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, didInfo)
         }
         return ctx
     }

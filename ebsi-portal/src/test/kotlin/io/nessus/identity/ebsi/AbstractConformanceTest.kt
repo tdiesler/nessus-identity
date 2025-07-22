@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.common.runBlocking
 import io.ktor.server.engine.*
 import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.User
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
@@ -39,7 +40,7 @@ open class AbstractConformanceTest {
             ctx = runBlocking {
                 widWalletSvc.loginWithWallet(user.toLoginParams()).also { ctx ->
                     widWalletSvc.findDidByPrefix(ctx, "did:key")?.also {
-                        ctx.didInfo = it
+                        ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
                     }
                 }
             }

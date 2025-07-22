@@ -34,7 +34,7 @@ import java.util.Date
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-// WalletService =======================================================================================================
+// IssuerService =======================================================================================================
 
 object IssuerService : IssuerServiceApi {
 
@@ -82,7 +82,7 @@ object IssuerService : IssuerServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun getCredentialFromRequest(ctx: AuthContext, accessToken: String, credReq: CredentialRequest): CredentialResponse {
+    override suspend fun getCredentialFromRequest(ctx: OIDCContext, accessToken: String, credReq: CredentialRequest): CredentialResponse {
 
         val jwtToken = SignedJWT.parse(accessToken)
         ctx.validateAccessToken(jwtToken)
