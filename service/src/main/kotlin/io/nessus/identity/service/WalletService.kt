@@ -13,6 +13,7 @@ import id.walt.oid4vc.data.OfferedCredential
 import id.walt.oid4vc.data.OpenIDClientMetadata
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.requests.AuthorizationRequest
+import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import id.walt.oid4vc.responses.TokenResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -29,11 +30,11 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
-import io.nessus.identity.api.WalletServiceApi
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -49,11 +50,11 @@ import kotlin.uuid.Uuid
 
 // WalletService =======================================================================================================
 
-object WalletService : WalletServiceApi {
+object WalletService {
 
     val log = KotlinLogging.logger {}
 
-    override suspend fun getCredentialFromUri(ctx: OIDCContext, offerUri: String): CredentialResponse {
+    suspend fun getCredentialFromUri(ctx: OIDCContext, offerUri: String): CredentialResponse {
 
         val credOffer = OpenID4VCI.parseAndResolveCredentialOfferRequestUrl(offerUri)
         val credResponse = getCredentialFromOffer(ctx, credOffer)
@@ -61,24 +62,27 @@ object WalletService : WalletServiceApi {
         return credResponse
     }
 
-    override suspend fun getCredentialFromOffer(ctx: OIDCContext, credOffer: CredentialOffer): CredentialResponse {
+    suspend fun getCredentialFromOffer(ctx: OIDCContext, credOffer: CredentialOffer): CredentialResponse {
 
         val offeredCred = resolveOfferedCredential(ctx, credOffer)
 
-        val tokenResponse = credOffer.getPreAuthorizedGrantDetails()?.let {
+        val accessToken = credOffer.getPreAuthorizedGrantDetails()?.let {
             AuthService.sendTokenRequestPreAuthorized(ctx, it)
         } ?: run {
             val issuerState = credOffer.grants[GrantType.authorization_code.value]?.issuerState
             val authRequest = buildAuthorizationRequestFromCredentialOffer(ctx, offeredCred, issuerState)
             val authCode = sendAuthorizationRequest(ctx, authRequest)
-            AuthService.sendTokenRequestAuthCode(ctx, authCode)
+            val tokenReq = AuthService.createTokenRequestAuthCode(ctx, authCode)
+            AuthService.sendTokenRequestAuthCode(ctx, tokenReq)
         }
 
-        val credResponse = sendCredentialRequest(ctx, offeredCred, tokenResponse)
-        return credResponse
+        val credReq = buildCredentialRequest(ctx, offeredCred, accessToken)
+        val credRes = sendCredentialRequest(ctx, credReq)
+
+        return credRes
     }
 
-    override suspend fun getDeferredCredential(ctx: OIDCContext, acceptanceToken: String): CredentialResponse {
+    suspend fun getDeferredCredential(ctx: OIDCContext, acceptanceToken: String): CredentialResponse {
 
         val deferredCredentialEndpoint = ctx.issuerMetadata.deferredCredentialEndpoint
             ?: throw IllegalStateException("No credential_endpoint")
@@ -105,7 +109,11 @@ object WalletService : WalletServiceApi {
 
     // Utils not in the WalletServiceApi -------------------------------------------------------------------------------
 
-    fun buildAuthorizationRequestFromCredentialOffer(ctx: OIDCContext, offeredCred: OfferedCredential, issuerState: String?): AuthorizationRequest {
+    fun buildAuthorizationRequestFromCredentialOffer(
+        ctx: OIDCContext,
+        offeredCred: OfferedCredential,
+        issuerState: String?
+    ): AuthorizationRequest {
 
         // The Wallet will start by requesting access for the desired credential from the Auth Mock (Authorisation Server).
         // The client_metadata.authorization_endpoint is used for the redirect location associated with the vp_token and id_token.
@@ -229,7 +237,7 @@ object WalletService : WalletServiceApi {
 
                     // Store the AuthorizationRequest in memory
                     val reqObjectId = "${Uuid.random()}"
-                    ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authReq)
+                    ctx.putAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY, authReq)
 
                     log.info { "Converting 'request' to 'request_uri'" }
 
@@ -254,11 +262,9 @@ object WalletService : WalletServiceApi {
         return ctx.authCode
     }
 
-    private suspend fun sendCredentialRequest(ctx: OIDCContext, offeredCred: OfferedCredential, tokenResponse: TokenResponse): CredentialResponse {
+    suspend fun buildCredentialRequest(ctx: OIDCContext, offeredCred: OfferedCredential, accessToken: TokenResponse): CredentialRequest {
 
-        val accessToken = tokenResponse.accessToken
-            ?: throw IllegalStateException("No accessToken")
-        val cNonce = tokenResponse.cNonce
+        val cNonce = accessToken.cNonce
             ?: throw IllegalStateException("No c_nonce")
 
         val iat = Instant.now()
@@ -271,13 +277,7 @@ object WalletService : WalletServiceApi {
             .keyID(kid)
             .build()
 
-        val credentialTypes = offeredCred.types
-            ?: throw IllegalStateException("No credential types")
-
         val issuerUri = ctx.issuerMetadata.credentialIssuer
-        val credentialEndpoint = ctx.issuerMetadata.credentialEndpoint
-            ?: throw IllegalStateException("No credential_endpoint")
-
         val claimsBuilder = JWTClaimsSet.Builder()
             .issuer(ctx.did)
             .audience(issuerUri)
@@ -291,10 +291,13 @@ object WalletService : WalletServiceApi {
         val credReqClaims = claimsBuilder.build()
 
         val credReqJwt = SignedJWT(credReqHeader, credReqClaims).signWithKey(ctx, kid)
-        log.info { "Credential Request Header: ${credReqJwt.header}" }
-        log.info { "Credential Request Claims: ${credReqJwt.jwtClaimsSet}" }
+        log.info { "CredentialRequest Header: ${credReqJwt.header}" }
+        log.info { "CredentialRequest Claims: ${credReqJwt.jwtClaimsSet}" }
 
-        val credReqBody = Json.encodeToString(buildJsonObject {
+        val credentialTypes = offeredCred.types
+            ?: throw IllegalStateException("No credential types")
+
+        val credReqJson = Json.encodeToString(buildJsonObject {
             put("types", JsonArray(credentialTypes.map { JsonPrimitive(it) }))
             put("format", JsonPrimitive("jwt_vc"))
             put("proof", buildJsonObject {
@@ -303,13 +306,26 @@ object WalletService : WalletServiceApi {
             })
         })
 
-        log.info { "Send Credential Request: $credentialEndpoint" }
-        log.info { "  $credReqBody" }
+        val credReq = Json.decodeFromString<CredentialRequest>(credReqJson)
+        log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
+
+        return credReq
+    }
+
+    suspend fun sendCredentialRequest(ctx: OIDCContext, credReq: CredentialRequest): CredentialResponse {
+
+        val accessToken = ctx.accessToken
+        val credentialEndpoint = ctx.issuerMetadata.credentialEndpoint
+            ?: throw IllegalStateException("No credential_endpoint")
+
+        val credReqJson = Json.encodeToString(credReq)
+        log.info { "Send CredentialRequest: $credentialEndpoint" }
+        log.info { "  $credReqJson" }
 
         val res = http.post(credentialEndpoint) {
-            header(HttpHeaders.Authorization, "Bearer $accessToken")
+            header(HttpHeaders.Authorization, "Bearer ${accessToken.serialize()}")
             contentType(ContentType.Application.Json)
-            setBody(credReqBody)
+            setBody(credReqJson)
         }
         if (res.status != HttpStatusCode.OK)
             throw HttpStatusException(res.status, res.bodyAsText())

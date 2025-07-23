@@ -32,12 +32,12 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
-import io.nessus.identity.api.AuthServiceApi
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import io.nessus.identity.waltid.publicKeyJwk
@@ -53,16 +53,16 @@ import kotlin.uuid.Uuid
 
 // AuthService =========================================================================================================
 
-object AuthService : AuthServiceApi {
+object AuthService {
 
     val log = KotlinLogging.logger {}
 
-    override fun getAuthMetadataUrl(ctx: LoginContext): String {
+    fun getAuthMetadataUrl(ctx: LoginContext): String {
         val metadataUrl = OpenID4VCI.getOpenIdProviderMetadataUrl("$authEndpointUri/${ctx.targetId}")
         return metadataUrl
     }
 
-    override fun getAuthMetadata(ctx: LoginContext): JsonObject {
+    fun getAuthMetadata(ctx: LoginContext): JsonObject {
         val metadata = buildAuthEndpointMetadata(ctx)
         return metadata
     }
@@ -70,7 +70,7 @@ object AuthService : AuthServiceApi {
     /**
      * Handle AuthorizationRequest from remote Holder to this Issuer's Auth Endpoint
      */
-    override suspend fun validateAuthorizationRequest(ctx: OIDCContext, authReq: AuthorizationRequest) {
+    suspend fun validateAuthorizationRequest(ctx: OIDCContext, authReq: AuthorizationRequest) {
 
         // Attach issuer metadata (on demand)
         //
@@ -86,7 +86,7 @@ object AuthService : AuthServiceApi {
         ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authReq)
     }
 
-    override suspend fun createIDTokenFromRequest(ctx: OIDCContext, reqParams: Map<String, String>): SignedJWT {
+    suspend fun createIDToken(ctx: OIDCContext, reqParams: Map<String, String>): SignedJWT {
 
         // Verify required query params
         for (key in listOf("client_id", "redirect_uri", "response_type")) {
@@ -171,18 +171,16 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun handleIDTokenResponse(ctx: OIDCContext, postParams: Map<String, List<String>>): String {
+    fun validateIDToken(ctx: OIDCContext, idTokenJwt: SignedJWT): String {
 
-        val idToken = postParams["id_token"]?.firstOrNull()
-            ?: throw IllegalStateException("No id_token")
-
-        val idTokenJwt = SignedJWT.parse(idToken)
         log.info { "IDToken Header: ${idTokenJwt.header}" }
         log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
 
-        // [TODO] validate IDToken
+        // [TODO] Validate the IDToken which is proof that the Holders controls the given Did
+        // We should be able to use the Holder's public key to do that
 
-        ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, "${Uuid.random()}")
+        val authCode = "${Uuid.random()}"
+        ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, authCode)
 
         val authReq = ctx.authRequest
         val idTokenRedirect = URLBuilder("${authReq.redirectUri}").apply {
@@ -193,6 +191,24 @@ object AuthService : AuthServiceApi {
         }.buildString()
 
         log.info { "IDToken Response $idTokenRedirect" }
+        urlQueryToMap(idTokenRedirect).also {
+            it.forEach { (k, v) -> log.info { "  $k=$v" } }
+        }
+
+        return idTokenRedirect
+    }
+
+    fun getAuthCodeRedirectUri(ctx: OIDCContext, authCode: String): String {
+
+        val authReq = ctx.authRequest
+        val idTokenRedirect = URLBuilder("${authReq.redirectUri}").apply {
+            parameters.append("code", authCode)
+            authReq.state?.also { state ->
+                parameters.append("state", state)
+            }
+        }.buildString()
+
+        log.info { "AuthCode Redirect: $idTokenRedirect" }
         urlQueryToMap(idTokenRedirect).also {
             it.forEach { (k, v) -> log.info { "  $k=$v" } }
         }
@@ -269,7 +285,7 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun handleVPTokenRequest(ctx: OIDCContext, reqParams: Map<String, List<String>>): String {
+    suspend fun handleVPTokenRequest(ctx: OIDCContext, reqParams: Map<String, List<String>>): String {
 
         // Verify required query params
         for (key in listOf("client_id", "request_uri", "response_type")) {
@@ -291,7 +307,7 @@ object AuthService : AuthServiceApi {
         if (reqObjectId == null)
             throw IllegalStateException("No request_object in: $requestUri")
 
-        val reqObject = ctx.assertAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
+        val reqObject = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         log.info { "VPToken Request: ${Json.encodeToString(reqObject)}" }
 
         val nonce = reqObject.nonce
@@ -422,8 +438,9 @@ object AuthService : AuthServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun handleTokenRequestAuthCode(ctx: OIDCContext, tokReq: TokenRequest.AuthorizationCode): TokenResponse {
+    suspend fun handleTokenRequestAuthCode(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
 
+        val tokReq = tokenReq as TokenRequest.AuthorizationCode
         val grantType = tokReq.grantType
         val codeVerifier = tokReq.codeVerifier
         val redirectUri = tokReq.redirectUri
@@ -436,8 +453,8 @@ object AuthService : AuthServiceApi {
 
         // [TODO] verify token request code challenge
 
-        val tokenResponse = buildTokenResponse(ctx)
-        return tokenResponse
+        val tokenRes = buildTokenResponse(ctx)
+        return tokenRes
     }
 
     suspend fun handleTokenRequestPreAuthorized(
@@ -487,9 +504,7 @@ object AuthService : AuthServiceApi {
         return tokenResponse
     }
 
-    override suspend fun sendTokenRequestAuthCode(ctx: OIDCContext, authCode: String): TokenResponse {
-
-        val tokenReqUrl = "${ctx.authorizationServer}/token"
+    fun createTokenRequestAuthCode(ctx: OIDCContext, authCode: String): TokenRequest {
 
         val tokenRequest = TokenRequest.AuthorizationCode(
             clientId = ctx.did,
@@ -497,11 +512,17 @@ object AuthService : AuthServiceApi {
             codeVerifier = ctx.authRequestCodeVerifier,
             code = authCode,
         )
-        val formData = tokenRequest.toHttpParameters()
+        return tokenRequest
+    }
+
+    suspend fun sendTokenRequestAuthCode(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
+
+        val tokenReqUrl = "${ctx.authorizationServer}/token"
 
         log.info { "Send Token Request $tokenReqUrl" }
-        log.info { "  $tokenRequest" } // AuthorizationCode is not @Serializable
+        log.info { "  $tokenReq" } // AuthorizationCode is not @Serializable
 
+        val formData = tokenReq.toHttpParameters()
         val res = http.post(tokenReqUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
             setBody(FormDataContent(Parameters.build {
@@ -514,14 +535,15 @@ object AuthService : AuthServiceApi {
 
         val tokenResponseJson = res.bodyAsText()
         log.info { "Token Response: $tokenResponseJson" }
+        val tokenRes = TokenResponse.fromJSONString(tokenResponseJson)
 
-        val tokenResponse = TokenResponse.fromJSONString(tokenResponseJson).also {
-            ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, SignedJWT.parse(it.accessToken))
-        }
-        return tokenResponse
+        val accessTokenJwt = SignedJWT.parse(tokenRes.accessToken)
+        ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
+
+        return tokenRes
     }
 
-    override suspend fun sendTokenRequestPreAuthorized(ctx: OIDCContext, grant: GrantDetails): TokenResponse {
+    suspend fun sendTokenRequestPreAuthorized(ctx: OIDCContext, grant: GrantDetails): TokenResponse {
 
         val tokenReqUrl = "${ctx.authorizationServer}/token"
 
@@ -546,11 +568,12 @@ object AuthService : AuthServiceApi {
 
         val tokenResponseJson = res.bodyAsText()
         log.info { "Token Response: $tokenResponseJson" }
+        val tokenRes = TokenResponse.fromJSONString(tokenResponseJson)
 
-        val tokenResponse = TokenResponse.fromJSONString(tokenResponseJson).also {
-            ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, SignedJWT.parse(it.accessToken))
-        }
-        return tokenResponse
+        val accessToken = SignedJWT.parse(tokenRes.accessToken)
+        ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessToken)
+
+        return tokenRes
     }
 
     // Utility Functions not in the API --------------------------------------------------------------------------------

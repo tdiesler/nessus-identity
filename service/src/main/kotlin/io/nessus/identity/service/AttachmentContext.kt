@@ -22,6 +22,7 @@ object AttachmentKeys {
     val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequest>()
     val AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE_VERIFIER")
     val ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<OpenIDProviderMetadata>()
+    val REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<Any>("RequestUriObject")
 }
 
 // AttachmentKey =======================================================================================================

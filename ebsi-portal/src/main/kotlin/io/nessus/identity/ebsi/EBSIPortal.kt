@@ -67,6 +67,7 @@ import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 import java.io.File
 import java.security.KeyStore
+import kotlin.IllegalStateException
 
 fun main() {
     val server = EBSIPortal().createServer()
@@ -419,7 +420,7 @@ class EBSIPortal {
             }
         }
 
-        val idTokenJwt = AuthService.createIDTokenFromRequest(ctx, reqParams)
+        val idTokenJwt = AuthService.createIDToken(ctx, reqParams)
         AuthService.sendIDToken(ctx, redirectUri, idTokenJwt)
 
         call.respondText(
@@ -443,11 +444,14 @@ class EBSIPortal {
     private suspend fun handleAuthDirectPost(call: RoutingCall, ctx: OIDCContext) {
 
         val postParams = call.receiveParameters().toMap()
-        log.info { "Authorization DirectPost: ${call.request.uri}" }
+        log.info { "Auth DirectPost: ${call.request.uri}" }
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
         if (postParams["id_token"] != null) {
-            val redirectUrl = AuthService.handleIDTokenResponse(ctx, postParams)
+            val idToken = postParams["id_token"]?.first()
+            val idTokenJwt = SignedJWT.parse(idToken)
+            val authCode = AuthService.validateIDToken(ctx, idTokenJwt)
+            val redirectUrl = AuthService.getAuthCodeRedirectUri(ctx, authCode)
             return call.respondRedirect(redirectUrl)
         }
 
@@ -490,16 +494,16 @@ class EBSIPortal {
         log.info { "Token Request: ${call.request.uri}" }
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val tokenRequest = TokenRequest.fromHttpParameters(postParams)
-        val tokenResponse = when (tokenRequest) {
+        val tokenReq = TokenRequest.fromHttpParameters(postParams)
+        val tokenResponse = when (tokenReq) {
             is TokenRequest.AuthorizationCode -> {
                 val ctx = OIDCContextRegistry.assert(svcId)
-                AuthService.handleTokenRequestAuthCode(ctx, tokenRequest)
+                AuthService.handleTokenRequestAuthCode(ctx, tokenReq)
             }
 
             is TokenRequest.PreAuthorizedCode -> {
                 val ctx = OIDCContext(requireLoginContext(svcId))
-                AuthService.handleTokenRequestPreAuthorized(ctx, tokenRequest)
+                AuthService.handleTokenRequestPreAuthorized(ctx, tokenReq)
             }
         }
 
@@ -581,7 +585,8 @@ class EBSIPortal {
             ?: throw IllegalArgumentException("Invalid authorization header")
 
         val credReq = call.receive<CredentialRequest>()
-        val credentialResponse = IssuerService.getCredentialFromRequest(ctx, accessToken, credReq)
+        val accessTokenJwt = SignedJWT.parse(accessToken)
+        val credentialResponse = IssuerService.credentialFromRequest(ctx, credReq, accessTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,

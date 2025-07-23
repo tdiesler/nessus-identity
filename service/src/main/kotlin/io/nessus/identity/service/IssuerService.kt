@@ -17,7 +17,6 @@ import id.walt.oid4vc.data.SubjectType
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.nessus.identity.api.IssuerServiceApi
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.config.ConfigProvider.issuerEndpointUri
 import io.nessus.identity.types.CredentialSchema
@@ -35,11 +34,11 @@ import kotlin.uuid.Uuid
 
 // IssuerService =======================================================================================================
 
-object IssuerService : IssuerServiceApi {
+object IssuerService {
 
     val log = KotlinLogging.logger {}
 
-    override suspend fun createCredentialOffer(ctx: LoginContext, sub: String, types: List<String>): CredentialOffer {
+    suspend fun createCredentialOffer(ctx: LoginContext, sub: String, types: List<String>): CredentialOffer {
 
         val metadata = getIssuerMetadata(ctx) as OpenIDProviderMetadata.Draft11
         val issuerUri = metadata.credentialIssuer as String
@@ -85,10 +84,9 @@ object IssuerService : IssuerServiceApi {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun getCredentialFromRequest(ctx: OIDCContext, accessToken: String, credReq: CredentialRequest): CredentialResponse {
+    suspend fun credentialFromRequest(ctx: OIDCContext, credReq: CredentialRequest, accessTokenJwt: SignedJWT): CredentialResponse {
 
-        val jwtToken = SignedJWT.parse(accessToken)
-        ctx.validateAccessToken(jwtToken)
+        ctx.validateAccessToken(accessTokenJwt)
 
         log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
 
@@ -150,17 +148,17 @@ object IssuerService : IssuerServiceApi {
         return credentialResponse
     }
 
-    override fun getIssuerMetadataUrl(ctx: LoginContext): String {
+    fun getIssuerMetadataUrl(ctx: LoginContext): String {
         val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerEndpointUri/${ctx.targetId}")
         return metadataUrl
     }
 
-    override fun getIssuerMetadata(ctx: LoginContext): OpenIDProviderMetadata {
+    fun getIssuerMetadata(ctx: LoginContext): OpenIDProviderMetadata {
         val metadata = buildIssuerMetadata(ctx)
         return metadata
     }
 
-    override fun getSupportedCredentials(ctx: LoginContext): Set<CredentialSupported> {
+    fun getSupportedCredentials(ctx: LoginContext): Set<CredentialSupported> {
         val md = getIssuerMetadata(ctx) as OpenIDProviderMetadata.Draft11
         val supported = md.credentialSupported?.values?.toSet() as Set
         return supported

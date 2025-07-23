@@ -17,7 +17,7 @@ object CredentialMatcher {
     private val jaywayConfig: Configuration = Configuration.defaultConfiguration()
         .addOptions(Option.DEFAULT_PATH_LEAF_TO_NULL)
 
-    fun matchCredential(wc: WalletCredential, ind: InputDescriptor): Boolean  {
+    fun matchCredential(wc: WalletCredential, ind: InputDescriptor): Boolean {
         val indId = ind.id
         val fields = ind.constraints?.fields
             ?: throw IllegalStateException("No constraints.fields for: $indId")
@@ -35,11 +35,12 @@ object CredentialMatcher {
                 ?: throw IllegalStateException("No filter in: $fld")
 
             val vcJwt = SignedJWT.parse(wc.document)
-            val vcPayload = vcJwt.payload.toString()
-            val pathValue = extractPathValues(vcPayload, path)
+            val pathValue = pathValues(vcJwt, path)
 
-            val containsObj = filterMap["contains"] ?: throw IllegalStateException("No filter.contains in: ${fld.filter}")
-            val wantedValue = containsObj.jsonObject["const"]?.jsonPrimitive?.content ?: throw IllegalStateException("No filter.contains.const in: ${fld.filter}")
+            val containsObj =
+                filterMap["contains"] ?: throw IllegalStateException("No filter.contains in: ${fld.filter}")
+            val wantedValue = containsObj.jsonObject["const"]?.jsonPrimitive?.content
+                ?: throw IllegalStateException("No filter.contains.const in: ${fld.filter}")
             if (pathValue.contains(wantedValue)) {
                 matchCount++
             }
@@ -48,7 +49,18 @@ object CredentialMatcher {
         return matchCount == numFields
     }
 
-    private fun extractPathValues(json: String, path: String): List<String> {
-        return JsonPath.using(jaywayConfig).parse(json).read(path)
+    fun pathValues(vcJwt: SignedJWT, path: String): List<String> {
+        val vcPayload = vcJwt.payload.toString()
+        return pathValues(vcPayload, path)
+    }
+
+    fun pathValues(json: String, path: String): List<String> {
+        val parsed = JsonPath.using(jaywayConfig).parse(json)
+        val value = parsed.read<Any?>(path)
+        return when (value) {
+            is List<*> -> value.mapNotNull { it as? String }
+            is String -> listOf(value)
+            else -> throw IllegalStateException("Unsupported value type: $value")
+        }
     }
 }
