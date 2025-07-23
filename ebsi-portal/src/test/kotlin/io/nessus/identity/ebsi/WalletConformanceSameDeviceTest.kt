@@ -1,19 +1,13 @@
 package io.nessus.identity.ebsi
 
 import io.kotest.matchers.booleans.shouldBeTrue
-import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.openqa.selenium.By
-import org.openqa.selenium.JavascriptExecutor
-import org.openqa.selenium.WebElement
 import org.openqa.selenium.support.ui.WebDriverWait
-import java.net.URI
-import java.net.URLEncoder
 import java.time.Duration
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

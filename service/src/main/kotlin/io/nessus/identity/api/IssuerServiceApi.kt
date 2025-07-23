@@ -5,8 +5,8 @@ import id.walt.oid4vc.data.CredentialSupported
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
-import io.nessus.identity.service.OIDCContext
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.OIDCContext
 
 // IssuerApi ===========================================================================================================
 

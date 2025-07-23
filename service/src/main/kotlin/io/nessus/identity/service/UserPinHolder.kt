@@ -1,7 +1,5 @@
 package io.nessus.identity.service
 
-import java.lang.IllegalStateException
-
 object UserPinHolder {
 
     private var _userPin: String? = null

@@ -10,8 +10,6 @@ import org.openqa.selenium.JavascriptExecutor
 import org.openqa.selenium.WebElement
 import java.net.URI
 import java.net.URLEncoder
-import kotlin.collections.component1
-import kotlin.collections.component2
 
 abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
 

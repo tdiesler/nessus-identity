@@ -7,6 +7,8 @@ import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.requests.TokenRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -52,6 +54,7 @@ import io.nessus.identity.service.OIDCContext
 import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.getVersionInfo
+import io.nessus.identity.service.http
 import io.nessus.identity.service.toSignedJWT
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.JwtCredential
@@ -225,7 +228,7 @@ class EBSIPortal {
 
         runBlocking {
             val ctx = widWalletSvc.loginWithWallet(LoginParams(LoginType.EMAIL, email, password))
-            widWalletSvc.findDidByPrefix(ctx,"did:key")?.also {
+            widWalletSvc.findDidByPrefix(ctx, "did:key")?.also {
                 ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
             }
             val wid = ctx.walletId
@@ -243,56 +246,55 @@ class EBSIPortal {
         val reqUri = call.request.uri
         val path = call.request.path()
 
-        log.info { "Authorization $reqUri" }
+        log.info { "Auth $reqUri" }
         val queryParams = urlQueryToMap(reqUri).also {
             it.forEach { (k, v) ->
                 log.info { "  $k=$v" }
             }
         }
 
-        val ctx = requireLoginContext(svcId)
-
         if (path.endsWith(".well-known/openid-configuration")) {
+            val ctx = requireLoginContext(svcId)
             return handleAuthorizationMetadataRequest(call, ctx)
         }
 
-        // authorize
+        // AuthorizationRequest endpoint
         // 
         if (path == "/auth/$svcId/authorize") {
-            val cex = OIDCContext(ctx)
-            return handleAuthorizationRequest(call, cex)
+            val ctx = OIDCContext(requireLoginContext(svcId))
+            return handleAuthorizationRequest(call, ctx)
         }
 
         // direct_post
         //
         if (path == "/auth/$svcId/direct_post") {
-            val cex = OIDCContextRegistry.assert(svcId)
-            return handleAuthDirectPost(call, cex)
+            val ctx = OIDCContextRegistry.assert(svcId)
+            return handleAuthDirectPost(call, ctx)
         }
 
-        // jwks
+        // JWKS endpoint
         //
         if (path == "/auth/$svcId/jwks") {
+            val ctx = requireLoginContext(svcId)
             return handleAuthJwksRequest(call, ctx)
         }
 
-        // token
+        // Token endpoint
         //
         if (path == "/auth/$svcId/token") {
             return handleAuthTokenRequest(call, svcId)
         }
 
-        // Callback as part of the Authorization Request
+        // Callback as part of the AuthorizationRequest
         //
         if (path == "/auth/$svcId") {
+            val ctx = OIDCContextRegistry.assert(svcId)
             val responseType = queryParams["response_type"]
             if (responseType == "id_token") {
-                val cex = OIDCContextRegistry.assert(svcId)
-                return handleIDTokenRequest(call, cex)
+                return handleIDTokenRequest(call, ctx)
             }
             if (responseType == "vp_token") {
-                val cex = OIDCContextRegistry.assert(svcId)
-                return handleVPTokenRequest(call, cex)
+                return handleVPTokenRequest(call, ctx)
             }
         }
 
@@ -317,13 +319,11 @@ class EBSIPortal {
             }
         }
 
-        val ctx = requireLoginContext(svcId)
-        val cex = OIDCContext(ctx)
-
         // Handle CredentialOffer by Uri
         //
         if (path == "/wallet/$svcId" && queryParams["credential_offer_uri"] != null) {
-            return handleCredentialOffer(call, cex)
+            val ctx = OIDCContext(requireLoginContext(svcId))
+            return handleCredentialOffer(call, ctx)
         }
 
         call.respondText(
@@ -354,8 +354,8 @@ class EBSIPortal {
         // Handle Credential Request
         //
         if (path == "/issuer/$svcId/credential") {
-            val cex = OIDCContextRegistry.assert(svcId)
-            return handleCredentialRequest(call, cex)
+            val ctx = OIDCContextRegistry.assert(svcId)
+            return handleCredentialRequest(call, ctx)
         }
 
         call.respondText(
@@ -387,13 +387,40 @@ class EBSIPortal {
         log.info { "Authorization Request: ${Json.encodeToString(authReq)}" }
         queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val redirectUrl = AuthService.handleAuthorizationRequest(ctx, authReq)
+        AuthService.validateAuthorizationRequest(ctx, authReq)
+        val isVPTokenRequest = authReq.scope.any { it.contains("vp_token") }
+        val redirectUrl = if (isVPTokenRequest) {
+            AuthService.sendVPTokenRequest(ctx, authReq)
+        } else {
+            val idTokenJwt = AuthService.buildIDTokenRequestJwt(ctx, authReq)
+            AuthService.buildIDTokenRequestUrl(ctx, idTokenJwt)
+        }
         call.respondRedirect(redirectUrl)
     }
 
     private suspend fun handleIDTokenRequest(call: RoutingCall, ctx: OIDCContext) {
 
-        AuthService.handleIDTokenRequest(ctx, call.parameters.toMap())
+        val reqParams = urlQueryToMap(call.request.uri).toMutableMap()
+        val redirectUri = reqParams["redirect_uri"] as String
+
+        // Replace IDToken request params with the response from request_uri
+        reqParams["request_uri"]?.also { requestUri ->
+            log.info { "IDToken params from: $requestUri" }
+            val res = http.get(requestUri)
+            if (res.status != HttpStatusCode.OK)
+                throw HttpStatusException(res.status, res.bodyAsText())
+            val uriRes = res.bodyAsText()
+            log.info { "UriResponse: $uriRes" }
+            val resJwt = SignedJWT.parse(uriRes)
+            log.info { "UriResponse Header: ${resJwt.header}" }
+            log.info { "UriResponse Claims: ${resJwt.jwtClaimsSet}" }
+            for ((k, v) in resJwt.jwtClaimsSet.claims) {
+                reqParams[k] = "$v"
+            }
+        }
+
+        val idTokenJwt = AuthService.createIDTokenFromRequest(ctx, reqParams)
+        AuthService.sendIDToken(ctx, redirectUri, idTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -466,13 +493,13 @@ class EBSIPortal {
         val tokenRequest = TokenRequest.fromHttpParameters(postParams)
         val tokenResponse = when (tokenRequest) {
             is TokenRequest.AuthorizationCode -> {
-                val cex = OIDCContextRegistry.assert(svcId)
-                AuthService.handleTokenRequestAuthCode(cex, tokenRequest)
+                val ctx = OIDCContextRegistry.assert(svcId)
+                AuthService.handleTokenRequestAuthCode(ctx, tokenRequest)
             }
 
             is TokenRequest.PreAuthorizedCode -> {
-                val cex = OIDCContext(requireLoginContext(svcId))
-                AuthService.handleTokenRequestPreAuthorized(cex, tokenRequest)
+                val ctx = OIDCContext(requireLoginContext(svcId))
+                AuthService.handleTokenRequestPreAuthorized(ctx, tokenRequest)
             }
         }
 

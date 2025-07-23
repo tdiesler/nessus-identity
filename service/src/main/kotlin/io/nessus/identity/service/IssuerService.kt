@@ -23,7 +23,6 @@ import io.nessus.identity.config.ConfigProvider.issuerEndpointUri
 import io.nessus.identity.types.CredentialSchema
 import io.nessus.identity.types.JwtCredentialBuilder
 import io.nessus.identity.types.W3CCredentialBuilder
-import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -41,6 +40,7 @@ object IssuerService : IssuerServiceApi {
     val log = KotlinLogging.logger {}
 
     override suspend fun createCredentialOffer(ctx: LoginContext, sub: String, types: List<String>): CredentialOffer {
+
         val metadata = getIssuerMetadata(ctx) as OpenIDProviderMetadata.Draft11
         val issuerUri = metadata.credentialIssuer as String
 
@@ -54,6 +54,7 @@ object IssuerService : IssuerServiceApi {
             .type(JOSEObjectType.JWT)
             .keyID(kid)
             .build()
+
         val claims = JWTClaimsSet.Builder()
             .subject(sub)
             .audience(aud)
@@ -62,14 +63,16 @@ object IssuerService : IssuerServiceApi {
             .claim("client_id", sub)
             .claim("credential_types", types)
             .build()
-        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(header, claims))
-        val issuerState = widWalletSvc.signWithKey(ctx, kid, signingInput)
+
+        val credOfferJwt = SignedJWT(header, claims).signWithKey(ctx, kid)
 
         // Build CredentialOffer
         val vcJson = buildJsonObject {
             put("format", JsonPrimitive("jwt_vc"))
             put("types", JsonArray(types.map { JsonPrimitive(it) }))
         }
+
+        val issuerState = credOfferJwt.serialize()
         val offer = CredentialOffer.Draft11.Builder(issuerUri)
             .addAuthorizationCodeGrant(issuerState)
             .addOfferedCredentialByValue(vcJson)
@@ -134,18 +137,14 @@ object IssuerService : IssuerServiceApi {
 
         val credClaims = JWTClaimsSet.parse(JSONObjectUtils.parse(credentialJson))
 
-        val rawCredentialJwt = SignedJWT(credHeader, credClaims)
-        log.info { "Credential Header: ${rawCredentialJwt.header}" }
-        log.info { "Credential Claims: ${rawCredentialJwt.jwtClaimsSet}" }
+        val credentialJwt = SignedJWT(credHeader, credClaims).signWithKey(ctx, kid)
+        log.info { "Credential Header: ${credentialJwt.header}" }
+        log.info { "Credential Claims: ${credentialJwt.jwtClaimsSet}" }
 
-        val signingInput = Json.encodeToString(JWTUtils.createFlattenedJwsJson(credHeader, credClaims))
-        val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
-        val credentialJwt = SignedJWT.parse(signedEncoded)
-
-        if (!JWTUtils.verifyJwt(credentialJwt, ctx.didInfo))
+        if (!credentialJwt.verifyJwt(ctx.didInfo))
             throw IllegalStateException("Credential signature verification failed")
 
-        val credentialResponse = CredentialResponse.success(CredentialFormat.jwt_vc, signedEncoded)
+        val credentialResponse = CredentialResponse.success(CredentialFormat.jwt_vc, credentialJwt.serialize())
         log.info { "Credential Response: ${Json.encodeToString(credentialResponse)}" }
 
         return credentialResponse

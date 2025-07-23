@@ -63,7 +63,7 @@ class WalletServiceTest : AbstractServiceTest() {
     fun resolveOpenIDProviderMetadata() {
 
         val metadata: OpenIDProviderMetadata = runBlocking {
-            WalletService.resolveOpenIDProviderMetadata("https://api-conformance.ebsi.eu/conformance/v3/issuer-mock")
+            WalletService.resolveIssuerMetadata("https://api-conformance.ebsi.eu/conformance/v3/issuer-mock")
         }
         metadata.shouldNotBeNull()
     }

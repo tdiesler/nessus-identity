@@ -3,8 +3,6 @@ package io.nessus.identity.service
 import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
-import io.nessus.identity.waltid.DidInfo
-import io.nessus.identity.waltid.WalletInfo
 import java.security.MessageDigest
 
 open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : AttachmentContext(attachments) {

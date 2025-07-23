@@ -2,18 +2,16 @@ package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.OpenIDProviderMetadata
-import id.walt.oid4vc.requests.AuthorizationRequest
 import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.OIDC_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import java.time.Instant
-import kotlin.collections.set
 
 open class OIDCContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 
-    val issuerMetadata get() = assertAttachment(OIDC_METADATA_ATTACHMENT_KEY)
+    val issuerMetadata get() = assertAttachment(ISSUER_METADATA_ATTACHMENT_KEY)
 
     // State that is required before access
     //
@@ -49,6 +47,7 @@ open class OIDCContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 
         // [TODO] consider other access token checks
     }
+
 }
 
 object OIDCContextRegistry {

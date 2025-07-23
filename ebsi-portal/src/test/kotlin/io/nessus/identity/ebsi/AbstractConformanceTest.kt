@@ -2,7 +2,7 @@ package io.nessus.identity.ebsi
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.common.runBlocking
-import io.ktor.server.engine.*
+import io.ktor.server.engine.EmbeddedServer
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
@@ -52,7 +52,7 @@ open class AbstractConformanceTest {
     fun startPortalServer() {
         System.setProperty("webdriver.chrome.driver", "/opt/homebrew/bin/chromedriver")
         val options = ChromeOptions().apply {
-            // addArguments("--headless=new")
+            addArguments("--headless=new")
         }
         driver = ChromeDriver(options)
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))

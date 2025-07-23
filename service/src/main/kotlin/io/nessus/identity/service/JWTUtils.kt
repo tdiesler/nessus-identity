@@ -1,40 +1,42 @@
 package io.nessus.identity.service
 
-import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.jwk.ECKey
-import com.nimbusds.jose.util.Base64URL
-import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.waltid.DidInfo
+import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
-import kotlin.let
 
-object JWTUtils {
+@Serializable
+data class FlattenedJws(
+    val protected: String,
+    val payload: String,
+)
 
-    fun createFlattenedJwsJson(jwtHeader: JWSHeader, jwtClaims: JWTClaimsSet): JsonObject {
-        val headerBase64 = Base64URL.encode(jwtHeader.toString())
-        val payloadBase64 = Base64URL.encode(jwtClaims.toPayload().toString())
-        return buildJsonObject {
-            put("protected", JsonPrimitive(headerBase64.toString()))
-            put("payload", JsonPrimitive(payloadBase64.toString()))
-        }
-    }
+fun SignedJWT.createFlattenedJws(): FlattenedJws {
+    val headerBase64 = this.header.toBase64URL()
+    val payloadBase64 = this.jwtClaimsSet.toPayload().toBase64URL()
+    return FlattenedJws("$headerBase64", "$payloadBase64")
+}
 
-    fun verifyJwt(signedJWT: SignedJWT, didInfo: DidInfo): Boolean {
+suspend fun SignedJWT.signWithKey(ctx: LoginContext, kid: String): SignedJWT {
+    val signingInput = Json.encodeToString(this.createFlattenedJws())
+    val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
+    return SignedJWT.parse(signedEncoded)
+}
 
-        val docJson = Json.parseToJsonElement(didInfo.document).jsonObject
-        val verificationMethods = docJson["verificationMethod"] as JsonArray
-        val verificationMethod = verificationMethods.let { it[0] as JsonObject }
-        val publicKeyJwk = Json.encodeToString(verificationMethod["publicKeyJwk"])
+fun SignedJWT.verifyJwt(didInfo: DidInfo): Boolean {
 
-        val publicJwk = ECKey.parse(publicKeyJwk)
-        val verifier = ECDSAVerifier(publicJwk)
-        return signedJWT.verify(verifier)
-    }
+    val docJson = Json.parseToJsonElement(didInfo.document).jsonObject
+    val verificationMethods = docJson["verificationMethod"] as JsonArray
+    val verificationMethod = verificationMethods.let { it[0] as JsonObject }
+    val publicKeyJwk = Json.encodeToString(verificationMethod["publicKeyJwk"])
+
+    val publicJwk = ECKey.parse(publicKeyJwk)
+    val verifier = ECDSAVerifier(publicJwk)
+    return this.verify(verifier)
 }

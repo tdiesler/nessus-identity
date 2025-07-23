@@ -1,16 +1,12 @@
 package io.nessus.identity.service
 
-import io.ktor.client.*
-import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.HttpStatusCode
-import io.ktor.serialization.kotlinx.json.*
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import java.net.URI
 import java.net.URLDecoder
-import kotlin.collections.associate
-import kotlin.let
-import kotlin.text.split
-import kotlin.to
 
 val http = HttpClient {
     install(ContentNegotiation) {
