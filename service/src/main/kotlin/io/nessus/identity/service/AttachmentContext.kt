@@ -1,6 +1,7 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.requests.AuthorizationRequest
 import io.nessus.identity.waltid.DidInfo
@@ -21,6 +22,7 @@ object AttachmentKeys {
     val AUTH_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE")
     val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequest>()
     val AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE_VERIFIER")
+    val CREDENTIAL_OFFER_ATTACHMENT_KEY = attachmentKey<CredentialOffer>()
     val ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<OpenIDProviderMetadata>()
     val REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<Any>("RequestUriObject")
 }

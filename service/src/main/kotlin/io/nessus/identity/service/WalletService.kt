@@ -33,6 +33,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.CREDENTIAL_OFFER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.waltid.authenticationId
@@ -54,12 +55,104 @@ object WalletService {
 
     val log = KotlinLogging.logger {}
 
-    suspend fun getCredentialFromUri(ctx: OIDCContext, offerUri: String): CredentialResponse {
+    fun addCredentialOffer(ctx: OIDCContext, credOffer: CredentialOffer) {
+        ctx.putAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY, credOffer)
+    }
 
+    fun buildAuthorizationRequest(ctx: OIDCContext, authDetails: AuthorizationDetails? = null): AuthorizationRequest {
+
+        // The Holder starts by requesting access for the desired credential from the Issuer's Authorisation Server.
+        // The client_metadata.authorization_endpoint is used for the redirect location associated with the vp_token and id_token.
+        // If client_metadata fails to provide the required information, the default configuration (openid://) will be used instead.
+
+        val rndBytes = Random.Default.nextBytes(32)
+        val sha256 = MessageDigest.getInstance("SHA-256")
+        val codeVerifier = Base64.getUrlEncoder().withoutPadding().encodeToString(rndBytes)
+        val codeVerifierHash = sha256.digest(codeVerifier.toByteArray(Charsets.US_ASCII))
+        val codeChallenge = Base64.getUrlEncoder().withoutPadding().encodeToString(codeVerifierHash)
+
+        // Build AuthRequestUrl
+        //
+        val authRedirectUri = "$authEndpointUri/${ctx.targetId}"
+        val clientMetadata = OpenIDClientMetadata(customParameters = mapOf(
+            "authorization_endpoint" to JsonPrimitive(authRedirectUri)))
+
+        val credOffer = ctx.getAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY)
+        val issuerState = credOffer?.grants[GrantType.authorization_code.value]?.issuerState
+
+        val authRequest = AuthorizationRequest(
+            scope = setOf("openid"),
+            clientId = ctx.did,
+            state = ctx.walletId,
+            clientMetadata = clientMetadata,
+            codeChallenge = codeChallenge,
+            codeChallengeMethod = "S256",
+            authorizationDetails = authDetails?.let { listOf(authDetails) },
+            redirectUri = authRedirectUri,
+            issuerState = issuerState
+        )
+
+        ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+        ctx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
+        log.info { "AuthorizationRequest: ${Json.encodeToString(authRequest)}" }
+
+        return authRequest
+    }
+
+    suspend fun buildCredentialRequest(ctx: OIDCContext, offeredCred: OfferedCredential, accessToken: TokenResponse): CredentialRequest {
+
+        val cNonce = accessToken.cNonce
+            ?: throw IllegalStateException("No c_nonce")
+
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(300) // 5 mins expiry
+
+        val kid = ctx.didInfo.authenticationId()
+
+        val credReqHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType("openid4vci-proof+jwt"))
+            .keyID(kid)
+            .build()
+
+        val issuerUri = ctx.issuerMetadata.credentialIssuer
+        val claimsBuilder = JWTClaimsSet.Builder()
+            .issuer(ctx.did)
+            .audience(issuerUri)
+            .issueTime(Date.from(iat))
+            .expirationTime(Date.from(exp))
+            .claim("nonce", cNonce)
+
+        ctx.maybeAuthRequest?.state?.also {
+            claimsBuilder.claim("state", it)
+        }
+        val credReqClaims = claimsBuilder.build()
+
+        val credReqJwt = SignedJWT(credReqHeader, credReqClaims).signWithKey(ctx, kid)
+        log.info { "CredentialRequest Header: ${credReqJwt.header}" }
+        log.info { "CredentialRequest Claims: ${credReqJwt.jwtClaimsSet}" }
+
+        val credentialTypes = offeredCred.types
+            ?: throw IllegalStateException("No credential types")
+
+        val credReqJson = Json.encodeToString(buildJsonObject {
+            put("types", JsonArray(credentialTypes.map { JsonPrimitive(it) }))
+            put("format", JsonPrimitive("jwt_vc"))
+            put("proof", buildJsonObject {
+                put("proof_type", JsonPrimitive("jwt"))
+                put("jwt", JsonPrimitive(credReqJwt.serialize()))
+            })
+        })
+
+        val credReq = Json.decodeFromString<CredentialRequest>(credReqJson)
+        log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
+
+        return credReq
+    }
+
+    suspend fun getCredentialOfferFromUri(ctx: OIDCContext, offerUri: String): CredentialOffer {
         val credOffer = OpenID4VCI.parseAndResolveCredentialOfferRequestUrl(offerUri)
-        val credResponse = getCredentialFromOffer(ctx, credOffer)
-
-        return credResponse
+        ctx.putAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY, credOffer)
+        return credOffer
     }
 
     suspend fun getCredentialFromOffer(ctx: OIDCContext, credOffer: CredentialOffer): CredentialResponse {
@@ -69,8 +162,9 @@ object WalletService {
         val accessToken = credOffer.getPreAuthorizedGrantDetails()?.let {
             AuthService.sendTokenRequestPreAuthorized(ctx, it)
         } ?: run {
-            val issuerState = credOffer.grants[GrantType.authorization_code.value]?.issuerState
-            val authRequest = buildAuthorizationRequestFromCredentialOffer(ctx, offeredCred, issuerState)
+            val issuer = credOffer.credentialIssuer
+            val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, issuer)
+            val authRequest = buildAuthorizationRequest(ctx, authDetails)
             val authCode = sendAuthorizationRequest(ctx, authRequest)
             val tokenReq = AuthService.createTokenRequestAuthCode(ctx, authCode)
             AuthService.sendTokenRequestAuthCode(ctx, tokenReq)
@@ -105,52 +199,6 @@ object WalletService {
         log.info { "Credential Claims: ${credJwt.jwtClaimsSet}" }
 
         return credRes
-    }
-
-    // Utils not in the WalletServiceApi -------------------------------------------------------------------------------
-
-    fun buildAuthorizationRequestFromCredentialOffer(
-        ctx: OIDCContext,
-        offeredCred: OfferedCredential,
-        issuerState: String?
-    ): AuthorizationRequest {
-
-        // The Wallet will start by requesting access for the desired credential from the Auth Mock (Authorisation Server).
-        // The client_metadata.authorization_endpoint is used for the redirect location associated with the vp_token and id_token.
-        // If client_metadata fails to provide the required information, the default configuration (openid://) will be used instead.
-
-        val rndBytes = Random.Default.nextBytes(32)
-        val codeVerifier = Base64.getUrlEncoder().withoutPadding().encodeToString(rndBytes)
-        val sha256 = MessageDigest.getInstance("SHA-256")
-        val codeVerifierHash = sha256.digest(codeVerifier.toByteArray(Charsets.US_ASCII))
-        val codeChallenge = Base64.getUrlEncoder().withoutPadding().encodeToString(codeVerifierHash)
-
-        ctx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
-
-        // Build AuthRequestUrl
-        //
-        val authEndpointUri = "$authEndpointUri/${ctx.targetId}"
-        val credentialIssuer = ctx.issuerMetadata.credentialIssuer
-        val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, credentialIssuer)
-        val clientMetadata =
-            OpenIDClientMetadata(customParameters = mapOf("authorization_endpoint" to JsonPrimitive(authEndpointUri)))
-
-        val authRequest = AuthorizationRequest(
-            scope = setOf("openid"),
-            clientId = ctx.did,
-            state = ctx.walletId,
-            clientMetadata = clientMetadata,
-            codeChallenge = codeChallenge,
-            codeChallengeMethod = "S256",
-            authorizationDetails = listOf(authDetails),
-            redirectUri = authEndpointUri,
-            issuerState = issuerState
-        ).also {
-            ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, it)
-        }
-
-        log.info { "AuthorizationRequest: ${Json.encodeToString(authRequest)}" }
-        return authRequest
     }
 
     suspend fun resolveIssuerMetadata(issuerUrl: String): OpenIDProviderMetadata {
@@ -262,57 +310,7 @@ object WalletService {
         return ctx.authCode
     }
 
-    suspend fun buildCredentialRequest(ctx: OIDCContext, offeredCred: OfferedCredential, accessToken: TokenResponse): CredentialRequest {
-
-        val cNonce = accessToken.cNonce
-            ?: throw IllegalStateException("No c_nonce")
-
-        val iat = Instant.now()
-        val exp = iat.plusSeconds(300) // 5 mins expiry
-
-        val kid = ctx.didInfo.authenticationId()
-
-        val credReqHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType("openid4vci-proof+jwt"))
-            .keyID(kid)
-            .build()
-
-        val issuerUri = ctx.issuerMetadata.credentialIssuer
-        val claimsBuilder = JWTClaimsSet.Builder()
-            .issuer(ctx.did)
-            .audience(issuerUri)
-            .issueTime(Date.from(iat))
-            .expirationTime(Date.from(exp))
-            .claim("nonce", cNonce)
-
-        ctx.maybeAuthRequest?.state?.also {
-            claimsBuilder.claim("state", it)
-        }
-        val credReqClaims = claimsBuilder.build()
-
-        val credReqJwt = SignedJWT(credReqHeader, credReqClaims).signWithKey(ctx, kid)
-        log.info { "CredentialRequest Header: ${credReqJwt.header}" }
-        log.info { "CredentialRequest Claims: ${credReqJwt.jwtClaimsSet}" }
-
-        val credentialTypes = offeredCred.types
-            ?: throw IllegalStateException("No credential types")
-
-        val credReqJson = Json.encodeToString(buildJsonObject {
-            put("types", JsonArray(credentialTypes.map { JsonPrimitive(it) }))
-            put("format", JsonPrimitive("jwt_vc"))
-            put("proof", buildJsonObject {
-                put("proof_type", JsonPrimitive("jwt"))
-                put("jwt", JsonPrimitive(credReqJwt.serialize()))
-            })
-        })
-
-        val credReq = Json.decodeFromString<CredentialRequest>(credReqJson)
-        log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
-
-        return credReq
-    }
-
-    suspend fun sendCredentialRequest(ctx: OIDCContext, credReq: CredentialRequest): CredentialResponse {
+    private suspend fun sendCredentialRequest(ctx: OIDCContext, credReq: CredentialRequest): CredentialResponse {
 
         val accessToken = ctx.accessToken
         val credentialEndpoint = ctx.issuerMetadata.credentialEndpoint

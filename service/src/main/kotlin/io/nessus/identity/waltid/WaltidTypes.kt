@@ -39,4 +39,5 @@ open class User(val name: String, val email: String, val password: String) {
 }
 
 object Alice : User("Alice", "alice@email.com", "password")
+object Bob : User("Bob", "bob@email.com", "password")
 object Max : User("Max Mustermann", "user@email.com", "password")

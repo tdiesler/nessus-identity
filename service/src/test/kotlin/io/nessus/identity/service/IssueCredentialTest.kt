@@ -1,7 +1,7 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.GrantType
+import id.walt.oid4vc.data.AuthorizationDetails
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
@@ -14,7 +14,10 @@ class IssueCredentialTest : AbstractServiceTest() {
 
     /**
      * Issue Credential InTime
-     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows
+     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
+     *
+     * Wallet Credential InTime
+     * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#in-time
      *
      * - The Holder has received a CredentialOffer and sends an AuthorizationRequest to the Issuer
      * - The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
@@ -43,19 +46,20 @@ class IssueCredentialTest : AbstractServiceTest() {
             // Issuer creates the CredentialOffer
             //
             val sub= hctx.did
-            val types = listOf("CTWalletSameAuthorisedInTime")
+            val types = listOf("VerifiableCredential", "CTWalletSameAuthorisedInTime")
             val credOffer = IssuerService.createCredentialOffer(ictx, sub, types)
 
             // The Holder has received a CredentialOffer and sends an AuthorizationRequest to the Issuer
             //
+            WalletService.addCredentialOffer(hctx, credOffer)
             val offeredCred = WalletService.resolveOfferedCredential(hctx, credOffer)
-            val issuerState = credOffer.grants[GrantType.authorization_code.value]?.issuerState
-            val authRequest = WalletService.buildAuthorizationRequestFromCredentialOffer(hctx, offeredCred, issuerState)
+            val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, issuerMetadata.credentialIssuer)
+            val authRequest = WalletService.buildAuthorizationRequest(hctx, authDetails)
 
             // The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
             //
             AuthService.validateAuthorizationRequest(ictx, authRequest)
-            val idTokenRequestJwt = AuthService.buildIDTokenRequestJwt(ictx, authRequest)
+            val idTokenRequestJwt = AuthService.buildIDTokenRequest(ictx, authRequest)
             val idTokenRequestUrl = AuthService.buildIDTokenRequestUrl(ictx, idTokenRequestJwt)
 
             // Holder issues an ID Token signed by the DID's authentication key

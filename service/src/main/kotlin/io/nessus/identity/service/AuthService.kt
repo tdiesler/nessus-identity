@@ -578,7 +578,7 @@ object AuthService {
 
     // Utility Functions not in the API --------------------------------------------------------------------------------
 
-    suspend fun buildIDTokenRequestJwt(ctx: OIDCContext, authReq: AuthorizationRequest): SignedJWT {
+    suspend fun buildIDTokenRequest(ctx: OIDCContext, authReq: AuthorizationRequest): SignedJWT {
 
         val issuerMetadata = ctx.issuerMetadata
         val authorizationServer = ctx.authorizationServer

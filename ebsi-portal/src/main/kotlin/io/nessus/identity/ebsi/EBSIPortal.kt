@@ -393,7 +393,7 @@ class EBSIPortal {
         val redirectUrl = if (isVPTokenRequest) {
             AuthService.sendVPTokenRequest(ctx, authReq)
         } else {
-            val idTokenJwt = AuthService.buildIDTokenRequestJwt(ctx, authReq)
+            val idTokenJwt = AuthService.buildIDTokenRequest(ctx, authReq)
             AuthService.buildIDTokenRequestUrl(ctx, idTokenJwt)
         }
         call.respondRedirect(redirectUrl)
@@ -530,7 +530,8 @@ class EBSIPortal {
             ?: throw HttpStatusException(HttpStatusCode.BadRequest, "No 'credential_offer_uri' param")
 
         val oid4vcOfferUri = "openid-credential-offer://?credential_offer_uri=$credOfferUri"
-        var credResponse = WalletService.getCredentialFromUri(ctx, oid4vcOfferUri)
+        val credOffer = WalletService.getCredentialOfferFromUri(ctx, oid4vcOfferUri)
+        var credResponse = WalletService.getCredentialFromOffer(ctx, credOffer)
 
         // In-Time CredentialResponses MUST have a 'format'
         var credJwt: SignedJWT? = null
