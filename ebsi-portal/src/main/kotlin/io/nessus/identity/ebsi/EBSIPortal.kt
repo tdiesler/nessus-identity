@@ -2,7 +2,6 @@ package io.nessus.identity.ebsi
 
 import com.nimbusds.jwt.SignedJWT
 import freemarker.cache.ClassTemplateLoader
-import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.requests.TokenRequest
@@ -57,7 +56,6 @@ import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.service.http
 import io.nessus.identity.service.toSignedJWT
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.types.JwtCredential
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
@@ -67,7 +65,6 @@ import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 import java.io.File
 import java.security.KeyStore
-import kotlin.IllegalStateException
 
 fun main() {
     val server = EBSIPortal().createServer()
@@ -291,11 +288,10 @@ class EBSIPortal {
         if (path == "/auth/$svcId") {
             val ctx = OIDCContextRegistry.assert(svcId)
             val responseType = queryParams["response_type"]
-            if (responseType == "id_token") {
-                return handleIDTokenRequest(call, ctx)
-            }
-            if (responseType == "vp_token") {
-                return handleVPTokenRequest(call, ctx)
+            return when (responseType) {
+                "id_token" -> handleIDTokenRequest(call, ctx)
+                "vp_token" -> handleVPTokenRequest(call, ctx)
+                else -> throw IllegalArgumentException("Unknown response type: $responseType")
             }
         }
 
@@ -391,10 +387,11 @@ class EBSIPortal {
         AuthService.validateAuthorizationRequest(ctx, authReq)
         val isVPTokenRequest = authReq.scope.any { it.contains("vp_token") }
         val redirectUrl = if (isVPTokenRequest) {
-            AuthService.sendVPTokenRequest(ctx, authReq)
+            val vpTokenReqJwt = AuthService.buildVPTokenRequest(ctx, authReq)
+            AuthService.buildVPTokenRedirectUrl(ctx, vpTokenReqJwt)
         } else {
-            val idTokenJwt = AuthService.buildIDTokenRequest(ctx, authReq)
-            AuthService.buildIDTokenRequestUrl(ctx, idTokenJwt)
+            val idTokenReqJwt = AuthService.buildIDTokenRequest(ctx, authReq)
+            AuthService.buildIDTokenRedirectUrl(ctx, idTokenReqJwt)
         }
         call.respondRedirect(redirectUrl)
     }
@@ -420,8 +417,8 @@ class EBSIPortal {
             }
         }
 
-        val idTokenJwt = AuthService.createIDToken(ctx, reqParams)
-        AuthService.sendIDToken(ctx, redirectUri, idTokenJwt)
+        val idTokenJwt = WalletService.createIDToken(ctx, reqParams)
+        WalletService.sendIDToken(ctx, redirectUri, idTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -432,7 +429,9 @@ class EBSIPortal {
 
     private suspend fun handleVPTokenRequest(call: RoutingCall, ctx: OIDCContext) {
 
-        AuthService.handleVPTokenRequest(ctx, call.parameters.toMap())
+        val reqParams = urlQueryToMap(call.request.uri).toMutableMap()
+        val (vpTokenJwt, vpSubmission) = WalletService.createVPTokenWithPresentationSubmission(ctx, reqParams)
+        WalletService.sendVPToken(ctx, vpTokenJwt, vpSubmission)
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -451,7 +450,7 @@ class EBSIPortal {
             val idToken = postParams["id_token"]?.first()
             val idTokenJwt = SignedJWT.parse(idToken)
             val authCode = AuthService.validateIDToken(ctx, idTokenJwt)
-            val redirectUrl = AuthService.getAuthCodeRedirectUri(ctx, authCode)
+            val redirectUrl = AuthService.buildAuthCodeRedirectUri(ctx, authCode)
             return call.respondRedirect(redirectUrl)
         }
 
@@ -531,32 +530,27 @@ class EBSIPortal {
 
         val oid4vcOfferUri = "openid-credential-offer://?credential_offer_uri=$credOfferUri"
         val credOffer = WalletService.getCredentialOfferFromUri(ctx, oid4vcOfferUri)
-        var credResponse = WalletService.getCredentialFromOffer(ctx, credOffer)
+        var credRes = WalletService.getCredentialFromOffer(ctx, credOffer)
 
         // In-Time CredentialResponses MUST have a 'format'
         var credJwt: SignedJWT? = null
-        if (credResponse.format != null) {
-            credJwt = credResponse.toSignedJWT()
+        if (credRes.format != null) {
+            credJwt = credRes.toSignedJWT()
         }
 
         // Deferred CredentialResponses have an 'acceptance_token'
-        else if (credResponse.acceptanceToken != null) {
+        else if (credRes.acceptanceToken != null) {
             // The credential will be available with a delay of 5 seconds from the first Credential Request.
             Thread.sleep(5500)
-            val acceptanceToken = credResponse.acceptanceToken as String
-            credResponse = WalletService.getDeferredCredential(ctx, acceptanceToken)
-            credJwt = credResponse.toSignedJWT()
+            val acceptanceToken = credRes.acceptanceToken as String
+            credRes = WalletService.getDeferredCredential(ctx, acceptanceToken)
+            credJwt = credRes.toSignedJWT()
         }
 
         if (credJwt == null)
             throw IllegalStateException("No Credential JWT")
 
-        // Verify that we can unmarshall the credential
-        Json.decodeFromString<JwtCredential>("${credJwt.payload}")
-
-        val walletId = ctx.walletId
-        val format = credResponse.format as CredentialFormat
-        widWalletSvc.addCredential(walletId, format, credJwt)
+        WalletService.addCredential(ctx, credRes)
 
         call.respondText(
             status = HttpStatusCode.Accepted,

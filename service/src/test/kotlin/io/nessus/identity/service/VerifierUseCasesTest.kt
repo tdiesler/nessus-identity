@@ -1,0 +1,144 @@
+package io.nessus.identity.service
+
+import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.dif.PresentationDefinition
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.shouldBe
+import io.nessus.identity.waltid.Alice
+import io.nessus.identity.waltid.Bob
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Test
+
+class VerifierUseCasesTest : AbstractServiceTest() {
+
+    /**
+     * IDToken Exchange
+     * https://hub.ebsi.eu/conformance/build-solutions/verifier-functional-flows#generic-flow
+     *
+     * - The Holder sends an AuthorizationRequest to the Verifier
+     * - The Verifier sends an IDToken Request to the Holder (request proof of DID ownership)
+     * - Holder issues an ID Token signed by the DID's authentication key
+     * - Verifier validates the IDToken
+     */
+    @Test
+    fun idTokenExchange() {
+        runBlocking {
+
+            // Create the Verifier's OIDC context
+            //
+            val bob = OIDCContext(setupWalletWithDid(Bob))
+
+            // Create the Holders's OIDC context
+            //
+            val alice = OIDCContext(setupWalletWithDid(Alice))
+
+            // The Holder sends an AuthorizationRequest to the Verifier
+            //
+            val authRequest = WalletService.buildAuthorizationRequest(alice)
+
+            // The Verifier sends an IDToken Request to the Holder (request proof of DID ownership)
+            //
+            AuthService.validateAuthorizationRequest(bob, authRequest)
+            val idTokenRequestJwt = AuthService.buildIDTokenRequest(bob, authRequest)
+            val idTokenRedirectUrl = AuthService.buildIDTokenRedirectUrl(bob, idTokenRequestJwt)
+
+            // Holder issues an ID Token signed by the DID's authentication key
+            //
+            val idTokenJwt = WalletService.createIDToken(alice, urlQueryToMap(idTokenRedirectUrl))
+
+            // Verifier validates the IDToken
+            // [TODO] Validate the IDToken - AuthService.validateIDToken does actually not do that just yet
+            val authCode = AuthService.validateIDToken(bob, idTokenJwt)
+            idTokenJwt.verifyJwt(alice.didInfo) shouldBe true
+        }
+    }
+
+    /**
+     * Verify valid Credential in Presentation
+     * https://hub.ebsi.eu/conformance/build-solutions/verifier-functional-flows#verifiable-presentations
+     *
+     * - The Holder sends an AuthorizationRequest to the Verifier
+     * - The Verifier sends an VPToken Request to the Holder (request of VerifiablePresentation)
+     * - Holder responds with a signed VPToken that contains the VerifiablePresentation
+     * - Verifier validates the VPToken
+     */
+    @Test
+    fun validCredentialInPresentation() {
+        runBlocking {
+
+            // Create the Verifier's OIDC context (Bob is the Verifier)
+            //
+            val bob = OIDCContext(setupWalletWithDid(Bob))
+
+            // Create the Holders's OIDC context (Alice is the Holder)
+            //
+            val alice = OIDCContext(setupWalletWithDid(Alice))
+
+            // The Holder sends an AuthorizationRequest to the Verifier
+            //
+            val authRequest = WalletService.buildAuthorizationRequest(
+                ctx = alice,
+                vpDefinition = PresentationDefinition.fromJSONString("""
+                {
+                    "id": "holder-wallet-qualification-presentation",
+                    "input_descriptors": [
+                      {
+                        "id": "same-device-authorised-in-time-credential",
+                        "format": {
+                          "jwt_vc": {
+                            "alg": [
+                              "ES256"
+                            ]
+                          },
+                          "jwt_vc_json": {
+                            "alg": [
+                              "ES256"
+                            ]
+                          }
+                        },
+                        "constraints": {
+                          "fields": [
+                            {
+                              "path": [
+                                "$.vc.type"
+                              ],
+                              "filter": {
+                                "contains": {
+                                  "const": "CTWalletSameAuthorisedInTime"
+                                },
+                                "type": "array"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }  
+                """.trimIndent()
+                )
+            )
+
+            // The Verifier sends an VPToken Request to the Holder (request of VerifiablePresentation)
+            //
+            AuthService.validateAuthorizationRequest(bob, authRequest)
+            val vpTokenRequestJwt = AuthService.buildVPTokenRequest(bob, authRequest)
+            val vpTokenRedirectUrl = AuthService.buildVPTokenRedirectUrl(bob, vpTokenRequestJwt)
+
+            // Holder responds with a signed VPToken that contains the VerifiablePresentation
+            //
+            val vpTokenJwt = WalletService.createVPToken(alice, urlQueryToMap(vpTokenRedirectUrl))
+
+            // Verifier validates the VPToken
+            //
+            val vpHolder = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.holder").first()
+            vpHolder shouldBe alice.did
+
+            val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
+            val credJwt = SignedJWT.parse(vpCred)
+            val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
+            val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
+            vcTypes shouldContain "CTWalletSameAuthorisedInTime"
+            vcSubject shouldBe alice.did
+        }
+    }
+}

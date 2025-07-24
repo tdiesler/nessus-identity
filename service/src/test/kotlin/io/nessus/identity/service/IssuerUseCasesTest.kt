@@ -10,7 +10,7 @@ import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 
-class IssueCredentialTest : AbstractServiceTest() {
+class IssuerUseCasesTest : AbstractServiceTest() {
 
     /**
      * Issue Credential InTime
@@ -27,6 +27,8 @@ class IssueCredentialTest : AbstractServiceTest() {
      * - Issuer validates the TokenRequest and responds with an Access Token
      * - Holder sends the CredentialRequest using the Access Token
      * - Issuer sends the requested Credential
+     * - Holder validates the received Credential
+     * - Holder adds the Credential to permanent storage
      */
     @Test
     fun issueCredentialInTime() {
@@ -34,67 +36,73 @@ class IssueCredentialTest : AbstractServiceTest() {
 
             // Create the Issuer's OIDC context
             //
-            val ictx = OIDCContext(setupWalletWithDid(Max))
-            val issuerMetadata = IssuerService.getIssuerMetadata(ictx)
-            ictx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+            val max = OIDCContext(setupWalletWithDid(Max))
+            val issuerMetadata = IssuerService.getIssuerMetadata(max)
+            max.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
 
             // Create the Holders's OIDC context
             //
-            val hctx = OIDCContext(setupWalletWithDid(Alice))
-            hctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+            val alice = OIDCContext(setupWalletWithDid(Alice))
+            alice.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
 
             // Issuer creates the CredentialOffer
             //
-            val sub= hctx.did
+            val sub= alice.did
             val types = listOf("VerifiableCredential", "CTWalletSameAuthorisedInTime")
-            val credOffer = IssuerService.createCredentialOffer(ictx, sub, types)
+            val credOffer = IssuerService.createCredentialOffer(max, sub, types)
 
             // The Holder has received a CredentialOffer and sends an AuthorizationRequest to the Issuer
             //
-            WalletService.addCredentialOffer(hctx, credOffer)
-            val offeredCred = WalletService.resolveOfferedCredential(hctx, credOffer)
+            WalletService.addCredentialOffer(alice, credOffer)
+            val offeredCred = WalletService.resolveOfferedCredential(alice, credOffer)
             val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, issuerMetadata.credentialIssuer)
-            val authRequest = WalletService.buildAuthorizationRequest(hctx, authDetails)
+            val authRequest = WalletService.buildAuthorizationRequest(alice, authDetails)
 
             // The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
             //
-            AuthService.validateAuthorizationRequest(ictx, authRequest)
-            val idTokenRequestJwt = AuthService.buildIDTokenRequest(ictx, authRequest)
-            val idTokenRequestUrl = AuthService.buildIDTokenRequestUrl(ictx, idTokenRequestJwt)
+            AuthService.validateAuthorizationRequest(max, authRequest)
+            val idTokenRequestJwt = AuthService.buildIDTokenRequest(max, authRequest)
+            val idTokenRequestUrl = AuthService.buildIDTokenRedirectUrl(max, idTokenRequestJwt)
 
             // Holder issues an ID Token signed by the DID's authentication key
             //
-            val idTokenJwt = AuthService.createIDToken(hctx, urlQueryToMap(idTokenRequestUrl))
+            val idTokenJwt = WalletService.createIDToken(alice, urlQueryToMap(idTokenRequestUrl))
 
             // Issuer validates IDToken and returns an Authorization Code
             // [TODO] Validate the IDToken - AuthService.validateIDToken does actually not do that just yet
-            val authCode = AuthService.validateIDToken(ictx, idTokenJwt)
-            idTokenJwt.verifyJwt(hctx.didInfo) shouldBe true
+            val authCode = AuthService.validateIDToken(max, idTokenJwt)
+            idTokenJwt.verifyJwt(alice.didInfo) shouldBe true
 
             // Holder sends a TokenRequest to the Issuer's Token Endpoint
             //
-            val tokenReq = AuthService.createTokenRequestAuthCode(hctx, authCode)
+            val tokenReq = WalletService.createTokenRequestAuthCode(alice, authCode)
 
             // Issuer validates the TokenRequest and responds with an Access Token
             //
-            val accessTokenRes = AuthService.handleTokenRequestAuthCode(ictx, tokenReq)
+            val accessTokenRes = AuthService.handleTokenRequestAuthCode(max, tokenReq)
 
             // Holder sends the CredentialRequest using the Access Token
             //
-            val credReq = WalletService.buildCredentialRequest(hctx, offeredCred, accessTokenRes)
+            val credReq = WalletService.buildCredentialRequest(alice, offeredCred, accessTokenRes)
 
             // Issuer sends the requested Credential
             //
             val accessJwt = SignedJWT.parse(accessTokenRes.accessToken)
-            val credRes = IssuerService.credentialFromRequest(ictx, credReq, accessJwt)
+            val credRes = IssuerService.credentialFromRequest(max, credReq, accessJwt)
             val credJwt = SignedJWT.parse("${credRes.credential}")
 
+            // Holder validates the received Credential
+            //
             val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
             val vcIssuer = CredentialMatcher.pathValues(credJwt, "$.vc.issuer").first()
             val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
             vcTypes shouldContain "CTWalletSameAuthorisedInTime"
-            vcSubject shouldBe hctx.did
-            vcIssuer shouldBe ictx.did
+            vcSubject shouldBe alice.did
+            vcIssuer shouldBe max.did
+
+            // Holder adds the Credential to permanent storage
+            //
+            WalletService.addCredential(alice, credRes)
         }
     }
 }

@@ -49,8 +49,8 @@ object CredentialMatcher {
         return matchCount == numFields
     }
 
-    fun pathValues(vcJwt: SignedJWT, path: String): List<String> {
-        val vcPayload = vcJwt.payload.toString()
+    fun pathValues(jwt: SignedJWT, path: String): List<String> {
+        val vcPayload = jwt.payload.toString()
         return pathValues(vcPayload, path)
     }
 

@@ -3,22 +3,30 @@ package io.nessus.identity.service
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.AuthorizationDetails
+import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.GrantType
 import id.walt.oid4vc.data.OfferedCredential
 import id.walt.oid4vc.data.OpenIDClientMetadata
 import id.walt.oid4vc.data.OpenIDProviderMetadata
+import id.walt.oid4vc.data.dif.DescriptorMapping
+import id.walt.oid4vc.data.dif.PresentationDefinition
+import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.CredentialRequest
+import id.walt.oid4vc.requests.TokenRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import id.walt.oid4vc.responses.TokenResponse
+import id.walt.w3c.utils.VCFormat
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -27,15 +35,19 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
 import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
+import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.CREDENTIAL_OFFER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
+import io.nessus.identity.types.JwtCredential
+import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -59,7 +71,22 @@ object WalletService {
         ctx.putAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY, credOffer)
     }
 
-    fun buildAuthorizationRequest(ctx: OIDCContext, authDetails: AuthorizationDetails? = null): AuthorizationRequest {
+    fun addCredential(ctx: OIDCContext, credRes: CredentialResponse) {
+        val walletId = ctx.walletId
+        val credJwt = credRes.toSignedJWT()
+        val format = credRes.format as CredentialFormat
+
+        // Verify that we can unmarshall the credential
+        Json.decodeFromString<JwtCredential>("${credJwt.payload}")
+
+        widWalletSvc.addCredential(walletId, format, credJwt)
+    }
+
+    fun buildAuthorizationRequest(
+        ctx: OIDCContext,
+        authDetails: AuthorizationDetails? = null,
+        vpDefinition: PresentationDefinition? = null,
+    ): AuthorizationRequest {
 
         // The Holder starts by requesting access for the desired credential from the Issuer's Authorisation Server.
         // The client_metadata.authorization_endpoint is used for the redirect location associated with the vp_token and id_token.
@@ -74,8 +101,11 @@ object WalletService {
         // Build AuthRequestUrl
         //
         val authRedirectUri = "$authEndpointUri/${ctx.targetId}"
-        val clientMetadata = OpenIDClientMetadata(customParameters = mapOf(
-            "authorization_endpoint" to JsonPrimitive(authRedirectUri)))
+        val clientMetadata = OpenIDClientMetadata(
+            customParameters = mapOf(
+                "authorization_endpoint" to JsonPrimitive(authRedirectUri)
+            )
+        )
 
         val credOffer = ctx.getAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY)
         val issuerState = credOffer?.grants[GrantType.authorization_code.value]?.issuerState
@@ -88,6 +118,7 @@ object WalletService {
             codeChallenge = codeChallenge,
             codeChallengeMethod = "S256",
             authorizationDetails = authDetails?.let { listOf(authDetails) },
+            presentationDefinition = vpDefinition,
             redirectUri = authRedirectUri,
             issuerState = issuerState
         )
@@ -99,7 +130,11 @@ object WalletService {
         return authRequest
     }
 
-    suspend fun buildCredentialRequest(ctx: OIDCContext, offeredCred: OfferedCredential, accessToken: TokenResponse): CredentialRequest {
+    suspend fun buildCredentialRequest(
+        ctx: OIDCContext,
+        offeredCred: OfferedCredential,
+        accessToken: TokenResponse
+    ): CredentialRequest {
 
         val cNonce = accessToken.cNonce
             ?: throw IllegalStateException("No c_nonce")
@@ -149,6 +184,273 @@ object WalletService {
         return credReq
     }
 
+    suspend fun createIDToken(ctx: OIDCContext, reqParams: Map<String, String>): SignedJWT {
+
+        // Verify required query params
+        for (key in listOf("client_id", "redirect_uri", "response_type")) {
+            reqParams[key] ?: throw IllegalStateException("Cannot find $key")
+        }
+
+        // The Wallet answers the ID Token Request by providing the id_token in the redirect_uri as instructed by response_mode of direct_post.
+        // The id_token must be signed with the DID document's authentication key.
+
+        val clientId = reqParams["client_id"] as String
+        val responseType = reqParams["response_type"] as String
+
+        if (responseType != "id_token")
+            throw IllegalStateException("Unexpected response_type: $responseType")
+
+        val nonce = reqParams["nonce"]
+        val state = reqParams["state"]
+
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(300) // 5 mins expiry
+
+        val kid = ctx.didInfo.authenticationId()
+
+        val idTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType.JWT)
+            .keyID(kid)
+            .build()
+
+        val jwtBuilder = JWTClaimsSet.Builder()
+            .issuer(ctx.did)
+            .subject(ctx.did)
+            .audience(clientId)
+            .issueTime(Date.from(iat))
+            .expirationTime(Date.from(exp))
+            .claim("nonce", nonce)
+
+        nonce?.also { jwtBuilder.claim("nonce", it) }
+        state?.also { jwtBuilder.claim("state", it) }
+        val idTokenClaims = jwtBuilder.build()
+
+        val idTokenJwt = SignedJWT(idTokenHeader, idTokenClaims).signWithKey(ctx, kid)
+        log.info { "IDToken Header: ${idTokenJwt.header}" }
+        log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
+
+        log.info { "IDToken: ${idTokenJwt.serialize()}" }
+        if (!idTokenJwt.verifyJwt(ctx.didInfo))
+            throw IllegalStateException("IDToken signature verification failed")
+
+        return idTokenJwt
+    }
+
+    suspend fun sendIDToken(ctx: OIDCContext, redirectUri: String, idTokenJwt: SignedJWT): String {
+
+        log.info { "Send IDToken: $redirectUri" }
+        val formData = mutableMapOf(
+            "id_token" to idTokenJwt.serialize(),
+        )
+        val isTokenClaims = idTokenJwt.jwtClaimsSet
+        isTokenClaims.getClaim("state")?.also { formData["state"] = "$it" }
+
+        formData.forEach { (k, v) -> log.info { "  $k=$v" } }
+
+        val res = http.post(redirectUri) {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(FormDataContent(Parameters.build {
+                formData.forEach { (k, v) -> append(k, v) }
+            }))
+        }
+
+        if (res.status != HttpStatusCode.Found)
+            throw HttpStatusException(res.status, res.bodyAsText())
+
+        val location = res.headers["location"]?.also {
+            log.info { "IDToken Response: $it" }
+        } ?: throw IllegalStateException("Cannot find 'location' in headers")
+
+        val authCode = urlQueryToMap(location)["code"]?.also {
+            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, it)
+        } ?: throw IllegalStateException("No authorization code")
+
+        return authCode
+    }
+
+    suspend fun createVPToken(ctx: OIDCContext, reqParams: Map<String, String>): SignedJWT {
+        val (vpTokenJwt, _) = createVPTokenWithPresentationSubmission(ctx, reqParams)
+        return vpTokenJwt
+    }
+
+        @OptIn(ExperimentalUuidApi::class)
+    suspend fun createVPTokenWithPresentationSubmission(ctx: OIDCContext, reqParams: Map<String, String>): Pair<SignedJWT, PresentationSubmission> {
+
+        // Verify required query params
+        for (key in listOf("client_id", "response_type")) {
+            reqParams[key] ?: throw IllegalStateException("Cannot find $key")
+        }
+
+        val clientId = reqParams["client_id"] as String
+        val responseType = reqParams["response_type"] as String
+
+        if (responseType != "vp_token")
+            throw IllegalStateException("Unexpected response_type: $responseType")
+
+        var authReq = ctx.getAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
+
+        // Final Qualification Credential use case ...
+        //
+        //  - EBSI offers the CTWalletQualificationCredential
+        //  - Holder sends an AuthorizationRequest, EBSI responds with an 302 Redirect (WalletService.sendAuthorizationRequest)
+        //  - Cloudflare may deny that redirect URL because of a very large 'request' query parameter
+        //  - The content of that request parameter is a serialized AuthorizationRequest object
+        //  - We rewrite the redirect URL using a request_uri parameter, which resolves to that AuthorizationRequest
+        //  - Here, we restore that AuthorizationRequest and use it's PresentationDefinition to build the VPToken
+
+        val requestUri = reqParams["request_uri"]
+        if (requestUri != null) {
+
+            if (!requestUri.startsWith(authEndpointUri))
+                throw IllegalStateException("Unexpected request_uri: $requestUri")
+
+            val reqObjectId = urlQueryToMap(requestUri)["request_object"]
+            if (reqObjectId == null)
+                throw IllegalStateException("No request_object in: $requestUri")
+
+            // [TODO] Select request_uri object by id
+            authReq = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
+        }
+        log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(authReq)}" }
+
+        val vpdef = authReq?.presentationDefinition
+            ?: throw IllegalStateException("No presentationDefinition in: $authReq")
+
+        val jti = "${Uuid.random()}"
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(300) // 5 mins expiry
+
+        val kid = ctx.didInfo.authenticationId()
+        val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType.JWT)
+            .keyID(kid)
+            .build()
+
+        val vpJson = """{
+            "@context": [ "https://www.w3.org/2018/credentials/v1" ],
+            "id": "$jti",
+            "type": [ "VerifiablePresentation" ],
+            "holder": "${ctx.did}",
+            "verifiableCredential": []
+        }"""
+        val vpObj = JSONObjectUtils.parse(vpJson)
+
+        @Suppress("UNCHECKED_CAST")
+        val vcArray = vpObj["verifiableCredential"] as MutableList<String>
+
+        val descriptorMappings = mutableListOf<DescriptorMapping>()
+        val matchingCredentials = widWalletSvc.findCredentials(ctx, vpdef).toMap()
+
+        for (ind in vpdef.inputDescriptors) {
+
+            val wc = matchingCredentials[ind.id]
+            if (wc == null) {
+                log.warn { "No matching credential for: ${ind.id}" }
+                continue
+            }
+
+            log.info { "Found matching credential for: ${ind.id}" }
+
+            val n = vcArray.size
+            val dm = DescriptorMapping(
+                id = ind.id,
+                path = "$",
+                format = VCFormat.jwt_vp,
+                pathNested = DescriptorMapping(
+                    id = ind.id,
+                    path = "$.vp.verifiableCredential[$n]",
+                    format = VCFormat.jwt_vc,
+                )
+            )
+
+            descriptorMappings.add(dm)
+            vcArray.add(wc.document)
+        }
+
+        val vpSubmission = PresentationSubmission(
+            id = "${Uuid.random()}",
+            definitionId = vpdef.id,
+            descriptorMap = descriptorMappings
+        )
+
+        val claimsBuilder = JWTClaimsSet.Builder()
+            .jwtID(jti)
+            .issuer(ctx.did)
+            .subject(ctx.did)
+            .audience(clientId)
+            .issueTime(Date.from(iat))
+            .notBeforeTime(Date.from(iat))
+            .expirationTime(Date.from(exp))
+            .claim("vp", vpObj)
+
+        authReq.nonce?.also { claimsBuilder.claim("nonce", it) }
+        authReq.state?.also { claimsBuilder.claim("state", it) }
+        val vpTokenClaims = claimsBuilder.build()
+
+        val vpTokenJwt = SignedJWT(vpTokenHeader, vpTokenClaims).signWithKey(ctx, kid)
+        log.info { "VPToken Header: ${vpTokenJwt.header}" }
+        log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
+
+        val vpToken = vpTokenJwt.serialize()
+        log.info { "VPToken: $vpToken" }
+
+        if (!vpTokenJwt.verifyJwt(ctx.didInfo))
+            throw IllegalStateException("VPToken signature verification failed")
+
+        return Pair(vpTokenJwt, vpSubmission)
+    }
+
+    suspend fun sendVPToken(ctx: OIDCContext, vpTokenJwt: SignedJWT, vpSubmission: PresentationSubmission): String {
+
+        val reqObject = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
+
+        val redirectUri = reqObject.redirectUri
+            ?: throw IllegalStateException("No redirectUri in: $reqObject")
+
+        val state = reqObject.state
+            ?: throw IllegalStateException("No state in: $reqObject")
+
+        log.info { "Send VPToken: $redirectUri" }
+        val formData = mapOf(
+            "vp_token" to "${vpTokenJwt.serialize()}",
+            "presentation_submission" to Json.encodeToString(vpSubmission),
+            "state" to state,
+        ).also {
+            it.forEach { (k, v) -> log.info { "  $k=$v" } }
+        }
+
+        val res = http.post(redirectUri) {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(FormDataContent(Parameters.build {
+                formData.forEach { (k, v) -> append(k, v) }
+            }))
+        }
+
+        if (res.status != HttpStatusCode.Found)
+            throw HttpStatusException(res.status, res.bodyAsText())
+
+        val location = res.headers["location"]?.also {
+            log.info { "VPToken Response: $it" }
+        } ?: throw IllegalStateException("Cannot find 'location' in headers")
+
+        val authCode = urlQueryToMap(location)["code"]?.also {
+            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, it)
+        } ?: throw IllegalStateException("No authorization code")
+
+        return authCode
+    }
+
+    fun createTokenRequestAuthCode(ctx: OIDCContext, authCode: String): TokenRequest {
+
+        val tokenRequest = TokenRequest.AuthorizationCode(
+            clientId = ctx.did,
+            redirectUri = ctx.authRequest.redirectUri,
+            codeVerifier = ctx.authRequestCodeVerifier,
+            code = authCode,
+        )
+        return tokenRequest
+    }
+
     suspend fun getCredentialOfferFromUri(ctx: OIDCContext, offerUri: String): CredentialOffer {
         val credOffer = OpenID4VCI.parseAndResolveCredentialOfferRequestUrl(offerUri)
         ctx.putAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY, credOffer)
@@ -166,7 +468,7 @@ object WalletService {
             val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, issuer)
             val authRequest = buildAuthorizationRequest(ctx, authDetails)
             val authCode = sendAuthorizationRequest(ctx, authRequest)
-            val tokenReq = AuthService.createTokenRequestAuthCode(ctx, authCode)
+            val tokenReq = createTokenRequestAuthCode(ctx, authCode)
             AuthService.sendTokenRequestAuthCode(ctx, tokenReq)
         }
 

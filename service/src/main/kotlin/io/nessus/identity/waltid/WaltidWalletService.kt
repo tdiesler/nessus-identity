@@ -94,14 +94,14 @@ class WaltidWalletService {
     // Credentials -----------------------------------------------------------------------------------------------------
 
     @OptIn(ExperimentalUuidApi::class)
-    fun addCredential(walletId: String, format: CredentialFormat, vcJwt: SignedJWT): String {
+    fun addCredential(walletId: String, format: CredentialFormat, credJwt: SignedJWT): String {
 
         if (format != CredentialFormat.jwt_vc)
             throw IllegalStateException("Unsupported credential format: $format")
 
-        val credId = getCredentialId(vcJwt)
+        val credId = getCredentialId(credJwt)
         val walletUid = Uuid.Companion.parse(walletId)
-        val document = vcJwt.serialize()
+        val document = credJwt.serialize()
 
         val walletCredential = WalletCredential(
             id = credId,
@@ -129,16 +129,13 @@ class WaltidWalletService {
     /**
      * For every InputDescriptor iterate over all WalletCredentials and match all constraints.
      */
-    suspend fun findCredentials(
-        ctx: LoginContext,
-        vpdef: PresentationDefinition
-    ): List<Pair<String, WalletCredential>> {
+    suspend fun findCredentials(ctx: LoginContext, vpdef: PresentationDefinition): List<Pair<String, WalletCredential>> {
 
         val walletCredentials = api.credentials(ctx)
         val foundCredentials = mutableListOf<Pair<String, WalletCredential>>()
 
-        for (ind in vpdef.inputDescriptors) {
-            for (wc in walletCredentials) {
+        for (wc in walletCredentials) {
+            for (ind in vpdef.inputDescriptors) {
                 if (CredentialMatcher.matchCredential(wc, ind)) {
                     foundCredentials.add(Pair(ind.id, wc))
                     break
