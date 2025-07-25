@@ -5,6 +5,7 @@ import id.walt.oid4vc.data.AuthorizationDetails
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
@@ -55,8 +56,11 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             //
             WalletService.addCredentialOffer(alice, credOffer)
             val offeredCred = WalletService.resolveOfferedCredential(alice, credOffer)
-            val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, issuerMetadata.credentialIssuer)
-            val authRequest = WalletService.buildAuthorizationRequest(alice, authDetails)
+            val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer)
+            val authRequest = AuthorizationRequestBuilder(alice)
+                .withAuthorizationDetails(authDetails)
+                .withCredentialOffer(credOffer)
+                .build()
 
             // The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
             //

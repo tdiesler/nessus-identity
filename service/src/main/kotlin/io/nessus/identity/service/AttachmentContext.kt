@@ -3,6 +3,7 @@ package io.nessus.identity.service
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.OpenIDProviderMetadata
+import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.oid4vc.requests.AuthorizationRequest
 import io.nessus.identity.waltid.DidInfo
 import io.nessus.identity.waltid.WalletInfo
@@ -24,6 +25,7 @@ object AttachmentKeys {
     val AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE_VERIFIER")
     val CREDENTIAL_OFFER_ATTACHMENT_KEY = attachmentKey<CredentialOffer>()
     val ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<OpenIDProviderMetadata>()
+    val PRESENTATION_SUBMISSION_ATTACHMENT_KEY = attachmentKey<PresentationSubmission>()
     val REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<Any>("RequestUriObject")
 }
 
@@ -57,8 +59,10 @@ open class AttachmentContext() {
 
     private val valueStore = ConcurrentHashMap<AttachmentKey<*>, Any>()
 
-    fun <T : Any> assertAttachment(key: AttachmentKey<T>): T {
-        return valueStore[key] as? T ?: throw IllegalStateException("No $key")
+    fun <T : Any> assertAttachment(key: AttachmentKey<T>, remove: Boolean = false): T {
+        val value = if (remove) valueStore.remove(key) else valueStore[key]
+            ?: throw IllegalStateException("No $key")
+        return value as T
     }
 
     fun <T : Any> getAttachment(key: AttachmentKey<T>): T? {

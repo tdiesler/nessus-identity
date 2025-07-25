@@ -1,9 +1,10 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.dif.PresentationDefinition
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
+import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
 import kotlinx.coroutines.runBlocking
@@ -34,7 +35,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // The Holder sends an AuthorizationRequest to the Verifier
             //
-            val authRequest = WalletService.buildAuthorizationRequest(alice)
+            val authRequest = AuthorizationRequestBuilder(alice).build()
 
             // The Verifier sends an IDToken Request to the Holder (request proof of DID ownership)
             //
@@ -76,57 +77,27 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // The Holder sends an AuthorizationRequest to the Verifier
             //
-            val authRequest = WalletService.buildAuthorizationRequest(
-                ctx = alice,
-                vpDefinition = PresentationDefinition.fromJSONString("""
-                {
-                    "id": "holder-wallet-qualification-presentation",
-                    "input_descriptors": [
-                      {
-                        "id": "same-device-authorised-in-time-credential",
-                        "format": {
-                          "jwt_vc": {
-                            "alg": [
-                              "ES256"
-                            ]
-                          },
-                          "jwt_vc_json": {
-                            "alg": [
-                              "ES256"
-                            ]
-                          }
-                        },
-                        "constraints": {
-                          "fields": [
-                            {
-                              "path": [
-                                "$.vc.type"
-                              ],
-                              "filter": {
-                                "contains": {
-                                  "const": "CTWalletSameAuthorisedInTime"
-                                },
-                                "type": "array"
-                              }
-                            }
-                          ]
-                        }
-                      }
-                    ]
-                  }  
-                """.trimIndent()
-                )
-            )
+            val authRequest = AuthorizationRequestBuilder(alice)
+                .withPresentationDefinition(
+                    PresentationDefinitionBuilder()
+                        .withId("same-device-authorised-in-time-credential")
+                        .withInputDescriptorForType("CTWalletSameAuthorisedInTime", id="inp#1")
+                        .build()
+                ).build()
 
             // The Verifier sends an VPToken Request to the Holder (request of VerifiablePresentation)
             //
             AuthService.validateAuthorizationRequest(bob, authRequest)
             val vpTokenRequestJwt = AuthService.buildVPTokenRequest(bob, authRequest)
             val vpTokenRedirectUrl = AuthService.buildVPTokenRedirectUrl(bob, vpTokenRequestJwt)
+            val vpTokenRequestParams = urlQueryToMap(vpTokenRedirectUrl)
+            vpTokenRequestParams["client_id"] shouldBe alice.did
+            vpTokenRequestParams["response_mode"] shouldBe "direct_post"
+            vpTokenRequestParams["response_type"] shouldBe "vp_token"
 
             // Holder responds with a signed VPToken that contains the VerifiablePresentation
             //
-            val vpTokenJwt = WalletService.createVPToken(alice, urlQueryToMap(vpTokenRedirectUrl))
+            val vpTokenJwt = WalletService.createVPToken(alice, authRequest)
 
             // Verifier validates the VPToken
             //

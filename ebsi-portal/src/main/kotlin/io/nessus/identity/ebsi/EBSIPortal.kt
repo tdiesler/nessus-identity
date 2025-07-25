@@ -42,8 +42,11 @@ import io.ktor.server.sessions.cookie
 import io.ktor.server.sessions.sessions
 import io.ktor.util.toMap
 import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.config.redacted
+import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.HttpStatusException
@@ -429,9 +432,35 @@ class EBSIPortal {
 
     private suspend fun handleVPTokenRequest(call: RoutingCall, ctx: OIDCContext) {
 
-        val reqParams = urlQueryToMap(call.request.uri).toMutableMap()
-        val (vpTokenJwt, vpSubmission) = WalletService.createVPTokenWithPresentationSubmission(ctx, reqParams)
-        WalletService.sendVPToken(ctx, vpTokenJwt, vpSubmission)
+        val reqParams = urlQueryToMap(call.request.uri)
+
+        // Final Qualification Credential use case ...
+        //
+        //  - EBSI offers the CTWalletQualificationCredential
+        //  - Holder sends an AuthorizationRequest, EBSI responds with an 302 Redirect (WalletService.sendAuthorizationRequest)
+        //  - Cloudflare may deny that redirect URL because of a very large 'request' query parameter
+        //  - The content of that request parameter is a serialized AuthorizationRequest object
+        //  - We rewrite the redirect URL using a request_uri parameter, which resolves to that AuthorizationRequest
+        //  - Here, we restore that AuthorizationRequest and use it's PresentationDefinition to build the VPToken
+
+        var authReq = ctx.assertAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
+
+        val requestUri = reqParams["request_uri"]
+        if (requestUri != null) {
+
+            if (!requestUri.startsWith(authEndpointUri))
+                throw IllegalStateException("Unexpected request_uri: $requestUri")
+
+            val reqObjectId = urlQueryToMap(requestUri)["request_object"]
+            if (reqObjectId == null)
+                throw IllegalStateException("No request_object in: $requestUri")
+
+            // [TODO] Select request_uri object by id
+            authReq = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
+        }
+
+        val vpTokenJwt = WalletService.createVPToken(ctx, authReq)
+        WalletService.sendVPToken(ctx, vpTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,

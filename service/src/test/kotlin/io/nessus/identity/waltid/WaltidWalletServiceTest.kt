@@ -59,13 +59,10 @@ class WaltidWalletServiceTest : AbstractServiceTest() {
 
         val json = loadResourceAsString("presentation-definition.json")
         val vpdef = Json.Default.decodeFromString<PresentationDefinition>(json)
-        log.info { "PresentationDefinition: $vpdef" }
 
         runBlocking {
             val ctx = loginWithWallet(Max)
-            widWalletSvc.findCredentials(ctx, vpdef).forEach { (_, wc) ->
-                print("${wc.parsedDocument?.get("type")}\n")
-            }
+            widWalletSvc.findCredentials(ctx, vpdef)
         }
     }
 
