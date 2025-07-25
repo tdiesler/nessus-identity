@@ -24,9 +24,6 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
     companion object {
         /**
          * Short hash from the combination of walletId + did
-         * [TODO] do we really need the walletId
-         * [TODO] complain about not being able to use base64
-         * [TODO] use a more explicit hex encoder
          */
         fun getTargetId(wid: String, did: String): String {
             val sha256 = MessageDigest.getInstance("SHA-256")

@@ -16,10 +16,16 @@ import kotlin.uuid.Uuid
 class PresentationDefinitionBuilder() {
 
     private var id: String = ShortIdUtils.randomSessionId()
+    private val formats = mutableMapOf<VCFormat, VCFormatDefinition>()
     private val inputDescriptors = mutableListOf<InputDescriptor>()
 
     fun withId(id: String): PresentationDefinitionBuilder {
         this.id = id
+        return this
+    }
+
+    fun withFormat(vcFormat: VCFormat, vcFormatDef: VCFormatDefinition): PresentationDefinitionBuilder {
+        this.formats[vcFormat] = vcFormatDef
         return this
     }
 
@@ -51,8 +57,13 @@ class PresentationDefinitionBuilder() {
     }
 
     fun build(): PresentationDefinition {
+        if (formats.isEmpty()) {
+            formats[VCFormat.jwt_vc] = VCFormatDefinition(alg = setOf("ES256"))
+            formats[VCFormat.jwt_vp] = VCFormatDefinition(alg = setOf("ES256"))
+        }
         val vpDef = PresentationDefinition(
             id = id,
+            format = formats,
             inputDescriptors = inputDescriptors,
         )
         return vpDef

@@ -443,6 +443,8 @@ class EBSIPortal {
         //  - We rewrite the redirect URL using a request_uri parameter, which resolves to that AuthorizationRequest
         //  - Here, we restore that AuthorizationRequest and use it's PresentationDefinition to build the VPToken
 
+        // [TODO #229] Access to request_uri object not thread safe
+
         var authReq = ctx.assertAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
 
         val requestUri = reqParams["request_uri"]
@@ -455,7 +457,6 @@ class EBSIPortal {
             if (reqObjectId == null)
                 throw IllegalStateException("No request_object in: $requestUri")
 
-            // [TODO] Select request_uri object by id
             authReq = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         }
 

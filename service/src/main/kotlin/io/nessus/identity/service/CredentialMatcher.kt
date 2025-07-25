@@ -17,6 +17,7 @@ object CredentialMatcher {
     private val jaywayConfig: Configuration = Configuration.defaultConfiguration()
         .addOptions(Option.DEFAULT_PATH_LEAF_TO_NULL)
 
+    // [TODO #238] Add comprehensive Presentation matching
     fun matchCredential(wc: WalletCredential, ind: InputDescriptor): Boolean {
         val indId = ind.id
         val fields = ind.constraints?.fields

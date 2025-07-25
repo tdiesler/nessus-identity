@@ -73,7 +73,6 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             val idTokenJwt = WalletService.createIDToken(alice, urlQueryToMap(idTokenRequestUrl))
 
             // Issuer validates IDToken and returns an Authorization Code
-            // [TODO] Validate the IDToken - AuthService.validateIDToken does actually not do that just yet
             val authCode = AuthService.validateIDToken(max, idTokenJwt)
             idTokenJwt.verifyJwt(alice.didInfo) shouldBe true
 

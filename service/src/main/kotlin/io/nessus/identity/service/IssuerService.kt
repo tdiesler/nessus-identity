@@ -84,7 +84,11 @@ object IssuerService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun credentialFromRequest(ctx: OIDCContext, credReq: CredentialRequest, accessTokenJwt: SignedJWT): CredentialResponse {
+    suspend fun credentialFromRequest(
+        ctx: OIDCContext,
+        credReq: CredentialRequest,
+        accessTokenJwt: SignedJWT
+    ): CredentialResponse {
 
         ctx.validateAccessToken(accessTokenJwt)
 
@@ -101,7 +105,7 @@ object IssuerService {
         if (unknownTypes.isNotEmpty())
             throw IllegalStateException("Unknown credential types: $unknownTypes")
 
-        // [TODO] Derive CredentialSchema from somewhere
+        // [TODO #234] Derive CredentialSchema from somewhere
         val cred = JwtCredentialBuilder()
             .withId(id)
             .withIssuerId(ctx.did)

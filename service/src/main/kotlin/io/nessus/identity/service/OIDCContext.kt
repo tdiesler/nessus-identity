@@ -45,9 +45,8 @@ open class OIDCContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
         if (exp == null || exp.isBefore(Instant.now()))
             throw IllegalStateException("Token expired")
 
-        // [TODO] consider other access token checks
+        // [TODO #235] Properly validate the AccessToken
     }
-
 }
 
 object OIDCContextRegistry {

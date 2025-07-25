@@ -112,7 +112,7 @@ data class W3CCredential(
     val trustFramework: TrustFramework? = null,
 )
 
-// [TODO] Review W3C standards and their serialization
+// [TODO #237] Review W3C standards and their serialization
 @OptIn(ExperimentalUuidApi::class)
 class W3CCredentialBuilder {
 
@@ -185,7 +185,7 @@ class W3CCredentialBuilder {
             id = id,
             credentialSubject = credentialSubject,
             issuer = issuer,
-            // [TODO] why do we need three properties for validFrom
+            // [TODO #236] why do we need three properties for validFrom
             // https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
             issued = issuanceDate,
             issuanceDate = issuanceDate,

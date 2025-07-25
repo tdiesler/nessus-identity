@@ -48,8 +48,8 @@ class VerifierUseCasesTest : AbstractServiceTest() {
             val idTokenJwt = WalletService.createIDToken(alice, urlQueryToMap(idTokenRedirectUrl))
 
             // Verifier validates the IDToken
-            // [TODO] Validate the IDToken - AuthService.validateIDToken does actually not do that just yet
-            val authCode = AuthService.validateIDToken(bob, idTokenJwt)
+            //
+            AuthService.validateIDToken(bob, idTokenJwt)
             idTokenJwt.verifyJwt(alice.didInfo) shouldBe true
         }
     }

@@ -35,6 +35,7 @@ import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -157,40 +158,17 @@ object AuthService {
 
         val presentationDefinition = authReq.presentationDefinition ?: run {
 
-            fun buildInputDescriptor(): InputDescriptor {
-                return InputDescriptor(
-                    id = "${Uuid.random()}",
-                    format = mapOf(VCFormat.jwt_vc to VCFormatDefinition(alg = setOf("ES256"))),
-                    constraints = InputDescriptorConstraints(
-                        fields = listOf(
-                            InputDescriptorField(
-                                path = listOf("$.vc.type"),
-                                filter = Json.parseToJsonElement(
-                                    """{
-                                "type": "array",
-                                "contains": { "const": "VerifiableAttestation" }
-                            }""".trimIndent()
-                                ).jsonObject
-                            )
-                        ),
-                    ),
-                )
-            }
+            if (authReq.scope != setOf("openid", "ver_test:vp_token"))
+                throw IllegalStateException("No PresentationDefinition")
 
-            PresentationDefinition(
-                format = mapOf(
-                    VCFormat.jwt_vc to VCFormatDefinition(alg = setOf("ES256")),
-                    VCFormat.jwt_vp to VCFormatDefinition(alg = setOf("ES256"))
-                ),
-                inputDescriptors = listOf(
-                    // [TODO] EBSI wants exactly three InputDescriptor(s)
-                    // Authorization endpoint's response doesn't contain a valid JWT payload in the VP Token request
-                    // Validation error. Path: 'presentation_definition.input_descriptors'. Reason: Array must contain exactly 3 element(s)
-                    buildInputDescriptor(),
-                    buildInputDescriptor(),
-                    buildInputDescriptor(),
-                ),
-            )
+            // EBSI wants exactly three InputDescriptor(s)
+            // Authorization endpoint's response doesn't contain a valid JWT payload in the VP Token request
+            // Validation error. Path: 'presentation_definition.input_descriptors'. Reason: Array must contain exactly 3 element(s)
+            PresentationDefinitionBuilder()
+                .withInputDescriptorForType("VerifiableAttestation")
+                .withInputDescriptorForType("VerifiableAttestation")
+                .withInputDescriptorForType("VerifiableAttestation")
+                .build()
         }
 
         val presentationDefinitionJson = Json.encodeToString(presentationDefinition)
@@ -326,7 +304,7 @@ object AuthService {
         if (tokReq.clientId != ctx.authRequest.clientId)
             throw IllegalArgumentException("Invalid client_id: ${tokReq.clientId}")
 
-        // [TODO] verify token request code challenge
+        // [TODO #230] Verify token request code challenge
 
         val tokenRes = buildTokenResponse(ctx)
         return tokenRes
@@ -337,7 +315,7 @@ object AuthService {
         tokenReq: TokenRequest.PreAuthorizedCode
     ): TokenResponse {
 
-        // [TODO] Externalize pre-authorization code mapping
+        // [TODO #231] Externalize pre-authorization code mapping
         val ebsiClientId =
             "did:key:z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9Kboj7g9PfXJxbbs4KYegyr7ELnFVnpDMzbJJDDNZjavX6jvtDmALMbXAGW67pdTgFea2FrGGSFs8Ejxi96oFLGHcL4P6bjLDPBJEvRRHSrG4LsPne52fczt2MWjHLLJBvhAC"
         val preAuthorisedCodeToClientId = mapOf(
@@ -454,7 +432,7 @@ object AuthService {
 
         // Validate the AuthorizationRequest
         //
-        // [TODO] check VC types in authorization_details
+        // [TODO #232] Check VC types in authorization_details
 
         ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authReq)
     }
@@ -465,7 +443,7 @@ object AuthService {
         log.info { "IDToken Header: ${idTokenJwt.header}" }
         log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
 
-        // [TODO] Validate the IDToken which is proof that the Holders controls the given Did
+        // [TODO #233] Verify IDToken proof DID ownership
         // We should be able to use the Holder's public key to do that
 
         val authCode = "${Uuid.random()}"

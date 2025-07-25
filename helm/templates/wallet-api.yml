@@ -43,7 +43,8 @@ spec:
             - name: DB_NAME
               value: 'waltid'
             - name: DB_USERNAME
-              value: 'postgres' # TODO: Get DB_USERNAME from secret
+              # [TODO #239] Get DB_USERNAME from k8s secret
+              value: 'postgres'
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:

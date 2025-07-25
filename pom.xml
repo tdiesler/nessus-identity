@@ -46,9 +46,7 @@
         <version.waltid>0.15.1</version.waltid>
 
         <!--
-            [TODO] Remove dependency on local wallet-api build
-            // https://github.com/tdiesler/nessus-identity/issues/199
-            //
+            [TODO #199] Remove dependency on local wallet-api build
             ./gradlew :waltid-services:waltid-wallet-api:publishToMavenLocal
         -->
         <version.waltid.local>1.0.0-SNAPSHOT</version.waltid.local>
