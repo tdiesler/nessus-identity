@@ -45,8 +45,10 @@ uninstall:
 upgrade: build-images
 	@helm --kube-context $(KUBE_CONTEXT) upgrade --install ebsi-portal ./helm -f ./helm/values-ebsi-portal.yaml
 
-upgrade-services:
+upgrade-wallet-api:
 	@cd ../waltid-identity && ./gradlew :waltid-services:waltid-wallet-api:publishToMavenLocal
+
+upgrade-services: upgrade-wallet-api
 	@cd ../waltid-identity/docker-compose && \
 		docker compose build web-portal && \
 		docker compose build waltid-demo-wallet && \
