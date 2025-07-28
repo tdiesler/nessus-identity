@@ -358,6 +358,13 @@ class EBSIPortal {
             return handleCredentialRequest(call, ctx)
         }
 
+        // Handle Deferred Credential Request
+        //
+        if (path == "/issuer/$svcId/credential_deferred") {
+            val ctx = OIDCContextRegistry.assert(svcId)
+            return handleDeferredCredentialRequest(call, ctx)
+        }
+
         call.respondText(
             status = HttpStatusCode.InternalServerError,
             contentType = ContentType.Text.Plain,
@@ -515,7 +522,7 @@ class EBSIPortal {
     }
 
     /**
-     * Client requests an Access Token
+     * Client requests an AccessToken
      */
     private suspend fun handleAuthTokenRequest(call: RoutingCall, svcId: String) {
 
@@ -612,6 +619,23 @@ class EBSIPortal {
         val credReq = call.receive<CredentialRequest>()
         val accessTokenJwt = SignedJWT.parse(accessToken)
         val credentialResponse = IssuerService.credentialFromRequest(ctx, credReq, accessTokenJwt)
+
+        call.respondText(
+            status = HttpStatusCode.OK,
+            contentType = ContentType.Application.Json,
+            text = Json.encodeToString(credentialResponse)
+        )
+    }
+
+    private suspend fun handleDeferredCredentialRequest(call: RoutingCall, ctx: OIDCContext) {
+
+        val acceptanceToken = call.request.headers["Authorization"]
+            ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
+            ?.removePrefix("Bearer ")
+            ?: throw IllegalArgumentException("Invalid authorization header")
+
+        val acceptanceTokenJwt = SignedJWT.parse(acceptanceToken)
+        val credentialResponse = IssuerService.deferredCredentialFromAcceptanceToken(ctx, acceptanceTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,

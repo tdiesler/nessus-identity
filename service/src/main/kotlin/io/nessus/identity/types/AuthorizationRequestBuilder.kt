@@ -1,5 +1,6 @@
 package io.nessus.identity.types
 
+import com.nimbusds.jose.util.Base64URL
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.GrantType
@@ -45,10 +46,10 @@ class AuthorizationRequestBuilder(val ctx: OIDCContext) {
         // If client_metadata fails to provide the required information, the default configuration (openid://) will be used instead.
 
         val rndBytes = Random.Default.nextBytes(32)
+        val codeVerifier = Base64URL.encode(rndBytes).toString()
         val sha256 = MessageDigest.getInstance("SHA-256")
-        val codeVerifier = Base64.getUrlEncoder().withoutPadding().encodeToString(rndBytes)
-        val codeVerifierHash = sha256.digest(codeVerifier.toByteArray(Charsets.US_ASCII))
-        val codeChallenge = Base64.getUrlEncoder().withoutPadding().encodeToString(codeVerifierHash)
+        val codeVerifierHash = sha256.digest(codeVerifier.toByteArray())
+        val codeChallenge = Base64URL.encode(codeVerifierHash).toString()
 
         // Build AuthRequestUrl
         //
