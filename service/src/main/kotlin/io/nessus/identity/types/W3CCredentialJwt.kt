@@ -1,5 +1,6 @@
 package io.nessus.identity.types
 
+import com.nimbusds.jwt.SignedJWT
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
@@ -19,8 +20,26 @@ import java.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+@Serializable
+data class W3CCredentialJwt(
+    val sub: String,
+    val iss: String,
+    val jti: String? = null,
+    val iat: Long? = null,
+    val nbf: Long? = null,
+    var exp: Long? = null,
+    val vc: W3CCredential,
+) {
+    companion object {
+        fun fromEncodedJwt(encoded: String): W3CCredentialJwt {
+            val vcJwt = SignedJWT.parse(encoded)
+            return Json.decodeFromString<W3CCredentialJwt>("${vcJwt.payload}")
+        }
+    }
+}
+
 @OptIn(ExperimentalUuidApi::class)
-class JwtCredentialBuilder {
+class W3CCredentialJwtBuilder {
     var id: String = "${Uuid.random()}"
     var issuerId: String? = null
     var subjectId: String? = null
@@ -28,41 +47,41 @@ class JwtCredentialBuilder {
     var validUntil: Instant? = null
     var credential: W3CCredential? = null
 
-    fun withId(id: String): JwtCredentialBuilder {
+    fun withId(id: String): W3CCredentialJwtBuilder {
         this.id = id
         return this
     }
 
-    fun withIssuerId(id: String): JwtCredentialBuilder {
+    fun withIssuerId(id: String): W3CCredentialJwtBuilder {
         this.issuerId = id
         return this
     }
 
-    fun withSubjectId(id: String): JwtCredentialBuilder {
+    fun withSubjectId(id: String): W3CCredentialJwtBuilder {
         this.subjectId = id
         return this
     }
 
-    fun withValidFrom(iat: Instant): JwtCredentialBuilder {
+    fun withValidFrom(iat: Instant): W3CCredentialJwtBuilder {
         this.validFrom = iat
         return this
     }
 
-    fun withValidUntil(exp: Instant): JwtCredentialBuilder {
+    fun withValidUntil(exp: Instant): W3CCredentialJwtBuilder {
         this.validUntil = exp
         return this
     }
 
-    fun withCredential(vc: W3CCredential): JwtCredentialBuilder {
+    fun withCredential(vc: W3CCredential): W3CCredentialJwtBuilder {
         this.credential = vc
         return this
     }
 
-    fun build(): JwtCredential {
+    fun build(): W3CCredentialJwt {
         val issuerId = issuerId ?: throw IllegalStateException("No issuerId")
         val subjectId = subjectId ?: throw IllegalStateException("No subjectId")
         val credential = credential ?: throw IllegalStateException("No credential")
-        val cred = JwtCredential(
+        val cred = W3CCredentialJwt(
             jti = id,
             iss = issuerId,
             sub = subjectId,
@@ -76,17 +95,6 @@ class JwtCredentialBuilder {
         return cred
     }
 }
-
-@Serializable
-data class JwtCredential(
-    val sub: String,
-    val jti: String,
-    val iss: String,
-    val iat: Long,
-    val nbf: Long,
-    var exp: Long? = null,
-    val vc: W3CCredential,
-)
 
 @OptIn(ExperimentalUuidApi::class)
 @Serializable

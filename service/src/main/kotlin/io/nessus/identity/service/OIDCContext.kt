@@ -53,19 +53,19 @@ object OIDCContextRegistry {
 
     private val registry = mutableMapOf<String, OIDCContext>()
 
-    fun assert(subId: String): OIDCContext {
-        return get(subId) ?: throw IllegalStateException("No OIDCContext for: $subId")
+    fun assert(dstId: String): OIDCContext {
+        return get(dstId) ?: throw IllegalStateException("No OIDCContext for: $dstId")
     }
 
-    fun get(subId: String): OIDCContext? {
-        return registry[subId]
+    fun get(dstId: String): OIDCContext? {
+        return registry[dstId]
     }
 
-    fun put(subId: String, ctx: OIDCContext) {
-        registry[subId] = ctx
+    fun put(dstId: String, ctx: OIDCContext) {
+        registry[dstId] = ctx
     }
 
-    fun remove(subId: String): OIDCContext? {
-        return registry.remove(subId)
+    fun remove(dstId: String): OIDCContext? {
+        return registry.remove(dstId)
     }
 }

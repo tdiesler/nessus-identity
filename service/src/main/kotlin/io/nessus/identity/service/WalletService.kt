@@ -10,6 +10,7 @@ import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.CredentialOffer
+import id.walt.oid4vc.data.GrantDetails
 import id.walt.oid4vc.data.OfferedCredential
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.data.dif.DescriptorMapping
@@ -36,13 +37,17 @@ import io.ktor.http.Parameters
 import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
+import io.nessus.identity.extend.getPreAuthorizedGrantDetails
+import io.nessus.identity.extend.toSignedJWT
+import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.CREDENTIAL_OFFER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.PRESENTATION_SUBMISSION_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
+import io.nessus.identity.service.CredentialOfferRegistry.assertCredentialOfferRecord
 import io.nessus.identity.types.AuthorizationRequestBuilder
-import io.nessus.identity.types.JwtCredential
+import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
@@ -61,6 +66,7 @@ object WalletService {
     val log = KotlinLogging.logger {}
 
     fun addCredentialOffer(ctx: OIDCContext, credOffer: CredentialOffer) {
+        log.info { "Add CredentialOffer: ${Json.encodeToString(credOffer)}" }
         ctx.putAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY, credOffer)
     }
 
@@ -70,12 +76,12 @@ object WalletService {
         val format = credRes.format as CredentialFormat
 
         // Verify that we can unmarshall the credential
-        Json.decodeFromString<JwtCredential>("${credJwt.payload}")
+        Json.decodeFromString<W3CCredentialJwt>("${credJwt.payload}")
 
         widWalletSvc.addCredential(walletId, format, credJwt)
     }
 
-    suspend fun buildCredentialRequest(
+    suspend fun createCredentialRequest(
         ctx: OIDCContext,
         offeredCred: OfferedCredential,
         accessToken: TokenResponse
@@ -181,38 +187,6 @@ object WalletService {
         return idTokenJwt
     }
 
-    suspend fun sendIDToken(ctx: OIDCContext, redirectUri: String, idTokenJwt: SignedJWT): String {
-
-        log.info { "Send IDToken: $redirectUri" }
-        val formData = mutableMapOf(
-            "id_token" to idTokenJwt.serialize(),
-        )
-        val isTokenClaims = idTokenJwt.jwtClaimsSet
-        isTokenClaims.getClaim("state")?.also { formData["state"] = "$it" }
-
-        formData.forEach { (k, v) -> log.info { "  $k=$v" } }
-
-        val res = http.post(redirectUri) {
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody(FormDataContent(Parameters.build {
-                formData.forEach { (k, v) -> append(k, v) }
-            }))
-        }
-
-        if (res.status != HttpStatusCode.Found)
-            throw HttpStatusException(res.status, res.bodyAsText())
-
-        val location = res.headers["location"]?.also {
-            log.info { "IDToken Response: $it" }
-        } ?: throw IllegalStateException("Cannot find 'location' in headers")
-
-        val authCode = urlQueryToMap(location)["code"]?.also {
-            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, it)
-        } ?: throw IllegalStateException("No authorization code")
-
-        return authCode
-    }
-
     @OptIn(ExperimentalUuidApi::class)
     suspend fun createVPToken(ctx: OIDCContext, authReq: AuthorizationRequest): SignedJWT {
 
@@ -248,11 +222,12 @@ object WalletService {
         val vcArray = vpObj["verifiableCredential"] as MutableList<String>
 
         val descriptorMappings = mutableListOf<DescriptorMapping>()
-        val matchingCredentials = widWalletSvc.findCredentials(ctx, vpdef).toMap()
+        val matchingCredentials = widWalletSvc.findCredentialsByPresentationDefinition(ctx, vpdef).toMap()
+        val matchingCredentialsByInputDescriptorId = matchingCredentials.entries.associate { (ind, wc) -> ind.id to wc }
 
         for (ind in vpdef.inputDescriptors) {
 
-            val wc = matchingCredentials[ind.id]
+            val wc = matchingCredentialsByInputDescriptorId[ind.id]
             if (wc == null) {
                 log.warn { "No matching credential for: ${ind.id}" }
                 continue
@@ -310,47 +285,6 @@ object WalletService {
         return vpTokenJwt
     }
 
-    suspend fun sendVPToken(ctx: OIDCContext, vpTokenJwt: SignedJWT): String {
-
-        val reqObject = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
-        val vpSubmission = ctx.assertAttachment(PRESENTATION_SUBMISSION_ATTACHMENT_KEY, true)
-
-        val redirectUri = reqObject.redirectUri
-            ?: throw IllegalStateException("No redirectUri in: $reqObject")
-
-        val state = reqObject.state
-            ?: throw IllegalStateException("No state in: $reqObject")
-
-        log.info { "Send VPToken: $redirectUri" }
-        val formData = mapOf(
-            "vp_token" to "${vpTokenJwt.serialize()}",
-            "presentation_submission" to Json.encodeToString(vpSubmission),
-            "state" to state,
-        ).also {
-            it.forEach { (k, v) -> log.info { "  $k=$v" } }
-        }
-
-        val res = http.post(redirectUri) {
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody(FormDataContent(Parameters.build {
-                formData.forEach { (k, v) -> append(k, v) }
-            }))
-        }
-
-        if (res.status != HttpStatusCode.Found)
-            throw HttpStatusException(res.status, res.bodyAsText())
-
-        val location = res.headers["location"]?.also {
-            log.info { "VPToken Response: $it" }
-        } ?: throw IllegalStateException("Cannot find 'location' in headers")
-
-        val authCode = urlQueryToMap(location)["code"]?.also {
-            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, it)
-        } ?: throw IllegalStateException("No authorization code")
-
-        return authCode
-    }
-
     fun createTokenRequestAuthCode(ctx: OIDCContext, authCode: String): TokenRequest {
 
         val tokenRequest = TokenRequest.AuthorizationCode(
@@ -359,6 +293,21 @@ object WalletService {
             codeVerifier = ctx.authRequestCodeVerifier,
             code = authCode,
         )
+        return tokenRequest
+    }
+
+    fun createTokenRequestPreAuthorized(ctx: OIDCContext, credOffer: CredentialOffer, userPin: String): TokenRequest {
+
+        val grantDetails = credOffer.getPreAuthorizedGrantDetails() as GrantDetails
+        val preAuthCode = grantDetails.preAuthorizedCode as String
+
+        val tokenRequest = TokenRequest.PreAuthorizedCode(
+            clientId = ctx.did,
+            preAuthorizedCode = preAuthCode,
+            userPIN = userPin
+        )
+
+        AuthService.log.info { "TokenRequest: ${Json.encodeToString(tokenRequest)}" }
         return tokenRequest
     }
 
@@ -373,7 +322,10 @@ object WalletService {
         val offeredCred = resolveOfferedCredential(ctx, credOffer)
 
         val accessToken = credOffer.getPreAuthorizedGrantDetails()?.let {
-            AuthService.sendTokenRequestPreAuthorized(ctx, it)
+            val authCode = it.preAuthorizedCode as String
+            val userPin = assertCredentialOfferRecord(authCode).userPin as String
+            val tokenRequest = createTokenRequestPreAuthorized(ctx, credOffer, userPin)
+            sendTokenRequestPreAuthorized(ctx, tokenRequest)
         } ?: run {
             val issuer = credOffer.credentialIssuer
             val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, issuer)
@@ -383,10 +335,10 @@ object WalletService {
                 .build()
             val authCode = sendAuthorizationRequest(ctx, authRequest)
             val tokenReq = createTokenRequestAuthCode(ctx, authCode)
-            AuthService.sendTokenRequestAuthCode(ctx, tokenReq)
+            sendTokenRequestAuthCode(ctx, tokenReq)
         }
 
-        val credReq = buildCredentialRequest(ctx, offeredCred, accessToken)
+        val credReq = createCredentialRequest(ctx, offeredCred, accessToken)
         val credRes = sendCredentialRequest(ctx, credReq)
 
         return credRes
@@ -429,6 +381,8 @@ object WalletService {
      */
     suspend fun resolveOfferedCredential(ctx: OIDCContext, credOffer: CredentialOffer): OfferedCredential {
 
+        log.info { "Resolve CredentialOffer: ${Json.encodeToString(credOffer)}" }
+
         // Get issuer Metadata (on demand)
         //
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY)) {
@@ -450,10 +404,8 @@ object WalletService {
         return offeredCredential
     }
 
-    // Private ---------------------------------------------------------------------------------------------------------
-
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun sendAuthorizationRequest(ctx: OIDCContext, authRequest: AuthorizationRequest): String {
+    suspend fun sendAuthorizationRequest(ctx: OIDCContext, authRequest: AuthorizationRequest): String {
 
         val authReqUrl = URLBuilder("${ctx.authorizationServer}/authorize").apply {
             authRequest.toHttpParameters().forEach { (k, lst) -> lst.forEach { v -> parameters.append(k, v) } }
@@ -526,7 +478,7 @@ object WalletService {
         return ctx.authCode
     }
 
-    private suspend fun sendCredentialRequest(ctx: OIDCContext, credReq: CredentialRequest): CredentialResponse {
+    suspend fun sendCredentialRequest(ctx: OIDCContext, credReq: CredentialRequest): CredentialResponse {
 
         val accessToken = ctx.accessToken
         val credentialEndpoint = ctx.issuerMetadata.credentialEndpoint
@@ -546,7 +498,6 @@ object WalletService {
 
         val credJson = res.bodyAsText()
         log.info { "Credential Response: $credJson" }
-
         val credRes = Json.decodeFromString<CredentialResponse>(credJson)
 
         // In-Time CredentialResponses MUST have a 'format'
@@ -558,4 +509,136 @@ object WalletService {
 
         return credRes
     }
+
+    suspend fun sendIDToken(ctx: OIDCContext, redirectUri: String, idTokenJwt: SignedJWT): String {
+
+        log.info { "Send IDToken: $redirectUri" }
+        val formData = mutableMapOf(
+            "id_token" to idTokenJwt.serialize(),
+        )
+        val isTokenClaims = idTokenJwt.jwtClaimsSet
+        isTokenClaims.getClaim("state")?.also { formData["state"] = "$it" }
+
+        formData.forEach { (k, v) -> log.info { "  $k=$v" } }
+
+        val res = http.post(redirectUri) {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(FormDataContent(Parameters.build {
+                formData.forEach { (k, v) -> append(k, v) }
+            }))
+        }
+
+        if (res.status != HttpStatusCode.Found)
+            throw HttpStatusException(res.status, res.bodyAsText())
+
+        val location = res.headers["location"]?.also {
+            log.info { "IDToken Response: $it" }
+        } ?: throw IllegalStateException("Cannot find 'location' in headers")
+
+        val authCode = urlQueryToMap(location)["code"]?.also {
+            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, it)
+        } ?: throw IllegalStateException("No authorization code")
+
+        return authCode
+    }
+
+    suspend fun sendVPToken(ctx: OIDCContext, vpTokenJwt: SignedJWT): String {
+
+        val reqObject = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
+        val vpSubmission = ctx.assertAttachment(PRESENTATION_SUBMISSION_ATTACHMENT_KEY, true)
+
+        val redirectUri = reqObject.redirectUri
+            ?: throw IllegalStateException("No redirectUri in: $reqObject")
+
+        val state = reqObject.state
+            ?: throw IllegalStateException("No state in: $reqObject")
+
+        log.info { "Send VPToken: $redirectUri" }
+        val formData = mapOf(
+            "vp_token" to "${vpTokenJwt.serialize()}",
+            "presentation_submission" to Json.encodeToString(vpSubmission),
+            "state" to state,
+        ).also {
+            it.forEach { (k, v) -> log.info { "  $k=$v" } }
+        }
+
+        val res = http.post(redirectUri) {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(FormDataContent(Parameters.build {
+                formData.forEach { (k, v) -> append(k, v) }
+            }))
+        }
+
+        if (res.status != HttpStatusCode.Found)
+            throw HttpStatusException(res.status, res.bodyAsText())
+
+        val location = res.headers["location"]?.also {
+            log.info { "VPToken Response: $it" }
+        } ?: throw IllegalStateException("Cannot find 'location' in headers")
+
+        val authCode = urlQueryToMap(location)["code"]?.also {
+            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, it)
+        } ?: throw IllegalStateException("No authorization code")
+
+        return authCode
+    }
+
+    suspend fun sendTokenRequestAuthCode(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
+
+        val tokenReqUrl = "${ctx.authorizationServer}/token"
+
+        AuthService.log.info { "Send Token Request $tokenReqUrl" }
+        AuthService.log.info { "  $tokenReq" } // AuthorizationCode is not @Serializable
+
+        val formData = tokenReq.toHttpParameters()
+        val res = http.post(tokenReqUrl) {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(FormDataContent(Parameters.build {
+                formData.forEach { (k, lst) -> lst.forEach { v -> append(k, v) } }
+            }))
+        }
+
+        if (res.status != HttpStatusCode.OK)
+            throw HttpStatusException(res.status, res.bodyAsText())
+
+        val tokenResponseJson = res.bodyAsText()
+        AuthService.log.info { "Token Response: $tokenResponseJson" }
+        val tokenRes = TokenResponse.fromJSONString(tokenResponseJson)
+
+        val accessTokenJwt = SignedJWT.parse(tokenRes.accessToken)
+        ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
+
+        return tokenRes
+    }
+
+    suspend fun sendTokenRequestPreAuthorized(ctx: OIDCContext, tokenRequest: TokenRequest): TokenResponse {
+
+        val tokenReqUrl = "${ctx.authorizationServer}/token"
+        val formData = tokenRequest.toHttpParameters()
+
+        AuthService.log.info { "Send TokenRequest $tokenReqUrl" }
+        formData.forEach { (k, lst) -> lst.forEach { v -> AuthService.log.info { "  $k=$v" } } }
+
+        val res = http.post(tokenReqUrl) {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(FormDataContent(Parameters.build {
+                formData.forEach { (k, lst) -> lst.forEach { v -> append(k, v) } }
+            }))
+        }
+
+        if (res.status != HttpStatusCode.OK)
+            throw HttpStatusException(res.status, res.bodyAsText())
+
+        val tokenResponseJson = res.bodyAsText()
+        AuthService.log.info { "Token Response: $tokenResponseJson" }
+        val tokenRes = TokenResponse.fromJSONString(tokenResponseJson)
+
+        val accessToken = SignedJWT.parse(tokenRes.accessToken)
+        ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessToken)
+
+        return tokenRes
+    }
+
+    // Private ---------------------------------------------------------------------------------------------------------
+
 }

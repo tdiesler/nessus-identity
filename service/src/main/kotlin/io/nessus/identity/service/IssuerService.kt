@@ -20,9 +20,11 @@ import id.walt.oid4vc.responses.CredentialResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.config.ConfigProvider.issuerEndpointUri
+import io.nessus.identity.extend.getPreAuthorizedGrantDetails
+import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.types.CredentialSchema
-import io.nessus.identity.types.JwtCredentialBuilder
 import io.nessus.identity.types.W3CCredentialBuilder
+import io.nessus.identity.types.W3CCredentialJwtBuilder
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -30,7 +32,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import java.time.Instant
 import java.util.Date
-import kotlin.to
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -40,7 +41,16 @@ object IssuerService {
 
     val log = KotlinLogging.logger {}
 
-    suspend fun createCredentialOffer(ctx: LoginContext, sub: String, types: List<String>): CredentialOffer {
+    // [TODO #231] Externalize pre-authorization code mapping
+    val ebsiDefaultHolderId =
+        "did:key:z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9Kboj7g9PfXJxbbs4KYegyr7ELnFVnpDMzbJJDDNZjavX6jvtDmALMbXAGW67pdTgFea2FrGGSFs8Ejxi96oFLGHcL4P6bjLDPBJEvRRHSrG4LsPne52fczt2MWjHLLJBvhAC"
+
+    val defaultUserPin get() = run {
+        val userPin = System.getenv("EBSI__PREAUTHORIZED_PIN")
+        userPin ?: throw IllegalStateException("No default UserPin")
+    }
+
+    suspend fun createCredentialOffer(ctx: LoginContext, subId: String, types: List<String>, userPin: String? = null): CredentialOffer {
 
         val metadata = getIssuerMetadata(ctx) as OpenIDProviderMetadata.Draft11
         val issuerUri = metadata.credentialIssuer as String
@@ -56,16 +66,17 @@ object IssuerService {
             .keyID(kid)
             .build()
 
-        val claims = JWTClaimsSet.Builder()
-            .subject(sub)
+        val offerClaims = JWTClaimsSet.Builder()
+            .subject(subId)
             .audience(aud)
+            .issuer(ctx.did)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
-            .claim("client_id", sub)
+            .claim("client_id", subId)
             .claim("credential_types", types)
             .build()
 
-        val credOfferJwt = SignedJWT(header, claims).signWithKey(ctx, kid)
+        val credOfferJwt = SignedJWT(header, offerClaims).signWithKey(ctx, kid)
 
         // Build CredentialOffer
         val vcJson = buildJsonObject {
@@ -73,16 +84,27 @@ object IssuerService {
             put("types", JsonArray(types.map { JsonPrimitive(it) }))
         }
 
-        val issuerState = credOfferJwt.serialize()
-        val offer = CredentialOffer.Draft11.Builder(issuerUri)
-            .addAuthorizationCodeGrant(issuerState)
+        val offerBuilder = CredentialOffer.Draft11.Builder(issuerUri)
             .addOfferedCredentialByValue(vcJson)
-            .build()
 
-        log.info { "Issuer State: $issuerState" }
-        log.info { "Credential Offer: ${Json.encodeToString(offer)}" }
+        val credOffer = if (userPin != null) {
+            val preAuthCode = credOfferJwt.serialize()
+            offerBuilder.addPreAuthorizedCodeGrant(preAuthCode)
+        } else {
+            val issuerState = credOfferJwt.serialize()
+            offerBuilder.addAuthorizationCodeGrant(issuerState)
+        }.build()
 
-        return offer
+        // Record the CredentialOffer with UserPin
+        //
+        val preAuthGrantDetails = credOffer.getPreAuthorizedGrantDetails()
+        if (preAuthGrantDetails != null) {
+            val authCode = preAuthGrantDetails.preAuthorizedCode as String
+            putCredentialOfferRecord(authCode, credOffer, userPin)
+        }
+
+        log.info { "Issued CredentialOffer: ${Json.encodeToString(credOffer)}" }
+        return credOffer
     }
 
     suspend fun credentialFromRequest(
@@ -210,7 +232,7 @@ object IssuerService {
         val exp = iat.plusSeconds(14400)
 
         // [TODO #234] Derive CredentialSchema from somewhere
-        val cred = JwtCredentialBuilder()
+        val cred = W3CCredentialJwtBuilder()
             .withId(id)
             .withIssuerId(ctx.did)
             .withSubjectId(sub)

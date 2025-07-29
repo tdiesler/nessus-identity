@@ -103,8 +103,8 @@
                     </tr>
                     <tr>
                         <td>Nessus</td>
-                        <td><a href="/issuer/${subjectId}/.well-known/openid-credential-issuer">Issuer</a></td>
-                        <td><a href="/auth/${subjectId}/.well-known/openid-configuration">Auth</a></td>
+                        <td><a href="/issuer/${targetId}/.well-known/openid-credential-issuer">Issuer</a></td>
+                        <td><a href="/auth/${targetId}/.well-known/openid-configuration">Auth</a></td>
                     </tr>
                 </table>
 

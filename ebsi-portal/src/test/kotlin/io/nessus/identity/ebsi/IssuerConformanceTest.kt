@@ -2,7 +2,6 @@ package io.nessus.identity.ebsi
 
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.UserPinHolder
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -12,6 +11,8 @@ import org.openqa.selenium.By
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class IssuerConformanceTest : AbstractConformanceTest() {
+
+    val userPin = "7760"
 
     @BeforeAll
     fun setup() {
@@ -27,25 +28,24 @@ class IssuerConformanceTest : AbstractConformanceTest() {
     @Test
     fun testCTWalletSameAuthorisedInTime() {
 
-        log.info { ">>>>> Issuer CTWalletSameAuthorisedInTime" }
+        val ctype = "CTWalletSameAuthorisedInTime"
+        log.info { ">>>>> Issuer $ctype" }
 
         // Click the collapsible element
         driver.findElement(By.id("in-time-credential")).click()
         nextStep()
 
-        val ctType = "CTWalletSameAuthorisedInTime"
-
         // Click the "Initiate" link
         val initiateId = "issue_to_holder_initiate_ct_wallet_same_authorised_in_time"
         val initiateResult = awaitCheckboxResult(initiateId, "Initiate")
-        log.info { "$ctType Initiate: " + if (initiateResult) "Yes" else "No" }
+        log.info { "$ctype Initiate: " + if (initiateResult) "Yes" else "No" }
 
         initiateResult.shouldBeTrue()
 
         // Click the "Validate" link
         val validateId = "issue_to_holder_validate_ct_wallet_same_authorised_in_time"
         val validateResult = awaitCheckboxResult(validateId, "Validate")
-        log.info { "$ctType Validate: " + if (validateResult) "Yes" else "No" }
+        log.info { "$ctype Validate: " + if (validateResult) "Yes" else "No" }
 
         validateResult.shouldBeTrue()
     }
@@ -53,25 +53,24 @@ class IssuerConformanceTest : AbstractConformanceTest() {
     @Test
     fun testCTWalletSameAuthorisedDeferred() {
 
-        log.info { ">>>>> Issuer CTWalletSameAuthorisedDeferred" }
+        val ctype = "CTWalletSameAuthorisedDeferred"
+        log.info { ">>>>> Issuer $ctype" }
 
         // Click the collapsible element
         driver.findElement(By.id("deferred-credential")).click()
         nextStep()
 
-        val ctType = "CTWalletSameAuthorisedDeferred"
-
         // Click the "Initiate" link
         val initiateId = "issue_to_holder_initiate_ct_wallet_same_authorised_deferred"
         val initiateResult = awaitCheckboxResult(initiateId, "Initiate")
-        log.info { "$ctType Initiate: " + if (initiateResult) "Yes" else "No" }
+        log.info { "$ctype Initiate: " + if (initiateResult) "Yes" else "No" }
 
         initiateResult.shouldBeTrue()
 
         // Click the "Validate" link
         val validateId = "issue_to_holder_validate_ct_wallet_same_authorised_deferred"
         val validateResult = awaitCheckboxResult(validateId, "Validate")
-        log.info { "$ctType Validate: " + if (validateResult) "Yes" else "No" }
+        log.info { "$ctype Validate: " + if (validateResult) "Yes" else "No" }
 
         validateResult.shouldBeTrue()
     }
@@ -79,38 +78,34 @@ class IssuerConformanceTest : AbstractConformanceTest() {
     @Test
     fun testCTWalletSamePreAuthorisedInTime() {
 
-        log.info { ">>>>> Issuer CTWalletSamePreAuthorisedInTime" }
+        val ctype = "CTWalletSamePreAuthorisedInTime"
+        log.info { ">>>>> Issuer $ctype" }
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-in-time-credential")).click()
         nextStep()
 
-        val ctType = "CTWalletSamePreAuthorisedInTime"
-
-        val userPin = "5577"
-        UserPinHolder.setUserPin(userPin)
-
         // Enter the did:key
         driver.findElement(By.name("userPinInTime")).sendKeys(userPin)
-        log.info { "UserPIN: $userPin" }
+        log.info { "Pre-Auth user PIN: $userPin" }
         nextStep()
 
         // Enter the issuerUri
-        driver.findElement(By.name("preAuthorizedCodeInTime")).sendKeys(ctType)
-        log.info { "PreAuthorized Code: $ctType" }
+        driver.findElement(By.name("preAuthorizedCodeInTime")).sendKeys(ctype)
+        log.info { "PreAuthorized Code: $ctype" }
         nextStep()
 
         // Click the "Initiate" link
         val initiateId = "issue_to_holder_initiate_ct_wallet_same_pre_authorised_in_time"
         val initiateResult = awaitCheckboxResult(initiateId, "Initiate")
-        log.info { "$ctType Initiate: " + if (initiateResult) "Yes" else "No" }
+        log.info { "$ctype Initiate: " + if (initiateResult) "Yes" else "No" }
 
         initiateResult.shouldBeTrue()
 
         // Click the "Validate" link
         val validateId = "issue_to_holder_validate_ct_wallet_same_pre_authorised_in_time"
         val validateResult = awaitCheckboxResult(validateId, "Validate")
-        log.info { "$ctType Validate: " + if (validateResult) "Yes" else "No" }
+        log.info { "$ctype Validate: " + if (validateResult) "Yes" else "No" }
 
         validateResult.shouldBeTrue()
 
@@ -119,16 +114,12 @@ class IssuerConformanceTest : AbstractConformanceTest() {
     @Test
     fun testCTWalletSamePreAuthorisedDeferred() {
 
-        log.info { ">>>>> Issuer CTWalletSamePreAuthorisedDeferred" }
+        val ctype = "CTWalletSamePreAuthorisedDeferred"
+        log.info { ">>>>> Issuer $ctype" }
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-deferred-credential")).click()
         nextStep()
-
-        val ctType = "CTWalletSamePreAuthorisedDeferred"
-
-        val userPin = "5577"
-        UserPinHolder.setUserPin(userPin)
 
         // Enter the did:key
         driver.findElement(By.name("userPinDeferred")).sendKeys(userPin)
@@ -136,21 +127,21 @@ class IssuerConformanceTest : AbstractConformanceTest() {
         nextStep()
 
         // Enter the issuerUri
-        driver.findElement(By.name("preAuthorizedCodeDeferred")).sendKeys(ctType)
-        log.info { "PreAuthorized Code: $ctType" }
+        driver.findElement(By.name("preAuthorizedCodeDeferred")).sendKeys(ctype)
+        log.info { "PreAuthorized Code: $ctype" }
         nextStep()
 
         // Click the "Initiate" link
         val initiateId = "issue_to_holder_initiate_ct_wallet_same_pre_authorised_deferred"
         val initiateResult = awaitCheckboxResult(initiateId, "Initiate")
-        log.info { "$ctType Initiate: " + if (initiateResult) "Yes" else "No" }
+        log.info { "$ctype Initiate: " + if (initiateResult) "Yes" else "No" }
 
         initiateResult.shouldBeTrue()
 
         // Click the "Validate" link
         val validateId = "issue_to_holder_validate_ct_wallet_same_pre_authorised_deferred"
         val validateResult = awaitCheckboxResult(validateId, "Validate")
-        log.info { "$ctType Validate: " + if (validateResult) "Yes" else "No" }
+        log.info { "$ctype Validate: " + if (validateResult) "Yes" else "No" }
 
         validateResult.shouldBeTrue()
     }

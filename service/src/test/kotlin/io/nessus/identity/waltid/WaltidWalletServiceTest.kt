@@ -62,7 +62,7 @@ class WaltidWalletServiceTest : AbstractServiceTest() {
 
         runBlocking {
             val ctx = loginWithWallet(Max)
-            widWalletSvc.findCredentials(ctx, vpdef)
+            widWalletSvc.findCredentialsByPresentationDefinition(ctx, vpdef)
         }
     }
 

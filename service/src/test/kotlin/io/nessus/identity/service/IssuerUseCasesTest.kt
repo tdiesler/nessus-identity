@@ -20,7 +20,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
      * Wallet Credential InTime
      * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#in-time
      *
-     * - The Holder has received a CredentialOffer and sends an AuthorizationRequest to the Issuer
+     * - The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
      * - The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
      * - Holder issues an IDToken signed by the DID's authentication key
      * - Issuer validates IDToken and returns an Authorization Code
@@ -52,7 +52,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             val types = listOf("VerifiableCredential", "CTWalletSameAuthorisedInTime")
             val credOffer = IssuerService.createCredentialOffer(max, sub, types)
 
-            // The Holder has received a CredentialOffer and sends an AuthorizationRequest to the Issuer
+            // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
             //
             WalletService.addCredentialOffer(alice, credOffer)
             val offeredCred = WalletService.resolveOfferedCredential(alice, credOffer)
@@ -86,7 +86,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
 
             // Holder sends the CredentialRequest using the AccessToken
             //
-            val credReq = WalletService.buildCredentialRequest(alice, offeredCred, accessTokenRes)
+            val credReq = WalletService.createCredentialRequest(alice, offeredCred, accessTokenRes)
 
             // Issuer sends the requested Credential
             //
@@ -113,10 +113,10 @@ class IssuerUseCasesTest : AbstractServiceTest() {
      * Issue Credential Deferred
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#deferred-issuance
      *
-     * Wallet Credential InTime
+     * Wallet Credential Deferred
      * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#deferred
      *
-     * - The Holder has received a CredentialOffer and sends an AuthorizationRequest to the Issuer
+     * - The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
      * - The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
      * - Holder issues an IDToken signed by the DID's authentication key
      * - Issuer validates IDToken and returns an Authorization Code
@@ -149,7 +149,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             val types = listOf("VerifiableCredential", "CTWalletSameAuthorisedDeferred")
             val credOffer = IssuerService.createCredentialOffer(max, sub, types)
 
-            // The Holder has received a CredentialOffer and sends an AuthorizationRequest to the Issuer
+            // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
             //
             WalletService.addCredentialOffer(alice, credOffer)
             val offeredCred = WalletService.resolveOfferedCredential(alice, credOffer)
@@ -183,7 +183,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
 
             // Holder sends the CredentialRequest using the AccessToken
             //
-            val credReq = WalletService.buildCredentialRequest(alice, offeredCred, accessTokenRes)
+            val credReq = WalletService.createCredentialRequest(alice, offeredCred, accessTokenRes)
 
             // Issuer sends the requested Credential
             //
@@ -201,6 +201,87 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             val vcIssuer = CredentialMatcher.pathValues(credJwt, "$.vc.issuer").first()
             val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
             vcTypes shouldContain "CTWalletSameAuthorisedDeferred"
+            vcSubject shouldBe alice.did
+            vcIssuer shouldBe max.did
+
+            // Holder adds the Credential to permanent storage
+            //
+            WalletService.addCredential(alice, credRes)
+        }
+    }
+
+    /**
+     * Issue Credential PreAuthorized
+     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#pre-authorised-issuance
+     *
+     * Wallet Credential PreAuthorized
+     * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#pre-authorised
+     *
+     * - The Holder received a CredentialOffer
+     * - Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
+     * - Issuer validates the TokenRequest and responds with an AccessToken
+     * - Holder sends the CredentialRequest using the AccessToken
+     * - Issuer responds with a CredentialResponse that contains an AcceptanceToken
+     * - Holder requests the Deferred Credential using the AcceptanceToken
+     * - Holder validates the received Credential
+     * - Holder adds the Credential to permanent storage
+     */
+    @Test
+    fun issueCredentialPreAuthorized() {
+        runBlocking {
+
+            // Create the Issuer's OIDC context
+            //
+            val max = OIDCContext(setupWalletWithDid(Max))
+            val issuerMetadata = IssuerService.getIssuerMetadata(max)
+            max.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+
+            val userPin = "1234"
+
+            // Create the Holders's OIDC context
+            //
+            val alice = OIDCContext(setupWalletWithDid(Alice))
+            alice.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+
+            // Issuer creates the CredentialOffer
+            //
+            val sub= alice.did
+            val types = listOf("VerifiableCredential", "CTWalletSamePreAuthorisedInTime")
+            val credOffer = IssuerService.createCredentialOffer(max, sub, types, userPin)
+
+            // The Holder received a CredentialOffer
+            //
+            WalletService.addCredentialOffer(alice, credOffer)
+            val offeredCred = WalletService.resolveOfferedCredential(alice, credOffer)
+
+            // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
+            //
+            val tokenReq = WalletService.createTokenRequestPreAuthorized(alice, credOffer, userPin)
+
+            // Issuer validates the TokenRequest and responds with an AccessToken
+            //
+            val accessTokenRes = AuthService.handleTokenRequestPreAuthorized(max, tokenReq)
+
+            // Holder sends the CredentialRequest using the AccessToken
+            //
+            val credReq = WalletService.createCredentialRequest(alice, offeredCred, accessTokenRes)
+
+            // Issuer sends the requested Credential
+            //
+            val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
+            val deferredCredentialRes = IssuerService.credentialFromRequest(max, credReq, accessTokenJwt, true)
+            Thread.sleep(5000)
+
+            val acceptanceTokenJwt = SignedJWT.parse(deferredCredentialRes.acceptanceToken)
+            val credRes = IssuerService.deferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
+            val credJwt = SignedJWT.parse("${credRes.credential}")
+
+            // Holder validates the received Credential
+            //
+            val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
+            val vcIssuer = CredentialMatcher.pathValues(credJwt, "$.vc.issuer").first()
+            val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
+            vcTypes shouldContain "CTWalletSamePreAuthorisedInTime"
             vcSubject shouldBe alice.did
             vcIssuer shouldBe max.did
 

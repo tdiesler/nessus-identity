@@ -15,7 +15,6 @@ import io.nessus.identity.service.WalletService.log
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.security.MessageDigest
-import java.util.Base64
 import kotlin.random.Random
 
 class AuthorizationRequestBuilder(val ctx: OIDCContext) {

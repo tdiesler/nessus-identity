@@ -2,7 +2,6 @@ package io.nessus.identity.ebsi
 
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.UserPinHolder
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.waltid.Max
 import org.openqa.selenium.By
@@ -13,15 +12,14 @@ import java.net.URLEncoder
 
 abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
 
-    fun extractUserPinCode(): String {
+    fun extractUserPin(): String {
         val jsExecutor = driver as JavascriptExecutor
         val pinElement = driver.findElement(By.xpath("//*[contains(text(), 'The required PIN-code will be')]"))
         val pinElementText = jsExecutor.executeScript("return arguments[0].textContent;", pinElement) as String
         val pinRegex = Regex("PIN-code will be (\\d{4})")
         val pinMatch = pinRegex.find(pinElementText)
-        val pinCode = pinMatch!!.groupValues[1]
-        UserPinHolder.setUserPin(pinCode)
-        return pinCode
+        val userPin = pinMatch!!.groupValues[1]
+        return userPin
     }
 
     fun prepareWalletTests(crossDevive: Boolean): LoginContext {

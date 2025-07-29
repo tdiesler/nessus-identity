@@ -10,31 +10,20 @@ import id.walt.crypto.utils.JsonUtils.toJsonElement
 import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialFormat
-import id.walt.oid4vc.data.GrantDetails
-import id.walt.oid4vc.data.dif.InputDescriptor
-import id.walt.oid4vc.data.dif.InputDescriptorConstraints
-import id.walt.oid4vc.data.dif.InputDescriptorField
-import id.walt.oid4vc.data.dif.PresentationDefinition
-import id.walt.oid4vc.data.dif.VCFormatDefinition
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.TokenRequest
 import id.walt.oid4vc.responses.TokenResponse
-import id.walt.w3c.utils.VCFormat
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.request.forms.FormDataContent
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
 import io.ktor.http.URLBuilder
-import io.ktor.http.contentType
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
+import io.nessus.identity.extend.getCredentialTypes
 import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
+import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
+import io.nessus.identity.service.IssuerService.ebsiDefaultHolderId
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.Json
@@ -92,24 +81,14 @@ object AuthService {
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
 
-        val idTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType.JWT)
-            .keyID(kid)
-            .build()
+        val idTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256).type(JOSEObjectType.JWT).keyID(kid).build()
 
-        @OptIn(ExperimentalUuidApi::class)
-        val idTokenClaims = JWTClaimsSet.Builder()
-            .issuer(issuerMetadata.credentialIssuer)
-            .audience(authReq.clientId)
-            .issueTime(Date.from(iat))
-            .expirationTime(Date.from(exp))
-            .claim("response_type", "id_token")
-            .claim("response_mode", "direct_post")
-            .claim("client_id", issuerMetadata.credentialIssuer)
-            .claim("redirect_uri", "$authorizationServer/direct_post")
-            .claim("scope", "openid")
-            .claim("nonce", "${Uuid.random()}")
-            .build()
+        @OptIn(ExperimentalUuidApi::class) val idTokenClaims =
+            JWTClaimsSet.Builder().issuer(issuerMetadata.credentialIssuer).audience(authReq.clientId)
+                .issueTime(Date.from(iat)).expirationTime(Date.from(exp)).claim("response_type", "id_token")
+                .claim("response_mode", "direct_post").claim("client_id", issuerMetadata.credentialIssuer)
+                .claim("redirect_uri", "$authorizationServer/direct_post").claim("scope", "openid")
+                .claim("nonce", "${Uuid.random()}").build()
 
         val idTokenJwt = SignedJWT(idTokenHeader, idTokenClaims).signWithKey(ctx, kid)
         log.info { "IDToken Request Header: ${idTokenJwt.header}" }
@@ -151,43 +130,34 @@ object AuthService {
         val exp = iat.plusSeconds(300) // 5 mins expiry
         val scopes = authReq.scope.joinToString(" ")
 
-        val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType.JWT)
-            .keyID(kid)
-            .build()
+        val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256).type(JOSEObjectType.JWT).keyID(kid).build()
 
         val presentationDefinition = authReq.presentationDefinition ?: run {
 
-            if (authReq.scope != setOf("openid", "ver_test:vp_token"))
-                throw IllegalStateException("No PresentationDefinition")
+            if (authReq.scope != setOf(
+                    "openid",
+                    "ver_test:vp_token"
+                )
+            ) throw IllegalStateException("No PresentationDefinition")
 
             // EBSI wants exactly three InputDescriptor(s)
             // Authorization endpoint's response doesn't contain a valid JWT payload in the VP Token request
             // Validation error. Path: 'presentation_definition.input_descriptors'. Reason: Array must contain exactly 3 element(s)
-            PresentationDefinitionBuilder()
-                .withInputDescriptorForType("VerifiableAttestation")
-                .withInputDescriptorForType("VerifiableAttestation")
-                .withInputDescriptorForType("VerifiableAttestation")
+            PresentationDefinitionBuilder().withInputDescriptorForType("VerifiableAttestation")
+                .withInputDescriptorForType("VerifiableAttestation").withInputDescriptorForType("VerifiableAttestation")
                 .build()
         }
 
         val presentationDefinitionJson = Json.encodeToString(presentationDefinition)
         log.info { "PresentationDefinition: $presentationDefinitionJson" }
 
-        @OptIn(ExperimentalUuidApi::class)
-        val vpTokenClaims = JWTClaimsSet.Builder()
-            .issuer(issuerMetadata.credentialIssuer)
-            .audience(authReq.clientId)
-            .issueTime(Date.from(iat))
-            .expirationTime(Date.from(exp))
-            .claim("response_type", "vp_token")
-            .claim("response_mode", "direct_post")
-            .claim("client_id", issuerMetadata.credentialIssuer)
-            .claim("redirect_uri", "$authorizationServer/direct_post")
-            .claim("scope", scopes)
-            .claim("nonce", "${Uuid.random()}")
-            .claim("presentation_definition", JSONObjectUtils.parse(presentationDefinitionJson))
-            .build()
+        @OptIn(ExperimentalUuidApi::class) val vpTokenClaims =
+            JWTClaimsSet.Builder().issuer(issuerMetadata.credentialIssuer).audience(authReq.clientId)
+                .issueTime(Date.from(iat)).expirationTime(Date.from(exp)).claim("response_type", "vp_token")
+                .claim("response_mode", "direct_post").claim("client_id", issuerMetadata.credentialIssuer)
+                .claim("redirect_uri", "$authorizationServer/direct_post").claim("scope", scopes)
+                .claim("nonce", "${Uuid.random()}")
+                .claim("presentation_definition", JSONObjectUtils.parse(presentationDefinitionJson)).build()
 
         val vpTokenReqJwt = SignedJWT(vpTokenHeader, vpTokenClaims).signWithKey(ctx, kid)
         log.info { "VPTokenRequest Header: ${vpTokenReqJwt.header}" }
@@ -225,8 +195,7 @@ object AuthService {
     @OptIn(ExperimentalUuidApi::class)
     fun handleVPTokenResponse(ctx: OIDCContext, postParams: Map<String, List<String>>): String {
 
-        val vpToken = postParams["vp_token"]?.firstOrNull()
-            ?: throw IllegalStateException("No vp_token")
+        val vpToken = postParams["vp_token"]?.firstOrNull() ?: throw IllegalStateException("No vp_token")
 
         val vpTokenJwt = SignedJWT.parse(vpToken)
         log.info { "VPToken Header: ${vpTokenJwt.header}" }
@@ -249,10 +218,7 @@ object AuthService {
         val authReq = ctx.authRequest
         val urlBuilder = URLBuilder("${authReq.redirectUri}")
 
-        val vcArray = vpClaims.getClaim("vp")
-            .toJsonElement()
-            .jsonObject["verifiableCredential"]
-            ?.jsonArray
+        val vcArray = vpClaims.getClaim("vp").toJsonElement().jsonObject["verifiableCredential"]?.jsonArray
 
         // Validate Credentials
         //
@@ -301,8 +267,7 @@ object AuthService {
 
         // Verify token request
         //
-        if (tokReq.clientId != ctx.authRequest.clientId)
-            throw IllegalArgumentException("Invalid client_id: ${tokReq.clientId}")
+        if (tokReq.clientId != ctx.authRequest.clientId) throw IllegalArgumentException("Invalid client_id: ${tokReq.clientId}")
 
         // [TODO #230] Verify token request code challenge
 
@@ -310,112 +275,49 @@ object AuthService {
         return tokenRes
     }
 
-    suspend fun handleTokenRequestPreAuthorized(
-        ctx: OIDCContext,
-        tokenReq: TokenRequest.PreAuthorizedCode
-    ): TokenResponse {
+    suspend fun handleTokenRequestPreAuthorized(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
 
-        // [TODO #231] Externalize pre-authorization code mapping
-        val ebsiClientId =
-            "did:key:z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9Kboj7g9PfXJxbbs4KYegyr7ELnFVnpDMzbJJDDNZjavX6jvtDmALMbXAGW67pdTgFea2FrGGSFs8Ejxi96oFLGHcL4P6bjLDPBJEvRRHSrG4LsPne52fczt2MWjHLLJBvhAC"
-        val preAuthorisedCodeToClientId = mapOf(
-            "CTWalletSamePreAuthorisedInTime" to AuthorizationRequest(
-                clientId = ebsiClientId,
-                authorizationDetails = listOf(
-                    AuthorizationDetails(
-                        format = CredentialFormat.jwt_vc,
-                        types = listOf(
-                            "VerifiableCredential",
-                            "VerifiableAttestation",
-                            "CTWalletSamePreAuthorisedInTime"
-                        )
-                    )
-                )
-            ),
-            "CTWalletSamePreAuthorisedDeferred" to AuthorizationRequest(
-                clientId = ebsiClientId,
-                authorizationDetails = listOf(
-                    AuthorizationDetails(
-                        format = CredentialFormat.jwt_vc,
-                        types = listOf(
-                            "VerifiableCredential",
-                            "VerifiableAttestation",
-                            "CTWalletSamePreAuthorisedDeferred"
-                        )
-                    )
-                )
-            ),
+        if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY)) ctx.putAttachment(
+            ISSUER_METADATA_ATTACHMENT_KEY,
+            IssuerService.getIssuerMetadata(ctx)
         )
 
-        ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, IssuerService.getIssuerMetadata(ctx))
-        ctx.putAttachment(
-            AUTH_REQUEST_ATTACHMENT_KEY, preAuthorisedCodeToClientId[tokenReq.preAuthorizedCode]
-                ?: throw IllegalStateException("No client_id mapping for: ${tokenReq.preAuthorizedCode}")
+        var subId = tokenReq.clientId
+        val preAuthTokenRequest = tokenReq as TokenRequest.PreAuthorizedCode
+        val preAuthCode = preAuthTokenRequest.preAuthorizedCode
+        val userPin = preAuthTokenRequest.userPIN
+
+        // In the EBSI Issuer Conformance Test, the preAuthCode is a known Credential type
+        // and the clientId associated with the TokenRequest is undefined
+        if (isEBSIPreAuthorizedType(preAuthCode)) {
+            if (subId == null)
+                subId = ebsiDefaultHolderId
+        }
+
+        // Verify pre-authorized user PIN
+        //
+        val credOfferRecord = removeCredentialOfferRecord(preAuthCode)
+            ?: throw IllegalStateException("No CredentialOffer registered")
+        val expUserPin = credOfferRecord.userPin
+            ?: throw IllegalStateException("No UserPin")
+
+        if (userPin != expUserPin)
+            throw IllegalStateException("Invalid UserPin")
+
+        val credOffer = credOfferRecord.credOffer
+        val types = credOffer?.getCredentialTypes()
+        val authRequest = AuthorizationRequest(
+            clientId = subId ?: throw IllegalStateException("No subId"), authorizationDetails = listOf(
+                AuthorizationDetails(
+                    format = CredentialFormat.jwt_vc, types = types
+                )
+            )
         )
+
+        ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
 
         val tokenResponse = buildTokenResponse(ctx)
         return tokenResponse
-    }
-
-    suspend fun sendTokenRequestAuthCode(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
-
-        val tokenReqUrl = "${ctx.authorizationServer}/token"
-
-        log.info { "Send Token Request $tokenReqUrl" }
-        log.info { "  $tokenReq" } // AuthorizationCode is not @Serializable
-
-        val formData = tokenReq.toHttpParameters()
-        val res = http.post(tokenReqUrl) {
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody(FormDataContent(Parameters.build {
-                formData.forEach { (k, lst) -> lst.forEach { v -> append(k, v) } }
-            }))
-        }
-
-        if (res.status != HttpStatusCode.OK)
-            throw HttpStatusException(res.status, res.bodyAsText())
-
-        val tokenResponseJson = res.bodyAsText()
-        log.info { "Token Response: $tokenResponseJson" }
-        val tokenRes = TokenResponse.fromJSONString(tokenResponseJson)
-
-        val accessTokenJwt = SignedJWT.parse(tokenRes.accessToken)
-        ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
-
-        return tokenRes
-    }
-
-    suspend fun sendTokenRequestPreAuthorized(ctx: OIDCContext, grant: GrantDetails): TokenResponse {
-
-        val tokenReqUrl = "${ctx.authorizationServer}/token"
-
-        val tokenRequest = TokenRequest.PreAuthorizedCode(
-            preAuthorizedCode = grant.preAuthorizedCode as String,
-            userPIN = UserPinHolder.getUserPin()
-        )
-        val formData = tokenRequest.toHttpParameters()
-
-        log.info { "Send Token Request $tokenReqUrl" }
-        formData.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
-
-        val res = http.post(tokenReqUrl) {
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody(FormDataContent(Parameters.build {
-                formData.forEach { (k, lst) -> lst.forEach { v -> append(k, v) } }
-            }))
-        }
-
-        if (res.status != HttpStatusCode.OK)
-            throw HttpStatusException(res.status, res.bodyAsText())
-
-        val tokenResponseJson = res.bodyAsText()
-        log.info { "Token Response: $tokenResponseJson" }
-        val tokenRes = TokenResponse.fromJSONString(tokenResponseJson)
-
-        val accessToken = SignedJWT.parse(tokenRes.accessToken)
-        ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessToken)
-
-        return tokenRes
     }
 
     /**
@@ -468,25 +370,21 @@ object AuthService {
     fun validateVerifiableCredential(vcJwt: SignedJWT) {
 
         val claims = vcJwt.jwtClaimsSet
-        val id = claims.getClaim("vc").toJsonElement()
-            .jsonObject["id"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("No vc.id in: $claims")
-        val credentialStatus = claims.getClaim("vc").toJsonElement()
-            .jsonObject["credentialStatus"]?.jsonObject
+        val id = claims.getClaim("vc").toJsonElement().jsonObject["id"]?.jsonPrimitive?.content
+            ?: throw IllegalArgumentException("No vc.id in: $claims")
+        val credentialStatus = claims.getClaim("vc").toJsonElement().jsonObject["credentialStatus"]?.jsonObject
 
         credentialStatus?.also {
             val statusPurpose = it["statusPurpose"]?.jsonPrimitive?.content
-            if (statusPurpose == "revocation")
-                throw VerificationException(id, "VC '$id' is revoked")
+            if (statusPurpose == "revocation") throw VerificationException(id, "VC '$id' is revoked")
         }
 
         claims.expirationTime?.also {
-            if (it.before(Date()))
-                throw VerificationException(id, "VC '$id' is expired")
+            if (it.before(Date())) throw VerificationException(id, "VC '$id' is expired")
         }
 
         claims.notBeforeTime?.also {
-            if (Date().before(it))
-                throw VerificationException(id, "VC '$id' is not yet valid")
+            if (Date().before(it)) throw VerificationException(id, "VC '$id' is not yet valid")
         }
     }
 
@@ -503,16 +401,10 @@ object AuthService {
 
         val nonce = "${Uuid.random()}"
 
-        val tokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType.JWT)
-            .keyID(kid)
-            .build()
+        val tokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256).type(JOSEObjectType.JWT).keyID(kid).build()
 
-        val claimsBuilder = JWTClaimsSet.Builder()
-            .issuer(ctx.issuerMetadata.credentialIssuer)
-            .issueTime(Date.from(iat))
-            .expirationTime(Date.from(exp))
-            .claim("nonce", nonce)
+        val claimsBuilder = JWTClaimsSet.Builder().issuer(ctx.issuerMetadata.credentialIssuer).issueTime(Date.from(iat))
+            .expirationTime(Date.from(exp)).claim("nonce", nonce)
 
         ctx.maybeAuthRequest?.clientId?.also {
             claimsBuilder.subject(it)
@@ -527,8 +419,7 @@ object AuthService {
         log.info { "Token Header: ${accessTokenJwt.header}" }
         log.info { "Token Claims: ${accessTokenJwt.jwtClaimsSet}" }
 
-        if (!accessTokenJwt.verifyJwt(ctx.didInfo))
-            throw IllegalStateException("AccessToken signature verification failed")
+        if (!accessTokenJwt.verifyJwt(ctx.didInfo)) throw IllegalStateException("AccessToken signature verification failed")
 
         val tokenRespJson = """
             {

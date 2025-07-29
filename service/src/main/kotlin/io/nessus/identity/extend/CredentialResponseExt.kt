@@ -1,15 +1,9 @@
-package io.nessus.identity.service
+package io.nessus.identity.extend
 
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.CredentialFormat
-import id.walt.oid4vc.data.CredentialOffer
-import id.walt.oid4vc.data.GrantDetails
 import id.walt.oid4vc.responses.CredentialResponse
 import kotlinx.serialization.json.JsonPrimitive
-
-fun CredentialOffer.getPreAuthorizedGrantDetails(): GrantDetails? {
-    return this.grants["urn:ietf:params:oauth:grant-type:pre-authorized_code"]
-}
 
 fun CredentialResponse.toSignedJWT(): SignedJWT {
     if (this.format == CredentialFormat.jwt_vc) {

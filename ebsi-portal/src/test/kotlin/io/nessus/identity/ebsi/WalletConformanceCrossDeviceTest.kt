@@ -5,6 +5,7 @@ import com.google.zxing.MultiFormatReader
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -17,6 +18,7 @@ import javax.imageio.ImageIO
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
+
 
     @BeforeAll
     fun setup() {
@@ -32,7 +34,8 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossAuthorisedInTime() {
 
-        log.info { ">>>>> Wallet CTWalletCrossAuthorisedInTime" }
+        val ctype = "CTWalletCrossAuthorisedInTime"
+        log.info { ">>>>> Wallet $ctype" }
         
         // Click the collapsible element
         driver.findElement(By.id("inTime-credential")).click()
@@ -87,7 +90,8 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossAuthorisedDeferred() {
 
-        log.info { ">>>>> Wallet CTWalletCrossAuthorisedDeferred" }
+        val ctype = "CTWalletCrossAuthorisedDeferred"
+        log.info { ">>>>> Wallet $ctype" }
 
         // Click the collapsible element
         driver.findElement(By.id("deferred-credential")).click()
@@ -142,7 +146,8 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossPreAuthorisedInTime() {
 
-        log.info { ">>>>> Wallet CTWalletCrossPreAuthorisedInTime" }
+        val ctype = "CTWalletCrossPreAuthorisedInTime"
+        log.info { ">>>>> Wallet $ctype" }
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-in-time-credential")).click()
@@ -152,8 +157,9 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         (driver as JavascriptExecutor).executeScript("arguments[0].scrollIntoView({block: 'start'});", container)
         nextStep()
 
-        val userPin = extractUserPinCode()
-        log.info { "Extracted PIN code: $userPin" }
+        val userPin = extractUserPin()
+        log.info { "Pre-Auth user PIN: $userPin" }
+        putCredentialOfferRecord(ctype, null, userPin)
 
         // Click the "Initiate" link
         val xpath = By.xpath(".//button[normalize-space()='Initiate (credential offering QR code)']")
@@ -200,7 +206,8 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletCrossPreAuthorisedDeferred() {
 
-        log.info { ">>>>> Wallet CTWalletCrossPreAuthorisedDeferred" }
+        val ctype = "CTWalletCrossPreAuthorisedDeferred"
+        log.info { ">>>>> Wallet $ctype" }
 
         // Click the collapsible element
         driver.findElement(By.id("pre-auth-deferred-credential")).click()
@@ -210,8 +217,9 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         (driver as JavascriptExecutor).executeScript("arguments[0].scrollIntoView({block: 'start'});", container)
         nextStep()
 
-        val userPin = extractUserPinCode()
-        log.info { "Extracted PIN code: $userPin" }
+        val userPin = extractUserPin()
+        log.info { "Pre-Auth user PIN: $userPin" }
+        putCredentialOfferRecord(ctype, null, userPin)
 
         // Click the "Initiate" link
         val xpath = By.xpath(".//button[normalize-space()='Initiate (credential offering QR code)']")

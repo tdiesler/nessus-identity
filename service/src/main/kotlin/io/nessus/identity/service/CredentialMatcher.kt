@@ -22,7 +22,6 @@ object CredentialMatcher {
         val indId = ind.id
         val fields = ind.constraints?.fields
             ?: throw IllegalStateException("No constraints.fields for: $indId")
-        val numFields = fields.size
 
         var matchCount = 0
         for (fld in fields) {
@@ -47,7 +46,7 @@ object CredentialMatcher {
             }
         }
 
-        return matchCount == numFields
+        return matchCount == fields.size
     }
 
     fun pathValues(jwt: SignedJWT, path: String): List<String> {

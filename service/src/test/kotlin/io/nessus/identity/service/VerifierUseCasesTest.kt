@@ -7,7 +7,9 @@ import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
+import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 
 class VerifierUseCasesTest : AbstractServiceTest() {
@@ -75,13 +77,17 @@ class VerifierUseCasesTest : AbstractServiceTest() {
             //
             val alice = OIDCContext(setupWalletWithDid(Alice))
 
+            val ctype = "CTWalletSameAuthorisedInTime"
+            val vcFound = widWalletSvc.findCredentialsByType(alice, ctype)
+            assumeTrue(vcFound.isNotEmpty(), "$ctype not found")
+
             // The Holder sends an AuthorizationRequest to the Verifier
             //
             val authRequest = AuthorizationRequestBuilder(alice)
                 .withPresentationDefinition(
                     PresentationDefinitionBuilder()
                         .withId("same-device-authorised-in-time-credential")
-                        .withInputDescriptorForType("CTWalletSameAuthorisedInTime", id="inp#1")
+                        .withInputDescriptorForType(ctype, id="inp#1")
                         .build()
                 ).build()
 
@@ -108,7 +114,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
             val credJwt = SignedJWT.parse(vpCred)
             val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
             val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
-            vcTypes shouldContain "CTWalletSameAuthorisedInTime"
+            vcTypes shouldContain ctype
             vcSubject shouldBe alice.did
         }
     }

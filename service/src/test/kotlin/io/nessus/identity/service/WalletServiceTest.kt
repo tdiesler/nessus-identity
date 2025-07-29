@@ -9,7 +9,6 @@ import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
@@ -45,8 +44,7 @@ class WalletServiceTest : AbstractServiceTest() {
         }            
         """.trimIndent()
 
-        val json = Json { ignoreUnknownKeys = true }
-        val credOffer = json.decodeFromString<CredentialOffer.Draft11>(credOfferJson)
+        val credOffer = CredentialOffer.fromJSONString(credOfferJson) as CredentialOffer.Draft11
 
         credOffer.credentials.shouldHaveSize(1)
         credOffer.grants.shouldHaveSize(1)

@@ -1,6 +1,7 @@
 package io.nessus.identity.ebsi
 
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -27,7 +28,8 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletSameAuthorisedInTime() {
 
-        log.info { ">>>>> Wallet CTWalletSameAuthorisedInTime" }
+        val ctype = "CTWalletSameAuthorisedInTime"
+        log.info { ">>>>> Wallet $ctype" }
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
         val ctx = authLogin(Max)
@@ -38,8 +40,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
         // Click the "Initiate" link
         val mainTab = driver.windowHandle
-        val ctType = "CTWalletSameAuthorisedInTime"
-        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctType')]")
+        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctype')]")
         fixupInitiateHref(ctx, driver.findElement(xpath)).click()
         nextStep()
 
@@ -69,7 +70,8 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletSameAuthorisedDeferred() {
 
-        log.info { ">>>>> Wallet CTWalletSameAuthorisedDeferred" }
+        val ctype = "CTWalletSameAuthorisedDeferred"
+        log.info { ">>>>> Wallet $ctype" }
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
         val ctx = authLogin(Max)
@@ -80,8 +82,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
         // Click the "Initiate" link
         val mainTab = driver.windowHandle
-        val ctType = "CTWalletSameAuthorisedDeferred"
-        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctType')]")
+        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctype')]")
         fixupInitiateHref(ctx, driver.findElement(xpath)).click()
         nextStep()
 
@@ -111,7 +112,8 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletSamePreAuthorisedInTime() {
 
-        log.info { ">>>>> Wallet CTWalletSamePreAuthorisedInTime" }
+        val ctype = "CTWalletSamePreAuthorisedInTime"
+        log.info { ">>>>> Wallet $ctype" }
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
         val ctx = authLogin(Max)
@@ -120,13 +122,13 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         driver.findElement(By.id("pre-auth-in-time-credential-same-device")).click()
         nextStep()
 
-        val userPin = extractUserPinCode()
-        log.info { "Extracted PIN code: $userPin" }
+        val userPin = extractUserPin()
+        log.info { "Pre-Auth user PIN: $userPin" }
+        putCredentialOfferRecord(ctype, null, userPin)
 
         // Click the "Initiate" link
         val mainTab = driver.windowHandle
-        val ctType = "CTWalletSamePreAuthorisedInTime"
-        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctType')]")
+        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctype')]")
         fixupInitiateHref(ctx, driver.findElement(xpath)).click()
         nextStep()
 
@@ -156,7 +158,8 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     @Test
     fun testCTWalletSamePreAuthorisedDeferred() {
 
-        log.info { ">>>>> Wallet CTWalletSamePreAuthorisedDeferred" }
+        val ctype = "CTWalletSamePreAuthorisedDeferred"
+        log.info { ">>>>> Wallet $ctype" }
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
         val ctx = authLogin(Max)
@@ -165,8 +168,9 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         driver.findElement(By.id("pre-auth-deferred-credential-same-device")).click()
         nextStep()
 
-        val userPin = extractUserPinCode()
-        log.info { "Extracted PIN code: $userPin" }
+        val userPin = extractUserPin()
+        log.info { "Pre-Auth user PIN: $userPin" }
+        putCredentialOfferRecord(ctype, null, userPin)
 
         // Click the "Initiate" link
         val mainTab = driver.windowHandle

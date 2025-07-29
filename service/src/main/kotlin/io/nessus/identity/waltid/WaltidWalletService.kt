@@ -4,11 +4,13 @@ import com.nimbusds.jwt.SignedJWT
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import id.walt.oid4vc.data.CredentialFormat
+import id.walt.oid4vc.data.dif.InputDescriptor
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.webwallet.db.models.WalletCredential
 import id.walt.webwallet.service.credentials.CredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.extend.toW3CCredentialJwt
 import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialMatcher
@@ -126,18 +128,28 @@ class WaltidWalletService {
         return res.toList()
     }
 
+    suspend fun findCredentials(ctx: LoginContext, predicate: suspend (WalletCredential) -> Boolean): List<WalletCredential> {
+        val res = api.credentials(ctx).filter { predicate(it) }
+        return res.toList()
+    }
+
+    suspend fun findCredentialsByType(ctx: LoginContext, ctype: String): List<WalletCredential> {
+        val walletCredentials = findCredentials(ctx) {
+            ctype in it.toW3CCredentialJwt().vc.type.orEmpty()
+        }
+        return walletCredentials
+    }
+
     /**
      * For every InputDescriptor iterate over all WalletCredentials and match all constraints.
      */
-    suspend fun findCredentials(ctx: LoginContext, vpdef: PresentationDefinition): List<Pair<String, WalletCredential>> {
-
-        val walletCredentials = api.credentials(ctx)
-        val foundCredentials = mutableListOf<Pair<String, WalletCredential>>()
-
+    suspend fun findCredentialsByPresentationDefinition(ctx: LoginContext, vpdef: PresentationDefinition): List<Pair<InputDescriptor, WalletCredential>> {
+        val foundCredentials = mutableListOf<Pair<InputDescriptor, WalletCredential>>()
+        val walletCredentials = listCredentials(ctx)
         for (wc in walletCredentials) {
             for (ind in vpdef.inputDescriptors) {
                 if (CredentialMatcher.matchCredential(wc, ind)) {
-                    foundCredentials.add(Pair(ind.id, wc))
+                    foundCredentials.add(Pair(ind, wc))
                     break
                 }
             }
