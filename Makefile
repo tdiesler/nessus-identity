@@ -50,9 +50,10 @@ upgrade-wallet-api:
 
 upgrade-services: upgrade-wallet-api
 	@cd ../waltid-identity/docker-compose && \
-		docker compose build web-portal && \
-		docker compose build waltid-demo-wallet && \
-		docker compose build waltid-dev-wallet && \
 		docker compose build wallet-api && \
 		docker compose build issuer-api && \
-		docker compose build verifier-api
+		docker compose build verifier-api && \
+		docker compose build waltid-dev-wallet && \
+		docker compose build waltid-demo-wallet && \
+		docker compose build web-portal
+
