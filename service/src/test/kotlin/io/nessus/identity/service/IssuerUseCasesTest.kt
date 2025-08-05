@@ -29,7 +29,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
      * - Holder sends the CredentialRequest using the AccessToken
      * - Issuer sends the requested Credential
      * - Holder validates the received Credential
-     * - Holder adds the Credential to permanent storage
+     * - Holder adds the Credential to storage
      */
     @Test
     fun issueCredentialInTime() {
@@ -103,7 +103,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             vcSubject shouldBe alice.did
             vcIssuer shouldBe max.did
 
-            // Holder adds the Credential to permanent storage
+            // Holder adds the Credential to storage
             //
             WalletService.addCredential(alice, credRes)
         }
@@ -123,10 +123,10 @@ class IssuerUseCasesTest : AbstractServiceTest() {
      * - Holder sends a TokenRequest to the Issuer's Token Endpoint
      * - Issuer validates the TokenRequest and responds with an AccessToken
      * - Holder sends the CredentialRequest using the AccessToken
-     * - Issuer responds with a CredentialResponse that contains an AcceptanceToken
+     * - Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
      * - Holder requests the Deferred Credential using the AcceptanceToken
      * - Holder validates the received Credential
-     * - Holder adds the Credential to permanent storage
+     * - Holder adds the Credential to storage
      */
     @Test
     fun issueCredentialDeferred() {
@@ -185,12 +185,14 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             //
             val credReq = WalletService.createCredentialRequest(alice, offeredCred, accessTokenRes)
 
-            // Issuer sends the requested Credential
+            // Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
             //
             val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
             val deferredCredentialRes = IssuerService.credentialFromRequest(max, credReq, accessTokenJwt, true)
             Thread.sleep(5000)
 
+            // Holder requests the Deferred Credential using the AcceptanceToken
+            //
             val acceptanceTokenJwt = SignedJWT.parse(deferredCredentialRes.acceptanceToken)
             val credRes = IssuerService.deferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
             val credJwt = SignedJWT.parse("${credRes.credential}")
@@ -204,7 +206,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             vcSubject shouldBe alice.did
             vcIssuer shouldBe max.did
 
-            // Holder adds the Credential to permanent storage
+            // Holder adds the Credential to storage
             //
             WalletService.addCredential(alice, credRes)
         }
@@ -224,7 +226,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
      * - Issuer responds with a CredentialResponse that contains an AcceptanceToken
      * - Holder requests the Deferred Credential using the AcceptanceToken
      * - Holder validates the received Credential
-     * - Holder adds the Credential to permanent storage
+     * - Holder adds the Credential to storage
      */
     @Test
     fun issueCredentialPreAuthorized() {
@@ -285,7 +287,92 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             vcSubject shouldBe alice.did
             vcIssuer shouldBe max.did
 
-            // Holder adds the Credential to permanent storage
+            // Holder adds the Credential to storage
+            //
+            WalletService.addCredential(alice, credRes)
+        }
+    }
+
+    /**
+     * Issue Credential PreAuthorized Deferred
+     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#pre-authorised-issuance
+     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#deferred-issuance
+     *
+     * Wallet Credential PreAuthorized Deferred
+     * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#pre-authorised
+     * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#deferred
+     *
+     * - The Holder received a CredentialOffer
+     * - Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
+     * - Issuer validates the TokenRequest and responds with an AccessToken
+     * - Holder sends the CredentialRequest using the AccessToken
+     * - Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
+     * - Holder requests the Deferred Credential using the AcceptanceToken
+     * - Holder validates the received Credential
+     * - Holder adds the Credential to storage
+     */
+    @Test
+    fun issueCredentialPreAuthorizedDeferred() {
+        runBlocking {
+
+            // Create the Issuer's OIDC context
+            //
+            val max = OIDCContext(setupWalletWithDid(Max))
+            val issuerMetadata = IssuerService.getIssuerMetadata(max)
+            max.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+
+            val userPin = "1234"
+
+            // Create the Holders's OIDC context
+            //
+            val alice = OIDCContext(setupWalletWithDid(Alice))
+            alice.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+
+            // Issuer creates the CredentialOffer
+            //
+            val sub= alice.did
+            val types = listOf("VerifiableCredential", "CTWalletSamePreAuthorisedDeferred")
+            val credOffer = IssuerService.createCredentialOffer(max, sub, types, userPin)
+
+            // The Holder received a CredentialOffer
+            //
+            WalletService.addCredentialOffer(alice, credOffer)
+            val offeredCred = WalletService.resolveOfferedCredential(alice, credOffer)
+
+            // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
+            //
+            val tokenReq = WalletService.createTokenRequestPreAuthorized(alice, credOffer, userPin)
+
+            // Issuer validates the TokenRequest and responds with an AccessToken
+            //
+            val accessTokenRes = AuthService.handleTokenRequestPreAuthorized(max, tokenReq)
+
+            // Holder sends the CredentialRequest using the AccessToken
+            //
+            val credReq = WalletService.createCredentialRequest(alice, offeredCred, accessTokenRes)
+
+            // Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
+            //
+            val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
+            val deferredCredentialRes = IssuerService.credentialFromRequest(max, credReq, accessTokenJwt, true)
+            Thread.sleep(5000)
+
+            // Holder requests the Deferred Credential using the AcceptanceToken
+            //
+            val acceptanceTokenJwt = SignedJWT.parse(deferredCredentialRes.acceptanceToken)
+            val credRes = IssuerService.deferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
+            val credJwt = SignedJWT.parse("${credRes.credential}")
+
+            // Holder validates the received Credential
+            //
+            val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
+            val vcIssuer = CredentialMatcher.pathValues(credJwt, "$.vc.issuer").first()
+            val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
+            vcTypes shouldContain "CTWalletSamePreAuthorisedDeferred"
+            vcSubject shouldBe alice.did
+            vcIssuer shouldBe max.did
+
+            // Holder adds the Credential to storage
             //
             WalletService.addCredential(alice, credRes)
         }

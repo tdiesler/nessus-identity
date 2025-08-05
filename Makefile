@@ -48,12 +48,14 @@ upgrade: build-images
 upgrade-wallet-api:
 	@cd ../waltid-identity && ./gradlew :waltid-services:waltid-wallet-api:publishToMavenLocal
 
+# Upgrade Waltid service images (supports build options)
+# make upgrade-services BUILD_OPTS=--no-cache
 upgrade-services: upgrade-wallet-api
 	@cd ../waltid-identity/docker-compose && \
-		docker compose build wallet-api && \
-		docker compose build issuer-api && \
-		docker compose build verifier-api && \
-		docker compose build waltid-dev-wallet && \
-		docker compose build waltid-demo-wallet && \
-		docker compose build web-portal
+		docker compose build $(BUILD_OPTS) wallet-api && \
+		docker compose build $(BUILD_OPTS) issuer-api && \
+		docker compose build $(BUILD_OPTS) verifier-api && \
+		docker compose build $(BUILD_OPTS) waltid-dev-wallet && \
+		docker compose build $(BUILD_OPTS) waltid-demo-wallet && \
+		docker compose build $(BUILD_OPTS) web-portal
 

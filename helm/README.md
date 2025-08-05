@@ -9,7 +9,7 @@ kubectl create secret generic postgres-secret \
   --from-literal=POSTGRES_PASSWORD=postgres
 
 kubectl create secret generic ebsi-secret \
-  --from-literal=PREAUTHORIZED_PIN=5330
+  --from-literal=PREAUTHORIZED_PIN=1234
 ```
 
 ## Install Identity Service

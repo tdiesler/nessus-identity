@@ -1,6 +1,7 @@
 package io.nessus.identity.ebsi
 
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.AfterAll
@@ -12,7 +13,7 @@ import org.openqa.selenium.By
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class IssuerConformanceTest : AbstractConformanceTest() {
 
-    val userPin = "7760"
+    val userPin = IssuerService.defaultUserPin
 
     @BeforeAll
     fun setup() {

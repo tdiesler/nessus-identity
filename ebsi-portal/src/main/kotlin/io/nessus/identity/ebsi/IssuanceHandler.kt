@@ -44,8 +44,8 @@ object IssuanceHandler {
         listOf("CTWalletSamePreAuthorisedInTime", "CTWalletSamePreAuthorisedDeferred").forEach { ct ->
             if (!hasCredentialOfferRecord(ct)) {
                 log.info { "Issuing CredentialOffer $ct for EBSI Conformance" }
-                val userPin = "7760"
                 val subId = ebsiDefaultHolderId
+                val userPin = IssuerService.defaultUserPin
                 val types = listOf("VerifiableCredential", "VerifiableAttestation", ct)
                 val credOffer = IssuerService.createCredentialOffer(ctx, subId, types, userPin)
                 putCredentialOfferRecord(ct, credOffer, userPin)
