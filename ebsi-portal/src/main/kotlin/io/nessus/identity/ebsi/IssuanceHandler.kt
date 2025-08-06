@@ -46,8 +46,8 @@ object IssuanceHandler {
                 log.info { "Issuing CredentialOffer $ct for EBSI Conformance" }
                 val subId = ebsiDefaultHolderId
                 val userPin = IssuerService.defaultUserPin
-                val types = listOf("VerifiableCredential", "VerifiableAttestation", ct)
-                val credOffer = IssuerService.createCredentialOffer(ctx, subId, types, userPin)
+                val ctypes = listOf("VerifiableCredential", "VerifiableAttestation", ct)
+                val credOffer = IssuerService.createCredentialOffer(ctx, subId, ctypes, userPin)
                 putCredentialOfferRecord(ct, credOffer, userPin)
             }
         }

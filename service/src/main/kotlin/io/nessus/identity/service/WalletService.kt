@@ -38,7 +38,9 @@ import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.nessus.identity.extend.getPreAuthorizedGrantDetails
+import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.toSignedJWT
+import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.CREDENTIAL_OFFER_ATTACHMENT_KEY
@@ -181,8 +183,7 @@ object WalletService {
         log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
 
         log.info { "IDToken: ${idTokenJwt.serialize()}" }
-        if (!idTokenJwt.verifyJwt(ctx.didInfo))
-            throw IllegalStateException("IDToken signature verification failed")
+        idTokenJwt.verifyJwtSignature("IDToken", ctx.didInfo)
 
         return idTokenJwt
     }
@@ -278,8 +279,7 @@ object WalletService {
         val vpToken = vpTokenJwt.serialize()
         log.info { "VPToken: $vpToken" }
 
-        if (!vpTokenJwt.verifyJwt(ctx.didInfo))
-            throw IllegalStateException("VPToken signature verification failed")
+        vpTokenJwt.verifyJwtSignature("VPToken", ctx.didInfo)
 
         ctx.putAttachment(PRESENTATION_SUBMISSION_ATTACHMENT_KEY, vpSubmission)
         return vpTokenJwt

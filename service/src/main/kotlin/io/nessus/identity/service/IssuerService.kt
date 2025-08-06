@@ -21,7 +21,11 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.config.ConfigProvider.issuerEndpointUri
 import io.nessus.identity.extend.getPreAuthorizedGrantDetails
+import io.nessus.identity.extend.signWithKey
+import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
+import io.nessus.identity.types.CredentialParameters
+import io.nessus.identity.types.CredentialParametersBuilder
 import io.nessus.identity.types.CredentialSchema
 import io.nessus.identity.types.W3CCredentialBuilder
 import io.nessus.identity.types.W3CCredentialJwtBuilder
@@ -116,14 +120,85 @@ object IssuerService {
         // Validate the AccessToken
         ctx.validateAccessToken(accessTokenJwt)
 
+        log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
+
         // Derive the deferred case from the CredentialRequest type
         //
         val deferredEBSIType = credReq.types?.any { it.startsWith("CT") && it.endsWith("Deferred") } == true
         val credentialResponse = if (deferred || deferredEBSIType) {
             credentialFromRequestDeferred(ctx, credReq)
         } else {
-            credentialFromRequestInternal(ctx, credReq)
+            val params = CredentialParametersBuilder()
+                .withIssuer(ctx.did)
+                .withSubject(ctx.authRequest.clientId)
+                .withTypes(credReq.types!!)
+                .build()
+            credentialFromRequestParameters(ctx, params)
         }
+        return credentialResponse
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    suspend fun credentialFromRequestParameters(
+        ctx: OIDCContext,
+        params: CredentialParameters,
+    ): CredentialResponse {
+
+        if (params.types.isEmpty())
+            throw IllegalArgumentException("No types in CredentialRequest")
+
+        val supportedCredentials = getSupportedCredentials(ctx).flatMap { it.types.orEmpty() }.toSet()
+        val unknownTypes = params.types.filterNot { it in supportedCredentials }
+        if (unknownTypes.isNotEmpty())
+            throw IllegalStateException("Unknown credential types: $unknownTypes")
+
+        val id = params.id ?: "vc:nessus#${Uuid.random()}"
+        val iat = params.iat ?: Instant.now()
+        val exp = params.exp ?: iat.plusSeconds(86400) // 24h
+
+        // [TODO #234] Derive CredentialSchema from somewhere
+        val cred = W3CCredentialJwtBuilder()
+            .withId(id)
+            .withIssuerId(ctx.did)
+            .withSubjectId(params.sub as String)
+            .withValidFrom(iat)
+            .withValidUntil(exp)
+            .withCredential(
+                W3CCredentialBuilder()
+                    .withCredentialSchema(
+                        CredentialSchema(
+                            "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
+                            "FullJsonSchemaValidator2021"
+                        )
+                    )
+                    .withId(id)
+                    .withIssuer(ctx.did)
+                    .withCredentialSubject(params.sub)
+                    .withValidFrom(iat)
+                    .withValidUntil(exp)
+                    .withTypes(params.types)
+                    .build()
+            )
+            .build()
+        val credentialJson = Json.encodeToString(cred)
+
+        val kid = ctx.didInfo.authenticationId()
+        val credHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType.JWT)
+            .keyID(kid)
+            .build()
+
+        val credClaims = JWTClaimsSet.parse(JSONObjectUtils.parse(credentialJson))
+
+        val credentialJwt = SignedJWT(credHeader, credClaims).signWithKey(ctx, kid)
+        log.info { "Credential Header: ${credentialJwt.header}" }
+        log.info { "Credential Claims: ${credentialJwt.jwtClaimsSet}" }
+
+        credentialJwt.verifyJwtSignature("Credential", ctx.didInfo)
+
+        val credentialResponse = CredentialResponse.success(CredentialFormat.jwt_vc, credentialJwt.serialize())
+        log.info { "CredentialResponse: ${Json.encodeToString(credentialResponse)}" }
+
         return credentialResponse
     }
 
@@ -139,7 +214,12 @@ object IssuerService {
 
         val credReqJson = acceptanceTokenJwt.jwtClaimsSet.getClaim("credential_request") as String
         val credReq = Json.decodeFromString<CredentialRequest>(credReqJson)
-        val credentialResponse = credentialFromRequestInternal(ctx, credReq)
+        val params = CredentialParametersBuilder()
+            .withIssuer(ctx.did)
+            .withSubject(ctx.authRequest.clientId)
+            .withTypes(credReq.types!!)
+            .build()
+        val credentialResponse = credentialFromRequestParameters(ctx, params)
 
         return credentialResponse
     }
@@ -212,72 +292,6 @@ object IssuerService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun credentialFromRequestInternal(
-        ctx: OIDCContext,
-        credReq: CredentialRequest,
-    ): CredentialResponse {
-
-        log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
-
-        val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequest")
-        val supportedCredentials = getSupportedCredentials(ctx).flatMap { it.types.orEmpty() }.toSet()
-        val unknownTypes = types.filterNot { it in supportedCredentials }
-        if (unknownTypes.isNotEmpty())
-            throw IllegalStateException("Unknown credential types: $unknownTypes")
-
-        val id = "vc:nessus#${Uuid.random()}"
-        val sub = ctx.authRequest.clientId
-        val iat = Instant.now()
-        val exp = iat.plusSeconds(14400)
-
-        // [TODO #234] Derive CredentialSchema from somewhere
-        val cred = W3CCredentialJwtBuilder()
-            .withId(id)
-            .withIssuerId(ctx.did)
-            .withSubjectId(sub)
-            .withValidFrom(iat)
-            .withValidUntil(exp)
-            .withCredential(
-                W3CCredentialBuilder()
-                    .withCredentialSchema(
-                        CredentialSchema(
-                            "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
-                            "FullJsonSchemaValidator2021"
-                        )
-                    )
-                    .withId(id)
-                    .withIssuer(ctx.did)
-                    .withCredentialSubject(sub)
-                    .withValidFrom(iat)
-                    .withValidUntil(exp)
-                    .withTypes(types)
-                    .build()
-            )
-            .build()
-        val credentialJson = Json.encodeToString(cred)
-
-        val kid = ctx.didInfo.authenticationId()
-        val credHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType.JWT)
-            .keyID(kid)
-            .build()
-
-        val credClaims = JWTClaimsSet.parse(JSONObjectUtils.parse(credentialJson))
-
-        val credentialJwt = SignedJWT(credHeader, credClaims).signWithKey(ctx, kid)
-        log.info { "Credential Header: ${credentialJwt.header}" }
-        log.info { "Credential Claims: ${credentialJwt.jwtClaimsSet}" }
-
-        if (!credentialJwt.verifyJwt(ctx.didInfo))
-            throw IllegalStateException("Credential signature verification failed")
-
-        val credentialResponse = CredentialResponse.success(CredentialFormat.jwt_vc, credentialJwt.serialize())
-        log.info { "CredentialResponse: ${Json.encodeToString(credentialResponse)}" }
-
-        return credentialResponse
-    }
-
-    @OptIn(ExperimentalUuidApi::class)
     private suspend fun credentialFromRequestDeferred(
         ctx: OIDCContext,
         credReq: CredentialRequest,
@@ -313,8 +327,7 @@ object IssuerService {
         log.info { "AcceptanceToken Header: ${acceptanceTokenJwt.header}" }
         log.info { "AcceptanceToken Claims: ${acceptanceTokenJwt.jwtClaimsSet}" }
 
-        if (!acceptanceTokenJwt.verifyJwt(ctx.didInfo))
-            throw IllegalStateException("AcceptanceToken signature verification failed")
+        acceptanceTokenJwt.verifyJwtSignature("AcceptanceToken", ctx.didInfo)
 
         val credentialResponse = CredentialResponse.deferred(CredentialFormat.jwt_vc, acceptanceTokenJwt.serialize())
         log.info { "CredentialResponseDeferred: ${Json.encodeToString(credentialResponse)}" }

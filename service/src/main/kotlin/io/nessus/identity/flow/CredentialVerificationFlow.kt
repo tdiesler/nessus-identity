@@ -1,0 +1,75 @@
+package io.nessus.identity.flow
+
+import io.nessus.identity.service.AuthService
+import io.nessus.identity.service.CredentialMatcher
+import io.nessus.identity.service.OIDCContext
+import io.nessus.identity.service.VerifierService
+import io.nessus.identity.service.WalletService
+import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.CredentialParametersBuilder
+import io.nessus.identity.types.PresentationDefinitionBuilder
+import io.nessus.identity.types.W3CCredentialJwt
+import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
+
+class CredentialVerificationFlow(val holder: OIDCContext, val verifier: OIDCContext) {
+
+    /**
+     * Holder finds Credential by Type and presents it to the Verifier
+     */
+    suspend fun verifyPresentationByType(ctype: String) {
+        
+        // Holder queries it's Wallet to find the requested Credential
+        //
+        val vcFound = widWalletSvc.findCredentialsByType(holder, ctype)
+        if (vcFound.isEmpty())
+            throw IllegalStateException("$ctype not found")
+
+        // The Holder sends an AuthorizationRequest to the Verifier
+        //
+        val authRequest = AuthorizationRequestBuilder(holder)
+            .withPresentationDefinition(
+                PresentationDefinitionBuilder()
+                    .withInputDescriptorForType(ctype, id = "inp#1")
+                    .build()
+            ).build()
+
+        // The Verifier sends a VPToken Request to the Holder (request of VerifiablePresentation)
+        //
+        AuthService.validateAuthorizationRequest(verifier, authRequest)
+        val vpTokenRequestJwt = AuthService.buildVPTokenRequest(verifier, authRequest)
+        val vpTokenRedirectUrl = AuthService.buildVPTokenRedirectUrl(verifier, vpTokenRequestJwt)
+        val vpTokenRequestParams = urlQueryToMap(vpTokenRedirectUrl)
+
+        if (vpTokenRequestParams["client_id"] != holder.did)
+            throw IllegalStateException("Unexpected client_id: ${vpTokenRequestParams["client_id"]}")
+
+        if (vpTokenRequestParams["response_mode"] != "direct_post")
+            throw IllegalStateException("Unexpected response_mode: ${vpTokenRequestParams["response_mode"]}")
+
+        if (vpTokenRequestParams["response_type"] != "vp_token")
+            throw IllegalStateException("Unexpected response_type: ${vpTokenRequestParams["response_type"]}")
+
+        // Holder responds with a signed VPToken that contains the VerifiablePresentation
+        //
+        val vpTokenJwt = WalletService.createVPToken(holder, authRequest)
+
+        // Verifier validates the VPToken
+        //
+        val vpHolder = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.holder").first()
+        if (vpHolder != holder.did)
+            throw IllegalStateException("Unexpected holder id: $vpHolder")
+
+        // Verifier validates the Credential
+        //
+        val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
+        val w3Cred = W3CCredentialJwt.fromEncodedJwt(vpCred).vc
+
+        val vcp = CredentialParametersBuilder()
+            .withSubject(holder.did)
+            .withTypes(listOf(ctype))
+            .build()
+
+        VerifierService.validateVerifiableCredential(w3Cred, vcp)
+    }
+}

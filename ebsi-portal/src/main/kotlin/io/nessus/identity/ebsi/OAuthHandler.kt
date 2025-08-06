@@ -187,9 +187,8 @@ object OAuthHandler {
             if (!requestUri.startsWith(ConfigProvider.authEndpointUri))
                 throw IllegalStateException("Unexpected request_uri: $requestUri")
 
-            val reqObjectId = urlQueryToMap(requestUri)["request_object"]
-            if (reqObjectId == null)
-                throw IllegalStateException("No request_object in: $requestUri")
+            urlQueryToMap(requestUri).get("request_object")
+                ?: throw IllegalStateException("No request_object in: $requestUri")
 
             authReq = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         }
@@ -219,7 +218,7 @@ object OAuthHandler {
         }
 
         if (postParams["vp_token"] != null) {
-            val redirectUrl = AuthService.handleVPTokenResponse(ctx, postParams)
+            val redirectUrl = VerificationHandler.handleVPTokenResponse(ctx, postParams)
             return call.respondRedirect(redirectUrl)
         }
 

@@ -17,6 +17,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.URLBuilder
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.extend.getCredentialTypes
+import io.nessus.identity.extend.signWithKey
+import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
@@ -193,70 +195,6 @@ object AuthService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun handleVPTokenResponse(ctx: OIDCContext, postParams: Map<String, List<String>>): String {
-
-        val vpToken = postParams["vp_token"]?.firstOrNull() ?: throw IllegalStateException("No vp_token")
-
-        val vpTokenJwt = SignedJWT.parse(vpToken)
-        log.info { "VPToken Header: ${vpTokenJwt.header}" }
-        log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
-
-        // Validate VPToken
-        //
-        val vpClaims = vpTokenJwt.jwtClaimsSet
-        vpClaims.expirationTime?.also {
-            if (it.before(Date())) {
-                throw IllegalStateException("Token has expired on: $it")
-            }
-        }
-        vpClaims.notBeforeTime?.also {
-            if (Date().before(it)) {
-                throw IllegalStateException("Token cannot be used before: $it")
-            }
-        }
-
-        val authReq = ctx.authRequest
-        val urlBuilder = URLBuilder("${authReq.redirectUri}")
-
-        val vcArray = vpClaims.getClaim("vp").toJsonElement().jsonObject["verifiableCredential"]?.jsonArray
-
-        // Validate Credentials
-        //
-        var validationError: Throwable? = null
-        log.info { "VPToken VerifiableCredentials" }
-        vcArray?.map { it.jsonPrimitive.content }?.forEach { vcEncoded ->
-            val vcJwt = SignedJWT.parse(vcEncoded)
-            log.info { "VC Encoded: $vcEncoded" }
-            log.info { "   Header: ${vcJwt.header}" }
-            log.info { "   Claims: ${vcJwt.jwtClaimsSet}" }
-            runCatching {
-                validateVerifiableCredential(vcJwt)
-            }.onFailure {
-                validationError = it
-                urlBuilder.apply {
-                    parameters.append("error", "invalid_request")
-                    parameters.append("error_description", "${validationError.message}")
-                }
-            }
-        }
-
-        if (validationError == null) {
-            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, "${Uuid.random()}")
-            urlBuilder.parameters.append("code", ctx.authCode)
-        }
-        if (authReq.state != null) {
-            urlBuilder.parameters.append("state", "${authReq.state}")
-        }
-
-        val redirectUrl = urlBuilder.buildString()
-        log.info { "VPToken Response $redirectUrl" }
-        urlQueryToMap(redirectUrl).also {
-            it.forEach { (k, v) -> log.info { "  $k=$v" } }
-        }
-        return redirectUrl
-    }
-
-    @OptIn(ExperimentalUuidApi::class)
     suspend fun handleTokenRequestAuthCode(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
 
         val tokReq = tokenReq as TokenRequest.AuthorizationCode
@@ -367,27 +305,6 @@ object AuthService {
         return idTokenRedirect
     }
 
-    fun validateVerifiableCredential(vcJwt: SignedJWT) {
-
-        val claims = vcJwt.jwtClaimsSet
-        val id = claims.getClaim("vc").toJsonElement().jsonObject["id"]?.jsonPrimitive?.content
-            ?: throw IllegalArgumentException("No vc.id in: $claims")
-        val credentialStatus = claims.getClaim("vc").toJsonElement().jsonObject["credentialStatus"]?.jsonObject
-
-        credentialStatus?.also {
-            val statusPurpose = it["statusPurpose"]?.jsonPrimitive?.content
-            if (statusPurpose == "revocation") throw VerificationException(id, "VC '$id' is revoked")
-        }
-
-        claims.expirationTime?.also {
-            if (it.before(Date())) throw VerificationException(id, "VC '$id' is expired")
-        }
-
-        claims.notBeforeTime?.also {
-            if (Date().before(it)) throw VerificationException(id, "VC '$id' is not yet valid")
-        }
-    }
-
     // Private ---------------------------------------------------------------------------------------------------------
 
     @OptIn(ExperimentalUuidApi::class)
@@ -419,7 +336,7 @@ object AuthService {
         log.info { "Token Header: ${accessTokenJwt.header}" }
         log.info { "Token Claims: ${accessTokenJwt.jwtClaimsSet}" }
 
-        if (!accessTokenJwt.verifyJwt(ctx.didInfo)) throw IllegalStateException("AccessToken signature verification failed")
+        accessTokenJwt.verifyJwtSignature("AccessToken", ctx.didInfo)
 
         val tokenRespJson = """
             {

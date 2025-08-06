@@ -1,16 +1,22 @@
 package io.nessus.identity.service
 
-import com.nimbusds.jwt.SignedJWT
-import io.kotest.matchers.collections.shouldContain
-import io.kotest.matchers.shouldBe
+import id.walt.oid4vc.data.CredentialOffer
+import id.walt.oid4vc.responses.CredentialResponse
+import io.kotest.matchers.string.shouldContain
+import io.nessus.identity.extend.verifyJwtSignature
+import io.nessus.identity.flow.CredentialIssuanceFlow
+import io.nessus.identity.flow.CredentialVerificationFlow
+import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.service.IssuerService.credentialFromRequestParameters
 import io.nessus.identity.types.AuthorizationRequestBuilder
-import io.nessus.identity.types.PresentationDefinitionBuilder
+import io.nessus.identity.types.CredentialParametersBuilder
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
-import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.fail
+import java.time.Instant
 
 class VerifierUseCasesTest : AbstractServiceTest() {
 
@@ -52,7 +58,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
             // Verifier validates the IDToken
             //
             AuthService.validateIDToken(bob, idTokenJwt)
-            idTokenJwt.verifyJwt(alice.didInfo) shouldBe true
+            idTokenJwt.verifyJwtSignature("IDToken", alice.didInfo)
         }
     }
 
@@ -69,53 +75,131 @@ class VerifierUseCasesTest : AbstractServiceTest() {
     fun validCredentialInPresentation() {
         runBlocking {
 
-            // Create the Verifier's OIDC context (Bob is the Verifier)
+            // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val bob = OIDCContext(setupWalletWithDid(Bob))
+            val max = OIDCContext(setupWalletWithDid(Max))
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
             val alice = OIDCContext(setupWalletWithDid(Alice))
 
+            // Create the Verifier's OIDC context (Bob is the Verifier)
+            //
+            val bob = OIDCContext(setupWalletWithDid(Bob))
+
+            // Issuer creates the CredentialOffer
+            //
             val ctype = "CTWalletSameAuthorisedInTime"
-            val vcFound = widWalletSvc.findCredentialsByType(alice, ctype)
-            assumeTrue(vcFound.isNotEmpty(), "$ctype not found")
+            val types = listOf("VerifiableCredential", ctype)
+            val credOffer = IssuerService.createCredentialOffer(max, alice.did, types)
 
-            // The Holder sends an AuthorizationRequest to the Verifier
+            // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val authRequest = AuthorizationRequestBuilder(alice)
-                .withPresentationDefinition(
-                    PresentationDefinitionBuilder()
-                        .withId("same-device-authorised-in-time-credential")
-                        .withInputDescriptorForType(ctype, id="inp#1")
-                        .build()
-                ).build()
+            val issuanceFlow = CredentialIssuanceFlow(alice, max)
+            val credRes = issuanceFlow.credentialFromOfferInTime(credOffer)
+            WalletService.addCredential(alice, credRes)
 
-            // The Verifier sends an VPToken Request to the Holder (request of VerifiablePresentation)
+            // Holder finds Credential by Type and presents it to the Verifier
             //
-            AuthService.validateAuthorizationRequest(bob, authRequest)
-            val vpTokenRequestJwt = AuthService.buildVPTokenRequest(bob, authRequest)
-            val vpTokenRedirectUrl = AuthService.buildVPTokenRedirectUrl(bob, vpTokenRequestJwt)
-            val vpTokenRequestParams = urlQueryToMap(vpTokenRedirectUrl)
-            vpTokenRequestParams["client_id"] shouldBe alice.did
-            vpTokenRequestParams["response_mode"] shouldBe "direct_post"
-            vpTokenRequestParams["response_type"] shouldBe "vp_token"
-
-            // Holder responds with a signed VPToken that contains the VerifiablePresentation
-            //
-            val vpTokenJwt = WalletService.createVPToken(alice, authRequest)
-
-            // Verifier validates the VPToken
-            //
-            val vpHolder = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.holder").first()
-            vpHolder shouldBe alice.did
-
-            val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
-            val credJwt = SignedJWT.parse(vpCred)
-            val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
-            val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
-            vcTypes shouldContain ctype
-            vcSubject shouldBe alice.did
+            val verificationFlow = CredentialVerificationFlow(alice, bob)
+            verificationFlow.verifyPresentationByType(ctype)
         }
+    }
+
+    /**
+     * Verify expired Credential in Presentation
+     * https://hub.ebsi.eu/conformance/build-solutions/verifier-functional-flows#verifiable-presentations
+     *
+     * - The Holder sends an AuthorizationRequest to the Verifier
+     * - The Verifier sends an VPToken Request to the Holder (request of VerifiablePresentation)
+     * - Holder responds with a signed VPToken that contains the VerifiablePresentation
+     * - Verifier validates the VPToken
+     */
+    @Test
+    fun expiredCredentialInPresentation() {
+        runBlocking {
+
+            // Create the Issuer's OIDC context (Max is the Issuer)
+            //
+            val max = OIDCContext(setupWalletWithDid(Max))
+            val userPin = "1234"
+
+            // Create the Holders's OIDC context (Alice is the Holder)
+            //
+            val alice = OIDCContext(setupWalletWithDid(Alice))
+
+            // Create the Verifier's OIDC context (Bob is the Verifier)
+            //
+            val bob = OIDCContext(setupWalletWithDid(Bob))
+
+            // Issuer creates the CredentialOffer
+            //
+            val ctype = "CTWalletSamePreAuthorisedInTime"
+            val types = listOf("VerifiableCredential", ctype)
+            val credOffer = IssuerService.createCredentialOffer(max, alice.did, types, userPin)
+
+            // Holder gets the Credential from the Issuer based on a CredentialOffer
+            //
+            val credRes = expiredCredentialFromOfferPreAuthorized(max, alice, credOffer, userPin)
+            WalletService.addCredential(alice, credRes)
+
+            // Holder finds Credential by Type and presents it to the Verifier
+            //
+            val verificationFlow = CredentialVerificationFlow(alice, bob)
+            runCatching {
+                verificationFlow.verifyPresentationByType(ctype)
+            }.onFailure {
+                it.message shouldContain " is expired"
+            }.onSuccess {
+                fail { "Expected expired credential" }
+            }
+        }
+    }
+
+    /**
+     * @See CredentialIssuanceFlow.credentialFromOfferPreAuthorized
+     */
+    private suspend fun expiredCredentialFromOfferPreAuthorized(
+        issuer: OIDCContext,
+        holder: OIDCContext,
+        credOffer: CredentialOffer,
+        userPin: String
+    ): CredentialResponse {
+
+        val issuerMetadata = IssuerService.getIssuerMetadata(issuer)
+        issuer.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+        holder.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+
+        // The Holder received a CredentialOffer
+        //
+        WalletService.addCredentialOffer(holder, credOffer)
+        val offeredCred = WalletService.resolveOfferedCredential(holder, credOffer)
+
+        // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
+        //
+        val tokenReq = WalletService.createTokenRequestPreAuthorized(holder, credOffer, userPin)
+
+        // Issuer validates the TokenRequest and responds with an AccessToken
+        //
+        val accessTokenRes = AuthService.handleTokenRequestPreAuthorized(issuer, tokenReq)
+
+        // Holder sends the CredentialRequest using the AccessToken
+        //
+        val credReq = WalletService.createCredentialRequest(holder, offeredCred, accessTokenRes)
+
+        // Issuer sends the requested Credential
+        //
+        val iat = Instant.now().plusSeconds(-10L)
+        val exp = iat.plusSeconds(5)
+        val params = CredentialParametersBuilder()
+            .withIssuer(issuer.did)
+            .withSubject(holder.did)
+            .withTypes(credReq.types!!)
+            .withIssuedAt(iat)
+            .withExpire(exp)
+            .build()
+        val credRes = credentialFromRequestParameters(issuer, params)
+
+        return credRes
     }
 }

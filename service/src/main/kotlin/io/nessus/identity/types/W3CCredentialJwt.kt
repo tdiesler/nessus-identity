@@ -10,12 +10,16 @@ import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import java.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -96,15 +100,16 @@ class W3CCredentialJwtBuilder {
     }
 }
 
-@OptIn(ExperimentalUuidApi::class)
 @Serializable
+@OptIn(ExperimentalUuidApi::class)
 data class W3CCredential(
+    val id: String? = null,
     @SerialName("@context")
     val context: List<String>? = null,
     @Serializable(with = CredentialSchemaSerializer::class)
     var credentialSchema: CredentialSchemaWrapper? = null,
-    val id: String = "${Uuid.random()}",
     val credentialSubject: CredentialSubject? = null,
+    val credentialStatus: CredentialStatus? = null,
     val issuer: String? = null,
     @Serializable(with = InstantSerializer::class)
     val issued: Instant? = null,
@@ -118,7 +123,11 @@ data class W3CCredential(
     val termsOfUse: TermsOfUse? = null,
     @SerialName("trust_framework")
     val trustFramework: TrustFramework? = null,
-)
+) {
+    fun toJson(): JsonObject {
+        return Json.encodeToJsonElement(this).jsonObject
+    }
+}
 
 // [TODO #237] Review W3C standards and their serialization
 @OptIn(ExperimentalUuidApi::class)
@@ -188,9 +197,9 @@ class W3CCredentialBuilder {
 
     fun build(): W3CCredential {
         val vc = W3CCredential(
+            id = id,
             context = context,
             credentialSchema = credentialSchema,
-            id = id,
             credentialSubject = credentialSubject,
             issuer = issuer,
             // [TODO #236] why do we need three properties for validFrom
@@ -216,6 +225,15 @@ data class CredentialSchema(
 @Serializable
 data class CredentialSubject(
     val id: String
+)
+
+@Serializable
+data class CredentialStatus(
+    val id: String,
+    val type: String,
+    val statusListCredential: String,
+    val statusListIndex: String,
+    val statusPurpose: String,
 )
 
 @Serializable
