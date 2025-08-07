@@ -3,8 +3,6 @@ package io.nessus.identity.service
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.W3CCredential
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 
 // VerifierService =====================================================================================================

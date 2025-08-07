@@ -139,16 +139,21 @@ object IssuerService {
     @OptIn(ExperimentalUuidApi::class)
     suspend fun credentialFromParameters(ctx: OIDCContext, vcp: CredentialParameters): CredentialResponse {
 
+        // Init property defaults when not given
+        //
         val id = vcp.id ?: "vc:nessus#${Uuid.random()}"
         val iat = vcp.iat ?: Instant.now()
         val nbf = vcp.nbf ?: iat
         val exp = vcp.exp ?: iat.plusSeconds(86400) // 24h
         val iss = vcp.iss ?: ctx.did
 
+        // Verify required properties
+        //
         val sub = vcp.sub ?: throw java.lang.IllegalStateException("No subject")
         if (vcp.types.isEmpty())
             throw java.lang.IllegalStateException("No types")
 
+        // Verify credential types i.e. every type must bve known to this issuer
         val supportedCredentials = getSupportedCredentials(ctx).flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = vcp.types.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())
@@ -172,6 +177,7 @@ object IssuerService {
                     )
                     .withId(id)
                     .withIssuer(iss)
+                    .withCredentialStatus(vcp.status)
                     .withCredentialSubject(sub)
                     .withIssuedAt(iat)
                     .withValidFrom(nbf)

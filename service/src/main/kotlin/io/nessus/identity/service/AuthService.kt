@@ -6,7 +6,6 @@ import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import id.walt.crypto.utils.JsonUtils.toJsonElement
 import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialFormat
@@ -30,7 +29,6 @@ import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant

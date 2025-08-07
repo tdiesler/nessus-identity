@@ -113,8 +113,8 @@ data class W3CCredential(
     val context: List<String>? = null,
     @Serializable(with = CredentialSchemaSerializer::class)
     var credentialSchema: CredentialSchemaWrapper? = null,
-    val credentialSubject: CredentialSubject? = null,
     val credentialStatus: CredentialStatus? = null,
+    val credentialSubject: CredentialSubject? = null,
     val issuer: String? = null,
     @Serializable(with = InstantSerializer::class)
     val issued: Instant? = null,
@@ -124,8 +124,8 @@ data class W3CCredential(
     val validFrom: Instant? = null,
     @Serializable(with = InstantSerializer::class)
     var expirationDate: Instant? = null,
-    val type: List<String>? = null,
     val termsOfUse: TermsOfUse? = null,
+    val type: List<String>? = null,
     @SerialName("trust_framework")
     val trustFramework: TrustFramework? = null,
 ) {
@@ -143,6 +143,7 @@ class W3CCredentialBuilder {
     var context: List<String>? = listOf("https://www.w3.org/2018/credentials/v1")
     var credentialSchema: CredentialSchemaWrapper? = null
     var id: String = "${Uuid.random()}"
+    var credentialStatus: CredentialStatus? = null
     var credentialSubject: CredentialSubject? = null
     var issuer: String? = null
     var issuanceDate: Instant? = null
@@ -168,6 +169,11 @@ class W3CCredentialBuilder {
 
     fun withCredentialSchemas(schemas: List<CredentialSchema>): W3CCredentialBuilder {
         this.credentialSchema = CredentialSchemaWrapper.Multiple(schemas)
+        return this
+    }
+
+    fun withCredentialStatus(status: CredentialStatus?): W3CCredentialBuilder {
+        this.credentialStatus = status
         return this
     }
 
@@ -211,6 +217,7 @@ class W3CCredentialBuilder {
             id = id,
             context = context,
             credentialSchema = credentialSchema,
+            credentialStatus = credentialStatus,
             credentialSubject = credentialSubject,
             issuer = issuer,
             // [TODO #236] why do we need three properties for validFrom

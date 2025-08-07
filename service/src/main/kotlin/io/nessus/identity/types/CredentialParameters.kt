@@ -11,6 +11,7 @@ class CredentialParameters() {
     var nbf: Instant? = null
     var exp: Instant? = null
     var types = listOf<String>()
+    var status: CredentialStatus? = null
 
     fun withId(id: String): CredentialParameters {
         this.id = id
@@ -24,6 +25,11 @@ class CredentialParameters() {
 
     fun withIssuedAt(iat: Instant): CredentialParameters {
         this.iat = iat
+        return this
+    }
+
+    fun withStatus(status: CredentialStatus): CredentialParameters {
+        this.status = status
         return this
     }
 
