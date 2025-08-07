@@ -7,7 +7,7 @@ import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestBuilder
-import io.nessus.identity.types.CredentialParametersBuilder
+import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
@@ -65,10 +65,9 @@ class CredentialVerificationFlow(val holder: OIDCContext, val verifier: OIDCCont
         val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
         val w3Cred = W3CCredentialJwt.fromEncodedJwt(vpCred).vc
 
-        val vcp = CredentialParametersBuilder()
+        val vcp = CredentialParameters()
             .withSubject(holder.did)
             .withTypes(listOf(ctype))
-            .build()
 
         VerifierService.validateVerifiableCredential(w3Cred, vcp)
     }

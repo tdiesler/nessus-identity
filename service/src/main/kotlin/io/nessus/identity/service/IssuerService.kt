@@ -25,7 +25,6 @@ import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.types.CredentialParameters
-import io.nessus.identity.types.CredentialParametersBuilder
 import io.nessus.identity.types.CredentialSchema
 import io.nessus.identity.types.W3CCredentialBuilder
 import io.nessus.identity.types.W3CCredentialJwtBuilder
@@ -128,40 +127,40 @@ object IssuerService {
         val credentialResponse = if (deferred || deferredEBSIType) {
             credentialFromRequestDeferred(ctx, credReq)
         } else {
-            val params = CredentialParametersBuilder()
+            val params = CredentialParameters()
                 .withIssuer(ctx.did)
                 .withSubject(ctx.authRequest.clientId)
                 .withTypes(credReq.types!!)
-                .build()
-            credentialFromRequestParameters(ctx, params)
+            credentialFromParameters(ctx, params)
         }
         return credentialResponse
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun credentialFromRequestParameters(
-        ctx: OIDCContext,
-        params: CredentialParameters,
-    ): CredentialResponse {
+    suspend fun credentialFromParameters(ctx: OIDCContext, vcp: CredentialParameters): CredentialResponse {
 
-        if (params.types.isEmpty())
-            throw IllegalArgumentException("No types in CredentialRequest")
+        val id = vcp.id ?: "vc:nessus#${Uuid.random()}"
+        val iat = vcp.iat ?: Instant.now()
+        val nbf = vcp.nbf ?: iat
+        val exp = vcp.exp ?: iat.plusSeconds(86400) // 24h
+        val iss = vcp.iss ?: ctx.did
+
+        val sub = vcp.sub ?: throw java.lang.IllegalStateException("No subject")
+        if (vcp.types.isEmpty())
+            throw java.lang.IllegalStateException("No types")
 
         val supportedCredentials = getSupportedCredentials(ctx).flatMap { it.types.orEmpty() }.toSet()
-        val unknownTypes = params.types.filterNot { it in supportedCredentials }
+        val unknownTypes = vcp.types.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())
             throw IllegalStateException("Unknown credential types: $unknownTypes")
-
-        val id = params.id ?: "vc:nessus#${Uuid.random()}"
-        val iat = params.iat ?: Instant.now()
-        val exp = params.exp ?: iat.plusSeconds(86400) // 24h
 
         // [TODO #234] Derive CredentialSchema from somewhere
         val cred = W3CCredentialJwtBuilder()
             .withId(id)
             .withIssuerId(ctx.did)
-            .withSubjectId(params.sub as String)
-            .withValidFrom(iat)
+            .withSubjectId(vcp.sub as String)
+            .withIssuedAt(iat)
+            .withValidFrom(nbf)
             .withValidUntil(exp)
             .withCredential(
                 W3CCredentialBuilder()
@@ -172,15 +171,15 @@ object IssuerService {
                         )
                     )
                     .withId(id)
-                    .withIssuer(ctx.did)
-                    .withCredentialSubject(params.sub)
-                    .withValidFrom(iat)
+                    .withIssuer(iss)
+                    .withCredentialSubject(sub)
+                    .withIssuedAt(iat)
+                    .withValidFrom(nbf)
                     .withValidUntil(exp)
-                    .withTypes(params.types)
+                    .withTypes(vcp.types)
                     .build()
             )
             .build()
-        val credentialJson = Json.encodeToString(cred)
 
         val kid = ctx.didInfo.authenticationId()
         val credHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
@@ -188,18 +187,19 @@ object IssuerService {
             .keyID(kid)
             .build()
 
-        val credClaims = JWTClaimsSet.parse(JSONObjectUtils.parse(credentialJson))
+        val credJson = Json.encodeToString(cred)
+        val credClaims = JWTClaimsSet.parse(JSONObjectUtils.parse(credJson))
 
-        val credentialJwt = SignedJWT(credHeader, credClaims).signWithKey(ctx, kid)
-        log.info { "Credential Header: ${credentialJwt.header}" }
-        log.info { "Credential Claims: ${credentialJwt.jwtClaimsSet}" }
+        val credJwt = SignedJWT(credHeader, credClaims).signWithKey(ctx, kid)
+        log.info { "Credential Header: ${credJwt.header}" }
+        log.info { "Credential Claims: ${credJwt.jwtClaimsSet}" }
 
-        credentialJwt.verifyJwtSignature("Credential", ctx.didInfo)
+        credJwt.verifyJwtSignature("Credential", ctx.didInfo)
 
-        val credentialResponse = CredentialResponse.success(CredentialFormat.jwt_vc, credentialJwt.serialize())
-        log.info { "CredentialResponse: ${Json.encodeToString(credentialResponse)}" }
+        val credRes = CredentialResponse.success(CredentialFormat.jwt_vc, credJwt.serialize())
+        log.info { "CredentialResponse: ${Json.encodeToString(credRes)}" }
 
-        return credentialResponse
+        return credRes
     }
 
     suspend fun deferredCredentialFromAcceptanceToken(ctx: OIDCContext, acceptanceTokenJwt: SignedJWT): CredentialResponse {
@@ -214,12 +214,11 @@ object IssuerService {
 
         val credReqJson = acceptanceTokenJwt.jwtClaimsSet.getClaim("credential_request") as String
         val credReq = Json.decodeFromString<CredentialRequest>(credReqJson)
-        val params = CredentialParametersBuilder()
+        val params = CredentialParameters()
             .withIssuer(ctx.did)
             .withSubject(ctx.authRequest.clientId)
             .withTypes(credReq.types!!)
-            .build()
-        val credentialResponse = credentialFromRequestParameters(ctx, params)
+        val credentialResponse = credentialFromParameters(ctx, params)
 
         return credentialResponse
     }

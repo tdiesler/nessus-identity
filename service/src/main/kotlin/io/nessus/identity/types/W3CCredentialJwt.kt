@@ -10,13 +10,11 @@ import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
@@ -47,7 +45,8 @@ class W3CCredentialJwtBuilder {
     var id: String = "${Uuid.random()}"
     var issuerId: String? = null
     var subjectId: String? = null
-    var validFrom: Instant = Instant.now()
+    var issuedAt: Instant = Instant.now()
+    var validFrom: Instant? = null
     var validUntil: Instant? = null
     var credential: W3CCredential? = null
 
@@ -66,8 +65,13 @@ class W3CCredentialJwtBuilder {
         return this
     }
 
-    fun withValidFrom(iat: Instant): W3CCredentialJwtBuilder {
-        this.validFrom = iat
+    fun withIssuedAt(iat: Instant): W3CCredentialJwtBuilder {
+        this.issuedAt = iat
+        return this
+    }
+
+    fun withValidFrom(nbf: Instant): W3CCredentialJwtBuilder {
+        this.validFrom = nbf
         return this
     }
 
@@ -89,8 +93,9 @@ class W3CCredentialJwtBuilder {
             jti = id,
             iss = issuerId,
             sub = subjectId,
-            iat = validFrom.epochSecond,
-            nbf = validFrom.epochSecond,
+            iat = issuedAt.epochSecond,
+            nbf = validFrom?.epochSecond,
+            exp = validUntil?.epochSecond,
             vc = credential
         )
         validUntil?.also {
@@ -141,7 +146,8 @@ class W3CCredentialBuilder {
     var credentialSubject: CredentialSubject? = null
     var issuer: String? = null
     var issuanceDate: Instant? = null
-    var expirationDate: Instant? = null
+    var validFrom: Instant? = null
+    var validUntil: Instant? = null
     var type: List<String> = mutableListOf()
     var termsOfUse: TermsOfUse? = null
     var trustFramework: TrustFramework? = null
@@ -165,8 +171,8 @@ class W3CCredentialBuilder {
         return this
     }
 
-    fun withCredentialSubject(id: String): W3CCredentialBuilder {
-        this.credentialSubject = CredentialSubject(id)
+    fun withCredentialSubject(sub: String): W3CCredentialBuilder {
+        this.credentialSubject = CredentialSubject(sub)
         return this
     }
 
@@ -185,13 +191,18 @@ class W3CCredentialBuilder {
         return this
     }
 
-    fun withValidFrom(iat: Instant): W3CCredentialBuilder {
+    fun withIssuedAt(iat: Instant): W3CCredentialBuilder {
         this.issuanceDate = iat
         return this
     }
 
+    fun withValidFrom(nbf: Instant): W3CCredentialBuilder {
+        this.validFrom = nbf
+        return this
+    }
+
     fun withValidUntil(exp: Instant): W3CCredentialBuilder {
-        this.expirationDate = exp
+        this.validUntil = exp
         return this
     }
 
@@ -206,8 +217,8 @@ class W3CCredentialBuilder {
             // https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
             issued = issuanceDate,
             issuanceDate = issuanceDate,
-            validFrom = issuanceDate,
-            expirationDate = expirationDate,
+            validFrom = validFrom,
+            expirationDate = validUntil,
             type = type,
             termsOfUse = termsOfUse,
             trustFramework = trustFramework,

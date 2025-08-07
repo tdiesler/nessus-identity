@@ -7,9 +7,8 @@ import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.flow.CredentialIssuanceFlow
 import io.nessus.identity.flow.CredentialVerificationFlow
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
-import io.nessus.identity.service.IssuerService.credentialFromRequestParameters
 import io.nessus.identity.types.AuthorizationRequestBuilder
-import io.nessus.identity.types.CredentialParametersBuilder
+import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.Max
@@ -140,7 +139,15 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val credRes = expiredCredentialFromOfferPreAuthorized(max, alice, credOffer, userPin)
+            val now = Instant.now()
+            val iat = now.plusSeconds(-10)
+            val exp = now.plusSeconds(-5)
+            val credRes = issueCredentialFromParameters(max, alice, credOffer, userPin, CredentialParameters()
+                .withIssuer(max.did)
+                .withSubject(alice.did)
+                .withTypes(types)
+                .withIssuedAt(iat)
+                .withValidUntil(exp))
             WalletService.addCredential(alice, credRes)
 
             // Holder finds Credential by Type and presents it to the Verifier
@@ -149,7 +156,8 @@ class VerifierUseCasesTest : AbstractServiceTest() {
             runCatching {
                 verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
-                it.message shouldContain " is expired"
+                log.error { it }
+                it.message shouldContain "is expired"
             }.onSuccess {
                 fail { "Expected expired credential" }
             }
@@ -157,13 +165,76 @@ class VerifierUseCasesTest : AbstractServiceTest() {
     }
 
     /**
+     * Verify a not-yet-valid Credential in Presentation
+     * https://hub.ebsi.eu/conformance/build-solutions/verifier-functional-flows#verifiable-presentations
+     *
+     * - The Holder sends an AuthorizationRequest to the Verifier
+     * - The Verifier sends an VPToken Request to the Holder (request of VerifiablePresentation)
+     * - Holder responds with a signed VPToken that contains the VerifiablePresentation
+     * - Verifier validates the VPToken
+     */
+    @Test
+    fun notYetValidCredentialInPresentation() {
+        runBlocking {
+
+            // Create the Issuer's OIDC context (Max is the Issuer)
+            //
+            val max = OIDCContext(setupWalletWithDid(Max))
+            val userPin = "1234"
+
+            // Create the Holders's OIDC context (Alice is the Holder)
+            //
+            val alice = OIDCContext(setupWalletWithDid(Alice))
+
+            // Create the Verifier's OIDC context (Bob is the Verifier)
+            //
+            val bob = OIDCContext(setupWalletWithDid(Bob))
+
+            // Issuer creates the CredentialOffer
+            //
+            val ctype = "CTWalletSamePreAuthorisedInTime"
+            val types = listOf("VerifiableCredential", ctype)
+            val credOffer = IssuerService.createCredentialOffer(max, alice.did, types, userPin)
+
+            // Holder gets the Credential from the Issuer based on a CredentialOffer
+            //
+            val iat = Instant.now()
+            val nbf = iat.plusSeconds(10)
+            val credRes = issueCredentialFromParameters(max, alice, credOffer, userPin, CredentialParameters()
+                .withIssuer(max.did)
+                .withSubject(alice.did)
+                .withTypes(types)
+                .withIssuedAt(iat)
+                .withValidFrom(nbf))
+            WalletService.addCredential(alice, credRes)
+
+            // Holder finds Credential by Type and presents it to the Verifier
+            //
+            val verificationFlow = CredentialVerificationFlow(alice, bob)
+            runCatching {
+                verificationFlow.verifyPresentationByType(ctype)
+            }.onFailure {
+                log.error { it }
+                it.message shouldContain "not yet valid"
+            }.onSuccess {
+                fail { "Expected not yet valid credential" }
+            }
+        }
+    }
+
+    // Private ---------------------------------------------------------------------------------------------------------
+
+    /**
+     * This flow allows us to issue (invalid) credentials that the Verifier cannot accept
+     *
      * @See CredentialIssuanceFlow.credentialFromOfferPreAuthorized
      */
-    private suspend fun expiredCredentialFromOfferPreAuthorized(
+    private suspend fun issueCredentialFromParameters(
         issuer: OIDCContext,
         holder: OIDCContext,
         credOffer: CredentialOffer,
-        userPin: String
+        userPin: String,
+        vcp: CredentialParameters,
     ): CredentialResponse {
 
         val issuerMetadata = IssuerService.getIssuerMetadata(issuer)
@@ -189,16 +260,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
         // Issuer sends the requested Credential
         //
-        val iat = Instant.now().plusSeconds(-10L)
-        val exp = iat.plusSeconds(5)
-        val params = CredentialParametersBuilder()
-            .withIssuer(issuer.did)
-            .withSubject(holder.did)
-            .withTypes(credReq.types!!)
-            .withIssuedAt(iat)
-            .withExpire(exp)
-            .build()
-        val credRes = credentialFromRequestParameters(issuer, params)
+        val credRes = IssuerService.credentialFromParameters(issuer, vcp)
 
         return credRes
     }

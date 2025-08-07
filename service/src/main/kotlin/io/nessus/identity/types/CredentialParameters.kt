@@ -1,58 +1,49 @@
 package io.nessus.identity.types
 
 import java.time.Instant
-import kotlin.uuid.ExperimentalUuidApi
 
-data class CredentialParameters(
-    val id: String?,
-    val iss: String?,
-    val sub: String?,
-    val iat: Instant?,
-    val exp: Instant?,
-    val types: List<String>,
-)
-
-@OptIn(ExperimentalUuidApi::class)
-class CredentialParametersBuilder() {
+class CredentialParameters() {
 
     var id: String? = null
-    var iat = Instant.now()
-    var exp = iat.plusSeconds(86400) // 24h
     var iss: String? = null
     var sub: String? = null
+    var iat: Instant? = null
+    var nbf: Instant? = null
+    var exp: Instant? = null
     var types = listOf<String>()
 
-    fun withId(id: String): CredentialParametersBuilder {
+    fun withId(id: String): CredentialParameters {
         this.id = id
         return this
     }
 
-    fun withExpire(exp: Instant): CredentialParametersBuilder {
-        this.exp = exp
-        return this
-    }
-
-    fun withIssuer(iss: String): CredentialParametersBuilder {
+    fun withIssuer(iss: String): CredentialParameters {
         this.iss = iss
         return this
     }
 
-    fun withIssuedAt(iat: Instant): CredentialParametersBuilder {
+    fun withIssuedAt(iat: Instant): CredentialParameters {
         this.iat = iat
         return this
     }
 
-    fun withSubject(sub: String): CredentialParametersBuilder {
+    fun withSubject(sub: String): CredentialParameters {
         this.sub = sub
         return this
     }
 
-    fun withTypes(types: List<String>): CredentialParametersBuilder {
+    fun withTypes(types: List<String>): CredentialParameters {
         this.types = types
         return this
     }
 
-    fun build(): CredentialParameters {
-        return CredentialParameters(id, iss, sub, iat, exp, types)
+    fun withValidFrom(nbf: Instant): CredentialParameters {
+        this.nbf = nbf
+        return this
+    }
+
+    fun withValidUntil(exp: Instant): CredentialParameters {
+        this.exp = exp
+        return this
     }
 }
