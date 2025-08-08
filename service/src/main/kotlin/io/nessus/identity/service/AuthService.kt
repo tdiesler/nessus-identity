@@ -173,13 +173,14 @@ object AuthService {
         val authReq = ctx.assertAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
         val scopes = authReq.scope.joinToString(" ")
 
+        // Is VPTokenRequest payload an AuthorizationRequest?
+        // https://github.com/tdiesler/nessus-identity/issues/226
         val vpTokenRedirectUrl = URLBuilder("${authReq.redirectUri}").apply {
             parameters.append("client_id", authReq.clientId) // Holder Did
             parameters.append("response_type", "vp_token")
             parameters.append("response_mode", "direct_post")
             parameters.append("scope", scopes)
             parameters.append("redirect_uri", "$authorizationServer/direct_post")
-            // [TODO #226] Check with the spec whether the VPToken request payload is an AuthorizationRequest
             // [TODO #227] May need to use request_uri for VPToken Request redirect url
             parameters.append("request", "${vpTokenReqJwt.serialize()}")
         }.buildString()
