@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: verifier-api
-          image: {{ $.Values.imagePrefix }}waltid/verifier-api:{{ .version }}
+          image: {{ $.Values.imagePrefix }}waltid-verifier-api:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: VERIFIER_API_PORT
@@ -47,27 +47,6 @@ spec:
         - name: config
           configMap:
             name: verifier-config
----
-
-{{- if eq $.Values.environment "local" }}
----
-
-# Verifier API Service
-#
-apiVersion: v1
-kind: Service
-metadata:
-  name: verifier-api
-spec:
-  type: NodePort
-  ports:
-    - port: 7003
-      nodePort: {{ .nodePort }}
-  selector:
-    app.kubernetes.io/name: verifier-api
----
-
-{{- else }}
 ---
 
 # Verifier API Service
@@ -102,9 +81,7 @@ spec:
         - name: verifier-api
           port: 7003
   tls:
-    secretName: origin-tls
+    secretName: {{ $.Values.tlsSecret }}
 ---
-
-{{- end }}
 
 {{- end }}

@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: issuer-api
-          image: {{ $.Values.imagePrefix }}waltid/issuer-api:{{ .version }}
+          image: {{ $.Values.imagePrefix }}waltid-issuer-api:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: ISSUER_BASE_URL
@@ -50,27 +50,6 @@ spec:
           configMap:
             name: issuer-api-config
 
----
-
-{{- if eq $.Values.environment "local" }}
----
-
-# Issuer API Service
-#
-apiVersion: v1
-kind: Service
-metadata:
-  name: issuer-api
-spec:
-  type: NodePort
-  ports:
-    - port: 7002
-      nodePort: {{ .nodePort }}
-  selector:
-    app.kubernetes.io/name: issuer-api
----
-
-{{- else }}
 ---
 
 # Issuer API Service
@@ -105,9 +84,7 @@ spec:
         - name: issuer-api
           port: 7002
   tls:
-    secretName: origin-tls
+    secretName: {{ $.Values.tlsSecret }}
 ---
-
-{{- end }}
 
 {{- end }}

@@ -1,0 +1,90 @@
+{{- with .Values.deployments.keycloak }}
+---
+
+# Keycloak Deployment
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: "keycloak/keycloak:{{ .version }}"
+          args: ["start", "--features=oid4vc-vci"]
+          ports:
+            - containerPort: 8080
+          env:
+            # Admin bootstrap
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom: { secretKeyRef: { name: keycloak-admin, key: ADMIN_USERNAME } }
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: keycloak-admin, key: ADMIN_PASSWORD } }
+
+            # Database config
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL_HOST
+              value: postgres
+            - name: KC_DB_URL_DATABASE
+              value: keycloak
+            - name: KC_DB_USERNAME
+              value: postgres
+            - name: KC_DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: postgres-secret, key: POSTGRES_PASSWORD } }
+
+            # Hostname/Proxy for ingress
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HOSTNAME
+              value: https://auth.localtest.me
+            - name: KC_HTTP_ENABLED
+              value: "true"
+#          readinessProbe: { httpGet: { path: /health/ready, port: 9000 }, initialDelaySeconds: 20, periodSeconds: 5 }
+#          livenessProbe:  { httpGet: { path: /health/live,  port: 9000 }, initialDelaySeconds: 30, periodSeconds: 10 }
+---
+# Keycloak Service
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+  selector:
+    app.kubernetes.io/name: keycloak
+---
+
+# Keycloak IngressRoute
+#
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host("{{ $.Values.authApiHost }}")
+      kind: Rule
+      services:
+        - name: keycloak
+          port: 8080
+  tls:
+    secretName: {{ $.Values.tlsSecret }}
+---
+{{- end }}

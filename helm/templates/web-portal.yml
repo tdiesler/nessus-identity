@@ -36,25 +36,6 @@ spec:
             - containerPort: 7102
 ---
 
-{{- if eq $.Values.environment "local" }}
----
-# Web Portal Service
-#
-apiVersion: v1
-kind: Service
-metadata:
-  name: web-portal
-spec:
-  type: NodePort
-  ports:
-    - port: 7102
-      nodePort: {{ .nodePort }}
-  selector:
-    app.kubernetes.io/name: web-portal
----
-
-{{- else }}
----
 # Web Portal Service
 #
 apiVersion: v1
@@ -87,8 +68,7 @@ spec:
         - name: web-portal
           port: 7102
   tls:
-    secretName: origin-tls
+    secretName: {{ $.Values.tlsSecret }}
 ---
-{{- end }}
 
 {{- end }}

@@ -1,11 +1,11 @@
 
 PROJECT_VERSION := $(shell mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 
-TARGET ?= prod
+TARGET ?= local
 KUBE_CONTEXT_PROD := "ebsi"
 IMAGE_REGISTRY_PROD := "registry.vps6c.eu.ebsi:30443/"
 
-KUBE_CONTEXT_LOCAL := "docker-desktop"
+KUBE_CONTEXT_LOCAL := "rancher-desktop"
 IMAGE_REGISTRY_LOCAL := ""
 
 IMAGE_NAME := nessusio/ebsi-portal
@@ -46,16 +46,16 @@ upgrade: build-images
 	@helm --kube-context $(KUBE_CONTEXT) upgrade --install ebsi-portal ./helm -f ./helm/values-ebsi-portal.yaml
 
 upgrade-wallet-api:
-	@cd ../waltid-identity && ./gradlew :waltid-services:waltid-wallet-api:publishToMavenLocal
+	@cd ../waltid-identity && ./gradlew -x jvmTest publishToMavenLocal
 
-# Upgrade Waltid service images (supports build options)
+# Upgrade WaltID service images (supports build options)
 # make upgrade-services BUILD_OPTS=--no-cache
 upgrade-services: upgrade-wallet-api
+	@cd ../waltid-identity && ./gradlew jibDockerBuild
 	@cd ../waltid-identity/docker-compose && \
-		docker compose build $(BUILD_OPTS) wallet-api && \
-		docker compose build $(BUILD_OPTS) issuer-api && \
-		docker compose build $(BUILD_OPTS) verifier-api && \
 		docker compose build $(BUILD_OPTS) waltid-dev-wallet && \
 		docker compose build $(BUILD_OPTS) waltid-demo-wallet && \
-		docker compose build $(BUILD_OPTS) web-portal
+		docker compose build $(BUILD_OPTS) web-portal && \
+		docker compose pull opa-server && \
+		docker compose pull vc-repo
 

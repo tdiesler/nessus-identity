@@ -1,24 +1,28 @@
 
-### IntelliJ IDEA ###
+## IntelliJ IDEA
 .idea/
 *.iws
 *.iml
 *.ipr
 
-### VS Code ###
+## VS Code
 .vscode/
 
-### Mac OS ###
+## Mac OS
 .DS_Store
 
-### Maven
+## Maven
 dependency-reduced-pom.xml
 target/
 
-### Python
+## Python
 __pycache__/
 
 ## TLS
 *.crt
 *.key
+*.pem
 keystore.*
+
+## Secrets
+.secret

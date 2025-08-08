@@ -1,0 +1,55 @@
+#
+# helm upgrade --kube-context=rancher-desktop --install nessus-identity ./helm -f ./helm/values-services-local.yaml
+#
+
+environment: local
+
+imagePrefix: ""
+
+tlsSecret: edge-tls
+urlSchema: "https"
+
+authApiHost: "auth.localtest.me"
+issuerApiHost: "issuer-api.localtest.me"
+walletApiHost: "wallet-api.localtest.me"
+verifierApiHost: "verifier-api.localtest.me"
+
+demoWalletHost: "wallet.localtest.me"
+devWalletHost: "wallet-dev.localtest.me"
+webPortalHost: "portal.localtest.me"
+
+repoServiceHost: "vc-repo.localtest.me"
+opaServiceHost: "opa.localtest.me"
+
+deployments:
+
+  wallet_api:
+    version: 1.0.0-SNAPSHOT
+
+  issuer_api:
+    version: 1.0.0-SNAPSHOT
+
+  verifier_api:
+    version: 1.0.0-SNAPSHOT
+
+  wallet_demo:
+    version: 1.0.0-SNAPSHOT
+
+  wallet_dev:
+    version: 1.0.0-SNAPSHOT
+
+  web_portal:
+    version: 1.0.0-SNAPSHOT
+
+  vc_repo:
+    version: latest
+
+  keycloak:
+    version: nightly
+
+  postgres:
+    version: 17.4
+    nodePort: 32543
+
+#  opa_server:
+#    version: 1.4.2

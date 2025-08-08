@@ -1,5 +1,5 @@
 #
-# helm upgrade --kube-context=ebsi --install services ./helm -f ./helm/values-services.yaml
+# helm upgrade --kube-context=ebsi --install nessus-identity ./helm -f ./helm/values-services.yaml
 #
 
 environment: k3s

@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: wallet-api
-          image: {{ $.Values.imagePrefix }}waltid/wallet-api:{{ .version }}
+          image: {{ $.Values.imagePrefix }}waltid-wallet-api:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: DB_HOST
@@ -43,8 +43,10 @@ spec:
             - name: DB_NAME
               value: 'waltid'
             - name: DB_USERNAME
-              # [TODO #239] Get DB_USERNAME from k8s secret
-              value: 'postgres'
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -61,26 +63,6 @@ spec:
         - name: config
           configMap:
             name: wallet-config
----
-
-{{- if eq $.Values.environment "local" }}
----
-# Wallet API Service
-#
-apiVersion: v1
-kind: Service
-metadata:
-  name: wallet-api
-spec:
-  type: NodePort
-  ports:
-    - port: 7001
-      nodePort: {{ .nodePort }}
-  selector:
-    app.kubernetes.io/name: wallet-api
----
-
-{{- else }}
 ---
 
 # Wallet API Service
@@ -115,8 +97,7 @@ spec:
         - name: wallet-api
           port: 7001
   tls:
-    secretName: origin-tls
+    secretName: {{ $.Values.tlsSecret }}
 ---
-{{- end }}
 
 {{- end }}

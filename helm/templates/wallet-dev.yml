@@ -32,27 +32,6 @@ spec:
             - containerPort: 7104
 ---
 
-{{- if eq $.Values.environment "local" }}
----
-
-# Wallet Dev Service
-#
-apiVersion: v1
-kind: Service
-metadata:
-  name: wallet-dev
-spec:
-  type: NodePort
-  ports:
-    - port: 7104
-      nodePort: {{ .nodePort }}
-  selector:
-    app.kubernetes.io/name: wallet-dev
----
-
-{{- else }}
----
-
 # Wallet Dev Service
 #
 apiVersion: v1
@@ -90,9 +69,7 @@ spec:
         - name: wallet-dev
           port: 7104
   tls:
-    secretName: origin-tls
+    secretName: {{ $.Values.tlsSecret }}
 ---
-
-{{- end }}
 
 {{- end }}
