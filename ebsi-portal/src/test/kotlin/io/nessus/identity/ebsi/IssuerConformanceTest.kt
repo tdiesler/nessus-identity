@@ -1,7 +1,6 @@
 package io.nessus.identity.ebsi
 
 import io.kotest.matchers.booleans.shouldBeTrue
-import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.AfterAll
@@ -9,11 +8,13 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.openqa.selenium.By
+import kotlin.random.Random
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class IssuerConformanceTest : AbstractConformanceTest() {
 
-    val userPin = IssuerService.defaultUserPin
+    // Generates a number between 1000 and 9999
+    val userPin = Random.nextInt(1000, 10000)
 
     @BeforeAll
     fun setup() {
@@ -87,7 +88,7 @@ class IssuerConformanceTest : AbstractConformanceTest() {
         nextStep()
 
         // Enter the did:key
-        driver.findElement(By.name("userPinInTime")).sendKeys(userPin)
+        driver.findElement(By.name("userPinInTime")).sendKeys("$userPin")
         log.info { "Pre-Auth user PIN: $userPin" }
         nextStep()
 
@@ -123,7 +124,7 @@ class IssuerConformanceTest : AbstractConformanceTest() {
         nextStep()
 
         // Enter the did:key
-        driver.findElement(By.name("userPinDeferred")).sendKeys(userPin)
+        driver.findElement(By.name("userPinDeferred")).sendKeys("$userPin")
         log.info { "UserPIN: $userPin" }
         nextStep()
 

@@ -307,7 +307,8 @@ object WalletService {
             userPIN = userPin
         )
 
-        AuthService.log.info { "TokenRequest: ${Json.encodeToString(tokenRequest)}" }
+        // [TODO #247] TokenRequest not serializable to json
+        log.info { "TokenRequest: $tokenRequest" }
         return tokenRequest
     }
 
@@ -587,8 +588,8 @@ object WalletService {
 
         val tokenReqUrl = "${ctx.authorizationServer}/token"
 
-        AuthService.log.info { "Send Token Request $tokenReqUrl" }
-        AuthService.log.info { "  $tokenReq" } // AuthorizationCode is not @Serializable
+        log.info { "Send Token Request $tokenReqUrl" }
+        log.info { "  $tokenReq" } // AuthorizationCode is not @Serializable
 
         val formData = tokenReq.toHttpParameters()
         val res = http.post(tokenReqUrl) {
@@ -602,7 +603,7 @@ object WalletService {
             throw HttpStatusException(res.status, res.bodyAsText())
 
         val tokenResponseJson = res.bodyAsText()
-        AuthService.log.info { "Token Response: $tokenResponseJson" }
+        log.info { "Token Response: $tokenResponseJson" }
         val tokenRes = TokenResponse.fromJSONString(tokenResponseJson)
 
         val accessTokenJwt = SignedJWT.parse(tokenRes.accessToken)
@@ -616,8 +617,8 @@ object WalletService {
         val tokenReqUrl = "${ctx.authorizationServer}/token"
         val formData = tokenRequest.toHttpParameters()
 
-        AuthService.log.info { "Send TokenRequest $tokenReqUrl" }
-        formData.forEach { (k, lst) -> lst.forEach { v -> AuthService.log.info { "  $k=$v" } } }
+        log.info { "Send TokenRequest $tokenReqUrl" }
+        formData.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
         val res = http.post(tokenReqUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
@@ -630,7 +631,7 @@ object WalletService {
             throw HttpStatusException(res.status, res.bodyAsText())
 
         val tokenResponseJson = res.bodyAsText()
-        AuthService.log.info { "Token Response: $tokenResponseJson" }
+        log.info { "Token Response: $tokenResponseJson" }
         val tokenRes = TokenResponse.fromJSONString(tokenResponseJson)
 
         val accessToken = SignedJWT.parse(tokenRes.accessToken)

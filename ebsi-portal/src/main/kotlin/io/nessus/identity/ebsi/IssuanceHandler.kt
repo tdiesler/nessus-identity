@@ -11,10 +11,7 @@ import io.ktor.server.request.uri
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.RoutingCall
 import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
-import io.nessus.identity.service.CredentialOfferRegistry.hasCredentialOfferRecord
-import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.IssuerService.ebsiDefaultHolderId
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDCContext
 import io.nessus.identity.service.OIDCContextRegistry
@@ -37,22 +34,8 @@ object IssuanceHandler {
             it.forEach { (k, v) -> log.info { "  $k=$v" } }
         }
 
-        val ctx = requireLoginContext(dstId)
-
-        // Issuing CredentialOffers for EBSI Conformance
-        //
-        listOf("CTWalletSamePreAuthorisedInTime", "CTWalletSamePreAuthorisedDeferred").forEach { ct ->
-            if (!hasCredentialOfferRecord(ct)) {
-                log.info { "Issuing CredentialOffer $ct for EBSI Conformance" }
-                val subId = ebsiDefaultHolderId
-                val userPin = IssuerService.defaultUserPin
-                val ctypes = listOf("VerifiableCredential", "VerifiableAttestation", ct)
-                val credOffer = IssuerService.createCredentialOffer(ctx, subId, ctypes, userPin)
-                putCredentialOfferRecord(ct, credOffer, userPin)
-            }
-        }
-
         if (call.request.path().endsWith(".well-known/openid-credential-issuer")) {
+            val ctx = requireLoginContext(dstId)
             return handleIssuerMetadataRequest(call, ctx)
         }
 
@@ -67,7 +50,7 @@ object IssuanceHandler {
         //
         if (path == "/issuer/$dstId/credential_deferred") {
             val ctx = OIDCContextRegistry.assert(dstId)
-            return handleDeferredCredentialRequest(call, ctx)
+            return handleCredentialRequestDeferred(call, ctx)
         }
 
         call.respondText(
@@ -97,7 +80,7 @@ object IssuanceHandler {
         )
     }
 
-    private suspend fun handleDeferredCredentialRequest(call: RoutingCall, ctx: OIDCContext) {
+    private suspend fun handleCredentialRequestDeferred(call: RoutingCall, ctx: OIDCContext) {
 
         val acceptanceToken = call.request.headers["Authorization"]
             ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }

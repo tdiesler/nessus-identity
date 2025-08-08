@@ -14,6 +14,7 @@ import id.walt.oid4vc.requests.TokenRequest
 import id.walt.oid4vc.responses.TokenResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.URLBuilder
+import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.extend.getCredentialTypes
 import io.nessus.identity.extend.signWithKey
@@ -22,9 +23,10 @@ import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.service.CredentialOfferRegistry.hasCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
+import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
-import io.nessus.identity.service.IssuerService.ebsiDefaultHolderId
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.Json
@@ -214,10 +216,8 @@ object AuthService {
 
     suspend fun handleTokenRequestPreAuthorized(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
 
-        if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY)) ctx.putAttachment(
-            ISSUER_METADATA_ATTACHMENT_KEY,
-            IssuerService.getIssuerMetadata(ctx)
-        )
+        if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY))
+            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, IssuerService.getIssuerMetadata(ctx))
 
         var subId = tokenReq.clientId
         val preAuthTokenRequest = tokenReq as TokenRequest.PreAuthorizedCode
@@ -227,8 +227,19 @@ object AuthService {
         // In the EBSI Issuer Conformance Test, the preAuthCode is a known Credential type
         // and the clientId associated with the TokenRequest is undefined
         if (isEBSIPreAuthorizedType(preAuthCode)) {
-            if (subId == null)
-                subId = ebsiDefaultHolderId
+
+            if (subId == null) {
+                val issuerConfig = ConfigProvider.requireIssuerConfig()
+                subId = issuerConfig.ebsiRequesterDid as String
+            }
+
+            // Issuing CredentialOffers (on-demand) for EBSI Conformance
+            if (!hasCredentialOfferRecord(preAuthCode)) {
+                log.info { "Issuing CredentialOffer $preAuthCode (on-demand) for EBSI Conformance" }
+                val ctypes = listOf("VerifiableCredential", "VerifiableAttestation", preAuthCode)
+                val credOffer = IssuerService.createCredentialOffer(ctx, subId, ctypes, userPin)
+                putCredentialOfferRecord(preAuthCode, credOffer, userPin)
+            }
         }
 
         // Verify pre-authorized user PIN

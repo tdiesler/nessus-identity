@@ -15,7 +15,6 @@ import io.nessus.identity.service.CredentialOfferRegistry.getCredentialOfferReco
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.HttpStatusException
-import io.nessus.identity.service.IssuerService.defaultUserPin
 import io.nessus.identity.service.OIDCContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
@@ -56,10 +55,6 @@ object WalletHandler {
 
     // Request and present Verifiable Credentials
     // https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows
-    //
-    // Issuer initiated flows start with the Credential Offering proposed by Issuer.
-    // The Credential Offering is in redirect for same-device tests and in QR Code for cross-device tests.
-    //
     private suspend fun handleCredentialOffer(call: RoutingCall, ctx: OIDCContext) {
 
         // Get Credential Offer URI from the query Parameters
@@ -76,7 +71,12 @@ object WalletHandler {
             val authCode = credOffer.getPreAuthorizedGrantDetails()?.preAuthorizedCode as String
             val ebsiType = offeredCred.types?.firstOrNull { isEBSIPreAuthorizedType(it) }
             if (ebsiType != null) {
-                val userPin = getCredentialOfferRecord(ebsiType)?.userPin ?: defaultUserPin
+                val cor = getCredentialOfferRecord(ebsiType)
+                var userPin = cor?.userPin
+                if (userPin == null) {
+                    userPin = System.getenv("EBSI__PREAUTHORIZED_PIN")
+                        ?: throw IllegalStateException("No EBSI__PREAUTHORIZED_PIN")
+                }
                 putCredentialOfferRecord(authCode, credOffer, userPin)
             }
         }

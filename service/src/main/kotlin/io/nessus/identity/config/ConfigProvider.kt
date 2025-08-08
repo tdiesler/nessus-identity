@@ -18,7 +18,6 @@ object ConfigProvider {
     val authEndpointUri get() = "${requireServerConfig().baseUrl}/auth"
     val issuerEndpointUri get() = "${requireServerConfig().baseUrl}/issuer"
     val walletEndpointUri get() = "${requireServerConfig().baseUrl}/wallet"
-    val verifierEndpointUri get() = "${requireServerConfig().baseUrl}/verifier"
 
     fun requireDatabaseConfig(): DatabaseConfig {
         return root.database ?: throw IllegalStateException("No 'database' config")
@@ -75,7 +74,9 @@ data class TlsConfig(
 
 @Serializable
 data class IssuerConfig(
-    val dummy: String?
+    // The Issuer needs to know the Requester's DID for the Pre-Authorized use cases
+    // https://hub.ebsi.eu/wallet-conformance/issue-to-holder/flow
+    val ebsiRequesterDid: String?
 )
 
 @Serializable

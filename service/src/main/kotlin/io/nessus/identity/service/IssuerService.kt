@@ -44,14 +44,6 @@ object IssuerService {
 
     val log = KotlinLogging.logger {}
 
-    // [TODO #231] Externalize pre-authorization code mapping
-    val ebsiDefaultHolderId =
-        "did:key:z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9Kboj7g9PfXJxbbs4KYegyr7ELnFVnpDMzbJJDDNZjavX6jvtDmALMbXAGW67pdTgFea2FrGGSFs8Ejxi96oFLGHcL4P6bjLDPBJEvRRHSrG4LsPne52fczt2MWjHLLJBvhAC"
-
-    val defaultUserPin get() = run {
-        System.getenv("EBSI__PREAUTHORIZED_PIN") ?: "1234"
-    }
-
     suspend fun createCredentialOffer(ctx: LoginContext, subId: String, types: List<String>, userPin: String? = null): CredentialOffer {
 
         val metadata = getIssuerMetadata(ctx) as OpenIDProviderMetadata.Draft11

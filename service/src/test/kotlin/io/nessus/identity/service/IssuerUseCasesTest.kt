@@ -8,8 +8,12 @@ import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
+import kotlin.random.Random
 
 class IssuerUseCasesTest : AbstractServiceTest() {
+
+    // Generates a number between 1000 and 9999
+    val userPin = Random.nextInt(1000, 10000)
 
     /**
      * Issue Credential InTime
@@ -154,7 +158,6 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
             val max = OIDCContext(setupWalletWithDid(Max))
-            val userPin = "1234"
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
@@ -164,12 +167,12 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = IssuerService.createCredentialOffer(max, alice.did, types, userPin)
+            val credOffer = IssuerService.createCredentialOffer(max, alice.did, types, "$userPin")
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
             val flow = CredentialIssuanceFlow(alice, max)
-            val credRes = flow.credentialFromOfferPreAuthorized(credOffer, userPin)
+            val credRes = flow.credentialFromOfferPreAuthorized(credOffer, "$userPin")
 
             // Holder validates the received Credential
             //
@@ -212,7 +215,6 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
             val max = OIDCContext(setupWalletWithDid(Max))
-            val userPin = "1234"
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
@@ -223,12 +225,12 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             val sub= alice.did
             val ctype = "CTWalletSamePreAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = IssuerService.createCredentialOffer(max, sub, types, userPin)
+            val credOffer = IssuerService.createCredentialOffer(max, sub, types, "$userPin")
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
             val flow = CredentialIssuanceFlow(alice, max)
-            val deferredCredRes = flow.credentialFromOfferPreAuthorizedDeferred(credOffer, userPin)
+            val deferredCredRes = flow.credentialFromOfferPreAuthorizedDeferred(credOffer, "$userPin")
 
             // Pre-Authorized Holder requests the deferred Credential using the AcceptanceToken
             //
