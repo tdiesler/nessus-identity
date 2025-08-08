@@ -8,7 +8,7 @@
     <artifactId>nessus-identity</artifactId>
     <packaging>pom</packaging>
 
-    <version>25.2.0-SNAPSHOT</version>
+    <version>25.2.0</version>
 
     <name>Nessus Identity</name>
     <description>Digital Identity and Verifiable Credentials</description>
@@ -343,7 +343,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
-                    <version>${version-maven-surefire-plugin}</version>
+                    <version>${version-maven-failsafe-plugin}</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
