@@ -6,7 +6,7 @@ import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.service.FlattenedJws
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.DidInfo
-import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject

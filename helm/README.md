@@ -4,12 +4,10 @@
 ```
 kubectl apply -f helm/pvcs/postgres-pvc.yml
 
+kubectl delete secret postgres-secret --ignore-not-found=true
 kubectl create secret generic postgres-secret \
   --from-literal=POSTGRES_USER=postgres \
-  --from-literal=POSTGRES_PASSWORD=postgres
-
-kubectl create secret generic ebsi-secret \
-  --from-literal=PREAUTHORIZED_PIN=1234
+  --from-literal=POSTGRES_PASSWORD=changeme
 ```
 
 ## Prepare Keycloak Service
@@ -35,7 +33,14 @@ Keycloak admin secret
 kubectl delete secret keycloak-admin --ignore-not-found=true
 kubectl create secret generic keycloak-admin \
   --from-literal=ADMIN_USERNAME=admin \
-  --from-literal=ADMIN_PASSWORD=admin
+  --from-literal=ADMIN_PASSWORD=changeme
+```
+
+## Prepare EBSI Conformance Service
+
+```
+kubectl create secret generic ebsi-secret \
+  --from-literal=PREAUTHORIZED_PIN=1234
 ```
 
 ## Install Identity Services

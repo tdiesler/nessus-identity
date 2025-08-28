@@ -17,7 +17,7 @@ class ConfigProviderTest {
         holder.userEmail.shouldNotBeBlank()
         holder.userPassword.shouldNotBeBlank()
 
-        service.walletApiUrl shouldBe "http://localhost:7001"
+        service.walletApiUrl shouldBe "https://wallet-api.localtest.me"
 
         database.jdbcUrl.shouldNotBeBlank()
     }

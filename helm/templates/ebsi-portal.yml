@@ -30,17 +30,20 @@ spec:
             - name: SERVER__PORT
               value: "9090"
             - name: SERVER__BASE_URL
-              value: "https://ebsi.nessus-tech.io"
+              value: "https://{{ $.Values.ebsiPortalHost }}"
             - name: SERVICE__WALLET_API_URL
               value: "http://wallet-api:7001"
             - name: SERVICE__DEMO_WALLET_URL
-              value: "http://wallet.nessus-tech.io"
+              value: "https://{{ $.Values.demoWalletHost }}"
             - name: SERVICE__DEV_WALLET_URL
-              value: "http://wallet-dev.nessus-tech.io"
+              value: "https://{{ $.Values.devWalletHost }}"
             - name: DATABASE__JDBC_URL
               value: "jdbc:postgresql://postgres:5432/waltid"
             - name: DATABASE__USERNAME
-              value: "postgres"
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
             - name: DATABASE__PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -82,13 +85,13 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host("ebsi.nessus-tech.io")
+    - match: Host("{{ $.Values.ebsiPortalHost }}")
       kind: Rule
       services:
         - name: ebsi-portal
           port: 9090
   tls:
-    secretName: origin-tls
+    secretName: {{ $.Values.tlsSecret }}
 ---
 
 {{- end }}

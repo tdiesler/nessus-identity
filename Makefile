@@ -28,7 +28,7 @@ package: clean
 	@mvn package -DskipTests
 
 # Build the Docker images
-build-images: package
+ebsi-portal-image: package
 		@docker buildx build --platform linux/amd64 \
 			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
 			-t $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG) \
@@ -39,18 +39,12 @@ build-images: package
 			docker push $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG); \
 		fi
 
-uninstall:
-	@helm --kube-context $(KUBE_CONTEXT) uninstall ebsi-portal --ignore-not-found
-
-upgrade: build-images
-	@helm --kube-context $(KUBE_CONTEXT) upgrade --install ebsi-portal ./helm -f ./helm/values-ebsi-portal.yaml
-
-upgrade-wallet-api:
+wallet-api:
 	@cd ../waltid-identity && ./gradlew -x jvmTest publishToMavenLocal
 
-# Upgrade WaltID service images (supports build options)
-# make upgrade-services BUILD_OPTS=--no-cache
-upgrade-services: upgrade-wallet-api
+# Build WaltID images (supports build options)
+# make build_waltid_images BUILD_OPTS=--no-cache
+waltid-images: wallet-api
 	@cd ../waltid-identity && ./gradlew jibDockerBuild
 	@cd ../waltid-identity/docker-compose && \
 		docker compose build $(BUILD_OPTS) waltid-dev-wallet && \
@@ -58,4 +52,10 @@ upgrade-services: upgrade-wallet-api
 		docker compose build $(BUILD_OPTS) web-portal && \
 		docker compose pull opa-server && \
 		docker compose pull vc-repo
+
+upgrade: ebsi-portal-image
+	@helm --kube-context $(KUBE_CONTEXT) upgrade --install nessus-identity ./helm -f ./helm/values-services-$(TARGET).yaml
+
+uninstall:
+	@helm --kube-context $(KUBE_CONTEXT) uninstall nessus-identity --ignore-not-found
 

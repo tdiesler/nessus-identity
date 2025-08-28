@@ -2,10 +2,10 @@ package io.nessus.identity.waltid
 
 import io.nessus.identity.config.ConfigProvider
 
-object WaltidServiceProvider {
+object WaltIDServiceProvider {
 
     val widWalletSvc = run {
         val serviceConfig = ConfigProvider.requireServiceConfig()
-        WaltidWalletService(serviceConfig.walletApiUrl)
+        WaltIDWalletService(serviceConfig.walletApiUrl)
     }
 }

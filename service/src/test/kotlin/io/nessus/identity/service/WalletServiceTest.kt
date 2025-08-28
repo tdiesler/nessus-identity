@@ -12,6 +12,7 @@ import io.kotest.matchers.string.shouldNotBeBlank
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
+import kotlin.test.Ignore
 
 class WalletServiceTest : AbstractServiceTest() {
 
@@ -58,6 +59,7 @@ class WalletServiceTest : AbstractServiceTest() {
     }
 
     @Test
+    @Ignore // https://ec.europa.eu/digital-building-blocks/tracker/plugins/servlet/desk/portal/11/EBSISD-4012
     fun resolveOpenIDProviderMetadata() {
 
         val metadata: OpenIDProviderMetadata = runBlocking {

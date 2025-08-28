@@ -24,10 +24,10 @@ import javax.sql.DataSource
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-class WaltidWalletService {
+class WaltIDWalletService {
 
     val log = KotlinLogging.logger {}
-    val api: WaltidApiClient
+    val api: WaltIDApiClient
 
     val dataSource: Lazy<DataSource> = lazy {
         val dbcfg = ConfigProvider.requireDatabaseConfig()
@@ -45,7 +45,7 @@ class WaltidWalletService {
 
     constructor(apiUrl: String) {
         log.info { "WalletService: $apiUrl" }
-        api = WaltidApiClient(apiUrl)
+        api = WaltIDApiClient(apiUrl)
     }
 
     // Authentication --------------------------------------------------------------------------------------------------

@@ -7,7 +7,7 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.User
-import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import org.junit.jupiter.api.TestInstance
 import org.openqa.selenium.By
 import org.openqa.selenium.Dimension

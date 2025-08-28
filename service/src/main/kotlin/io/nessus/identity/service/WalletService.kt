@@ -50,7 +50,7 @@ import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_K
 import io.nessus.identity.service.CredentialOfferRegistry.assertCredentialOfferRecord
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.W3CCredentialJwt
-import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

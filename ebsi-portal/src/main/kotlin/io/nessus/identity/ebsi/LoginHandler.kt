@@ -13,7 +13,7 @@ import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
-import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import kotlinx.coroutines.runBlocking
 
 object LoginHandler {

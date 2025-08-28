@@ -9,47 +9,76 @@ imagePrefix: ""
 tlsSecret: edge-tls
 urlSchema: "https"
 
+# OAuth Service
+#
 authApiHost: "auth.localtest.me"
+
+# WaltID Services
+#
 issuerApiHost: "issuer-api.localtest.me"
 walletApiHost: "wallet-api.localtest.me"
 verifierApiHost: "verifier-api.localtest.me"
 
 demoWalletHost: "wallet.localtest.me"
 devWalletHost: "wallet-dev.localtest.me"
+
+opaServiceHost: "opa.localtest.me"
+repoServiceHost: "vc-repo.localtest.me"
 webPortalHost: "portal.localtest.me"
 
-repoServiceHost: "vc-repo.localtest.me"
-opaServiceHost: "opa.localtest.me"
+# NessusID Services
+#
+ebsiPortalHost: "ebsi.localtest.me"
 
 deployments:
 
-  wallet_api:
-    version: 1.0.0-SNAPSHOT
-
-  issuer_api:
-    version: 1.0.0-SNAPSHOT
-
-  verifier_api:
-    version: 1.0.0-SNAPSHOT
-
-  wallet_demo:
-    version: 1.0.0-SNAPSHOT
-
-  wallet_dev:
-    version: 1.0.0-SNAPSHOT
-
-  web_portal:
-    version: 1.0.0-SNAPSHOT
-
-  vc_repo:
-    version: latest
-
-  keycloak:
-    version: nightly
-
+  # SQL Service
+  #
   postgres:
     version: 17.4
     nodePort: 32543
 
+  # OAuth Service
+  #
+  keycloak:
+    version: nightly
+    pullPolicy: Always
+
+  # WaltID Services
+  #
+  wallet_api:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: IfNotPresent
+
+  issuer_api:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: IfNotPresent
+
+  verifier_api:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: IfNotPresent
+
+  wallet_demo:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: IfNotPresent
+
+  wallet_dev:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: IfNotPresent
+
+  web_portal:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: IfNotPresent
+
+  vc_repo:
+    version: latest
+    pullPolicy: Always
+
 #  opa_server:
 #    version: 1.4.2
+
+  # NessusID Services
+  #
+  ebsi_portal:
+    version: latest
+    pullPolicy: IfNotPresent

@@ -10,7 +10,7 @@ import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.W3CCredentialJwt
-import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 
 class CredentialVerificationFlow(val holder: OIDCContext, val verifier: OIDCContext) {
 

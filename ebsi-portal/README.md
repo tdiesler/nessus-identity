@@ -10,7 +10,7 @@ ansible-playbook -i ansible/inventory.yml ansible/step04-nginx-proxy.yml
 Open the ssh tunnel
 
 ```
-ssh -R 0.0.0.0:9090:localhost:9090 core@vps6c.eu.ebsi
+ssh -p 22 -R 0.0.0.0:9090:localhost:9090 core@vps6c.eu.ebsi
 ```
 
 Test access and routing

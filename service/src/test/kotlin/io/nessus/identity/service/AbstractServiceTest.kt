@@ -7,7 +7,7 @@ import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.User
-import io.nessus.identity.waltid.WaltidServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import java.nio.file.Files
 import java.nio.file.Paths
 
