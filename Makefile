@@ -28,7 +28,7 @@ package: clean
 	@mvn package -DskipTests
 
 # Build the Docker images
-ebsi-portal-image: package
+nessus-image: package
 		@docker buildx build --platform linux/amd64 \
 			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
 			-t $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG) \
@@ -53,7 +53,7 @@ waltid-images: wallet-api
 		docker compose pull opa-server && \
 		docker compose pull vc-repo
 
-upgrade: ebsi-portal-image
+upgrade:
 	@helm --kube-context $(KUBE_CONTEXT) upgrade --install nessus-identity ./helm -f ./helm/values-services-$(TARGET).yaml
 
 uninstall:

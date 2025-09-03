@@ -4,56 +4,74 @@
 
 environment: k3s
 
-urlSchema: "https"
 imagePrefix: "registry.vps6c.eu.ebsi:30443/"
+tlsSecret: origin-tls
 
-demoWalletHost: "wallet.nessus-tech.io"
-devWalletHost: "wallet-dev.nessus-tech.io"
-webPortalHost: "portal.nessus-tech.io"
+# OAuth Service
+#
+authApiHost: "auth.localtest.me"
 
-walletApiHost: "wallet-api.nessus-tech.io"
+# WaltID Services
+#
 issuerApiHost: "issuer-api.nessus-tech.io"
+walletApiHost: "wallet-api.nessus-tech.io"
 verifierApiHost: "verifier-api.nessus-tech.io"
+
+devWalletHost: "wallet-dev.nessus-tech.io"
 
 opaServiceHost: "opa.nessus-tech.io"
 repoServiceHost: "vc-repo.nessus-tech.io"
-vaultServiceHost: "vault.nessus-tech.io"
+webPortalHost: "portal.nessus-tech.io"
+
+# NessusID Services
+#
+ebsiPortalHost: "ebsi.localtest.me"
 
 deployments:
 
-  wallet_api:
-    version: 0.15-dev
-    pullPolicy: Always
-
-  issuer_api:
-    version: 0.15-dev
-    pullPolicy: Always
-
-  verifier_api:
-    version: 0.15-dev
-    pullPolicy: Always
-
-  wallet_demo:
-    version: 0.15-dev
-    pullPolicy: Always
-
-  wallet_dev:
-    version: 0.15-dev
-    pullPolicy: Always
-
-  web_portal:
-    version: 0.15-dev
-    pullPolicy: Always
-
-  vc_repo:
-    version: latest
-
+  # SQL Service
+  #
   postgres:
     version: 17.4
     nodePort: 32543
 
-  vault:
-    version: 1.19
+  # OAuth Service
+  #
+  keycloak:
+    version: nightly
+    pullPolicy: Always
 
-  opa_server:
-    version: 1.4.2
+  # WaltID Services
+  #
+  wallet_api:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: Always
+
+  issuer_api:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: Always
+
+  verifier_api:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: Always
+
+  wallet_dev:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: Always
+
+  web_portal:
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: IfNotPresent
+
+  vc_repo:
+    version: latest
+    pullPolicy: Always
+
+#  opa_server:
+#    version: 1.4.2
+
+  # NessusID Services
+  #
+  ebsi_portal:
+    version: latest
+    pullPolicy: IfNotPresent

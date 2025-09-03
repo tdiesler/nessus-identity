@@ -37,7 +37,7 @@ spec:
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: ISSUER_BASE_URL
-              value: "{{ $.Values.urlSchema }}://{{ $.Values.issuerApiHost }}"
+              value: "https://{{ $.Values.issuerApiHost }}"
             - name: ISSUER_API_PORT
               value: '7002'
           ports:

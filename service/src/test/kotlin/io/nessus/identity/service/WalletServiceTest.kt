@@ -59,7 +59,6 @@ class WalletServiceTest : AbstractServiceTest() {
     }
 
     @Test
-    @Ignore // https://ec.europa.eu/digital-building-blocks/tracker/plugins/servlet/desk/portal/11/EBSISD-4012
     fun resolveOpenIDProviderMetadata() {
 
         val metadata: OpenIDProviderMetadata = runBlocking {

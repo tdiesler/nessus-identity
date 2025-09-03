@@ -23,13 +23,13 @@ spec:
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: NEXT_PUBLIC_VC_REPO
-              value: "{{ $.Values.urlSchema }}://{{ $.Values.repoServiceHost }}"
+              value: "https://{{ $.Values.repoServiceHost }}"
             - name: NEXT_PUBLIC_ISSUER
-              value: "{{ $.Values.urlSchema }}://{{ $.Values.issuerApiHost }}"
+              value: "https://{{ $.Values.issuerApiHost }}"
             - name: NEXT_PUBLIC_VERIFIER
-              value: "{{ $.Values.urlSchema }}://{{ $.Values.verifierApiHost }}"
+              value: "https://{{ $.Values.verifierApiHost }}"
             - name: NEXT_PUBLIC_WALLET
-              value: "{{ $.Values.urlSchema }}://{{ $.Values.demoWalletHost }}"
+              value: "https://{{ $.Values.demoWalletHost }}"
             - name: PORT
               value: "7102"
           ports:
