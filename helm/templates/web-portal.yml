@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: web-portal
-          image: {{ $.Values.imagePrefix }}waltid/portal:{{ .version }}
+          image: {{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: NEXT_PUBLIC_VC_REPO

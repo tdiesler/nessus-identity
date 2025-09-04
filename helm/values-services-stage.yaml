@@ -1,0 +1,87 @@
+#
+# helm upgrade --kube-context=ebsi --install nessus-identity ./helm -f ./helm/values-services-stage.yaml
+#
+environment: stage
+
+tlsSecret: origin-tls
+
+# OAuth Service
+#
+authApiHost: "auth.nessustech.io"
+
+# WaltID Services
+#
+issuerApiHost: "issuer-api.nessustech.io"
+walletApiHost: "wallet-api.nessustech.io"
+verifierApiHost: "verifier-api.nessustech.io"
+
+demoWalletHost: "wallet.nessustech.io"
+devWalletHost: "wallet-dev.nessustech.io"
+
+opaServiceHost: "opa.nessustech.io"
+repoServiceHost: "vc-repo.nessustech.io"
+webPortalHost: "portal.nessustech.io"
+
+# NessusID Services
+#
+ebsiPortalHost: "ebsi.nessustech.io"
+
+deployments:
+
+  # SQL Service
+  #
+  postgres:
+    version: 17.4
+    nodePort: 32543
+
+  # OAuth Service
+  #
+  keycloak:
+    pullPolicy: Always
+    version: nightly
+
+  # WaltID Services
+  #
+  wallet_api:
+    image: "waltid/wallet-api"
+    pullPolicy: Always
+    version: latest
+
+  issuer_api:
+    image: "waltid/issuer-api"
+    pullPolicy: Always
+    version: latest
+
+  verifier_api:
+    image: "waltid/verifier-api"
+    pullPolicy: Always
+    version: latest
+
+  wallet_demo:
+    image: "waltid/waltid-demo-wallet"
+    pullPolicy: Always
+    version: latest
+
+  wallet_dev:
+    image: "waltid/waltid-dev-wallet"
+    pullPolicy: Always
+    version: latest
+
+  web_portal:
+    image: "waltid/portal"
+    pullPolicy: IfNotPresent
+    version: latest
+
+  vc_repo:
+    pullPolicy: Always
+    version: latest
+
+  opa_server:
+    version: 1.4.2
+
+  # NessusID Services
+  #
+  ebsi_portal:
+    imagePrefix: "registry.vps6c.eu.ebsi:30443/"
+    pullPolicy: IfNotPresent
+    version: latest

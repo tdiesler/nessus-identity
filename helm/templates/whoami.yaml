@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: whoami
-          image: {{ $.Values.imagePrefix }}traefik/whoami:{{ .version }}
+          image: {{ .image }}traefik/whoami:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           args: [ "--port=8080" ]
           ports:
@@ -41,28 +41,7 @@ spec:
     app.kubernetes.io/name: whoami
 ---
 
-{{- if eq $.Values.environment "local" }}
 # Whoami IngressRoute
----
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: whoami
-  labels:
-    app.kubernetes.io/name: whoami
-spec:
-  entryPoints:
-    - websecure
-  routes:
-    - match: Host("auth.localtest.me")
-      kind: Rule
-      services:
-        - name: whoami
-          port: 8080
-  tls:
-    secretName: keycloak-tls
----
-{{- else }}
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -80,7 +59,7 @@ spec:
         - name: whoami
           port: 8080
   tls:
-    secretName: origin-tls
+    secretName: {{ $.Values.tlsSecret }}
 ---
-{{- end }}
+
 {{- end }}

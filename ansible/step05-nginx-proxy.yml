@@ -1,5 +1,5 @@
 #
-# ansible-playbook -i ansible/inventory.yml ansible/step04-nginx-proxy.yml
+# ansible-playbook -i ansible/inventory.yml ansible/step05-nginx-proxy.yml
 #
 #
 ---
@@ -11,7 +11,7 @@
     origin_crt: "{{ user_home }}/.k3s/origin.crt"
     origin_key: "{{ user_home }}/.k3s/origin.key"
     proxy_pass: "http://localhost:9090"
-    nginx_domain: proxy.nessus-tech.io
+    nginx_domain: proxy.nessustech.io
 
   tasks:
 

@@ -1,5 +1,5 @@
 #
-# ansible-playbook -i ansible/inventory.yml ansible/step03-cloudflare-cert.yml
+# ansible-playbook -i ansible/inventory.yml ansible/step04-cloudflare-cert.yml
 #
 # https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/
 # SSL/TLS encryption: Full (strict)
@@ -47,7 +47,7 @@
 #      entryPoints:
 #        - websecure
 #      routes:
-#        - match: Host(`who.nessus-tech.io`)
+#        - match: Host(`who.nessustech.io`)
 #          kind: Rule
 #          services:
 #            - name: whoami

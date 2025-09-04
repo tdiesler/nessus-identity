@@ -1,9 +1,9 @@
 
 PROJECT_VERSION := $(shell mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 
-TARGET ?= local
-KUBE_CONTEXT_PROD := "ebsi"
-IMAGE_REGISTRY_PROD := "registry.vps6c.eu.ebsi:30443/"
+TARGET ?= dev
+KUBE_CONTEXT_STAGE := "ebsi"
+IMAGE_REGISTRY_STAGE := "registry.vps6c.eu.ebsi:30443/"
 
 KUBE_CONTEXT_LOCAL := "rancher-desktop"
 IMAGE_REGISTRY_LOCAL := ""
@@ -12,11 +12,11 @@ IMAGE_NAME := nessusio/ebsi-portal
 IMAGE_TAG := "latest"
 
 # Set the IMAGE_REGISTRY based on the deployment TARGET
-ifeq ($(TARGET), prod)
-  KUBE_CONTEXT := $(KUBE_CONTEXT_PROD)
-  IMAGE_REGISTRY := $(IMAGE_REGISTRY_PROD)
+ifeq ($(TARGET), stage)
+  KUBE_CONTEXT := $(KUBE_CONTEXT_STAGE)
+  IMAGE_REGISTRY := $(IMAGE_REGISTRY_STAGE)
 endif
-ifeq ($(TARGET), local)
+ifeq ($(TARGET), dev)
   KUBE_CONTEXT := $(KUBE_CONTEXT_LOCAL)
   IMAGE_REGISTRY := $(IMAGE_REGISTRY_LOCAL)
 endif
@@ -34,7 +34,7 @@ nessus-image: package
 			-t $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG) \
 			-t $(IMAGE_NAME):$(IMAGE_TAG) \
 			-f ./ebsi-portal/Dockerfile ./ebsi-portal;
-		@if [ $(TARGET) != "local" ]; then \
+		@if [ $(TARGET) != "dev" ]; then \
 			echo "Pushing $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG) ..."; \
 			docker push $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG); \
 		fi

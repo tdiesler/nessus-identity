@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: wallet-api
-          image: {{ $.Values.imagePrefix }}waltid-wallet-api:{{ .version }}
+          image: {{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: DB_HOST

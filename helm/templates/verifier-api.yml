@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: verifier-api
-          image: {{ $.Values.imagePrefix }}waltid-verifier-api:{{ .version }}
+          image: {{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: VERIFIER_API_PORT

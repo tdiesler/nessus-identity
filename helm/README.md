@@ -33,7 +33,7 @@ Keycloak admin secret
 kubectl delete secret keycloak-admin --ignore-not-found=true
 kubectl create secret generic keycloak-admin \
   --from-literal=ADMIN_USERNAME=admin \
-  --from-literal=ADMIN_PASSWORD=changeme
+  --from-literal=ADMIN_PASSWORD=admin
 ```
 
 ## Prepare EBSI Conformance Service

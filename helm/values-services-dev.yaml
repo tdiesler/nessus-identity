@@ -1,11 +1,7 @@
 #
-# helm upgrade --kube-context=rancher-desktop --install nessus-identity ./helm -f ./helm/values-services-local.yaml
+# helm upgrade --kube-context=rancher-desktop --install nessus-identity ./helm -f ./helm/values-services-dev.yaml
 #
-
-environment: local
-
-imagePrefix: ""
-tlsSecret: edge-tls
+environment: dev
 
 # OAuth Service
 #
@@ -17,6 +13,7 @@ issuerApiHost: "issuer-api.localtest.me"
 walletApiHost: "wallet-api.localtest.me"
 verifierApiHost: "verifier-api.localtest.me"
 
+demoWalletHost: "wallet.localtest.me"
 devWalletHost: "wallet-dev.localtest.me"
 
 opaServiceHost: "opa.localtest.me"
@@ -26,6 +23,8 @@ webPortalHost: "portal.localtest.me"
 # NessusID Services
 #
 ebsiPortalHost: "ebsi.localtest.me"
+
+tlsSecret: edge-tls
 
 deployments:
 
@@ -38,34 +37,43 @@ deployments:
   # OAuth Service
   #
   keycloak:
-    version: nightly
     pullPolicy: Always
+    version: nightly
 
   # WaltID Services
   #
   wallet_api:
-    version: 1.0.0-SNAPSHOT
+    image: "waltid-wallet-api"
     pullPolicy: IfNotPresent
+    version: 1.0.0-SNAPSHOT
 
   issuer_api:
-    version: 1.0.0-SNAPSHOT
+    image: "waltid-issuer-api"
     pullPolicy: IfNotPresent
+    version: 1.0.0-SNAPSHOT
 
   verifier_api:
-    version: 1.0.0-SNAPSHOT
+    image: "waltid-verifier-api"
     pullPolicy: IfNotPresent
+    version: 1.0.0-SNAPSHOT
+
+#  wallet_demo:
+#    image: "waltid/waltid-demo-wallet"
+#    pullPolicy: IfNotPresent
+#    version: 1.0.0-SNAPSHOT
 
   wallet_dev:
-    version: 1.0.0-SNAPSHOT
+    image: "waltid/waltid-dev-wallet"
     pullPolicy: IfNotPresent
+    version: 1.0.0-SNAPSHOT
 
   web_portal:
-    version: 1.0.0-SNAPSHOT
     pullPolicy: IfNotPresent
+    version: 1.0.0-SNAPSHOT
 
   vc_repo:
-    version: latest
     pullPolicy: Always
+    version: latest
 
 #  opa_server:
 #    version: 1.4.2
@@ -73,5 +81,5 @@ deployments:
   # NessusID Services
   #
   ebsi_portal:
-    version: latest
     pullPolicy: IfNotPresent
+    version: latest

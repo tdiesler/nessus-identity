@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: issuer-api
-          image: {{ $.Values.imagePrefix }}waltid-issuer-api:{{ .version }}
+          image: {{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: ISSUER_BASE_URL

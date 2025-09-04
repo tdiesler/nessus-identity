@@ -1,5 +1,5 @@
 #
-# ansible-playbook -i ansible/inventory.yml ansible/step02-docker-registry.yml
+# ansible-playbook -i ansible/inventory.yml ansible/step03-docker-registry.yml
 #
 ---
 - name: Install Docker Registry

@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: wallet-dev
-          image: {{ $.Values.imagePrefix }}waltid/waltid-dev-wallet:{{ .version }}
+          image: {{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
             - name: NUXT_PUBLIC_ISSUER_CALLBACK_URL

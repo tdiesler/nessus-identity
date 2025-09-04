@@ -1,0 +1,12 @@
+#
+# helm upgrade --kube-context ebsi --install whoami ./helm -f ./helm/values-whoami-stage.yaml
+#
+environment: stage
+
+whoHost: "who.nessustech.io"
+tlsSecret: origin-tls
+
+deployments:
+  whoami:
+    version: latest
+

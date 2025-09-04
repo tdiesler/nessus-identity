@@ -1,9 +1,0 @@
-#
-# helm upgrade --kube-context rancher-desktop --install whoami ./helm -f ./helm/values-whoami-local.yaml
-#
-environment: local
-
-deployments:
-  whoami:
-    version: latest
-

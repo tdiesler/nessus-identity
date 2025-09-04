@@ -7,11 +7,31 @@ SCRIPT_DIR=$(realpath "$(dirname "$0")")
 # -o pipefail (fail pipelines if any command fails)
 set -euo pipefail
 
+# Default target if not set
+: "${TARGET:=dev}"
+
 # shellcheck disable=SC1090
 source "${SCRIPT_DIR}/oid4vci-functions.sh"
 
-export AUTH_SERVER_URL="https://auth.localtest.me"
-export WALLET_API_URL="https://wallet-api.localtest.me"
+echo "Running setup for target: $TARGET"
+case "$TARGET" in
+  dev)
+    echo "Doing development setup..."
+    export KUBE_CONTEXT="rancher-desktop"
+    export AUTH_SERVER_URL="https://auth.localtest.me"
+    export WALLET_API_URL="https://wallet-api.localtest.me"
+    ;;
+  stage)
+    echo "Doing staging setup..."
+    export KUBE_CONTEXT="ebsi"
+    export AUTH_SERVER_URL="https://auth.nessustech.io"
+    export WALLET_API_URL="https://wallet-api.nessustech.io"
+    ;;
+  *)
+    echo "Unknown target: $TARGET"
+    exit 1
+    ;;
+esac
 
 REALM="oid4vci"
 REALM_RECREATE=true
@@ -36,8 +56,9 @@ setup_waltid_verifier "${VERIFIER_NAME}" "${VERIFIER_EMAIL}" "${VERIFIER_PASSWOR
 
 ## Keycloak --------------------------------------------------------------------------------------------------------------
 
-KC_ADMIN_USER=$(kubectl get secret keycloak-admin -o jsonpath='{.data.ADMIN_USERNAME}' | base64 -d)
-KC_ADMIN_PASS=$(kubectl get secret keycloak-admin -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d)
+kubecmd="kubectl --context ${KUBE_CONTEXT}"
+KC_ADMIN_USER=$(${kubecmd} get secret keycloak-admin -o jsonpath='{.data.ADMIN_USERNAME}' | base64 -d)
+KC_ADMIN_PASS=$(${kubecmd} get secret keycloak-admin -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d)
 
 # Log in as admin
 #

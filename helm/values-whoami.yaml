@@ -1,8 +1,0 @@
-#
-# helm upgrade --install whoami ./helm -f ./helm/values-whoami.yaml
-#
-
-deployments:
-  whoami:
-    version: latest
-

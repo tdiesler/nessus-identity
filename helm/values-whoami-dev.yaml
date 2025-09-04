@@ -1,0 +1,12 @@
+#
+# helm upgrade --kube-context rancher-desktop --install whoami ./helm -f ./helm/values-whoami-dev.yaml
+#
+environment: dev
+
+whoHost: "who.localtest.me"
+tlsSecret: edge-tls
+
+deployments:
+  whoami:
+    version: latest
+

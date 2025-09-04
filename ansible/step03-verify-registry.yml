@@ -1,5 +1,5 @@
 #
-# ansible-playbook -i ansible/inventory.yml ansible/step02-verify-registry.yml
+# ansible-playbook -i ansible/inventory.yml ansible/step03-verify-registry.yml
 #
 ---
 - name: Verify Docker Registry

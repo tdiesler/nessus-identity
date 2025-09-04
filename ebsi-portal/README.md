@@ -18,5 +18,5 @@ Test access and routing
 EBSI -> Cloudflare -> VPS:Nginx:8443 -> VPS:9090 --> // SSH Tunnel // --> MacBook:9090:Ktor
 
 ```
-curl https://proxy.nessus-tech.io:8443 
+curl https://proxy.nessustech.io:8443 
 ```
