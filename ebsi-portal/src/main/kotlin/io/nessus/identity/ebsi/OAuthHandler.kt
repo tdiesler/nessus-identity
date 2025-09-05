@@ -22,7 +22,7 @@ import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_K
 import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.OIDCContext
+import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
@@ -56,7 +56,7 @@ object OAuthHandler {
         // AuthorizationRequest endpoint
         //
         if (path == "/auth/$dstId/authorize") {
-            val ctx = OIDCContext(requireLoginContext(dstId))
+            val ctx = OIDContext(requireLoginContext(dstId))
             return handleAuthorizationRequest(call, ctx)
         }
 
@@ -114,7 +114,7 @@ object OAuthHandler {
     /**
      * The Holder requests access for the required credentials from the Issuer's Authorisation Server
      */
-    private suspend fun handleAuthorizationRequest(call: RoutingCall, ctx: OIDCContext) {
+    private suspend fun handleAuthorizationRequest(call: RoutingCall, ctx: OIDContext) {
 
         val queryParams = call.parameters.toMap()
         val authReq = AuthorizationRequest.fromHttpParameters(queryParams)
@@ -133,7 +133,7 @@ object OAuthHandler {
         call.respondRedirect(redirectUrl)
     }
 
-    private suspend fun handleIDTokenRequest(call: RoutingCall, ctx: OIDCContext) {
+    private suspend fun handleIDTokenRequest(call: RoutingCall, ctx: OIDContext) {
 
         val reqParams = urlQueryToMap(call.request.uri).toMutableMap()
         val redirectUri = reqParams["redirect_uri"] as String
@@ -164,7 +164,7 @@ object OAuthHandler {
         )
     }
 
-    private suspend fun handleVPTokenRequest(call: RoutingCall, ctx: OIDCContext) {
+    private suspend fun handleVPTokenRequest(call: RoutingCall, ctx: OIDContext) {
 
         val reqParams = urlQueryToMap(call.request.uri)
 
@@ -203,7 +203,7 @@ object OAuthHandler {
         )
     }
 
-    private suspend fun handleAuthDirectPost(call: RoutingCall, ctx: OIDCContext) {
+    private suspend fun handleAuthDirectPost(call: RoutingCall, ctx: OIDContext) {
 
         val postParams = call.receiveParameters().toMap()
         log.info { "Auth DirectPost: ${call.request.uri}" }
@@ -258,7 +258,7 @@ object OAuthHandler {
             }
 
             is TokenRequest.PreAuthorizedCode -> {
-                val ctx = OIDCContext(requireLoginContext(dstId))
+                val ctx = OIDContext(requireLoginContext(dstId))
                 AuthService.handleTokenRequestPreAuthorized(ctx, tokenReq)
             }
         }

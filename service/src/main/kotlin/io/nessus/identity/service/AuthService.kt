@@ -27,6 +27,7 @@ import io.nessus.identity.service.CredentialOfferRegistry.hasCredentialOfferReco
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
+import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.Json
@@ -44,6 +45,8 @@ object AuthService {
 
     val log = KotlinLogging.logger {}
 
+    val issuer = IssuerService.create()
+
     fun getAuthMetadataUrl(ctx: LoginContext): String {
         val metadataUrl = OpenID4VCI.getOpenIdProviderMetadataUrl("$authEndpointUri/${ctx.targetId}")
         return metadataUrl
@@ -54,7 +57,7 @@ object AuthService {
         return metadata
     }
 
-    fun buildAuthCodeRedirectUri(ctx: OIDCContext, authCode: String): String {
+    fun buildAuthCodeRedirectUri(ctx: OIDContext, authCode: String): String {
 
         val authReq = ctx.authRequest
         val authCodeRedirect = URLBuilder("${authReq.redirectUri}").apply {
@@ -72,7 +75,7 @@ object AuthService {
         return authCodeRedirect
     }
 
-    suspend fun buildIDTokenRequest(ctx: OIDCContext, authReq: AuthorizationRequest): SignedJWT {
+    suspend fun buildIDTokenRequest(ctx: OIDContext, authReq: AuthorizationRequest): SignedJWT {
 
         val issuerMetadata = ctx.issuerMetadata
         val authorizationServer = ctx.authorizationServer
@@ -99,7 +102,7 @@ object AuthService {
         return idTokenJwt
     }
 
-    fun buildIDTokenRedirectUrl(ctx: OIDCContext, idTokenReqJwt: SignedJWT): String {
+    fun buildIDTokenRedirectUrl(ctx: OIDContext, idTokenReqJwt: SignedJWT): String {
 
         val authReq = ctx.authRequest
         val claims = idTokenReqJwt.jwtClaimsSet
@@ -120,7 +123,7 @@ object AuthService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun buildVPTokenRequest(ctx: OIDCContext, authReq: AuthorizationRequest): SignedJWT {
+    suspend fun buildVPTokenRequest(ctx: OIDContext, authReq: AuthorizationRequest): SignedJWT {
 
         val issuerMetadata = ctx.issuerMetadata
         val authorizationServer = ctx.authorizationServer
@@ -168,7 +171,7 @@ object AuthService {
         return vpTokenReqJwt
     }
 
-    fun buildVPTokenRedirectUrl(ctx: OIDCContext, vpTokenReqJwt: SignedJWT): String {
+    fun buildVPTokenRedirectUrl(ctx: OIDContext, vpTokenReqJwt: SignedJWT): String {
 
         val authorizationServer = ctx.authorizationServer
 
@@ -196,7 +199,7 @@ object AuthService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun handleTokenRequestAuthCode(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
+    suspend fun handleTokenRequestAuthCode(ctx: OIDContext, tokenReq: TokenRequest): TokenResponse {
 
         val tokReq = tokenReq as TokenRequest.AuthorizationCode
         val grantType = tokReq.grantType
@@ -214,10 +217,10 @@ object AuthService {
         return tokenRes
     }
 
-    suspend fun handleTokenRequestPreAuthorized(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
+    suspend fun handleTokenRequestPreAuthorized(ctx: OIDContext, tokenReq: TokenRequest): TokenResponse {
 
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY))
-            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, IssuerService.getIssuerMetadata(ctx))
+            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuer.getIssuerMetadata(ctx))
 
         var subId = tokenReq.clientId
         val preAuthTokenRequest = tokenReq as TokenRequest.PreAuthorizedCode
@@ -237,7 +240,7 @@ object AuthService {
             if (!hasCredentialOfferRecord(preAuthCode)) {
                 log.info { "Issuing CredentialOffer $preAuthCode (on-demand) for EBSI Conformance" }
                 val ctypes = listOf("VerifiableCredential", "VerifiableAttestation", preAuthCode)
-                val credOffer = IssuerService.createCredentialOffer(ctx, subId, ctypes, userPin)
+                val credOffer = issuer.createCredentialOffer(ctx, subId, ctypes, userPin)
                 putCredentialOfferRecord(preAuthCode, credOffer, userPin)
             }
         }
@@ -271,13 +274,13 @@ object AuthService {
     /**
      * Handle AuthorizationRequest from remote Holder
      */
-    fun validateAuthorizationRequest(ctx: OIDCContext, authReq: AuthorizationRequest) {
+    suspend fun validateAuthorizationRequest(ctx: OIDContext, authReq: AuthorizationRequest) {
 
         // Attach issuer metadata (on demand)
         //
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY)) {
-            val issuerMetadata = IssuerService.getIssuerMetadata(ctx)
-            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+            val metadata = issuer.getIssuerMetadata(ctx) as IssuerMetadataDraft11
+            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         }
 
         // Validate the AuthorizationRequest
@@ -288,7 +291,7 @@ object AuthService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun validateIDToken(ctx: OIDCContext, idTokenJwt: SignedJWT): String {
+    fun validateIDToken(ctx: OIDContext, idTokenJwt: SignedJWT): String {
 
         log.info { "IDToken Header: ${idTokenJwt.header}" }
         log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
@@ -318,7 +321,7 @@ object AuthService {
     // Private ---------------------------------------------------------------------------------------------------------
 
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun buildTokenResponse(ctx: OIDCContext): TokenResponse {
+    private suspend fun buildTokenResponse(ctx: OIDContext): TokenResponse {
         val keyJwk = ctx.didInfo.publicKeyJwk()
         val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
 

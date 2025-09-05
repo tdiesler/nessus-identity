@@ -10,7 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-class IssuerUseCasesTest : AbstractServiceTest() {
+class KeycloakUseCasesTest : AbstractServiceTest() {
 
     // Generates a number between 1000 and 9999
     val userPin = Random.nextInt(1000, 10000)

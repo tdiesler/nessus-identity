@@ -5,7 +5,7 @@ import id.walt.crypto.utils.JsonUtils.toJsonElement
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.URLBuilder
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.OIDCContext
+import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.W3CCredentialJwt
@@ -21,7 +21,7 @@ object VerificationHandler {
     val log = KotlinLogging.logger {}
 
     @OptIn(ExperimentalUuidApi::class)
-    fun handleVPTokenResponse(ctx: OIDCContext, postParams: Map<String, List<String>>): String {
+    fun handleVPTokenResponse(ctx: OIDContext, postParams: Map<String, List<String>>): String {
 
         val vpToken = postParams["vp_token"]?.firstOrNull() ?: throw IllegalStateException("No vp_token")
 

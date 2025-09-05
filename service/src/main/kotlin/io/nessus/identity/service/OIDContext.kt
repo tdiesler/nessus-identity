@@ -1,15 +1,15 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.OpenIDProviderMetadata
 import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.types.IssuerMetadataDraft11
 import java.time.Instant
 
-open class OIDCContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
+open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 
     val issuerMetadata get() = assertAttachment(ISSUER_METADATA_ATTACHMENT_KEY)
 
@@ -26,7 +26,7 @@ open class OIDCContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 
     // Derived State from other properties
     //
-    val authorizationServer get() = (issuerMetadata as? OpenIDProviderMetadata.Draft11)?.authorizationServer
+    val authorizationServer get() = (issuerMetadata as IssuerMetadataDraft11).authorizationServer
             ?: throw IllegalStateException("Cannot obtain authorization_server from: $issuerMetadata")
 
     init {
@@ -51,21 +51,21 @@ open class OIDCContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 
 object OIDCContextRegistry {
 
-    private val registry = mutableMapOf<String, OIDCContext>()
+    private val registry = mutableMapOf<String, OIDContext>()
 
-    fun assert(dstId: String): OIDCContext {
+    fun assert(dstId: String): OIDContext {
         return get(dstId) ?: throw IllegalStateException("No OIDCContext for: $dstId")
     }
 
-    fun get(dstId: String): OIDCContext? {
+    fun get(dstId: String): OIDContext? {
         return registry[dstId]
     }
 
-    fun put(dstId: String, ctx: OIDCContext) {
+    fun put(dstId: String, ctx: OIDContext) {
         registry[dstId] = ctx
     }
 
-    fun remove(dstId: String): OIDCContext? {
+    fun remove(dstId: String): OIDContext? {
         return registry.remove(dstId)
     }
 }

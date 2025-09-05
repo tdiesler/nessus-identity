@@ -15,7 +15,7 @@ import io.nessus.identity.service.CredentialOfferRegistry.getCredentialOfferReco
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.HttpStatusException
-import io.nessus.identity.service.OIDCContext
+import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
 
@@ -40,7 +40,7 @@ object WalletHandler {
         // Handle CredentialOffer by Uri
         //
         if (path == "/wallet/$dstId" && queryParams["credential_offer_uri"] != null) {
-            val ctx = OIDCContext(requireLoginContext(dstId))
+            val ctx = OIDContext(requireLoginContext(dstId))
             return handleCredentialOffer(call, ctx)
         }
 
@@ -55,7 +55,7 @@ object WalletHandler {
 
     // Request and present Verifiable Credentials
     // https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows
-    private suspend fun handleCredentialOffer(call: RoutingCall, ctx: OIDCContext) {
+    private suspend fun handleCredentialOffer(call: RoutingCall, ctx: OIDContext) {
 
         // Get Credential Offer URI from the query Parameters
         //

@@ -10,14 +10,14 @@ import id.walt.oid4vc.requests.AuthorizationRequest
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
-import io.nessus.identity.service.OIDCContext
+import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService.log
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.security.MessageDigest
 import kotlin.random.Random
 
-class AuthorizationRequestBuilder(val ctx: OIDCContext) {
+class AuthorizationRequestBuilder(val ctx: OIDContext) {
 
     private var authorizationDetails: AuthorizationDetails? = null
     private var credentialOffer: CredentialOffer? = null

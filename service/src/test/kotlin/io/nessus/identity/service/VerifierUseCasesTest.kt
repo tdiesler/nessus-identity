@@ -10,6 +10,7 @@ import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.CredentialStatus
+import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.Max
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.fail
 import java.time.Instant
 
 class VerifierUseCasesTest : AbstractServiceTest() {
+
+    val issuer = IssuerService.create()
 
     /**
      * IDToken Exchange
@@ -35,11 +38,11 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Verifier's OIDC context
             //
-            val bob = OIDCContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(setupWalletWithDid(Bob))
 
             // Create the Holders's OIDC context
             //
-            val alice = OIDCContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(setupWalletWithDid(Alice))
 
             // The Holder sends an AuthorizationRequest to the Verifier
             //
@@ -77,21 +80,21 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDCContext(setupWalletWithDid(Max))
+            val max = OIDContext(setupWalletWithDid(Max))
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDCContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(setupWalletWithDid(Alice))
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             //
-            val bob = OIDCContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(setupWalletWithDid(Bob))
 
             // Issuer creates the CredentialOffer
             //
             val ctype = "CTWalletSameAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = IssuerService.createCredentialOffer(max, alice.did, types)
+            val credOffer = issuer.createCredentialOffer(max, alice.did, types)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -121,22 +124,22 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDCContext(setupWalletWithDid(Max))
+            val max = OIDContext(setupWalletWithDid(Max))
             val userPin = "1234"
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDCContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(setupWalletWithDid(Alice))
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             //
-            val bob = OIDCContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(setupWalletWithDid(Bob))
 
             // Issuer creates the CredentialOffer
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = IssuerService.createCredentialOffer(max, alice.did, types, userPin)
+            val credOffer = issuer.createCredentialOffer(max, alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -182,22 +185,22 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDCContext(setupWalletWithDid(Max))
+            val max = OIDContext(setupWalletWithDid(Max))
             val userPin = "1234"
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDCContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(setupWalletWithDid(Alice))
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             //
-            val bob = OIDCContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(setupWalletWithDid(Bob))
 
             // Issuer creates the CredentialOffer
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = IssuerService.createCredentialOffer(max, alice.did, types, userPin)
+            val credOffer = issuer.createCredentialOffer(max, alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -242,22 +245,22 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDCContext(setupWalletWithDid(Max))
+            val max = OIDContext(setupWalletWithDid(Max))
             val userPin = "1234"
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDCContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(setupWalletWithDid(Alice))
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             //
-            val bob = OIDCContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(setupWalletWithDid(Bob))
 
             // Issuer creates the CredentialOffer
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = IssuerService.createCredentialOffer(max, alice.did, types, userPin)
+            val credOffer = issuer.createCredentialOffer(max, alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -298,37 +301,37 @@ class VerifierUseCasesTest : AbstractServiceTest() {
      * @See CredentialIssuanceFlow.credentialFromOfferPreAuthorized
      */
     private suspend fun issueCredentialFromParameters(
-        issuer: OIDCContext,
-        holder: OIDCContext,
+        issuerCtx: OIDContext,
+        holderCtx: OIDContext,
         credOffer: CredentialOffer,
         userPin: String,
         vcp: CredentialParameters,
     ): CredentialResponse {
 
-        val issuerMetadata = IssuerService.getIssuerMetadata(issuer)
-        issuer.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
-        holder.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+        val metadata = issuer.getIssuerMetadata(issuerCtx) as IssuerMetadataDraft11
+        issuerCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
+        holderCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
 
         // The Holder received a CredentialOffer
         //
-        WalletService.addCredentialOffer(holder, credOffer)
-        val offeredCred = WalletService.resolveOfferedCredential(holder, credOffer)
+        WalletService.addCredentialOffer(holderCtx, credOffer)
+        val offeredCred = WalletService.resolveOfferedCredential(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = WalletService.createTokenRequestPreAuthorized(holder, credOffer, userPin)
+        val tokenReq = WalletService.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
-        val accessTokenRes = AuthService.handleTokenRequestPreAuthorized(issuer, tokenReq)
+        val accessTokenRes = AuthService.handleTokenRequestPreAuthorized(issuerCtx, tokenReq)
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = WalletService.createCredentialRequest(holder, offeredCred, accessTokenRes)
+        val credReq = WalletService.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
-        val credRes = IssuerService.credentialFromParameters(issuer, vcp)
+        val credRes = issuer.getCredentialFromParameters(issuerCtx, vcp)
 
         return credRes
     }

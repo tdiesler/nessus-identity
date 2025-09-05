@@ -8,17 +8,21 @@ import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.OIDCContext
+import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.IssuerMetadataDraft11
+import kotlinx.coroutines.runBlocking
 
-class CredentialIssuanceFlow(val holder: OIDCContext, val issuer: OIDCContext) {
+class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContext) {
+
+    val issuer = IssuerService.create()
 
     init {
-        val issuerMetadata = IssuerService.getIssuerMetadata(issuer)
-        issuer.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
-        holder.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+        val metadata = runBlocking { issuer.getIssuerMetadata(issuerCtx) as IssuerMetadataDraft11 }
+        issuerCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
+        holderCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
     }
 
     /**
@@ -29,45 +33,45 @@ class CredentialIssuanceFlow(val holder: OIDCContext, val issuer: OIDCContext) {
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
-        WalletService.addCredentialOffer(holder, credOffer)
-        val offeredCred = WalletService.resolveOfferedCredential(holder, credOffer)
+        WalletService.addCredentialOffer(holderCtx, credOffer)
+        val offeredCred = WalletService.resolveOfferedCredential(holderCtx, credOffer)
         val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer)
-        val authRequest = AuthorizationRequestBuilder(holder)
+        val authRequest = AuthorizationRequestBuilder(holderCtx)
             .withAuthorizationDetails(authDetails)
             .withCredentialOffer(credOffer)
             .build()
 
         // The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
         //
-        AuthService.validateAuthorizationRequest(issuer, authRequest)
-        val idTokenRequestJwt = AuthService.buildIDTokenRequest(issuer, authRequest)
-        val idTokenRequestUrl = AuthService.buildIDTokenRedirectUrl(issuer, idTokenRequestJwt)
+        AuthService.validateAuthorizationRequest(issuerCtx, authRequest)
+        val idTokenRequestJwt = AuthService.buildIDTokenRequest(issuerCtx, authRequest)
+        val idTokenRequestUrl = AuthService.buildIDTokenRedirectUrl(issuerCtx, idTokenRequestJwt)
 
         // Holder issues an ID Token signed by the DID's authentication key
         //
-        val idTokenJwt = WalletService.createIDToken(holder, urlQueryToMap(idTokenRequestUrl))
+        val idTokenJwt = WalletService.createIDToken(holderCtx, urlQueryToMap(idTokenRequestUrl))
 
         // Issuer validates IDToken and returns an Authorization Code
-        val authCode = AuthService.validateIDToken(issuer, idTokenJwt)
-        idTokenJwt.verifyJwtSignature("IDToken", holder.didInfo)
+        val authCode = AuthService.validateIDToken(issuerCtx, idTokenJwt)
+        idTokenJwt.verifyJwtSignature("IDToken", holderCtx.didInfo)
 
 
         // Holder sends a TokenRequest to the Issuer's Token Endpoint
         //
-        val tokenReq = WalletService.createTokenRequestAuthCode(holder, authCode)
+        val tokenReq = WalletService.createTokenRequestAuthCode(holderCtx, authCode)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
-        val accessTokenRes = AuthService.handleTokenRequestAuthCode(issuer, tokenReq)
+        val accessTokenRes = AuthService.handleTokenRequestAuthCode(issuerCtx, tokenReq)
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = WalletService.createCredentialRequest(holder, offeredCred, accessTokenRes)
+        val credReq = WalletService.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = IssuerService.credentialFromRequest(issuer, credReq, accessTokenJwt)
+        val credRes = issuer.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt)
 
         return credRes
     }
@@ -80,44 +84,44 @@ class CredentialIssuanceFlow(val holder: OIDCContext, val issuer: OIDCContext) {
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
-        WalletService.addCredentialOffer(holder, credOffer)
-        val offeredCred = WalletService.resolveOfferedCredential(holder, credOffer)
+        WalletService.addCredentialOffer(holderCtx, credOffer)
+        val offeredCred = WalletService.resolveOfferedCredential(holderCtx, credOffer)
         val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer)
-        val authRequest = AuthorizationRequestBuilder(holder)
+        val authRequest = AuthorizationRequestBuilder(holderCtx)
             .withAuthorizationDetails(authDetails)
             .withCredentialOffer(credOffer)
             .build()
 
         // The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
         //
-        AuthService.validateAuthorizationRequest(issuer, authRequest)
-        val idTokenRequestJwt = AuthService.buildIDTokenRequest(issuer, authRequest)
-        val idTokenRequestUrl = AuthService.buildIDTokenRedirectUrl(issuer, idTokenRequestJwt)
+        AuthService.validateAuthorizationRequest(issuerCtx, authRequest)
+        val idTokenRequestJwt = AuthService.buildIDTokenRequest(issuerCtx, authRequest)
+        val idTokenRequestUrl = AuthService.buildIDTokenRedirectUrl(issuerCtx, idTokenRequestJwt)
 
         // Holder issues an ID Token signed by the DID's authentication key
         //
-        val idTokenJwt = WalletService.createIDToken(holder, urlQueryToMap(idTokenRequestUrl))
+        val idTokenJwt = WalletService.createIDToken(holderCtx, urlQueryToMap(idTokenRequestUrl))
 
         // Issuer validates IDToken and returns an Authorization Code
-        val authCode = AuthService.validateIDToken(issuer, idTokenJwt)
-        idTokenJwt.verifyJwtSignature("IDToken", holder.didInfo)
+        val authCode = AuthService.validateIDToken(issuerCtx, idTokenJwt)
+        idTokenJwt.verifyJwtSignature("IDToken", holderCtx.didInfo)
 
         // Holder sends a TokenRequest to the Issuer's Token Endpoint
         //
-        val tokenReq = WalletService.createTokenRequestAuthCode(holder, authCode)
+        val tokenReq = WalletService.createTokenRequestAuthCode(holderCtx, authCode)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
-        val accessTokenRes = AuthService.handleTokenRequestAuthCode(issuer, tokenReq)
+        val accessTokenRes = AuthService.handleTokenRequestAuthCode(issuerCtx, tokenReq)
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = WalletService.createCredentialRequest(holder, offeredCred, accessTokenRes)
+        val credReq = WalletService.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
 
         // Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = IssuerService.credentialFromRequest(issuer, credReq, accessTokenJwt, true)
+        val credRes = issuer.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt, true)
 
         return credRes
     }
@@ -127,28 +131,28 @@ class CredentialIssuanceFlow(val holder: OIDCContext, val issuer: OIDCContext) {
      * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#pre-authorised
      */
     suspend fun credentialFromOfferPreAuthorized(credOffer: CredentialOffer, userPin: String): CredentialResponse {
-        
+
         // The Holder received a CredentialOffer
         //
-        WalletService.addCredentialOffer(holder, credOffer)
-        val offeredCred = WalletService.resolveOfferedCredential(holder, credOffer)
+        WalletService.addCredentialOffer(holderCtx, credOffer)
+        val offeredCred = WalletService.resolveOfferedCredential(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = WalletService.createTokenRequestPreAuthorized(holder, credOffer, userPin)
+        val tokenReq = WalletService.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
-        val accessTokenRes = AuthService.handleTokenRequestPreAuthorized(issuer, tokenReq)
+        val accessTokenRes = AuthService.handleTokenRequestPreAuthorized(issuerCtx, tokenReq)
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = WalletService.createCredentialRequest(holder, offeredCred, accessTokenRes)
+        val credReq = WalletService.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = IssuerService.credentialFromRequest(issuer, credReq, accessTokenJwt)
+        val credRes = issuer.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt)
 
         return credRes
     }
@@ -159,29 +163,32 @@ class CredentialIssuanceFlow(val holder: OIDCContext, val issuer: OIDCContext) {
      * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#pre-authorised
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#deferred-issuance
      */
-    suspend fun credentialFromOfferPreAuthorizedDeferred(credOffer: CredentialOffer, userPin: String): CredentialResponse {
+    suspend fun credentialFromOfferPreAuthorizedDeferred(
+        credOffer: CredentialOffer,
+        userPin: String
+    ): CredentialResponse {
 
         // The Holder received a CredentialOffer
         //
-        WalletService.addCredentialOffer(holder, credOffer)
-        val offeredCred = WalletService.resolveOfferedCredential(holder, credOffer)
+        WalletService.addCredentialOffer(holderCtx, credOffer)
+        val offeredCred = WalletService.resolveOfferedCredential(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = WalletService.createTokenRequestPreAuthorized(holder, credOffer, userPin)
+        val tokenReq = WalletService.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
-        val accessTokenRes = AuthService.handleTokenRequestPreAuthorized(issuer, tokenReq)
+        val accessTokenRes = AuthService.handleTokenRequestPreAuthorized(issuerCtx, tokenReq)
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = WalletService.createCredentialRequest(holder, offeredCred, accessTokenRes)
+        val credReq = WalletService.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = IssuerService.credentialFromRequest(issuer, credReq, accessTokenJwt, true)
+        val credRes = issuer.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt, true)
 
         return credRes
     }

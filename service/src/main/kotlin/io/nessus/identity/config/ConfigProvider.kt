@@ -15,9 +15,13 @@ object ConfigProvider {
         .addResourceSource("/application.conf")
         .build().loadConfigOrThrow<RootConfig>()
 
-    val authEndpointUri get() = "${requireServerConfig().baseUrl}/auth"
+    val authEndpointUri get() = requireAuthConfig().baseUrl
     val issuerEndpointUri get() = "${requireServerConfig().baseUrl}/issuer"
     val walletEndpointUri get() = "${requireServerConfig().baseUrl}/wallet"
+
+    fun requireAuthConfig(): AuthConfig {
+        return root.auth ?: throw IllegalStateException("No 'auth' config")
+    }
 
     fun requireDatabaseConfig(): DatabaseConfig {
         return root.database ?: throw IllegalStateException("No 'database' config")
@@ -29,10 +33,6 @@ object ConfigProvider {
 
     fun requireIssuerConfig(): IssuerConfig {
         return root.issuer ?: throw IllegalStateException("No 'issuer' config")
-    }
-
-    fun requireAuthConfig(): AuthConfig {
-        return root.auth ?: throw IllegalStateException("No 'auth' config")
     }
 
     fun requireServerConfig(): ServerConfig {
@@ -92,7 +92,7 @@ data class VerifierConfig(
 
 @Serializable
 data class AuthConfig(
-    val dummy: String?
+    val baseUrl: String,
 )
 
 @Serializable

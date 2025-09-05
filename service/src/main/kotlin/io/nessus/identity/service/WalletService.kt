@@ -7,12 +7,7 @@ import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.OpenID4VCI
-import id.walt.oid4vc.data.AuthorizationDetails
-import id.walt.oid4vc.data.CredentialFormat
-import id.walt.oid4vc.data.CredentialOffer
-import id.walt.oid4vc.data.GrantDetails
-import id.walt.oid4vc.data.OfferedCredential
-import id.walt.oid4vc.data.OpenIDProviderMetadata
+import id.walt.oid4vc.data.*
 import id.walt.oid4vc.data.dif.DescriptorMapping
 import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.oid4vc.requests.AuthorizationRequest
@@ -22,21 +17,13 @@ import id.walt.oid4vc.responses.CredentialResponse
 import id.walt.oid4vc.responses.TokenResponse
 import id.walt.w3c.utils.VCFormat
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.forms.FormDataContent
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
-import io.ktor.http.URLBuilder
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
+import io.ktor.client.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.client.request.forms.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.extend.getPreAuthorizedGrantDetails
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.toSignedJWT
@@ -49,6 +36,7 @@ import io.nessus.identity.service.AttachmentKeys.PRESENTATION_SUBMISSION_ATTACHM
 import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialOfferRegistry.assertCredentialOfferRecord
 import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
@@ -57,7 +45,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import java.time.Instant
-import java.util.Date
+import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -67,12 +55,12 @@ object WalletService {
 
     val log = KotlinLogging.logger {}
 
-    fun addCredentialOffer(ctx: OIDCContext, credOffer: CredentialOffer) {
+    fun addCredentialOffer(ctx: OIDContext, credOffer: CredentialOffer) {
         log.info { "Add CredentialOffer: ${Json.encodeToString(credOffer)}" }
         ctx.putAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY, credOffer)
     }
 
-    fun addCredential(ctx: OIDCContext, credRes: CredentialResponse) {
+    fun addCredential(ctx: OIDContext, credRes: CredentialResponse) {
         val walletId = ctx.walletId
         val credJwt = credRes.toSignedJWT()
         val format = credRes.format as CredentialFormat
@@ -84,7 +72,7 @@ object WalletService {
     }
 
     suspend fun createCredentialRequest(
-        ctx: OIDCContext,
+        ctx: OIDContext,
         offeredCred: OfferedCredential,
         accessToken: TokenResponse
     ): CredentialRequest {
@@ -137,7 +125,7 @@ object WalletService {
         return credReq
     }
 
-    suspend fun createIDToken(ctx: OIDCContext, reqParams: Map<String, String>): SignedJWT {
+    suspend fun createIDToken(ctx: OIDContext, reqParams: Map<String, String>): SignedJWT {
 
         // Verify required query params
         for (key in listOf("client_id", "redirect_uri", "response_type")) {
@@ -189,7 +177,7 @@ object WalletService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun createVPToken(ctx: OIDCContext, authReq: AuthorizationRequest): SignedJWT {
+    suspend fun createVPToken(ctx: OIDContext, authReq: AuthorizationRequest): SignedJWT {
 
         log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(authReq)}" }
 
@@ -285,7 +273,7 @@ object WalletService {
         return vpTokenJwt
     }
 
-    fun createTokenRequestAuthCode(ctx: OIDCContext, authCode: String): TokenRequest {
+    fun createTokenRequestAuthCode(ctx: OIDContext, authCode: String): TokenRequest {
 
         val tokenRequest = TokenRequest.AuthorizationCode(
             clientId = ctx.did,
@@ -296,7 +284,7 @@ object WalletService {
         return tokenRequest
     }
 
-    fun createTokenRequestPreAuthorized(ctx: OIDCContext, credOffer: CredentialOffer, userPin: String): TokenRequest {
+    fun createTokenRequestPreAuthorized(ctx: OIDContext, credOffer: CredentialOffer, userPin: String): TokenRequest {
 
         val grantDetails = credOffer.getPreAuthorizedGrantDetails() as GrantDetails
         val preAuthCode = grantDetails.preAuthorizedCode as String
@@ -312,13 +300,13 @@ object WalletService {
         return tokenRequest
     }
 
-    suspend fun getCredentialOfferFromUri(ctx: OIDCContext, offerUri: String): CredentialOffer {
+    suspend fun getCredentialOfferFromUri(ctx: OIDContext, offerUri: String): CredentialOffer {
         val credOffer = OpenID4VCI.parseAndResolveCredentialOfferRequestUrl(offerUri)
         ctx.putAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY, credOffer)
         return credOffer
     }
 
-    suspend fun getCredentialFromOffer(ctx: OIDCContext, credOffer: CredentialOffer): CredentialResponse {
+    suspend fun getCredentialFromOffer(ctx: OIDContext, credOffer: CredentialOffer): CredentialResponse {
 
         val offeredCred = resolveOfferedCredential(ctx, credOffer)
 
@@ -345,9 +333,10 @@ object WalletService {
         return credRes
     }
 
-    suspend fun getDeferredCredential(ctx: OIDCContext, acceptanceToken: String): CredentialResponse {
+    suspend fun getDeferredCredential(ctx: OIDContext, acceptanceToken: String): CredentialResponse {
 
-        val deferredCredentialEndpoint = ctx.issuerMetadata.deferredCredentialEndpoint
+        val metadata = ctx.issuerMetadata as IssuerMetadataDraft11
+        val deferredCredentialEndpoint = metadata.deferredCredentialEndpoint
             ?: throw IllegalStateException("No credential_endpoint")
 
         log.info { "Send Deferred Credential Request: $deferredCredentialEndpoint" }
@@ -370,17 +359,17 @@ object WalletService {
         return credRes
     }
 
-    suspend fun resolveIssuerMetadata(issuerUrl: String): OpenIDProviderMetadata {
+    suspend fun resolveIssuerMetadata(issuerUrl: String): IssuerMetadataDraft11 {
         val issuerMetadataUrl = "$issuerUrl/.well-known/openid-credential-issuer"
         return http.get(issuerMetadataUrl).bodyAsText().let {
-            OpenIDProviderMetadata.fromJSONString(it)
+            IssuerMetadataDraft11.fromJson(it)
         }
     }
 
     /**
      * Resolve the CredentialOffer to an OfferedCredential using the Issuer's metadata
      */
-    suspend fun resolveOfferedCredential(ctx: OIDCContext, credOffer: CredentialOffer): OfferedCredential {
+    suspend fun resolveOfferedCredential(ctx: OIDContext, credOffer: CredentialOffer): OfferedCredential {
 
         log.info { "Resolve CredentialOffer: ${Json.encodeToString(credOffer)}" }
 
@@ -392,12 +381,10 @@ object WalletService {
             ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
         }
 
-        val issuerMetadata = ctx.issuerMetadata as? OpenIDProviderMetadata.Draft11
-            ?: throw IllegalStateException("Expected Draft11 metadata, but got ${ctx.issuerMetadata::class.simpleName}")
-
         // Resolve Offered Credential
         //
-        val offeredCredentials = OpenID4VCI.resolveOfferedCredentials(credOffer, issuerMetadata)
+        val metadata = (ctx.issuerMetadata as IssuerMetadataDraft11).toOpenIDProviderMetadata()
+        val offeredCredentials = OpenID4VCI.resolveOfferedCredentials(credOffer, metadata)
         log.info { "Offered Credentials: ${Json.encodeToString(offeredCredentials)}" }
         if (offeredCredentials.size > 1) log.warn { "Multiple offered credentials, using first" }
         val offeredCredential = offeredCredentials.first()
@@ -406,7 +393,7 @@ object WalletService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun sendAuthorizationRequest(ctx: OIDCContext, authRequest: AuthorizationRequest): String {
+    suspend fun sendAuthorizationRequest(ctx: OIDContext, authRequest: AuthorizationRequest): String {
 
         val authReqUrl = URLBuilder("${ctx.authorizationServer}/authorize").apply {
             authRequest.toHttpParameters().forEach { (k, lst) -> lst.forEach { v -> parameters.append(k, v) } }
@@ -479,7 +466,7 @@ object WalletService {
         return ctx.authCode
     }
 
-    suspend fun sendCredentialRequest(ctx: OIDCContext, credReq: CredentialRequest): CredentialResponse {
+    suspend fun sendCredentialRequest(ctx: OIDContext, credReq: CredentialRequest): CredentialResponse {
 
         val accessToken = ctx.accessToken
         val credentialEndpoint = ctx.issuerMetadata.credentialEndpoint
@@ -511,7 +498,7 @@ object WalletService {
         return credRes
     }
 
-    suspend fun sendIDToken(ctx: OIDCContext, redirectUri: String, idTokenJwt: SignedJWT): String {
+    suspend fun sendIDToken(ctx: OIDContext, redirectUri: String, idTokenJwt: SignedJWT): String {
 
         log.info { "Send IDToken: $redirectUri" }
         val formData = mutableMapOf(
@@ -543,7 +530,7 @@ object WalletService {
         return authCode
     }
 
-    suspend fun sendVPToken(ctx: OIDCContext, vpTokenJwt: SignedJWT): String {
+    suspend fun sendVPToken(ctx: OIDContext, vpTokenJwt: SignedJWT): String {
 
         val reqObject = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         val vpSubmission = ctx.assertAttachment(PRESENTATION_SUBMISSION_ATTACHMENT_KEY, true)
@@ -584,7 +571,7 @@ object WalletService {
         return authCode
     }
 
-    suspend fun sendTokenRequestAuthCode(ctx: OIDCContext, tokenReq: TokenRequest): TokenResponse {
+    suspend fun sendTokenRequestAuthCode(ctx: OIDContext, tokenReq: TokenRequest): TokenResponse {
 
         val tokenReqUrl = "${ctx.authorizationServer}/token"
 
@@ -612,7 +599,7 @@ object WalletService {
         return tokenRes
     }
 
-    suspend fun sendTokenRequestPreAuthorized(ctx: OIDCContext, tokenRequest: TokenRequest): TokenResponse {
+    suspend fun sendTokenRequestPreAuthorized(ctx: OIDContext, tokenRequest: TokenRequest): TokenResponse {
 
         val tokenReqUrl = "${ctx.authorizationServer}/token"
         val formData = tokenRequest.toHttpParameters()

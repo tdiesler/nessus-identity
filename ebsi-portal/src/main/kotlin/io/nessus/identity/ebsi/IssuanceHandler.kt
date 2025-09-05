@@ -13,14 +13,17 @@ import io.ktor.server.routing.RoutingCall
 import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.OIDCContext
+import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.types.IssuerMetadataDraft11
 import kotlinx.serialization.json.Json
 
 object IssuanceHandler {
 
     val log = KotlinLogging.logger {}
+
+    val issuer = IssuerService.create()
 
     // Handle Issuer Requests ------------------------------------------------------------------------------------------
     //
@@ -62,7 +65,7 @@ object IssuanceHandler {
 
     // Private ---------------------------------------------------------------------------------------------------------
 
-    private suspend fun handleCredentialRequest(call: RoutingCall, ctx: OIDCContext) {
+    private suspend fun handleCredentialRequest(call: RoutingCall, ctx: OIDContext) {
 
         val accessToken = call.request.headers["Authorization"]
             ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
@@ -71,7 +74,7 @@ object IssuanceHandler {
 
         val credReq = call.receive<CredentialRequest>()
         val accessTokenJwt = SignedJWT.parse(accessToken)
-        val credentialResponse = IssuerService.credentialFromRequest(ctx, credReq, accessTokenJwt)
+        val credentialResponse = issuer.getCredentialFromRequest(ctx, credReq, accessTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,
@@ -80,7 +83,7 @@ object IssuanceHandler {
         )
     }
 
-    private suspend fun handleCredentialRequestDeferred(call: RoutingCall, ctx: OIDCContext) {
+    private suspend fun handleCredentialRequestDeferred(call: RoutingCall, ctx: OIDContext) {
 
         val acceptanceToken = call.request.headers["Authorization"]
             ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
@@ -88,7 +91,7 @@ object IssuanceHandler {
             ?: throw IllegalArgumentException("Invalid authorization header")
 
         val acceptanceTokenJwt = SignedJWT.parse(acceptanceToken)
-        val credentialResponse = IssuerService.deferredCredentialFromAcceptanceToken(ctx, acceptanceTokenJwt)
+        val credentialResponse = issuer.getDeferredCredentialFromAcceptanceToken(ctx, acceptanceTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,
@@ -99,8 +102,8 @@ object IssuanceHandler {
 
     private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: LoginContext) {
 
-        val issuerMetadata = IssuerService.getIssuerMetadata(ctx)
-        val payload = Json.encodeToString(issuerMetadata)
+        val metadata = issuer.getIssuerMetadata(ctx) as IssuerMetadataDraft11
+        val payload = Json.encodeToString(metadata)
         call.respondText(
             status = HttpStatusCode.OK,
             contentType = ContentType.Application.Json,
