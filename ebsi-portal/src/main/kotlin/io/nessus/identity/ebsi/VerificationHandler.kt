@@ -3,7 +3,7 @@ package io.nessus.identity.ebsi
 import com.nimbusds.jwt.SignedJWT
 import id.walt.crypto.utils.JsonUtils.toJsonElement
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.http.URLBuilder
+import io.ktor.http.*
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.VerifierService
@@ -12,7 +12,7 @@ import io.nessus.identity.types.W3CCredentialJwt
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.util.Date
+import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 

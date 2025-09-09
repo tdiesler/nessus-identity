@@ -1,13 +1,12 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.IssuerMetadata
-import io.nessus.identity.types.IssuerMetadataDraft11
 
 // IssuerService =======================================================================================================
 

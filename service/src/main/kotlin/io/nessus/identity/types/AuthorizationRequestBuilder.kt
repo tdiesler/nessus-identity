@@ -2,16 +2,14 @@ package io.nessus.identity.types
 
 import com.nimbusds.jose.util.Base64URL
 import id.walt.oid4vc.data.AuthorizationDetails
-import id.walt.oid4vc.data.CredentialOffer
-import id.walt.oid4vc.data.GrantType
 import id.walt.oid4vc.data.OpenIDClientMetadata
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.oid4vc.requests.AuthorizationRequest
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.OIDContext
-import io.nessus.identity.service.WalletService.log
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.security.MessageDigest
@@ -19,8 +17,10 @@ import kotlin.random.Random
 
 class AuthorizationRequestBuilder(val ctx: OIDContext) {
 
+    val log = KotlinLogging.logger {}
+
     private var authorizationDetails: AuthorizationDetails? = null
-    private var credentialOffer: CredentialOffer? = null
+    private var credOffer: CredentialOffer? = null
     private var presentationDefinition: PresentationDefinition? = null
 
     fun withAuthorizationDetails(authDetails: AuthorizationDetails): AuthorizationRequestBuilder {
@@ -29,7 +29,7 @@ class AuthorizationRequestBuilder(val ctx: OIDContext) {
     }
 
     fun withCredentialOffer(credOffer: CredentialOffer): AuthorizationRequestBuilder {
-        this.credentialOffer = credOffer
+        this.credOffer = credOffer
         return this
     }
 
@@ -59,7 +59,7 @@ class AuthorizationRequestBuilder(val ctx: OIDContext) {
             )
         )
 
-        val issuerState = credentialOffer?.grants[GrantType.authorization_code.value]?.issuerState
+        val issuerState = credOffer?.getAuthorizationCodeGrant()?.issuerState
 
         val authRequest = AuthorizationRequest(
             scope = setOf("openid"),

@@ -2,7 +2,7 @@ package io.nessus.identity.ebsi
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.common.runBlocking
-import io.ktor.server.engine.EmbeddedServer
+import io.ktor.server.engine.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext

@@ -8,20 +8,21 @@ import com.nimbusds.jwt.JWTClaimNames
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.OpenID4VCI
-import id.walt.oid4vc.data.*
+import id.walt.oid4vc.data.CredentialFormat
+import id.walt.oid4vc.data.CredentialSupported
+import id.walt.oid4vc.data.DisplayProperties
+import id.walt.oid4vc.data.GrantType
+import id.walt.oid4vc.data.OpenIDProviderMetadata
+import id.walt.oid4vc.data.SubjectType
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.nessus.identity.extend.getPreAuthorizedGrantDetails
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.types.*
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import java.time.Instant
 import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
@@ -33,7 +34,12 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
 
     val log = KotlinLogging.logger {}
 
-    override suspend fun createCredentialOffer(ctx: LoginContext, subId: String, types: List<String>, userPin: String?): CredentialOffer {
+    override suspend fun createCredentialOffer(
+        ctx: LoginContext,
+        subId: String,
+        types: List<String>,
+        userPin: String?
+    ): CredentialOfferDraft11 {
 
         val metadata = getIssuerMetadata(ctx) as IssuerMetadataDraft11
         val issuerUri = metadata.credentialIssuer
@@ -62,35 +68,36 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
         val credOfferJwt = SignedJWT(header, offerClaims).signWithKey(ctx, kid)
 
         // Build CredentialOffer
-        val vcJson = buildJsonObject {
-            put("format", JsonPrimitive("jwt_vc"))
-            put("types", JsonArray(types.map { JsonPrimitive(it) }))
-        }
-
-        val offerBuilder = CredentialOffer.Draft11.Builder(issuerUri)
-            .addOfferedCredentialByValue(vcJson)
-
-        val credOffer = if (userPin != null) {
-            val preAuthCode = credOfferJwt.serialize()
-            offerBuilder.addPreAuthorizedCodeGrant(preAuthCode)
-        } else {
-            val issuerState = credOfferJwt.serialize()
-            offerBuilder.addAuthorizationCodeGrant(issuerState)
-        }.build()
+        val credOffer = CredentialOfferDraft11(
+            credentialIssuer = issuerUri,
+            credentials = listOf(CredentialObject(types = types, format = "jwt_vc")),
+            grants = if (userPin != null) {
+                val preAuthCode = credOfferJwt.serialize()
+                Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
+            } else {
+                val issuerState = credOfferJwt.serialize()
+                Grants(authorizationCode = AuthorizationCodeGrant(issuerState = issuerState))
+            }
+        )
 
         // Record the CredentialOffer with UserPin
         //
-        val preAuthGrantDetails = credOffer.getPreAuthorizedGrantDetails()
-        if (preAuthGrantDetails != null) {
-            val authCode = preAuthGrantDetails.preAuthorizedCode as String
+        val preAuthCodeGrant = credOffer.getPreAuthorizedCodeGrant()
+        if (preAuthCodeGrant != null) {
+            val authCode = preAuthCodeGrant.preAuthorizedCode
             putCredentialOfferRecord(authCode, credOffer, userPin)
         }
 
-        log.info { "Issued CredentialOffer: ${Json.encodeToString(credOffer)}" }
+        log.info { "Issued CredentialOffer: ${credOffer.toJson()}" }
         return credOffer
     }
 
-    override suspend fun getCredentialFromRequest(ctx: OIDContext, credReq: CredentialRequest, accessTokenJwt: SignedJWT, deferred: Boolean): CredentialResponse {
+    override suspend fun getCredentialFromRequest(
+        ctx: OIDContext,
+        credReq: CredentialRequest,
+        accessTokenJwt: SignedJWT,
+        deferred: Boolean
+    ): CredentialResponse {
 
         // Validate the AccessToken
         ctx.validateAccessToken(accessTokenJwt)
@@ -185,7 +192,10 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
         return credRes
     }
 
-    override suspend fun getDeferredCredentialFromAcceptanceToken(ctx: OIDContext, acceptanceTokenJwt: SignedJWT): CredentialResponse {
+    override suspend fun getDeferredCredentialFromAcceptanceToken(
+        ctx: OIDContext,
+        acceptanceTokenJwt: SignedJWT
+    ): CredentialResponse {
 
         // Validate the AcceptanceTokenJwt
         // [TODO #241] Validate the AcceptanceToken
@@ -295,13 +305,15 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
             .keyID(kid)
             .build()
 
-        val acceptanceClaims = JWTClaimsSet.parse(mapOf(
-            JWTClaimNames.JWT_ID to jti,
-            JWTClaimNames.ISSUER to ctx.did,
-            JWTClaimNames.SUBJECT to sub,
-            JWTClaimNames.NOT_BEFORE to nbf.epochSecond,
-            "credential_request" to Json.encodeToString(credReq)
-        ))
+        val acceptanceClaims = JWTClaimsSet.parse(
+            mapOf(
+                JWTClaimNames.JWT_ID to jti,
+                JWTClaimNames.ISSUER to ctx.did,
+                JWTClaimNames.SUBJECT to sub,
+                JWTClaimNames.NOT_BEFORE to nbf.epochSecond,
+                "credential_request" to Json.encodeToString(credReq)
+            )
+        )
 
         val acceptanceTokenJwt = SignedJWT(acceptanceHeader, acceptanceClaims).signWithKey(ctx, kid)
         log.info { "AcceptanceToken Header: ${acceptanceTokenJwt.header}" }

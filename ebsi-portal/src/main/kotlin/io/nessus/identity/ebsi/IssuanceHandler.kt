@@ -3,18 +3,15 @@ package io.nessus.identity.ebsi
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.requests.CredentialRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.request.path
-import io.ktor.server.request.receive
-import io.ktor.server.request.uri
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.RoutingCall
+import io.ktor.http.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.OIDCContextRegistry
+import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.IssuerMetadataDraft11
 import kotlinx.serialization.json.Json
@@ -23,7 +20,7 @@ object IssuanceHandler {
 
     val log = KotlinLogging.logger {}
 
-    val issuer = IssuerService.create()
+    val issuerSrv = IssuerService.create()
 
     // Handle Issuer Requests ------------------------------------------------------------------------------------------
     //
@@ -74,7 +71,7 @@ object IssuanceHandler {
 
         val credReq = call.receive<CredentialRequest>()
         val accessTokenJwt = SignedJWT.parse(accessToken)
-        val credentialResponse = issuer.getCredentialFromRequest(ctx, credReq, accessTokenJwt)
+        val credentialResponse = issuerSrv.getCredentialFromRequest(ctx, credReq, accessTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,
@@ -91,7 +88,7 @@ object IssuanceHandler {
             ?: throw IllegalArgumentException("Invalid authorization header")
 
         val acceptanceTokenJwt = SignedJWT.parse(acceptanceToken)
-        val credentialResponse = issuer.getDeferredCredentialFromAcceptanceToken(ctx, acceptanceTokenJwt)
+        val credentialResponse = issuerSrv.getDeferredCredentialFromAcceptanceToken(ctx, acceptanceTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,
@@ -102,7 +99,7 @@ object IssuanceHandler {
 
     private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: LoginContext) {
 
-        val metadata = issuer.getIssuerMetadata(ctx) as IssuerMetadataDraft11
+        val metadata = issuerSrv.getIssuerMetadata(ctx) as IssuerMetadataDraft11
         val payload = Json.encodeToString(metadata)
         call.respondText(
             status = HttpStatusCode.OK,

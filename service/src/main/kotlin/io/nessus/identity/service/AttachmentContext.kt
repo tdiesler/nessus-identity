@@ -1,11 +1,10 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.oid4vc.requests.AuthorizationRequest
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadata
-import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.waltid.DidInfo
 import io.nessus.identity.waltid.WalletInfo
 import java.util.concurrent.ConcurrentHashMap

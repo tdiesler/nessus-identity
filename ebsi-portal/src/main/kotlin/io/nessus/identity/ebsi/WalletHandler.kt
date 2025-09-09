@@ -2,12 +2,10 @@ package io.nessus.identity.ebsi
 
 import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.request.path
-import io.ktor.server.request.uri
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.RoutingCall
+import io.ktor.http.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
 import io.nessus.identity.extend.getPreAuthorizedGrantDetails
 import io.nessus.identity.extend.toSignedJWT
@@ -22,6 +20,8 @@ import io.nessus.identity.service.urlQueryToMap
 object WalletHandler {
 
     val log = KotlinLogging.logger {}
+
+    val walletSrv = WalletService.create()
 
     // Handle Wallet requests ------------------------------------------------------------------------------------------
     //
@@ -63,12 +63,12 @@ object WalletHandler {
             ?: throw HttpStatusException(HttpStatusCode.BadRequest, "No 'credential_offer_uri' param")
 
         val oid4vcOfferUri = "openid-credential-offer://?credential_offer_uri=$credOfferUri"
-        val credOffer = WalletService.getCredentialOfferFromUri(ctx, oid4vcOfferUri)
-        val offeredCred = WalletService.resolveOfferedCredential(ctx, credOffer)
+        val credOffer = walletSrv.getCredentialOfferFromUri(ctx, oid4vcOfferUri)
+        val offeredCred = walletSrv.resolveOfferedCredential(ctx, credOffer)
 
         // Init with the default UserPin for EBSI Credential types
-        if (credOffer.getPreAuthorizedGrantDetails() != null) {
-            val authCode = credOffer.getPreAuthorizedGrantDetails()?.preAuthorizedCode as String
+        if (credOffer.getPreAuthorizedCodeGrant() != null) {
+            val authCode = credOffer.getPreAuthorizedCodeGrant()?.preAuthorizedCode as String
             val ebsiType = offeredCred.types?.firstOrNull { isEBSIPreAuthorizedType(it) }
             if (ebsiType != null) {
                 val cor = getCredentialOfferRecord(ebsiType)
@@ -81,7 +81,7 @@ object WalletHandler {
             }
         }
 
-        var credRes = WalletService.getCredentialFromOffer(ctx, credOffer)
+        var credRes = walletSrv.getCredentialFromOffer(ctx, credOffer)
 
         // In-Time CredentialResponses MUST have a 'format'
         var credJwt: SignedJWT? = null
@@ -94,14 +94,14 @@ object WalletHandler {
             // The credential will be available with a delay of 5 seconds from the first Credential Request.
             Thread.sleep(5500)
             val acceptanceToken = credRes.acceptanceToken as String
-            credRes = WalletService.getDeferredCredential(ctx, acceptanceToken)
+            credRes = walletSrv.getDeferredCredential(ctx, acceptanceToken)
             credJwt = credRes.toSignedJWT()
         }
 
         if (credJwt == null)
             throw IllegalStateException("No Credential JWT")
 
-        WalletService.addCredential(ctx, credRes)
+        walletSrv.addCredential(ctx, credRes)
 
         call.respondText(
             status = HttpStatusCode.Accepted,

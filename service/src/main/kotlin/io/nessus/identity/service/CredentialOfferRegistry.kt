@@ -1,7 +1,7 @@
 package io.nessus.identity.service
 
-import id.walt.oid4vc.data.CredentialOffer
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.nessus.identity.types.CredentialOffer
 
 data class CredentialOfferRecord(
     val credOffer:  CredentialOffer?,

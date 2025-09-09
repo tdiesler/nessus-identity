@@ -15,7 +15,8 @@ class IssuerUseCasesTest : AbstractServiceTest() {
     // Generates a number between 1000 and 9999
     val userPin = Random.nextInt(1000, 10000)
 
-    val issuer = IssuerService.create()
+    val issuerSrv = IssuerService.create() as DefaultIssuerService
+    val walletSrv = WalletService.create()
 
     /**
      * Issue Credential InTime
@@ -51,7 +52,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             //
             val ctype = "CTWalletSameAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuer.createCredentialOffer(max, alice.did, types)
+            val credOffer = issuerSrv.createCredentialOffer(max, alice.did, types)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -70,7 +71,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
 
             // Holder storages the Credential
             //
-            WalletService.addCredential(alice, credRes)
+            walletSrv.addCredential(alice, credRes)
         }
     }
 
@@ -109,7 +110,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             //
             val ctype = "CTWalletSameAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuer.createCredentialOffer(max, alice.did, types)
+            val credOffer = issuerSrv.createCredentialOffer(max, alice.did, types)
 
             // Holder gets a deferred Credential from an Issuer based on a CredentialOffer
             //
@@ -119,7 +120,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             // Holder requests the deferred Credential using the AcceptanceToken
             //
             val acceptanceTokenJwt = SignedJWT.parse(deferredCredRes.acceptanceToken)
-            val credRes = issuer.getDeferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
+            val credRes = issuerSrv.getDeferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
 
             // Holder validates the received Credential
             //
@@ -133,7 +134,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
 
             // Holder storages the Credential
             //
-            WalletService.addCredential(alice, credRes)
+            walletSrv.addCredential(alice, credRes)
         }
     }
 
@@ -169,7 +170,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuer.createCredentialOffer(max, alice.did, types, "$userPin")
+            val credOffer = issuerSrv.createCredentialOffer(max, alice.did, types, "$userPin")
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -188,7 +189,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
 
             // Holder storages the Credential
             //
-            WalletService.addCredential(alice, credRes)
+            walletSrv.addCredential(alice, credRes)
         }
     }
 
@@ -227,7 +228,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             val sub= alice.did
             val ctype = "CTWalletSamePreAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuer.createCredentialOffer(max, sub, types, "$userPin")
+            val credOffer = issuerSrv.createCredentialOffer(max, sub, types, "$userPin")
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -237,7 +238,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
             // Pre-Authorized Holder requests the deferred Credential using the AcceptanceToken
             //
             val acceptanceTokenJwt = SignedJWT.parse(deferredCredRes.acceptanceToken)
-            val credRes = issuer.getDeferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
+            val credRes = issuerSrv.getDeferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
 
             // Holder validates the received Credential
             //
@@ -251,7 +252,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
 
             // Holder storages the Credential
             //
-            WalletService.addCredential(alice, credRes)
+            walletSrv.addCredential(alice, credRes)
         }
     }
 }

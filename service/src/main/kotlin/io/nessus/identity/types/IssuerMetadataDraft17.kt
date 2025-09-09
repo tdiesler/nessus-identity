@@ -6,6 +6,15 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonIgnoreUnknownKeys
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
+
+abstract class IssuerMetadata {
+    abstract val credentialIssuer: String
+    abstract val credentialEndpoint: String
+}
 
 /*
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
@@ -40,10 +49,12 @@ data class IssuerMetadataDraft17(
     val credentialConfigurationsSupported: Map<String, CredentialConfiguration>
 ) : IssuerMetadata() {
     companion object {
-        fun fromJson(json: String): IssuerMetadataDraft17 {
-            return Json.decodeFromString(json)
-        }
+        fun fromJson(json: String) = Json.decodeFromString<IssuerMetadataDraft17>(json)
+        fun fromJson(json: JsonObject) = Json.decodeFromJsonElement<IssuerMetadataDraft17>(json)
     }
+
+    fun toJson() = Json.encodeToString(this)
+    fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
 }
 
 @Serializable

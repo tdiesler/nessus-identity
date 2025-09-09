@@ -2,7 +2,6 @@ package io.nessus.identity.flow
 
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.AuthorizationDetails
-import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.responses.CredentialResponse
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
@@ -12,15 +11,17 @@ import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadataDraft11
 import kotlinx.coroutines.runBlocking
 
 class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContext) {
 
-    val issuer = IssuerService.create()
+    val issuerSrv = IssuerService.create()
+    val walletSrv = WalletService.create()
 
     init {
-        val metadata = runBlocking { issuer.getIssuerMetadata(issuerCtx) as IssuerMetadataDraft11 }
+        val metadata = runBlocking { issuerSrv.getIssuerMetadata(issuerCtx) as IssuerMetadataDraft11 }
         issuerCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         holderCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
     }
@@ -33,8 +34,8 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
-        WalletService.addCredentialOffer(holderCtx, credOffer)
-        val offeredCred = WalletService.resolveOfferedCredential(holderCtx, credOffer)
+        walletSrv.addCredentialOffer(holderCtx, credOffer)
+        val offeredCred = walletSrv.resolveOfferedCredential(holderCtx, credOffer)
         val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer)
         val authRequest = AuthorizationRequestBuilder(holderCtx)
             .withAuthorizationDetails(authDetails)
@@ -49,7 +50,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder issues an ID Token signed by the DID's authentication key
         //
-        val idTokenJwt = WalletService.createIDToken(holderCtx, urlQueryToMap(idTokenRequestUrl))
+        val idTokenJwt = walletSrv.createIDToken(holderCtx, urlQueryToMap(idTokenRequestUrl))
 
         // Issuer validates IDToken and returns an Authorization Code
         val authCode = AuthService.validateIDToken(issuerCtx, idTokenJwt)
@@ -58,7 +59,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends a TokenRequest to the Issuer's Token Endpoint
         //
-        val tokenReq = WalletService.createTokenRequestAuthCode(holderCtx, authCode)
+        val tokenReq = walletSrv.createTokenRequestAuthCode(holderCtx, authCode)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -66,12 +67,12 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = WalletService.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
+        val credReq = walletSrv.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = issuer.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt)
+        val credRes = issuerSrv.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt)
 
         return credRes
     }
@@ -84,8 +85,8 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
-        WalletService.addCredentialOffer(holderCtx, credOffer)
-        val offeredCred = WalletService.resolveOfferedCredential(holderCtx, credOffer)
+        walletSrv.addCredentialOffer(holderCtx, credOffer)
+        val offeredCred = walletSrv.resolveOfferedCredential(holderCtx, credOffer)
         val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer)
         val authRequest = AuthorizationRequestBuilder(holderCtx)
             .withAuthorizationDetails(authDetails)
@@ -100,7 +101,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder issues an ID Token signed by the DID's authentication key
         //
-        val idTokenJwt = WalletService.createIDToken(holderCtx, urlQueryToMap(idTokenRequestUrl))
+        val idTokenJwt = walletSrv.createIDToken(holderCtx, urlQueryToMap(idTokenRequestUrl))
 
         // Issuer validates IDToken and returns an Authorization Code
         val authCode = AuthService.validateIDToken(issuerCtx, idTokenJwt)
@@ -108,7 +109,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends a TokenRequest to the Issuer's Token Endpoint
         //
-        val tokenReq = WalletService.createTokenRequestAuthCode(holderCtx, authCode)
+        val tokenReq = walletSrv.createTokenRequestAuthCode(holderCtx, authCode)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -116,12 +117,12 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = WalletService.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
+        val credReq = walletSrv.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
 
         // Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = issuer.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt, true)
+        val credRes = issuerSrv.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt, true)
 
         return credRes
     }
@@ -134,12 +135,12 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // The Holder received a CredentialOffer
         //
-        WalletService.addCredentialOffer(holderCtx, credOffer)
-        val offeredCred = WalletService.resolveOfferedCredential(holderCtx, credOffer)
+        walletSrv.addCredentialOffer(holderCtx, credOffer)
+        val offeredCred = walletSrv.resolveOfferedCredential(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = WalletService.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
+        val tokenReq = walletSrv.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -147,12 +148,12 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = WalletService.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
+        val credReq = walletSrv.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = issuer.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt)
+        val credRes = issuerSrv.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt)
 
         return credRes
     }
@@ -170,12 +171,12 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // The Holder received a CredentialOffer
         //
-        WalletService.addCredentialOffer(holderCtx, credOffer)
-        val offeredCred = WalletService.resolveOfferedCredential(holderCtx, credOffer)
+        walletSrv.addCredentialOffer(holderCtx, credOffer)
+        val offeredCred = walletSrv.resolveOfferedCredential(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = WalletService.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
+        val tokenReq = walletSrv.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -183,12 +184,12 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = WalletService.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
+        val credReq = walletSrv.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = issuer.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt, true)
+        val credRes = issuerSrv.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt, true)
 
         return credRes
     }

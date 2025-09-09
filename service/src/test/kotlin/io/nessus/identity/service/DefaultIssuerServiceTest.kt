@@ -9,17 +9,17 @@ import org.junit.jupiter.api.Test
 
 class DefaultIssuerServiceTest : AbstractServiceTest() {
 
-    val issuer = IssuerService.create() as DefaultIssuerService
+    val issuerSrv = IssuerService.create() as DefaultIssuerService
 
     @Test
     fun issuerMetadata() {
         runBlocking {
-            val ctx = loginWithWallet(Max)
+            val max = loginWithWallet(Max)
 
-            val metadataUrl = issuer.getIssuerMetadataUrl(ctx)
+            val metadataUrl = issuerSrv.getIssuerMetadataUrl(max)
             metadataUrl.shouldEndWith(".well-known/openid-credential-issuer")
 
-            val metadata = issuer.getIssuerMetadata(ctx) as IssuerMetadataDraft11
+            val metadata = issuerSrv.getIssuerMetadata(max) as IssuerMetadataDraft11
             metadata.credentialsSupported.shouldNotBeNull()
         }
     }

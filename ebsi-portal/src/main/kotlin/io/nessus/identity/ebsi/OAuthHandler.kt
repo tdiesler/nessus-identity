@@ -4,17 +4,13 @@ import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.TokenRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.request.path
-import io.ktor.server.request.receiveParameters
-import io.ktor.server.request.uri
-import io.ktor.server.response.respondRedirect
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.RoutingCall
-import io.ktor.util.toMap
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.util.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
@@ -22,8 +18,8 @@ import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_K
 import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.OIDCContextRegistry
+import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
@@ -35,6 +31,8 @@ import kotlinx.serialization.json.Json
 object OAuthHandler {
 
     val log = KotlinLogging.logger {}
+
+    val walletSrv = WalletService.create()
 
     suspend fun handleAuthRequests(call: RoutingCall, dstId: String) {
 
@@ -154,8 +152,8 @@ object OAuthHandler {
             }
         }
 
-        val idTokenJwt = WalletService.createIDToken(ctx, reqParams)
-        WalletService.sendIDToken(ctx, redirectUri, idTokenJwt)
+        val idTokenJwt = walletSrv.createIDToken(ctx, reqParams)
+        walletSrv.sendIDToken(ctx, redirectUri, idTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -193,8 +191,8 @@ object OAuthHandler {
             authReq = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         }
 
-        val vpTokenJwt = WalletService.createVPToken(ctx, authReq)
-        WalletService.sendVPToken(ctx, vpTokenJwt)
+        val vpTokenJwt = walletSrv.createVPToken(ctx, authReq)
+        walletSrv.sendVPToken(ctx, vpTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,

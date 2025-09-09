@@ -13,10 +13,9 @@ import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.TokenRequest
 import id.walt.oid4vc.responses.TokenResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.http.URLBuilder
+import io.ktor.http.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
-import io.nessus.identity.extend.getCredentialTypes
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
@@ -35,7 +34,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
-import java.util.Date
+import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -45,7 +44,7 @@ object AuthService {
 
     val log = KotlinLogging.logger {}
 
-    val issuer = IssuerService.create()
+    val issuerSrv = IssuerService.create()
 
     fun getAuthMetadataUrl(ctx: LoginContext): String {
         val metadataUrl = OpenID4VCI.getOpenIdProviderMetadataUrl("$authEndpointUri/${ctx.targetId}")
@@ -220,7 +219,7 @@ object AuthService {
     suspend fun handleTokenRequestPreAuthorized(ctx: OIDContext, tokenReq: TokenRequest): TokenResponse {
 
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY))
-            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuer.getIssuerMetadata(ctx))
+            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerSrv.getIssuerMetadata(ctx))
 
         var subId = tokenReq.clientId
         val preAuthTokenRequest = tokenReq as TokenRequest.PreAuthorizedCode
@@ -239,8 +238,8 @@ object AuthService {
             // Issuing CredentialOffers (on-demand) for EBSI Conformance
             if (!hasCredentialOfferRecord(preAuthCode)) {
                 log.info { "Issuing CredentialOffer $preAuthCode (on-demand) for EBSI Conformance" }
-                val ctypes = listOf("VerifiableCredential", "VerifiableAttestation", preAuthCode)
-                val credOffer = issuer.createCredentialOffer(ctx, subId, ctypes, userPin)
+                val types = listOf("VerifiableCredential", preAuthCode)
+                val credOffer = issuerSrv.createCredentialOffer(ctx, subId, types, userPin)
                 putCredentialOfferRecord(preAuthCode, credOffer, userPin)
             }
         }
@@ -279,7 +278,7 @@ object AuthService {
         // Attach issuer metadata (on demand)
         //
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY)) {
-            val metadata = issuer.getIssuerMetadata(ctx) as IssuerMetadataDraft11
+            val metadata = issuerSrv.getIssuerMetadata(ctx) as IssuerMetadataDraft11
             ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         }
 
