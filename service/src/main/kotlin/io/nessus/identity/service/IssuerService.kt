@@ -10,7 +10,7 @@ import io.nessus.identity.types.IssuerMetadata
 
 // IssuerService =======================================================================================================
 
-interface IssuerService {
+interface IssuerService<COType: CredentialOffer, IMDType: IssuerMetadata> {
 
     /**
      * Creates a CredentialOffer for the given subject and credential types.
@@ -20,9 +20,12 @@ interface IssuerService {
         subId: String,
         types: List<String>,
         userPin: String? = null
-    ): CredentialOffer
+    ): COType
 
-    suspend fun getCredentialFromParameters(ctx: OIDContext, vcp: CredentialParameters): CredentialResponse
+    suspend fun getCredentialFromParameters(
+        ctx: OIDContext,
+        vcp: CredentialParameters
+    ): CredentialResponse
 
     suspend fun getCredentialFromRequest(
         ctx: OIDContext,
@@ -38,15 +41,15 @@ interface IssuerService {
 
     fun getIssuerMetadataUrl(ctx: LoginContext): String
 
-    suspend fun <T : IssuerMetadata> getIssuerMetadata(ctx: LoginContext): T
+    suspend fun getIssuerMetadata(ctx: LoginContext): IMDType
 
     companion object {
-        fun create(): IssuerService {
+        fun create(): DefaultIssuerService {
             val issuerUrl = ConfigProvider.issuerEndpointUri
             val authUrl = ConfigProvider.authEndpointUri
             return DefaultIssuerService(issuerUrl, authUrl);
         }
-        fun createKeycloak(): IssuerService {
+        fun createKeycloak(): KeycloakIssuerService {
             return KeycloakIssuerService("https://auth.localtest.me/realms/oid4vci");
         }
     }

@@ -174,7 +174,7 @@ class WaltIDApiClient(val baseUrl: String) {
     private suspend inline fun <reified T> handleResponse(res: HttpResponse): T {
         val body = res.bodyAsText()
         val json = Json { ignoreUnknownKeys = true }
-        if (200 <= res.status.value && res.status.value < 300) {
+        if (res.status.value in 200..<300) {
             return if (T::class == HttpResponse::class) {
                 @Suppress("UNCHECKED_CAST")
                 res as T

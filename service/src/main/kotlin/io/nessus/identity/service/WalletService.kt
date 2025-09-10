@@ -9,13 +9,12 @@ import id.walt.oid4vc.responses.CredentialResponse
 import id.walt.oid4vc.responses.TokenResponse
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadata
-import io.nessus.identity.types.IssuerMetadataDraft11
 
 // WalletService =======================================================================================================
 
-interface WalletService {
+interface WalletService<COType: CredentialOffer> {
 
-    fun addCredentialOffer(ctx: OIDContext, credOffer: CredentialOffer)
+    fun addCredentialOffer(ctx: OIDContext, credOffer: COType)
 
     fun addCredential(ctx: OIDContext, credRes: CredentialResponse)
 
@@ -25,11 +24,11 @@ interface WalletService {
 
     fun createTokenRequestAuthCode(ctx: OIDContext, authCode: String): TokenRequest
 
-    fun createTokenRequestPreAuthorized(ctx: OIDContext, credOffer: CredentialOffer, userPin: String): TokenRequest
+    fun createTokenRequestPreAuthorized(ctx: OIDContext, credOffer: COType, userPin: String): TokenRequest
 
-    suspend fun getCredentialOfferFromUri(ctx: OIDContext, offerUri: String): CredentialOffer
+    suspend fun getCredentialOfferFromUri(ctx: OIDContext, offerUri: String): COType
 
-    suspend fun getCredentialFromOffer(ctx: OIDContext, credOffer: CredentialOffer): CredentialResponse
+    suspend fun getCredentialFromOffer(ctx: OIDContext, credOffer: COType): CredentialResponse
 
     suspend fun getDeferredCredential(ctx: OIDContext, acceptanceToken: String): CredentialResponse
 
@@ -37,14 +36,14 @@ interface WalletService {
 
     suspend fun resolveIssuerMetadata(issuerUrl: String): IssuerMetadata
 
-    suspend fun resolveOfferedCredential(ctx: OIDContext, credOffer: CredentialOffer): OfferedCredential
+    suspend fun resolveOfferedCredential(ctx: OIDContext, credOffer: COType): OfferedCredential
 
     suspend fun sendIDToken(ctx: OIDContext, redirectUri: String, idTokenJwt: SignedJWT): String
 
     suspend fun sendVPToken(ctx: OIDContext, vpTokenJwt: SignedJWT): String
 
     companion object {
-        fun create(): WalletService {
+        fun create(): DefaultWalletService {
             return DefaultWalletService()
         }
     }

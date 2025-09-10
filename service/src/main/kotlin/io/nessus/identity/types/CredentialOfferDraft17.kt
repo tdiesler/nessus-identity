@@ -2,29 +2,6 @@ package io.nessus.identity.types
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonObject
-
-abstract class CredentialOffer {
-    abstract val credentialIssuer: String
-    abstract val grants: Grants?
-
-    abstract fun getCredentialTypes(): List<String>
-
-    fun getAuthorizationCodeGrant() : AuthorizationCodeGrant? {
-        return grants?.authorizationCode
-    }
-
-    fun getPreAuthorizedCodeGrant() : PreAuthorizedCodeGrant? {
-        return grants?.preAuthorizedCode
-    }
-
-    abstract fun toJson() : String
-    abstract fun toJsonObj() : JsonObject
-}
 
 /*
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
@@ -41,18 +18,10 @@ data class CredentialOfferDraft17(
     override val grants: Grants? = null
 ) : CredentialOffer() {
 
-    companion object {
-        fun fromJson(json: String) = Json.decodeFromString<CredentialOfferDraft17>(json)
-        fun fromJson(json: JsonObject) = Json.decodeFromJsonElement<CredentialOfferDraft17>(json)
-    }
-
     // [TODO] Remove when Draft11 is gone
     override fun getCredentialTypes(): List<String> {
         return credentialConfigurationIds
     }
-
-    override fun toJson() = Json.encodeToString(this)
-    override fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
 }
 
 @Serializable

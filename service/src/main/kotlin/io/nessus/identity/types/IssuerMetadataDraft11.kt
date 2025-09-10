@@ -5,18 +5,14 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonIgnoreUnknownKeys
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonObject
 
 /*
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-11.html#name-credential-issuer-metadata
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-11.html#name-w3c-verifiable-credentials
 */
 @Serializable
-@JsonIgnoreUnknownKeys
 @OptIn(ExperimentalSerializationApi::class)
 data class IssuerMetadataDraft11(
     @SerialName("credential_issuer")
@@ -38,17 +34,19 @@ data class IssuerMetadataDraft11(
     @SerialName("credentials_supported")
     val credentialsSupported: List<CredentialSupportedDraft11>,
 
+    @SerialName("display")
     val display: List<IssuerDisplay>? = null
 ) : IssuerMetadata() {
     companion object {
-        fun fromJson(json: String) = Json.decodeFromString<IssuerMetadataDraft11>(json)
-        fun fromJson(json: JsonObject) = Json.decodeFromJsonElement<IssuerMetadataDraft11>(json)
+        val jsonInst = Json { ignoreUnknownKeys = true}
+        fun fromJson(json: String) = jsonInst.decodeFromString<IssuerMetadataDraft11>(json)
+        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<IssuerMetadataDraft11>(json)
     }
 
-    fun toJson() = Json.encodeToString(this)
-    fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
+    override val supportedTypes
+        get() = credentialsSupported.flatMap { it.types ?: emptyList() }.toSet()
 
-    fun toWaltIdIssuerMetadata() : OpenIDProviderMetadata {
+    fun toWaltIdIssuerMetadata(): OpenIDProviderMetadata {
         val jsonStr = Json.encodeToString(this)
         return OpenIDProviderMetadata.fromJSONString(jsonStr)
     }
@@ -61,14 +59,16 @@ data class IssuerDisplay(
 )
 
 @Serializable
-@JsonIgnoreUnknownKeys
 @OptIn(ExperimentalSerializationApi::class)
 data class CredentialSupportedDraft11(
+    @SerialName("format")
     val format: String,
 
+    @SerialName("id")
     val id: String? = null,
 
     // Required for jwt_vc_json
+    @SerialName("types")
     val types: List<String>? = null,
 
     @SerialName("cryptographic_binding_methods_supported")
@@ -80,15 +80,17 @@ data class CredentialSupportedDraft11(
     @SerialName("credentialSubject")
     val credentialSubject: Map<String, SubjectMetadataDraft11>? = null,
 
+    @SerialName("display")
     val display: List<CredentialDisplay>? = null
 )
 
 @Serializable
 data class SubjectMetadataDraft11(
+    @SerialName("mandatory")
     val mandatory: Boolean? = null,
     @SerialName("value_type")
     val valueType: String? = null,
-
+    @SerialName("display")
     val display: List<SubjectDisplayDraft11>? = null
 )
 

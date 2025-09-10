@@ -15,6 +15,7 @@ import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OIDContext) {
 
     val walletSrv = WalletService.create()
+    val verifierSrv = VerifierService.create()
 
     /**
      * Holder finds Credential by Type and presents it to the Verifier
@@ -71,6 +72,6 @@ class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OID
             .withSubject(holderCtx.did)
             .withTypes(listOf(ctype))
 
-        VerifierService.validateVerifiableCredential(w3Cred, vcp)
+        verifierSrv.validateVerifiableCredential(w3Cred, vcp)
     }
 }

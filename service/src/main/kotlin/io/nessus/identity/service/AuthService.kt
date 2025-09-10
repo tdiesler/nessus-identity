@@ -26,7 +26,6 @@ import io.nessus.identity.service.CredentialOfferRegistry.hasCredentialOfferReco
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
-import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.Json
@@ -278,7 +277,7 @@ object AuthService {
         // Attach issuer metadata (on demand)
         //
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY)) {
-            val metadata = issuerSrv.getIssuerMetadata(ctx) as IssuerMetadataDraft11
+            val metadata = issuerSrv.getIssuerMetadata(ctx)
             ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         }
 

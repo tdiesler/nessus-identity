@@ -9,7 +9,6 @@ import kotlinx.serialization.json.JsonContentPolymorphicSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 
@@ -27,12 +26,6 @@ data class CredentialOfferDraft11(
     override val grants: Grants? = null
 ) : CredentialOffer() {
 
-    companion object {
-        val jsonInst = Json { ignoreUnknownKeys = true}
-        fun fromJson(json: String) = jsonInst.decodeFromString<CredentialOfferDraft11>(json)
-        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<CredentialOfferDraft11>(json)
-    }
-
     override fun getCredentialTypes(): List<String> {
         return credentials.mapNotNull {
             when (it) {
@@ -41,9 +34,6 @@ data class CredentialOfferDraft11(
             }
         }.toList()
     }
-
-    override fun toJson() = Json.encodeToString(this)
-    override fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
 
     fun toWaltIdCredentialOffer(): id.walt.oid4vc.data.CredentialOffer {
         val jsonObj = Json.encodeToJsonElement(this).jsonObject

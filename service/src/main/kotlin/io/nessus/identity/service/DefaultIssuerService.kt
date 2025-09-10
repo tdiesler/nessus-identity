@@ -30,7 +30,7 @@ import kotlin.uuid.Uuid
 
 // DefaultIssuerService ================================================================================================
 
-class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIssuerService(issuerUrl) {
+class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIssuerService<CredentialOfferDraft11, IssuerMetadataDraft11>(issuerUrl) {
 
     val log = KotlinLogging.logger {}
 
@@ -41,7 +41,7 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
         userPin: String?
     ): CredentialOfferDraft11 {
 
-        val metadata = getIssuerMetadata(ctx) as IssuerMetadataDraft11
+        val metadata = getIssuerMetadata(ctx)
         val issuerUri = metadata.credentialIssuer
 
         // Build issuer state jwt
@@ -137,7 +137,7 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
             throw java.lang.IllegalStateException("No types")
 
         // Verify credential types i.e. every type must bve known to this issuer
-        val metadata = getIssuerMetadata(ctx) as IssuerMetadataDraft11
+        val metadata = getIssuerMetadata(ctx)
         val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = vcp.types.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())
@@ -221,15 +221,7 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
         return metadataUrl
     }
 
-    @Suppress("UNCHECKED_CAST")
-    override suspend fun <T : IssuerMetadata> getIssuerMetadata(ctx: LoginContext): T {
-        val metadata = buildIssuerMetadata(ctx)
-        return metadata as T
-    }
-
-    // Private ---------------------------------------------------------------------------------------------------------
-
-    private fun buildIssuerMetadata(ctx: LoginContext): IssuerMetadataDraft11 {
+    override suspend fun getIssuerMetadataInternal(ctx: LoginContext): IssuerMetadataDraft11 {
         val authTargetUrl = "$authUrl/${ctx.targetId}"
         val issuerTargetUrl = "$issuerUrl/${ctx.targetId}"
         val credentialSupported = mapOf(
@@ -277,8 +269,11 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
             codeChallengeMethodsSupported = listOf("S256"),
             credentialSupported = credentialSupported,
         )
-        return IssuerMetadataDraft11.fromJson(waltDraft11.toJSONString())
+        val metadata = IssuerMetadataDraft11.fromJson(waltDraft11.toJSONString())
+        return metadata
     }
+
+    // Private ---------------------------------------------------------------------------------------------------------
 
     @OptIn(ExperimentalUuidApi::class)
     private suspend fun credentialFromRequestDeferred(
@@ -289,7 +284,7 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
         log.info { "CredentialRequestDeferred: ${Json.encodeToString(credReq)}" }
 
         val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequest")
-        val metadata = getIssuerMetadata(ctx) as IssuerMetadataDraft11
+        val metadata = getIssuerMetadata(ctx)
         val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = types.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())

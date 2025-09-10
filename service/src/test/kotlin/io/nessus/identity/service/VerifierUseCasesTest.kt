@@ -7,10 +7,9 @@ import io.nessus.identity.flow.CredentialIssuanceFlow
 import io.nessus.identity.flow.CredentialVerificationFlow
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequestBuilder
-import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.CredentialStatus
-import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.Max
@@ -21,7 +20,7 @@ import java.time.Instant
 
 class VerifierUseCasesTest : AbstractServiceTest() {
 
-    val issuerSrv = IssuerService.create() as DefaultIssuerService
+    val issuerSrv = IssuerService.create()
     val walletSrv = WalletService.create()
 
     /**
@@ -304,12 +303,12 @@ class VerifierUseCasesTest : AbstractServiceTest() {
     private suspend fun issueCredentialFromParameters(
         issuerCtx: OIDContext,
         holderCtx: OIDContext,
-        credOffer: CredentialOffer,
+        credOffer: CredentialOfferDraft11,
         userPin: String,
         vcp: CredentialParameters,
     ): CredentialResponse {
 
-        val metadata = issuerSrv.getIssuerMetadata(issuerCtx) as IssuerMetadataDraft11
+        val metadata = issuerSrv.getIssuerMetadata(issuerCtx)
         issuerCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         holderCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
 

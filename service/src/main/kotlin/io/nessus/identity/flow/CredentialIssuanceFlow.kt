@@ -11,8 +11,7 @@ import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestBuilder
-import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.IssuerMetadataDraft11
+import io.nessus.identity.types.CredentialOfferDraft11
 import kotlinx.coroutines.runBlocking
 
 class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContext) {
@@ -21,7 +20,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
     val walletSrv = WalletService.create()
 
     init {
-        val metadata = runBlocking { issuerSrv.getIssuerMetadata(issuerCtx) as IssuerMetadataDraft11 }
+        val metadata = runBlocking { issuerSrv.getIssuerMetadata(issuerCtx) }
         issuerCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         holderCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
     }
@@ -30,7 +29,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
      * Holder gets a Credential from an Issuer based on a CredentialOffer
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
      */
-    suspend fun credentialFromOfferInTime(credOffer: CredentialOffer): CredentialResponse {
+    suspend fun credentialFromOfferInTime(credOffer: CredentialOfferDraft11): CredentialResponse {
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
@@ -81,7 +80,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
      * Holder gets a deferred Credential from an Issuer based on a CredentialOffer
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#deferred-issuance
      */
-    suspend fun credentialFromOfferDeferred(credOffer: CredentialOffer): CredentialResponse {
+    suspend fun credentialFromOfferDeferred(credOffer: CredentialOfferDraft11): CredentialResponse {
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
@@ -131,7 +130,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
      * Pre-Authorized Holder gets a Credential from an Issuer based on a CredentialOffer
      * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#pre-authorised
      */
-    suspend fun credentialFromOfferPreAuthorized(credOffer: CredentialOffer, userPin: String): CredentialResponse {
+    suspend fun credentialFromOfferPreAuthorized(credOffer: CredentialOfferDraft11, userPin: String): CredentialResponse {
 
         // The Holder received a CredentialOffer
         //
@@ -165,7 +164,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#deferred-issuance
      */
     suspend fun credentialFromOfferPreAuthorizedDeferred(
-        credOffer: CredentialOffer,
+        credOffer: CredentialOfferDraft11,
         userPin: String
     ): CredentialResponse {
 

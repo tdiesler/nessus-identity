@@ -13,7 +13,6 @@ import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.types.IssuerMetadataDraft11
 import kotlinx.serialization.json.Json
 
 object IssuanceHandler {
@@ -99,7 +98,7 @@ object IssuanceHandler {
 
     private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: LoginContext) {
 
-        val metadata = issuerSrv.getIssuerMetadata(ctx) as IssuerMetadataDraft11
+        val metadata = issuerSrv.getIssuerMetadata(ctx)
         val payload = Json.encodeToString(metadata)
         call.respondText(
             status = HttpStatusCode.OK,

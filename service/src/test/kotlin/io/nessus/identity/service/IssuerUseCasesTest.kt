@@ -15,7 +15,7 @@ class IssuerUseCasesTest : AbstractServiceTest() {
     // Generates a number between 1000 and 9999
     val userPin = Random.nextInt(1000, 10000)
 
-    val issuerSrv = IssuerService.create() as DefaultIssuerService
+    val issuerSrv = IssuerService.create()
     val walletSrv = WalletService.create()
 
     /**

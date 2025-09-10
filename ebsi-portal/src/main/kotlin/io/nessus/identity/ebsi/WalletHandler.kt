@@ -7,7 +7,6 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
-import io.nessus.identity.extend.getPreAuthorizedGrantDetails
 import io.nessus.identity.extend.toSignedJWT
 import io.nessus.identity.service.CredentialOfferRegistry.getCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType

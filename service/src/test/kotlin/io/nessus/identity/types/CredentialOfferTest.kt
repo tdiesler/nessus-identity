@@ -49,7 +49,7 @@ class CredentialOfferTypeTest {
         wasJson.shouldBeEqual(expJson)
 
         // Serialize to our CredentialOfferDraft11
-        val draft11 = CredentialOfferDraft11.fromJson(expJson)
+        val draft11 = CredentialOffer.fromJson(expJson) as CredentialOfferDraft11
         wasJson = draft11.toJsonObj()
 
         log.info { wasJson }

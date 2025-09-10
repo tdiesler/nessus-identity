@@ -16,7 +16,6 @@ import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.Grants
-import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft17
 import io.nessus.identity.types.PreAuthorizedCodeGrant
 import io.nessus.identity.waltid.authenticationId
@@ -25,16 +24,31 @@ import java.time.Instant
 import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 
-// IssuerService =======================================================================================================
+// KeycloakIssuerService =======================================================================================================================================
 
-class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService(issuerUrl) {
+/**
+ * Keycloak as OID4VC Issuer
+ *
+ * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
+ */
+class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService<CredentialOfferDraft17, IssuerMetadataDraft17>(issuerUrl) {
 
     val log = KotlinLogging.logger {}
 
-    override suspend fun createCredentialOffer(ctx: LoginContext, subId: String, types: List<String>, userPin: String?): CredentialOfferDraft17 {
+    override suspend fun createCredentialOffer(
+        ctx: LoginContext,
+        subId: String,
+        types: List<String>,
+        userPin: String?
+    ): CredentialOfferDraft17 {
 
-        val metadata = getIssuerMetadata(ctx) as IssuerMetadataDraft17
+        val metadata = getIssuerMetadata(ctx)
         val issuerUri = metadata.credentialIssuer
+        val supportedTypes = metadata.supportedTypes
+
+        types.firstOrNull { it !in supportedTypes }?.let {
+            throw IllegalArgumentException("UnsupportedType: $it")
+        }
 
         // Build issuer state jwt
         val iat = Instant.now()
@@ -63,7 +77,7 @@ class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService(issuerUrl
             credentialConfigurationIds = types,
             grants = if (userPin != null) {
                 val preAuthCode = credOfferJwt.serialize()
-                Grants(preAuthorizedCode=PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
+                Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
             } else {
                 val issuerState = credOfferJwt.serialize()
                 Grants(authorizationCode = AuthorizationCodeGrant(issuerState = issuerState))
@@ -82,7 +96,12 @@ class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService(issuerUrl
         return credOffer
     }
 
-    override suspend fun getCredentialFromRequest(ctx: OIDContext, credReq: CredentialRequest, accessTokenJwt: SignedJWT, deferred: Boolean): CredentialResponse {
+    override suspend fun getCredentialFromRequest(
+        ctx: OIDContext,
+        credReq: CredentialRequest,
+        accessTokenJwt: SignedJWT,
+        deferred: Boolean
+    ): CredentialResponse {
         throw IllegalStateException("Not implemented")
     }
 
@@ -95,13 +114,12 @@ class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService(issuerUrl
         throw IllegalStateException("Not implemented")
     }
 
-    @Suppress("UNCHECKED_CAST")
-    override suspend fun <T : IssuerMetadata> getIssuerMetadata(ctx: LoginContext): T {
+    override suspend fun getIssuerMetadataInternal(ctx: LoginContext): IssuerMetadataDraft17 {
         val metadataUrl = URI(getIssuerMetadataUrl(ctx)).toURL()
         val metadata = http.get(metadataUrl).bodyAsText().let {
             IssuerMetadataDraft17.fromJson(it)
         }
-        return metadata as T
+        return metadata
     }
 
     // Private ---------------------------------------------------------------------------------------------------------

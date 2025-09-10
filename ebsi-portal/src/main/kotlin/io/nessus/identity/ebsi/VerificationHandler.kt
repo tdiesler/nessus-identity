@@ -20,6 +20,8 @@ object VerificationHandler {
 
     val log = KotlinLogging.logger {}
 
+    val verifierSrv = VerifierService.create()
+
     @OptIn(ExperimentalUuidApi::class)
     fun handleVPTokenResponse(ctx: OIDContext, postParams: Map<String, List<String>>): String {
 
@@ -59,7 +61,7 @@ object VerificationHandler {
             log.info { "   Claims: ${vcJwt.jwtClaimsSet}" }
             runCatching {
                 val w3Cred = W3CCredentialJwt.fromEncodedJwt(vcEncoded).vc
-                VerifierService.validateVerifiableCredential(w3Cred)
+                verifierSrv.validateVerifiableCredential(w3Cred)
             }.onFailure {
                 validationError = it
                 urlBuilder.apply {
