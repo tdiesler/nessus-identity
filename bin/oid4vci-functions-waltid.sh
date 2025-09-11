@@ -30,10 +30,10 @@ get_wallet_id() {
 }
 
 load_or_generate_key() {
-  local user="$1"
+  local role="$1"
 
   mkdir -p ".secret"
-  keyFile="secp256r1-${user}-key.jwk"
+  keyFile="es256-${role}-key.jwk"
   if [ ! -f ".secret/${keyFile}" ]; then
     echo "Creating key ${keyFile}" >&2
     jose jwk gen -i '{"alg":"ES256","crv":"P-256","use":"sig"}' -o ".secret/${keyFile}"
@@ -65,11 +65,11 @@ setup_waltid_verifier() {
   setup_waltid_user "verifier" "${name}" "${email}" "${password}"
 }
 
-## Register/Login user, create key and did:key (on demand)
+## Register/Login role, create key and did:key (on demand)
 #
 setup_waltid_user() {
   local role="$1" name="$2" email="$3" password="$4"
-  
+
   # Create/Login Issuer in WaltId Wallet API
   #
   token=$(wallet_auth_register_or_login "${name}" "${email}" "${password}") || exit 1
@@ -141,7 +141,7 @@ EOF
   echo "$token"
 }
 
-## Register a user (type email) if not registered already
+## Register a role (type email) if not registered already
 #
 # https://wallet.demo.walt.id/swagger/index.html#/Authentication/post_wallet_api_auth_register
 wallet_auth_register() {
@@ -179,7 +179,7 @@ EOF
   fi
 }
 
-## Register user on-demand, then login
+## Register role on-demand, then login
 #
 wallet_auth_register_or_login() {
   local name="$1" email="$2" password="$3"

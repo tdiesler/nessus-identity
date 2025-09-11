@@ -41,6 +41,10 @@ spec:
             - name: KC_DB_PASSWORD
               valueFrom: { secretKeyRef: { name: postgres-secret, key: POSTGRES_PASSWORD } }
 
+            # Log levels
+            - name: KC_LOG_LEVEL
+              value: INFO,org.keycloak.protocol.oid4vc:DEBUG,org.keycloak.services:DEBUG
+
             # Hostname/Proxy for ingress
             - name: KC_PROXY_HEADERS
               value: "xforwarded"
