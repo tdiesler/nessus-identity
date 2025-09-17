@@ -1,7 +1,6 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.OfferedCredential
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.requests.TokenRequest
@@ -12,6 +11,7 @@ import io.nessus.identity.types.IssuerMetadata
 
 // WalletService =======================================================================================================
 
+// [TODO] Remove CredentialOffer type param from WalletService
 interface WalletService<COType: CredentialOffer> {
 
     fun addCredentialOffer(ctx: OIDContext, credOffer: COType)
@@ -32,11 +32,9 @@ interface WalletService<COType: CredentialOffer> {
 
     suspend fun getDeferredCredential(ctx: OIDContext, acceptanceToken: String): CredentialResponse
 
-    suspend fun createCredentialRequest(ctx: OIDContext, offeredCred: OfferedCredential, accessToken: TokenResponse): CredentialRequest
+    suspend fun resolveIssuerMetadata(ctx: OIDContext, issuerUrl: String): IssuerMetadata
 
-    suspend fun resolveIssuerMetadata(issuerUrl: String): IssuerMetadata
-
-    suspend fun resolveOfferedCredential(ctx: OIDContext, credOffer: COType): OfferedCredential
+    suspend fun createCredentialRequest(ctx: OIDContext, types: List<String>, accessToken: TokenResponse): CredentialRequest
 
     suspend fun sendIDToken(ctx: OIDContext, redirectUri: String, idTokenJwt: SignedJWT): String
 

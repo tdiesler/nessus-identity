@@ -32,7 +32,7 @@ data class IssuerMetadataDraft11(
     val deferredCredentialEndpoint: String? = null,
 
     @SerialName("credentials_supported")
-    val credentialsSupported: List<CredentialSupportedDraft11>,
+    val credentialsSupported: List<CredentialConfigurationDraft11>,
 
     @SerialName("display")
     val display: List<IssuerDisplay>? = null
@@ -60,9 +60,9 @@ data class IssuerDisplay(
 
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class CredentialSupportedDraft11(
+data class CredentialConfigurationDraft11(
     @SerialName("format")
-    val format: String,
+    override val format: String,
 
     @SerialName("id")
     val id: String? = null,
@@ -72,7 +72,7 @@ data class CredentialSupportedDraft11(
     val types: List<String>? = null,
 
     @SerialName("cryptographic_binding_methods_supported")
-    val cryptographicBindingMethodsSupported: List<String>? = null,
+    override val cryptographicBindingMethodsSupported: List<String>? = null,
 
     @SerialName("cryptographic_suites_supported")
     val cryptographicSuitesSupported: List<String>? = null,
@@ -82,7 +82,7 @@ data class CredentialSupportedDraft11(
 
     @SerialName("display")
     val display: List<CredentialDisplay>? = null
-)
+): CredentialConfiguration()
 
 @Serializable
 data class SubjectMetadataDraft11(

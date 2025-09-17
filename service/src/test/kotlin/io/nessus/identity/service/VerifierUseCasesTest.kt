@@ -2,6 +2,7 @@ package io.nessus.identity.service
 
 import id.walt.oid4vc.responses.CredentialResponse
 import io.kotest.matchers.string.shouldContain
+import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.flow.CredentialIssuanceFlow
 import io.nessus.identity.flow.CredentialVerificationFlow
@@ -46,7 +47,11 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // The Holder sends an AuthorizationRequest to the Verifier
             //
-            val authRequest = AuthorizationRequestBuilder(alice).build()
+            val redirectUri = "$authEndpointUri/${alice.targetId}"
+            val authRequest = AuthorizationRequestBuilder()
+                .withClientId(alice.did)
+                .withRedirectUri(redirectUri)
+                .build()
 
             // The Verifier sends an IDToken Request to the Holder (request proof of DID ownership)
             //
@@ -315,7 +320,6 @@ class VerifierUseCasesTest : AbstractServiceTest() {
         // The Holder received a CredentialOffer
         //
         walletSrv.addCredentialOffer(holderCtx, credOffer)
-        val offeredCred = walletSrv.resolveOfferedCredential(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
@@ -327,7 +331,8 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = walletSrv.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
+        val types = credOffer.getTypes()
+        val credReq = walletSrv.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //

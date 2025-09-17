@@ -27,6 +27,7 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
     @Test
     fun testCTQualificationThroughVPExchange() {
 
+        val ctype = "CTWalletQualificationCredential"
         log.info { ">>>>> CTQualificationThroughVPExchange" }
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(10))
@@ -38,8 +39,7 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
 
         // Click the "Initiate" link
         val mainTab = driver.windowHandle
-        val ctType = "CTWalletQualificationCredential"
-        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctType')]")
+        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctype')]")
         fixupInitiateHref(ctx, driver.findElement(xpath)).click()
         nextStep()
 
@@ -51,6 +51,9 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
 
         val credentialJson = driver.findElement(By.tagName("pre")).text
         log.info { "Credential: $credentialJson" }
+
+        // [TODO] verify VC json
+        // verifyCredential(ctype, credentialJson)
 
         // Switch back to the original tab
         driver.switchTo().window(mainTab)

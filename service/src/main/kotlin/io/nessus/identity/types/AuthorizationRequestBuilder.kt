@@ -1,35 +1,60 @@
 package io.nessus.identity.types
 
 import com.nimbusds.jose.util.Base64URL
+import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.OpenIDClientMetadata
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.oid4vc.requests.AuthorizationRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.nessus.identity.config.ConfigProvider.authEndpointUri
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
-import io.nessus.identity.service.OIDContext
+import io.nessus.identity.service.OID4VCIUtils
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.security.MessageDigest
-import kotlin.random.Random
 
-class AuthorizationRequestBuilder(val ctx: OIDContext) {
+class AuthorizationRequestBuilder {
 
     val log = KotlinLogging.logger {}
 
-    private var authorizationDetails: AuthorizationDetails? = null
-    private var credOffer: CredentialOffer? = null
+    lateinit var clientId: String
+    lateinit var redirectUri: String
+    lateinit var codeVerifier: String
+
+    private var clientState: String? = null
+    private var codeChallengeMethod: String? = null
+    private var metadata: IssuerMetadata? = null
     private var presentationDefinition: PresentationDefinition? = null
 
-    fun withAuthorizationDetails(authDetails: AuthorizationDetails): AuthorizationRequestBuilder {
-        this.authorizationDetails = authDetails
+    // Internal props
+    private val authDetails = mutableListOf<AuthorizationDetails>()
+    private var credOffer: CredentialOffer? = null
+
+    var codeChallenge: String? = null
+
+    fun withClientId(id: String): AuthorizationRequestBuilder {
+        this.clientId = id
         return this
     }
 
-    fun withCredentialOffer(credOffer: CredentialOffer): AuthorizationRequestBuilder {
-        this.credOffer = credOffer
+    fun withClientState(state: String): AuthorizationRequestBuilder {
+        this.clientState = state
+        return this
+    }
+
+    fun withCodeChallengeMethod(method: String): AuthorizationRequestBuilder {
+        if (method != "S256")
+            throw IllegalStateException("Unsupported code challenge method: $method")
+        this.codeChallengeMethod = method
+        return this
+    }
+
+    fun withCodeVerifier(codeVerifier: String): AuthorizationRequestBuilder {
+        this.codeVerifier = codeVerifier
+        return this
+    }
+
+    fun withIssuerMetadata(metadata: IssuerMetadata): AuthorizationRequestBuilder {
+        this.metadata = metadata
         return this
     }
 
@@ -38,24 +63,67 @@ class AuthorizationRequestBuilder(val ctx: OIDContext) {
         return this
     }
 
+    fun withRedirectUri(uri: String): AuthorizationRequestBuilder {
+        this.redirectUri = uri
+        return this
+    }
+
+    suspend fun buildFrom(credOffer: CredentialOffer): AuthorizationRequest {
+        this.credOffer = credOffer
+
+        if (metadata == null)
+            metadata = OID4VCIUtils.resolveIssuerMetadata(credOffer.credentialIssuer)
+
+        when (credOffer) {
+
+            is CredentialOfferDraft11 -> {
+                val waltIdOffer = credOffer.toWaltIdCredentialOffer()
+                val waltIdMetadata = (metadata as IssuerMetadataDraft11).toWaltIdIssuerMetadata()
+                val offeredCredentials = OpenID4VCI.resolveOfferedCredentials(waltIdOffer, waltIdMetadata)
+
+                log.info { "Offered Credentials: ${Json.encodeToString(offeredCredentials)}" }
+                if (offeredCredentials.size > 1) log.warn { "Multiple offered credentials, using first" }
+                val offeredCred = offeredCredentials.first()
+
+                authDetails.add(AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer))
+            }
+
+            is CredentialOfferDraft17 -> {
+                credOffer.getTypes().forEach { ctype ->
+                    authDetails.add(AuthorizationDetails.fromJSONString("""{
+                    "type": "openid_credential",
+                    "credential_configuration_id": "$ctype",
+                    "locations": [ "${credOffer.credentialIssuer}" ]
+                }"""))
+                }
+            }
+        }
+        return buildInternal()
+    }
+
     fun build(): AuthorizationRequest {
+        return buildInternal()
+    }
+
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+
+    private fun buildInternal(): AuthorizationRequest {
 
         // The Holder starts by requesting access for the desired credential from the Issuer's Authorisation Server.
         // The client_metadata.authorization_endpoint is used for the redirect location associated with the vp_token and id_token.
         // If client_metadata fails to provide the required information, the default configuration (openid://) will be used instead.
 
-        val rndBytes = Random.Default.nextBytes(32)
-        val codeVerifier = Base64URL.encode(rndBytes).toString()
-        val sha256 = MessageDigest.getInstance("SHA-256")
-        val codeVerifierHash = sha256.digest(codeVerifier.toByteArray())
-        val codeChallenge = Base64URL.encode(codeVerifierHash).toString()
+        if (codeChallengeMethod != null) {
+            val sha256 = MessageDigest.getInstance("SHA-256")
+            val codeVerifierHash = sha256.digest(codeVerifier.toByteArray())
+            codeChallenge = Base64URL.encode(codeVerifierHash).toString()
+        }
 
         // Build AuthRequestUrl
         //
-        val authRedirectUri = "$authEndpointUri/${ctx.targetId}"
         val clientMetadata = OpenIDClientMetadata(
             customParameters = mapOf(
-                "authorization_endpoint" to JsonPrimitive(authRedirectUri)
+                "authorization_endpoint" to JsonPrimitive(redirectUri)
             )
         )
 
@@ -63,21 +131,18 @@ class AuthorizationRequestBuilder(val ctx: OIDContext) {
 
         val authRequest = AuthorizationRequest(
             scope = setOf("openid"),
-            clientId = ctx.did,
-            state = ctx.walletId,
+            clientId = clientId,
+            state = clientState,
             clientMetadata = clientMetadata,
             codeChallenge = codeChallenge,
-            codeChallengeMethod = "S256",
-            authorizationDetails = authorizationDetails?.let { listOf(it) },
+            codeChallengeMethod = codeChallengeMethod,
+            authorizationDetails = authDetails,
             presentationDefinition = presentationDefinition,
-            redirectUri = authRedirectUri,
+            redirectUri = redirectUri,
             issuerState = issuerState
         )
 
-        ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
-        ctx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
         log.info { "AuthorizationRequest: ${Json.encodeToString(authRequest)}" }
-
         return authRequest
     }
 }

@@ -54,6 +54,9 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val credentialJson = driver.findElement(By.tagName("pre")).text
         log.info { "Credential: $credentialJson" }
 
+        // [TODO] verify VC json
+        // verifyCredential(ctype, credentialJson)
+
         // Switch back to the original tab
         driver.switchTo().window(mainTab)
         log.info { "Switched back to main tab" }
@@ -95,6 +98,9 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
         val credentialJson = driver.findElement(By.tagName("pre")).text
         log.info { "Deferred Credential: $credentialJson" }
+
+        // [TODO] verify VC json
+        // verifyCredential(ctype, credentialJson)
 
         // Switch back to the original tab
         driver.switchTo().window(mainTab)
@@ -142,6 +148,9 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val credentialJson = driver.findElement(By.tagName("pre")).text
         log.info { "PreAuthorised Credential: $credentialJson" }
 
+        // [TODO] verify VC json
+        // verifyCredential(ctype, credentialJson)
+
         // Switch back to the original tab
         driver.switchTo().window(mainTab)
         log.info { "Switched back to main tab" }
@@ -188,6 +197,9 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
         val credentialJson = driver.findElement(By.tagName("pre")).text
         log.info { "PreAuthorised Deferred Credential: $credentialJson" }
+
+        // [TODO] verify VC json
+        // verifyCredential(ctype, credentialJson)
 
         // Switch back to the original tab
         driver.switchTo().window(mainTab)

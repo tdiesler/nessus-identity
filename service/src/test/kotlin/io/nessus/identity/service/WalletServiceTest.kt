@@ -63,7 +63,7 @@ class WalletServiceTest : AbstractServiceTest() {
     fun resolveIssuerMetadata() {
         runBlocking {
             val metadataUrl = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock"
-            val metadata = walletSrv.resolveIssuerMetadata(metadataUrl) as IssuerMetadataDraft11
+            val metadata = OID4VCIUtils.resolveIssuerMetadata(metadataUrl) as IssuerMetadataDraft11
             metadata.credentialsSupported.shouldNotBeNull()
         }
     }

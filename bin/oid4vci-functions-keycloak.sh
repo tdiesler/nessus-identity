@@ -93,7 +93,36 @@ kc_create_realm() {
   }
 EOF
 
+  ## Show realm  attributes
+  #
   kcadm get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
+
+  ## Apply the profile to the realm
+  #
+  # shellcheck disable=SC2016
+  did_attr='{
+    "name": "did",
+    "displayName": "${email}",
+    "multivalued": false,
+    "permissions": { "view": ["admin"], "edit": ["admin"] },
+    "required": { "roles": [ "user" ] },
+    "validations": {
+      "pattern": {
+        "pattern": "^did:.*$",
+        "error-message": "invalidDid"
+      }
+    }
+  }'
+  users_profile=$(kcadm get "realms/${realm}/users/profile" 2>/dev/null)
+  # echo "Current users profile ..." && echo "${users_profile}" | jq .
+
+  users_profile=$(echo "${users_profile}" | jq \
+      --argjson did_attr "${did_attr}" \
+      '.attributes = ((.attributes // []) + [$did_attr] | unique_by(.name))')
+  # echo "Updated users profile ..." && echo "${users_profile}" | jq .
+
+  echo "Updating users profile ..."
+  echo "$users_profile" | kcadm update "realms/${realm}/users/profile" -f -
 
   # Configure oid4vci client scopes
   #
@@ -150,6 +179,16 @@ EOF
           "userAttribute": "email",
           "vc.mandatory": "false"
         }
+      },
+      {
+        "name": "did",
+        "protocol": "oid4vc",
+        "protocolMapper": "oid4vc-user-attribute-mapper",
+        "config": {
+          "claim.name": "id",
+          "userAttribute": "did",
+          "vc.mandatory": "false"
+        }
       }
     ]
   }
@@ -193,9 +232,10 @@ EOF
 
 kc_create_user() {
   local realm="$1"
-  local userName="$2"
-  local userEmail="$3"
-  local userPassword="$4"
+  local role="$2"
+  local userName="$3"
+  local userEmail="$4"
+  local userPassword="$5"
 
   local firstName lastName lowerName
   firstName=$(echo "${userName}" | awk '{print $1}')
@@ -209,14 +249,16 @@ kc_create_user() {
   if [[ -n "${userId}" ]]; then
     echo "User '${userName}' already exists (id=${userId})" >&2
   else
-    echo "Creating user '${userName}' in realm '${realm}'" >&2
+    echo "Creating user '${userName}' with role '${role}' in realm '${realm}'" >&2
+    did=$(jq -r '.did' ".secret/${role}-details.json")
     kcadm create users -r "${realm}" \
       -s username="${lowerName}" \
       -s email="${userEmail}" \
       -s firstName="${firstName}" \
       -s lastName="${lastName}" \
       -s emailVerified=true \
-      -s enabled=true
+      -s enabled=true \
+      -s "attributes.did=${did}"
 
     kcadm set-password -r "${realm}" --username "${lowerName}" --new-password "${userPassword}" --temporary=false
   fi

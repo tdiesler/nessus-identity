@@ -103,6 +103,17 @@ setup_waltid_user() {
     return 1
   fi
 
+
+  jq -n \
+    --arg role "${role}" \
+    --arg name "${name}" \
+    --arg email "${email}" \
+    --arg password "${password}" \
+    --arg wid "${wid}" \
+    --arg kid "${kid}" \
+    --arg did "${did}" \
+    '{role: $role, name: $name, email: $email, password: $password, wid: $wid, kid: $kid, did: $did}' > ".secret/${role}-details.json"
+
   return 0
 }
 

@@ -1,39 +1,21 @@
 package io.nessus.identity.service
 
 import io.kotest.common.runBlocking
-import io.kotest.matchers.nulls.shouldNotBeNull
-import io.kotest.matchers.string.shouldEndWith
+import io.nessus.identity.extend.getRequestUrl
+import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.CredentialOfferDraft17
+import io.nessus.identity.types.IssuerMetadataDraft17
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
-class KeycloakIssuerServiceTest : AbstractServiceTest() {
+class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft17, IssuerMetadataDraft17>() {
 
-    val issuerSrv = IssuerService.createKeycloak()
-    val walletSrv = WalletService.create()
-
-    @Test
-    fun testGetIssuerMetadata() {
-        /*
-            Credential Issuer Metadata
-            https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
-
-            Issuer Metadata Endpoints
-            https://auth.localtest.me/realms/oid4vci/.well-known/openid-configuration
-            https://auth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer
-        */
-        runBlocking {
-
-            // Issuer's OIDC context (Max is the Issuer)
-            val max = login(Max)
-
-            val metadataUrl = issuerSrv.getIssuerMetadataUrl(max)
-            metadataUrl.shouldEndWith(".well-known/openid-credential-issuer")
-
-            val metadata = issuerSrv.getIssuerMetadata(max)
-            metadata.credentialConfigurationsSupported.shouldNotBeNull()
-        }
+    @BeforeEach
+    fun setUp() {
+        issuerSrv = IssuerService.createKeycloak()
     }
 
     @Test
@@ -50,7 +32,7 @@ class KeycloakIssuerServiceTest : AbstractServiceTest() {
             // Holders's OIDC context (Alice is the Holder)
             val alice = OIDContext(setupWalletWithDid(Alice))
 
-            issuerSrv.createCredentialOffer(max, alice.did, listOf("oid4vc_natural_person"))
+            issuerSrv.createCredentialOffer(max, alice.did, listOf("oid4vc_identity_credential"))
 
             assertThrows<IllegalArgumentException> {
                 issuerSrv.createCredentialOffer(max, alice.did, listOf("oid4vc_unknown"))
@@ -59,7 +41,7 @@ class KeycloakIssuerServiceTest : AbstractServiceTest() {
     }
 
     @Test
-    fun testAuthorizationCodeFlow() {
+    fun issueCredentialInTime() {
         /*
             Authorization Code Flow
             https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-code-flow
@@ -74,12 +56,17 @@ class KeycloakIssuerServiceTest : AbstractServiceTest() {
 
             // The Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
             //
-            val credOffer = issuerSrv.createCredentialOffer(max, alice.did, listOf("oid4vc_natural_person"))
+            val metadata = issuerSrv.getIssuerMetadata(max)
+            val credOffer = issuerSrv.createCredentialOffer(max, alice.did, listOf("oid4vc_identity_credential"))
 
             // The Holder sends an Authorization Request to the Authorization Endpoint.
-            // The Authorization Endpoint processes the Authorization Request, which typically includes authenticating the End-User and gathering End-User consent.
+            //
+            val authReq = AuthorizationRequestBuilder()
+                .withClientId("oid4vci-client")
+                .withRedirectUri("urn:ietf:wg:oauth:2.0:oob")
+                .buildFrom(credOffer)
 
-            val metadata = walletSrv.resolveIssuerMetadata(credOffer.credentialIssuer)
+            log.info { "AuthorizationRequestUrl: ${authReq.getRequestUrl(metadata)}" }
         }
     }
 }

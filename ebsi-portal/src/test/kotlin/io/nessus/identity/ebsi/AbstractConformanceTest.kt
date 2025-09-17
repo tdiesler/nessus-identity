@@ -8,6 +8,11 @@ import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.User
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.TestInstance
 import org.openqa.selenium.By
 import org.openqa.selenium.Dimension
@@ -106,5 +111,12 @@ open class AbstractConformanceTest {
             label.text == "Yes"
         }
         return labelResult
+    }
+
+    fun verifyCredential(ctype: String, credJson: String) {
+        val jsonObj = Json.decodeFromString<JsonObject>(credJson)
+        val vcObj = jsonObj.getValue("vc").jsonObject
+        val types = vcObj.getValue("type").jsonArray.map { it.jsonPrimitive.content }
+        if (!types.contains(ctype)) throw IllegalStateException("VC types $types do not contain: $ctype")
     }
 }

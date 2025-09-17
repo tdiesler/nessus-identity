@@ -254,7 +254,7 @@ object AuthService {
             throw IllegalStateException("Invalid UserPin")
 
         val credOffer = credOfferRecord.credOffer
-        val types = credOffer?.getCredentialTypes()
+        val types = credOffer?.getTypes()
         val authRequest = AuthorizationRequest(
             clientId = subId ?: throw IllegalStateException("No subId"), authorizationDetails = listOf(
                 AuthorizationDetails(

@@ -38,7 +38,7 @@ data class IssuerMetadataDraft17(
     val credentialResponseEncryption: CredentialResponseEncryption? = null,
 
     @SerialName("credential_configurations_supported")
-    val credentialConfigurationsSupported: Map<String, CredentialConfiguration>
+    val credentialConfigurationsSupported: Map<String, CredentialConfigurationDraft17>
 ) : IssuerMetadata() {
     companion object {
         val jsonInst = Json { ignoreUnknownKeys = true}
@@ -74,15 +74,18 @@ data class CredentialResponseEncryption(
 
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class CredentialConfiguration(
-    val format: String,
+data class CredentialConfigurationDraft17(
+    @SerialName("format")
+    override val format: String,
+
+    @SerialName("scope")
     val scope: String? = null,
 
     @SerialName("credential_signing_alg_values_supported")
     val credentialSigningAlgValuesSupported: List<String>? = null,
 
     @SerialName("cryptographic_binding_methods_supported")
-    val cryptographicBindingMethodsSupported: List<String>? = null,
+    override val cryptographicBindingMethodsSupported: List<String>? = null,
 
     @SerialName("proof_types_supported")
     val proofTypesSupported: Map<String, ProofTypeMetadata>? = null,
@@ -90,11 +93,12 @@ data class CredentialConfiguration(
     @SerialName("credential_metadata")
     val credentialMetadata: CredentialMetadata? = null,
 
+    @SerialName("claims")
     val claims: List<ClaimDescription>? = null,
 
     // captures non-standard fields like id, vct, credential_definition
     val extras: Map<String, JsonElement>? = null
-)
+): CredentialConfiguration()
 
 @Serializable
 data class ProofTypeMetadata(

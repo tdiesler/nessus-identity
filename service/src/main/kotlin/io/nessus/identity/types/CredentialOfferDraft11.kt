@@ -26,13 +26,11 @@ data class CredentialOfferDraft11(
     override val grants: Grants? = null
 ) : CredentialOffer() {
 
-    override fun getCredentialTypes(): List<String> {
-        return credentials.mapNotNull {
-            when (it) {
-                is CredentialObject -> it.id
-                is CredentialReference -> it.reference
-            }
-        }.toList()
+    override fun getTypes(): List<String> {
+        return when (val entry = credentials.first()) {
+            is CredentialObject -> entry.types
+            is CredentialReference -> listOf(entry.reference)
+        }
     }
 
     fun toWaltIdCredentialOffer(): id.walt.oid4vc.data.CredentialOffer {

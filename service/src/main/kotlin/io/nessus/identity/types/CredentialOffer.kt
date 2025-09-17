@@ -16,7 +16,7 @@ abstract class CredentialOffer {
     abstract val credentialIssuer: String
     abstract val grants: Grants?
 
-    abstract fun getCredentialTypes(): List<String>
+    abstract fun getTypes(): List<String>
 
     fun getAuthorizationCodeGrant() : AuthorizationCodeGrant? {
         return grants?.authorizationCode

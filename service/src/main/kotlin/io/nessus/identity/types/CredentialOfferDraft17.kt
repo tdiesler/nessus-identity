@@ -19,7 +19,7 @@ data class CredentialOfferDraft17(
 ) : CredentialOffer() {
 
     // [TODO] Remove when Draft11 is gone
-    override fun getCredentialTypes(): List<String> {
+    override fun getTypes(): List<String> {
         return credentialConfigurationIds
     }
 }

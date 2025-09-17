@@ -4,19 +4,24 @@ import com.nimbusds.jwt.SignedJWT
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.nessus.identity.flow.CredentialIssuanceFlow
+import io.nessus.identity.types.CredentialOfferDraft11
+import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-class IssuerUseCasesTest : AbstractServiceTest() {
+class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft11, IssuerMetadataDraft11>() {
 
     // Generates a number between 1000 and 9999
     val userPin = Random.nextInt(1000, 10000)
 
-    val issuerSrv = IssuerService.create()
-    val walletSrv = WalletService.create()
+    @BeforeEach
+    fun setUp() {
+        issuerSrv = IssuerService.create()
+    }
 
     /**
      * Issue Credential InTime

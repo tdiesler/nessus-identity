@@ -63,12 +63,11 @@ object WalletHandler {
 
         val oid4vcOfferUri = "openid-credential-offer://?credential_offer_uri=$credOfferUri"
         val credOffer = walletSrv.getCredentialOfferFromUri(ctx, oid4vcOfferUri)
-        val offeredCred = walletSrv.resolveOfferedCredential(ctx, credOffer)
 
         // Init with the default UserPin for EBSI Credential types
         if (credOffer.getPreAuthorizedCodeGrant() != null) {
             val authCode = credOffer.getPreAuthorizedCodeGrant()?.preAuthorizedCode as String
-            val ebsiType = offeredCred.types?.firstOrNull { isEBSIPreAuthorizedType(it) }
+            val ebsiType = credOffer.getTypes().firstOrNull { isEBSIPreAuthorizedType(it) }
             if (ebsiType != null) {
                 val cor = getCredentialOfferRecord(ebsiType)
                 var userPin = cor?.userPin

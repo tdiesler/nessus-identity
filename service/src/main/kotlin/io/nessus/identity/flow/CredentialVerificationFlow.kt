@@ -1,5 +1,9 @@
 package io.nessus.identity.flow
 
+import com.nimbusds.jose.util.Base64URL
+import io.nessus.identity.config.ConfigProvider.authEndpointUri
+import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.CredentialMatcher
 import io.nessus.identity.service.OIDContext
@@ -11,6 +15,7 @@ import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
+import kotlin.random.Random
 
 class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OIDContext) {
 
@@ -30,12 +35,23 @@ class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OID
 
         // The Holder sends an AuthorizationRequest to the Verifier
         //
-        val authRequest = AuthorizationRequestBuilder(holderCtx)
-            .withPresentationDefinition(
-                PresentationDefinitionBuilder()
-                    .withInputDescriptorForType(ctype, id = "inp#1")
-                    .build()
-            ).build()
+        val rndBytes = Random.nextBytes(32)
+        val codeVerifier = Base64URL.encode(rndBytes).toString()
+
+        val redirectUri = "$authEndpointUri/${holderCtx.targetId}"
+        val authRequest = AuthorizationRequestBuilder()
+            .withClientId(holderCtx.did)
+            .withClientState(holderCtx.walletId)
+            .withCodeChallengeMethod("S256")
+            .withCodeVerifier(codeVerifier)
+            .withPresentationDefinition(PresentationDefinitionBuilder()
+                .withInputDescriptorForType(ctype, id = "inp#1")
+                .build())
+            .withRedirectUri(redirectUri)
+            .build()
+
+        holderCtx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+        holderCtx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
 
         // The Verifier sends a VPToken Request to the Holder (request of VerifiablePresentation)
         //

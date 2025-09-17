@@ -1,9 +1,12 @@
 package io.nessus.identity.flow
 
+import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.responses.CredentialResponse
+import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.extend.verifyJwtSignature
+import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthService
 import io.nessus.identity.service.IssuerService
@@ -13,6 +16,7 @@ import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft11
 import kotlinx.coroutines.runBlocking
+import kotlin.random.Random
 
 class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContext) {
 
@@ -34,12 +38,22 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
         walletSrv.addCredentialOffer(holderCtx, credOffer)
-        val offeredCred = walletSrv.resolveOfferedCredential(holderCtx, credOffer)
-        val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer)
-        val authRequest = AuthorizationRequestBuilder(holderCtx)
-            .withAuthorizationDetails(authDetails)
-            .withCredentialOffer(credOffer)
-            .build()
+
+        val rndBytes = Random.nextBytes(32)
+        val codeVerifier = Base64URL.encode(rndBytes).toString()
+
+        val redirectUri = "$authEndpointUri/${holderCtx.targetId}"
+        val authRequest = AuthorizationRequestBuilder()
+            .withClientId(holderCtx.did)
+            .withClientState(holderCtx.walletId)
+            .withCodeChallengeMethod("S256")
+            .withCodeVerifier(codeVerifier)
+            .withIssuerMetadata(issuerCtx.issuerMetadata)
+            .withRedirectUri(redirectUri)
+            .buildFrom(credOffer)
+
+        holderCtx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+        holderCtx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
 
         // The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
         //
@@ -66,7 +80,8 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = walletSrv.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
+        val types = credOffer.getTypes()
+        val credReq = walletSrv.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
@@ -85,12 +100,22 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
         walletSrv.addCredentialOffer(holderCtx, credOffer)
-        val offeredCred = walletSrv.resolveOfferedCredential(holderCtx, credOffer)
-        val authDetails = AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer)
-        val authRequest = AuthorizationRequestBuilder(holderCtx)
-            .withAuthorizationDetails(authDetails)
-            .withCredentialOffer(credOffer)
-            .build()
+
+        val rndBytes = Random.nextBytes(32)
+        val codeVerifier = Base64URL.encode(rndBytes).toString()
+
+        val redirectUri = "$authEndpointUri/${holderCtx.targetId}"
+        val authRequest = AuthorizationRequestBuilder()
+            .withClientId(holderCtx.did)
+            .withClientState(holderCtx.walletId)
+            .withCodeChallengeMethod("S256")
+            .withCodeVerifier(codeVerifier)
+            .withIssuerMetadata(issuerCtx.issuerMetadata)
+            .withRedirectUri(redirectUri)
+            .buildFrom(credOffer)
+
+        holderCtx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+        holderCtx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
 
         // The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
         //
@@ -116,7 +141,8 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = walletSrv.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
+        val types = credOffer.getTypes()
+        val credReq = walletSrv.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
         //
@@ -135,7 +161,6 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
         // The Holder received a CredentialOffer
         //
         walletSrv.addCredentialOffer(holderCtx, credOffer)
-        val offeredCred = walletSrv.resolveOfferedCredential(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
@@ -147,7 +172,8 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = walletSrv.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
+        val types = credOffer.getTypes()
+        val credReq = walletSrv.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
@@ -171,7 +197,6 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
         // The Holder received a CredentialOffer
         //
         walletSrv.addCredentialOffer(holderCtx, credOffer)
-        val offeredCred = walletSrv.resolveOfferedCredential(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
@@ -183,7 +208,8 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val credReq = walletSrv.createCredentialRequest(holderCtx, offeredCred, accessTokenRes)
+        val types = credOffer.getTypes()
+        val credReq = walletSrv.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //

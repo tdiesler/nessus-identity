@@ -37,3 +37,8 @@ object IssuerMetadataSerializer : JsonContentPolymorphicSerializer<IssuerMetadat
         }
     }
 }
+
+abstract class CredentialConfiguration {
+    abstract val format: String
+    abstract val cryptographicBindingMethodsSupported: List<String>?
+}

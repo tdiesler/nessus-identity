@@ -76,16 +76,16 @@ kc_admin_login "${adminUser}" "${adminPass}"
 ## Setup the Keycloak OID4VCI Realm ------------------------------------------------------------------------------------
 #
 realm="oid4vci"
-client_id="oid4vc-client"
+client_id="oid4vci-client"
 credential_format="jwt_vc"
-credential_id="identity_credential"
+credential_id="oid4vc_identity_credential"
 redirect_uri="urn:ietf:wg:oauth:2.0:oob"
 
 kc_create_realm "${realm}" "${client_id}" "${credential_id}" "${credential_format}" ${forceRecreate}
 
 ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
 #
-kc_create_user "${realm}" "${HOLDER_NAME}" "${HOLDER_EMAIL}" "${HOLDER_PASSWORD}"
+kc_create_user "${realm}" "holder" "${HOLDER_NAME}" "${HOLDER_EMAIL}" "${HOLDER_PASSWORD}"
 
 # Fetch a Credential - Authorization Flow ------------------------------------------------------------------------------
 #
