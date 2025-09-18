@@ -1,7 +1,9 @@
 package io.nessus.identity.service
 
+import com.microsoft.playwright.BrowserType
+import com.microsoft.playwright.Playwright
 import io.kotest.common.runBlocking
-import io.nessus.identity.extend.getRequestUrl
+import io.nessus.identity.extend.getQueryParameters
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.types.IssuerMetadataDraft17
@@ -10,6 +12,7 @@ import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+
 
 class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft17, IssuerMetadataDraft17>() {
 
@@ -66,7 +69,43 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
                 .withRedirectUri("urn:ietf:wg:oauth:2.0:oob")
                 .buildFrom(credOffer)
 
-            log.info { "AuthorizationRequestUrl: ${authReq.getRequestUrl(metadata)}" }
+            val authEndpoint = "${metadata.credentialIssuer}/protocol/openid-connect/auth"
+            val authRequestUrl = "$authEndpoint?${authReq.getQueryParameters()}"
+            log.info { "AuthorizationRequestUrl: $authRequestUrl}" }
+
+            val authCode = sendAuthorizationRequest(authRequestUrl, Alice.username, Alice.password)
+            log.info { "AuthCode: $authCode}" }
+        }
+    }
+
+    /**
+     * Send an AuthorizationRequest to Keycloak
+     * Authenticates with username/password on the 'urn:ietf:wg:oauth:2.0:oob' page
+     * @return The requested auth code
+     */
+    fun sendAuthorizationRequest(reqUrl: String, username: String, password: String): String {
+        Playwright.create().use { playwright ->
+            val browser = playwright.webkit().launch(
+                BrowserType.LaunchOptions().setHeadless(true)
+            )
+            val page = browser.newPage()
+
+            // Navigate to Keycloak login page
+            page.navigate(reqUrl)
+
+            // Fill in login form (adjust selectors if your Keycloak theme differs)
+            page.locator("#username").fill(username)
+            page.locator("#password").fill(password)
+            page.locator("#kc-login").click()
+
+            // Wait for the input with id="code"
+            page.waitForSelector("#code")
+
+            // Extract the code from the 'value' attribute
+            val authCode = page.locator("#code").getAttribute("value")
+
+            browser.close()
+            return authCode
         }
     }
 }

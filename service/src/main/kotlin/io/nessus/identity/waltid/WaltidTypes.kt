@@ -1,5 +1,8 @@
 package io.nessus.identity.waltid
 
+import java.util.Locale
+import java.util.Locale.getDefault
+
 // Authentication ------------------------------------------------------------------------------------------------------
 
 enum class LoginType(val type: String) { EMAIL("email") }
@@ -30,6 +33,7 @@ data class Key(val id: String, val algorithm: String)
 // Users ----------------------------------------------------------------------------------------------------------------
 
 open class User(val name: String, val email: String, val password: String) {
+    val username = name.split("\\s")[0].lowercase(getDefault())
     fun toLoginParams() : LoginParams {
         return LoginParams(LoginType.EMAIL, email, password)
     }

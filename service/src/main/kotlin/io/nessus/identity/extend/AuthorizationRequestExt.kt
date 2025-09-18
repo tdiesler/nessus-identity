@@ -1,8 +1,6 @@
 package io.nessus.identity.extend
 
 import id.walt.oid4vc.requests.AuthorizationRequest
-import io.nessus.identity.types.IssuerMetadata
-import io.nessus.identity.types.IssuerMetadataDraft17
 import kotlinx.serialization.json.Json
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -28,12 +26,6 @@ fun AuthorizationRequest.getQueryParameters(): String {
     }
     return sb.toString()
 }
-
-fun AuthorizationRequest.getRequestUrl(metadata: IssuerMetadata): String {
-    // [TODO] derive path from auth metadata
-    return "${metadata.credentialIssuer}/protocol/openid-connect/auth?${getQueryParameters()}"
-}
-
 
 // Private -----------------------------------------------------------------------------------------------------------------------------------------------------
 

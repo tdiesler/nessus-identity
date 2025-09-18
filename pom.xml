@@ -38,6 +38,7 @@
         <version.kotlinx.serialization>1.8.1</version.kotlinx.serialization>
         <version.ktor>3.1.2</version.ktor>
         <version.logback>1.5.18</version.logback>
+        <versio.microsoft.playwright>1.54.0</versio.microsoft.playwright>
         <version.nimbus>10.0.1</version.nimbus>
         <version.postgresql>42.7.5</version.postgresql>
         <version.selenium>4.33.0</version.selenium>
@@ -90,6 +91,11 @@
                 <groupId>com.jayway.jsonpath</groupId>
                 <artifactId>json-path</artifactId>
                 <version>${version.jayway.jsonpath}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.microsoft.playwright</groupId>
+                <artifactId>playwright</artifactId>
+                <version>${versio.microsoft.playwright}</version>
             </dependency>
             <dependency>
                 <groupId>com.nimbusds</groupId>
