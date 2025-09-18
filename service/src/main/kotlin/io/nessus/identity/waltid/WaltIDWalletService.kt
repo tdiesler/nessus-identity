@@ -159,6 +159,10 @@ class WaltIDWalletService {
 
     // Keys ------------------------------------------------------------------------------------------------------------
 
+    suspend fun exportKey(ctx: LoginContext, kid: String): String {
+        return api.export(ctx, kid)
+    }
+
     suspend fun findKey(ctx: LoginContext, predicate: suspend (Key) -> Boolean): Key? {
         return listKeys(ctx).firstOrNull { predicate(it) }
     }

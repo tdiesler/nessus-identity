@@ -21,6 +21,9 @@ ifeq ($(TARGET), dev)
   IMAGE_REGISTRY := $(IMAGE_REGISTRY_LOCAL)
 endif
 
+check-docker:
+	@docker --version || echo "docker command failed"
+
 clean:
 	@mvn clean
 
@@ -53,9 +56,10 @@ waltid-images: wallet-api
 		docker compose pull opa-server && \
 		docker compose pull vc-repo
 
+images: waltid-images nessus-image
+
 upgrade:
 	@helm --kube-context $(KUBE_CONTEXT) upgrade --install nessus-identity ./helm -f ./helm/values-services-$(TARGET).yaml
 
 uninstall:
 	@helm --kube-context $(KUBE_CONTEXT) uninstall nessus-identity --ignore-not-found
-

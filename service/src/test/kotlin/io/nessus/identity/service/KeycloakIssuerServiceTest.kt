@@ -5,7 +5,6 @@ import com.microsoft.playwright.Playwright
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
-import com.nimbusds.jose.crypto.ECDSASigner
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jwt.JWTClaimsSet
@@ -18,12 +17,14 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.nessus.identity.extend.getQueryParameters
+import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft17
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -32,7 +33,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.io.File
 import java.time.Instant
 import java.util.*
 
@@ -144,7 +144,7 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
             // https://github.com/tdiesler/nessus-identity/issues/268
             val credObj = Json.decodeFromString<JsonObject>("${credJwt.payload}")
             val vc = credObj.getValue("vc").jsonObject
-            log.info { "W3CCredential: $vc" }
+            log.info { "Credential: $vc" }
 
             val wasTypes = vc.getValue("type").jsonArray.map { it.jsonPrimitive.content }
             offerTypes shouldBeEqual wasTypes
@@ -227,10 +227,10 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
             jsonObj.getValue("c_nonce").jsonPrimitive.content
         }
 
-        val privateJwkJson = File("../.secret/es256-holder-key.jwk").readText()
-        val ecKey = JWK.parse(privateJwkJson) as ECKey
-        val publicJwk = ecKey.toPublicJWK()
-        log.info { "Public ECKey: $publicJwk" }
+        val kid = ctx.didInfo.keyId
+        val ecKeyJson = widWalletSvc.exportKey(ctx, kid)
+        val publicJwk = JWK.parse(ecKeyJson) as ECKey
+        log.info { "Public ECKeyB: $publicJwk" }
 
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
@@ -247,9 +247,9 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
             .jwk(publicJwk) // embed JWK directly
             .build()
 
-        val signedJWT = SignedJWT(header, claims)
-        signedJWT.sign(ECDSASigner(ecKey.toECPrivateKey()))
-        val proofJwt = signedJWT.serialize()
+        val proofJwt = SignedJWT(header, claims).signWithKey(ctx, kid)
+        log.info { "ProofJwt Header: ${proofJwt.header}" }
+        log.info { "ProofJwt Claims: ${proofJwt.jwtClaimsSet}" }
 
         // [TODO] Creating a CredentialRequest type for Draft17
         // https://github.com/tdiesler/nessus-identity/issues/266
@@ -257,7 +257,7 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
             """{
           "credential_configuration_id": "$ctype",
           "proofs": {
-            "jwt": [ "$proofJwt" ]
+            "jwt": [ "${proofJwt.serialize()}" ]
             }
           }"""
         )

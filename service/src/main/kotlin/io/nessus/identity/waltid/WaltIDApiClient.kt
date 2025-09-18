@@ -94,6 +94,16 @@ class WaltIDApiClient(val baseUrl: String) {
 
     // Keys ------------------------------------------------------------------------------------------------------------
 
+    suspend fun export(ctx: LoginContext, kid: String): String {
+        val res = http.get("$baseUrl/wallet-api/wallet/${ctx.walletId}/keys/${kid}/export") {
+            contentType(ContentType.Application.Json)
+            headers {
+                append(Authorization, "Bearer ${ctx.authToken}")
+            }
+        }
+        return handleResponse<String>(res)
+    }
+
     suspend fun keys(ctx: LoginContext): Array<KeyResponse> {
         val res = http.get("$baseUrl/wallet-api/wallet/${ctx.walletId}/keys") {
             contentType(ContentType.Application.Json)
