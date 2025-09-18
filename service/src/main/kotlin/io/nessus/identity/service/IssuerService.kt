@@ -16,7 +16,7 @@ interface IssuerService<COType: CredentialOffer, IMDType: IssuerMetadata> {
      * Creates a CredentialOffer for the given subject and credential types.
      */
     suspend fun createCredentialOffer(
-        ctx: LoginContext,
+        ctx: OIDContext,
         subId: String,
         types: List<String>,
         userPin: String? = null
@@ -39,9 +39,9 @@ interface IssuerService<COType: CredentialOffer, IMDType: IssuerMetadata> {
         acceptanceTokenJwt: SignedJWT
     ): CredentialResponse
 
-    fun getIssuerMetadataUrl(ctx: LoginContext): String
+    fun getIssuerMetadataUrl(ctx: OIDContext): String
 
-    suspend fun getIssuerMetadata(ctx: LoginContext): IMDType
+    suspend fun getIssuerMetadata(ctx: OIDContext): IMDType
 
     companion object {
         fun create(): DefaultIssuerService {

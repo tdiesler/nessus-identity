@@ -28,6 +28,7 @@ class AuthorizationRequestBuilder {
     // Internal props
     private val authDetails = mutableListOf<AuthorizationDetails>()
     private var credOffer: CredentialOffer? = null
+    private var scopes = mutableSetOf("openid")
 
     var codeChallenge: String? = null
 
@@ -91,10 +92,13 @@ class AuthorizationRequestBuilder {
             is CredentialOfferDraft17 -> {
                 credOffer.getTypes().forEach { ctype ->
                     authDetails.add(AuthorizationDetails.fromJSONString("""{
-                    "type": "openid_credential",
-                    "credential_configuration_id": "$ctype",
-                    "locations": [ "${credOffer.credentialIssuer}" ]
-                }"""))
+                        "type": "openid_credential",
+                        "credential_configuration_id": "$ctype",
+                        "locations": [ "${credOffer.credentialIssuer}" ]
+                    }"""))
+                    // Keycloak requires credential id in scope although already given in authorizationDetails
+                    // https://github.com/tdiesler/nessus-identity/issues/264
+                    scopes.add(ctype)
                 }
             }
         }
@@ -130,7 +134,7 @@ class AuthorizationRequestBuilder {
         val issuerState = credOffer?.getAuthorizationCodeGrant()?.issuerState
 
         val authRequest = AuthorizationRequest(
-            scope = setOf("openid"),
+            scope = scopes,
             clientId = clientId,
             state = clientState,
             clientMetadata = clientMetadata,

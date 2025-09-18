@@ -6,12 +6,15 @@ import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft11
 import java.time.Instant
 
 open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 
-    val issuerMetadata get() = assertAttachment(ISSUER_METADATA_ATTACHMENT_KEY)
+    var issuerMetadata: IssuerMetadata
+        get() = assertAttachment(ISSUER_METADATA_ATTACHMENT_KEY)
+        set(value) = putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, value)
 
     // State that is required before access
     //

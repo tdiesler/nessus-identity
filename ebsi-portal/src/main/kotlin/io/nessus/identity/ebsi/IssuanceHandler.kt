@@ -34,7 +34,7 @@ object IssuanceHandler {
         }
 
         if (call.request.path().endsWith(".well-known/openid-credential-issuer")) {
-            val ctx = requireLoginContext(dstId)
+            val ctx = OIDContext(requireLoginContext(dstId))
             return handleIssuerMetadataRequest(call, ctx)
         }
 
@@ -96,7 +96,7 @@ object IssuanceHandler {
         )
     }
 
-    private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: LoginContext) {
+    private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: OIDContext) {
 
         val metadata = issuerSrv.getIssuerMetadata(ctx)
         val payload = Json.encodeToString(metadata)

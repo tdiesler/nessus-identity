@@ -36,7 +36,7 @@ class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService<Credentia
     val log = KotlinLogging.logger {}
 
     override suspend fun createCredentialOffer(
-        ctx: LoginContext,
+        ctx: OIDContext,
         subId: String,
         types: List<String>,
         userPin: String?
@@ -114,7 +114,7 @@ class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService<Credentia
         throw IllegalStateException("Not implemented")
     }
 
-    override suspend fun getIssuerMetadataInternal(ctx: LoginContext): IssuerMetadataDraft17 {
+    override suspend fun getIssuerMetadataInternal(ctx: OIDContext): IssuerMetadataDraft17 {
         val metadataUrl = URI(getIssuerMetadataUrl(ctx)).toURL()
         val metadata = http.get(metadataUrl).bodyAsText().let {
             IssuerMetadataDraft17.fromJson(it)

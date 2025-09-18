@@ -35,7 +35,7 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
     val log = KotlinLogging.logger {}
 
     override suspend fun createCredentialOffer(
-        ctx: LoginContext,
+        ctx: OIDContext,
         subId: String,
         types: List<String>,
         userPin: String?
@@ -216,12 +216,12 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
         return credentialResponse
     }
 
-    override fun getIssuerMetadataUrl(ctx: LoginContext): String {
+    override fun getIssuerMetadataUrl(ctx: OIDContext): String {
         val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerUrl/${ctx.targetId}")
         return metadataUrl
     }
 
-    override suspend fun getIssuerMetadataInternal(ctx: LoginContext): IssuerMetadataDraft11 {
+    override suspend fun getIssuerMetadataInternal(ctx: OIDContext): IssuerMetadataDraft11 {
         val authTargetUrl = "$authUrl/${ctx.targetId}"
         val issuerTargetUrl = "$issuerUrl/${ctx.targetId}"
         val credentialSupported = mapOf(

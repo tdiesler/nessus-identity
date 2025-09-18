@@ -69,7 +69,6 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
         val authCode = AuthService.validateIDToken(issuerCtx, idTokenJwt)
         idTokenJwt.verifyJwtSignature("IDToken", holderCtx.didInfo)
 
-
         // Holder sends a TokenRequest to the Issuer's Token Endpoint
         //
         val tokenReq = walletSrv.createTokenRequestAuthCode(holderCtx, authCode)
