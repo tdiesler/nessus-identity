@@ -7,6 +7,7 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
+import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.requests.TokenRequest
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.Instant
 import java.util.*
+import kotlin.random.Random
 
 
 class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft17, IssuerMetadataDraft17>() {
@@ -94,8 +96,14 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
 
             // Holder builds an Authorization Request
             //
+
+            val rndBytes = Random.nextBytes(32)
+            val codeVerifier = Base64URL.encode(rndBytes).toString()
+
             val authReq = AuthorizationRequestBuilder()
                 .withClientId(clientId)
+                .withCodeChallengeMethod("S256")
+                .withCodeVerifier(codeVerifier)
                 .withRedirectUri(redirectUri)
                 .buildFrom(credOffer)
 
@@ -114,6 +122,7 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
             val tokenRequest = TokenRequest.AuthorizationCode(
                 clientId = clientId,
                 redirectUri = redirectUri,
+                codeVerifier = codeVerifier,
                 code = authCode
             )
             val tokenRes = sendTokenRequest(tokenEndpointUrl, tokenRequest)
@@ -194,7 +203,7 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
                     append("client_id", tokenReq.clientId)
                     append("code", tokenReq.code)
                     append("redirect_uri", tokenReq.redirectUri!!)
-                    // append("code_verifier", codeVerifier) // when using PKCE
+                    append("code_verifier", tokenReq.codeVerifier!!) // when using PKCE
                 }.formUrlEncode()
             )
         }

@@ -210,6 +210,7 @@ EOF
     "attributes": {
       "client.introspection.response.allow.jwt.claim.enabled": "false",
       "post.logout.redirect.uris": "${AUTH_SERVER_URL}",
+      "pkce.code.challenge.method": "S256",
       "oid4vci.enabled": "true"
     }
   }
@@ -271,10 +272,10 @@ kc_authorization_request() {
   local response_type="code"
 
   # PKCE
-#  code_verifier=$(openssl rand -base64 96 | tr -d '+/=' | tr -d '\n' | cut -c -128)
-#  code_challenge=$(echo -n "$code_verifier" |
-#    openssl dgst -sha256 -binary | openssl base64 |
-#    tr '+/' '-_' | tr -d '=' | tr -d '\n')
+  code_verifier=$(openssl rand -base64 96 | tr -d '+/=' | tr -d '\n' | cut -c -128)
+  code_challenge=$(echo -n "$code_verifier" |
+    openssl dgst -sha256 -binary | openssl base64 |
+    tr '+/' '-_' | tr -d '=' | tr -d '\n')
 
   scopes="openid"
   scopes=$(printf 'openid %s' "${credential_id}" | jq -sRr @uri)
@@ -292,7 +293,7 @@ kc_authorization_request() {
 
   url="${authUrl}?response_type=${response_type}&client_id=${client_id}&redirect_uri=${redirect_uri}"
   url="${url}&scope=${scopes}&authorization_details=${authorization_details_encoded}"
-  # url="${url}&code_challenge=${code_challenge}&code_challenge_method=S256"
+  url="${url}&code_challenge=${code_challenge}&code_challenge_method=S256"
 
   echo "Browser Url: ${url}"
   open "$url"
@@ -302,7 +303,7 @@ kc_authorization_request() {
   # export for next step
   export VC_REDIRECT_URI="${redirect_uri}"
   export VC_AUTH_CODE="${authCode}"
-#  export VC_CODE_VERIFIER="${code_verifier}"
+  export VC_CODE_VERIFIER="${code_verifier}"
 }
 
 kc_token_request() {
@@ -315,8 +316,8 @@ kc_token_request() {
     -d "grant_type=authorization_code" \
     -d "client_id=${client_id}" \
     -d "code=${VC_AUTH_CODE}" \
-    -d "redirect_uri=${VC_REDIRECT_URI}")
-    # -d "code_verifier=${VC_CODE_VERIFIER}")
+    -d "redirect_uri=${VC_REDIRECT_URI}" \
+    -d "code_verifier=${VC_CODE_VERIFIER}")
 
   # Show raw tokens
   echo "Token Response ..."
@@ -366,7 +367,7 @@ kc_credential_request() {
 
   proof=$(wallet_keys_sign "${token}" "${wid}" "${kid}" "${proof_jws}")
 
-  # Credential request body (use **credential_configuration_id**)
+  # Credential request body
   req_body=$(jq -n \
     --arg cid "${credential_id}" \
     --arg proof "${proof}" \
@@ -402,12 +403,4 @@ kc_credential_request() {
         | jose b64 dec -i - -O- \
         | jq .
     done
-
-  # If you have the issuer's public JWK:
-  #jose jws ver -i "$VC_JWT" -k issuer-public.jwk -O- | jq .
-
-  # If you only have the private JWK from Keycloak (admin side), derive the public part:
-  #jose jwk pub -i es256-vc-signing-private.jwk -o issuer-public.jwk
-  # or extract a key from a cert/PEM:
-  #jose jwk exc -i issuer-cert.pem -o issuer-public.jwk
 }
