@@ -71,7 +71,6 @@
     </properties>
 
     <modules>
-        <module>ebsi-portal</module>
         <module>service</module>
     </modules>
 
@@ -464,4 +463,12 @@
         </repository>
     </repositories>
 
+    <profiles>
+        <profile>
+            <id>ebsi</id>
+            <modules>
+                <module>ebsi-portal</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>
