@@ -30,17 +30,9 @@ case "$TARGET" in
     ;;
 esac
 
-ISSUER_NAME="Max Mustermann"
-ISSUER_EMAIL="user@email.com"
-ISSUER_PASSWORD="password"
-
 HOLDER_NAME="Alice Wonderland"
 HOLDER_EMAIL="alice@email.com"
 HOLDER_PASSWORD="password"
-
-VERIFIER_NAME="Bob Baumeister"
-VERIFIER_EMAIL="bob@email.com"
-VERIFIER_PASSWORD="password"
 
 source "${SCRIPT_DIR}/oid4vci-functions-keycloak.sh"
 source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"

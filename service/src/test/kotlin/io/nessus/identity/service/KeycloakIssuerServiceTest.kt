@@ -84,10 +84,6 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
             val ctype = "oid4vc_identity_credential"
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
 
-            // [TODO] Keycloak requires clientSecret in Token request
-            // https://github.com/tdiesler/nessus-identity/issues/265
-            val clientSecret = "gxHjJs0d1b2UvX1yy4eaw4lIZIopk3ds"
-
             // Get the IssuerMetadata and make it knows to the Holder
             val metadata = issuerSrv.getIssuerMetadata(max)
             alice.issuerMetadata = (metadata as IssuerMetadata)
@@ -118,8 +114,7 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
             val tokenRequest = TokenRequest.AuthorizationCode(
                 clientId = clientId,
                 redirectUri = redirectUri,
-                code = authCode,
-                customParameters = mapOf("clientSecret" to listOf(clientSecret))
+                code = authCode
             )
             val tokenRes = sendTokenRequest(tokenEndpointUrl, tokenRequest)
             log.info { "TokenResponse: ${tokenRes.toJSONString()}" }
@@ -191,14 +186,12 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
      *
      */
     suspend fun sendTokenRequest(tokenEndpointUrl: String, tokenReq: TokenRequest.AuthorizationCode): TokenResponse {
-        val clientSecret = tokenReq.customParameters["clientSecret"]?.first() ?: throw IllegalStateException("No clientSecret")
         val res = http.post(tokenEndpointUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
             setBody(
                 Parameters.build {
                     append("grant_type", "authorization_code")
                     append("client_id", tokenReq.clientId)
-                    append("client_secret", clientSecret)
                     append("code", tokenReq.code)
                     append("redirect_uri", tokenReq.redirectUri!!)
                     // append("code_verifier", codeVerifier) // when using PKCE
@@ -230,26 +223,25 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
         val kid = ctx.didInfo.keyId
         val ecKeyJson = widWalletSvc.exportKey(ctx, kid)
         val publicJwk = JWK.parse(ecKeyJson) as ECKey
-        log.info { "Public ECKeyB: $publicJwk" }
+        log.info { "PublicJwk: $publicJwk" }
+
+        val proofHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType("openid4vci-proof+jwt"))
+            .jwk(publicJwk) // embed JWK directly
+            .build()
 
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
-
-        val claims = JWTClaimsSet.Builder()
+        val proofClaims = JWTClaimsSet.Builder()
             .audience(metadata.credentialIssuer)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
             .claim("nonce", cNonce)
             .build()
 
-        val header = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType("openid4vci-proof+jwt"))
-            .jwk(publicJwk) // embed JWK directly
-            .build()
-
-        val proofJwt = SignedJWT(header, claims).signWithKey(ctx, kid)
-        log.info { "ProofJwt Header: ${proofJwt.header}" }
-        log.info { "ProofJwt Claims: ${proofJwt.jwtClaimsSet}" }
+        val proofJwt = SignedJWT(proofHeader, proofClaims).signWithKey(ctx, kid)
+        log.info { "ProofHeader: ${proofJwt.header}" }
+        log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
 
         // [TODO] Creating a CredentialRequest type for Draft17
         // https://github.com/tdiesler/nessus-identity/issues/266

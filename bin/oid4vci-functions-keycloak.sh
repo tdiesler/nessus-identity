@@ -202,11 +202,9 @@ EOF
     "clientId": "${client_id}",
     "enabled": true,
     "protocol": "openid-connect",
-    "publicClient": false,
-    "serviceAccountsEnabled": true,
-    "clientAuthenticatorType": "client-secret",
+    "publicClient": true,
     "redirectUris": ["https://app.example.com/callback", "urn:ietf:wg:oauth:2.0:oob"],
-    "directAccessGrantsEnabled": true,
+    "directAccessGrantsEnabled": false,
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": ["${credential_id}"],
     "attributes": {
@@ -310,16 +308,12 @@ kc_authorization_request() {
 kc_token_request() {
   local realm="$1"
 
-  cid=$(kcadm get clients -r "${realm}" -q clientId="${client_id}" --fields id --format csv --noquotes)
-  client_secret=$(kcadm get "clients/${cid}/client-secret" -r "${realm}" | jq -r .value)
-
   local tokenUrl="${AUTH_SERVER_URL}/realms/${realm}/protocol/openid-connect/token"
 
   tokens=$(curl -s -X POST "$tokenUrl" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "grant_type=authorization_code" \
     -d "client_id=${client_id}" \
-    -d "client_secret=${client_secret}" \
     -d "code=${VC_AUTH_CODE}" \
     -d "redirect_uri=${VC_REDIRECT_URI}")
     # -d "code_verifier=${VC_CODE_VERIFIER}")
@@ -340,43 +334,42 @@ kc_credential_request() {
   local nonceUrl="${AUTH_SERVER_URL}/realms/${realm}/protocol/oid4vc/nonce"
   c_nonce=$(curl -s -X POST "${nonceUrl}" | jq -r '.c_nonce')
 
-  holder_proof_json=".secret/es256-proof_holder.json"
-  holder_proof_jwk=".secret/es256-holder-key.jwk"
-  holder_proof_jwt=".secret/es256-proof_holder.jwt"
+  holder_details_json=".secret/holder-details.json"
 
-  mkdir -p ".secret"
+  email=$(jq -r '.email' "${holder_details_json}")
+  password=$(jq -r '.password' "${holder_details_json}")
+  wid=$(jq -r '.wid' "${holder_details_json}")
+  kid=$(jq -r '.kid' "${holder_details_json}")
 
-  # 1) Proof payload
-  holder_proof_json=".secret/proof_holder.json"
-  cat > "${holder_proof_json}" <<-EOF
-  {
-    "aud": "${AUTH_SERVER_URL}/realms/${realm}",
-    "iat": $(date +%s),
-    "nonce": "${c_nonce}"
-  }
-EOF
+  token=$(wallet_auth_login "${email}" "${password}")
+  pub_jwk=$(wallet_keys_export "${token}" "${wid}" "${kid}")
 
-  # 2) Build protected header template with typ, alg, and *public* JWK
-  #    (remove private params from the JWK before embedding)
-  pub_jwk=$(jq 'del(.d,.p,.q,.dp,.dq,.qi)' "${holder_proof_jwk}")
+  proof_header=$(jq -n -c \
+    --argjson jwk "${pub_jwk}" \
+    '{alg: "ES256", typ: "openid4vci-proof+jwt", jwk: $jwk}')
 
-  sig_tpl_file=".secret/proof_sig_tpl.json"
-  jq -n --argjson jwk "${pub_jwk}" \
-    '{protected: {alg:"ES256", typ:"openid4vci-proof+jwt", jwk:$jwk}}' \
-    > "$sig_tpl_file"
+  proof_claims=$(jq -n -c \
+    --arg aud "${AUTH_SERVER_URL}/realms/${realm}" \
+    --argjson iat "$(date +%s)" \
+    --arg nonce "${c_nonce}" \
+    '{aud: $aud, iat:$iat, nonce: $nonce}')
 
-  # 3) Sign the proof (compact JWS)
-  jose jws sig \
-    -I "${holder_proof_json}" \
-    -k "${holder_proof_jwk}" \
-    -s "${sig_tpl_file}" \
-    -o "${holder_proof_jwt}" \
-    -c
+  # Build the unsigned flat proof JWS
+  proof_jws=$(jq -n -c \
+    --arg header "$(echo -n "${proof_header}" | openssl base64 -A | tr '+/' '-_' | tr -d '=')" \
+    --arg claims "$(echo -n "${proof_claims}" | openssl base64 -A | tr '+/' '-_' | tr -d '=')" \
+    '{protected: $header, payload: $claims}')
 
-  # 4) Credential request body (use **credential_configuration_id**)
+  echo "ProofHeader: $(echo -n "${proof_header}" | jq .)"
+  echo "ProofClaims: $(echo -n "${proof_claims}" | jq .)"
+  echo "UnsignedJws: $(echo -n "${proof_jws}" | jq .)"
+
+  proof=$(wallet_keys_sign "${token}" "${wid}" "${kid}" "${proof_jws}")
+
+  # Credential request body (use **credential_configuration_id**)
   req_body=$(jq -n \
     --arg cid "${credential_id}" \
-    --arg proof "$(cat ${holder_proof_jwt})" \
+    --arg proof "${proof}" \
     '{
       credential_configuration_id: $cid,
       proofs: { jwt: [ $proof ] }

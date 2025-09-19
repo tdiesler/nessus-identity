@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 ## Gets the wallet Id for an authenticated account
-#
 # https://wallet.demo.walt.id/swagger/index.html#/Accounts/get_wallet_api_wallet_accounts_wallets
 get_wallet_id() {
   local token="$1"
@@ -118,7 +117,6 @@ setup_waltid_user() {
 }
 
 ## User login (type email)
-#
 # https://wallet.demo.walt.id/swagger/index.html#/Authentication/post_wallet_api_auth_login
 wallet_auth_login() {
   local email="$1" password="$2"
@@ -153,7 +151,6 @@ EOF
 }
 
 ## Register a role (type email) if not registered already
-#
 # https://wallet.demo.walt.id/swagger/index.html#/Authentication/post_wallet_api_auth_register
 wallet_auth_register() {
   local name="$1" email="$2" password="$3"
@@ -216,7 +213,6 @@ wallet_auth_register_or_login() {
 }
 
 ## Create a did:key in the given wallet
-#
 # https://wallet.demo.walt.id/swagger/index.html#/DIDs/post_wallet_api_wallet__wallet__dids_create_key
 wallet_dids_create() {
   local token="$1" wid="$2" kid="$3"
@@ -248,7 +244,6 @@ wallet_dids_create() {
 }
 
 ## Find an already existing did:key for the given wallet
-#
 # https://wallet.demo.walt.id/swagger/index.html#/DIDs/get_wallet_api_wallet__wallet__dids
 wallet_dids_find() {
   local token="$1" wid="$2" kid="$3"
@@ -276,7 +271,33 @@ wallet_dids_find() {
 }
 
 ## Import a key to the given wallet
-#
+# https://wallet.demo.walt.id/swagger/index.html#/Keys/get_wallet_api_wallet__wallet__keys__keyId__export
+wallet_keys_export() {
+  local token="$1" wid="$2" kid="$3"
+
+  local jwk status response
+  response=$(mktemp)
+
+  status=$(curl -s -o "${response}" -w "%{http_code}" \
+    -L "${WALLET_API_URL}/wallet-api/wallet/${wid}/keys/${kid}/export" \
+    -H "Authorization: Bearer ${token}")
+
+  if [[ "$status" -eq 200 ]]; then
+    jwk=$(cat "${response}")
+    echo "Key export ok: $(echo -n "${jwk}" | jq .)" >&2
+    rm -f "${response}"
+  else
+    echo "Key import failed with ${status}" >&2
+    cat "${response}" >&2
+    rm -f "${response}"
+    return 1
+  fi
+
+  # Return the public key
+  echo "${jwk}"
+}
+
+## Import a key to the given wallet
 # https://wallet.demo.walt.id/swagger/index.html#/Keys/post_wallet_api_wallet__wallet__keys_import
 wallet_keys_import() {
   local token="$1" wid="$2" jwk="$3"
@@ -307,4 +328,33 @@ wallet_keys_import() {
 
   # Return the keyId
   echo "${kid}"
+}
+
+## Sign a message for a given wallet and key
+# https://wallet.demo.walt.id/swagger/index.html#/Keys/post_wallet_api_wallet__wallet__keys__keyId__sign
+wallet_keys_sign() {
+  local token="$1" wid="$2" kid="$3" msg="$4"
+
+  local signed status response
+  response=$(mktemp)
+
+  status=$(curl -s -o "${response}" -w "%{http_code}" \
+    -L "${WALLET_API_URL}/wallet-api/wallet/${wid}/keys/${kid}/sign" \
+    -H "Authorization: Bearer ${token}" \
+    -H "Content-Type: application/json" \
+    --data "${msg}")
+
+  if [[ "$status" -eq 200 ]]; then
+    signed=$(cat "${response}")
+    echo "Signed Message: ${signed}" >&2
+    rm -f "${response}"
+  else
+    echo "Signing failed with ${status}" >&2
+    cat "${response}" >&2
+    rm -f "${response}"
+    return 1
+  fi
+
+  # Return the signed message
+  echo "${signed}"
 }
