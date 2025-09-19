@@ -1,11 +1,20 @@
 package io.nessus.identity.ebsi
 
+import com.microsoft.playwright.Browser
+import com.microsoft.playwright.BrowserContext
+import com.microsoft.playwright.BrowserType
+import com.microsoft.playwright.Page
+import com.microsoft.playwright.Playwright
+import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.common.runBlocking
 import io.ktor.server.engine.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.waltid.APIException
+import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.User
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import kotlinx.serialization.json.Json
@@ -14,14 +23,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.TestInstance
-import org.openqa.selenium.By
-import org.openqa.selenium.Dimension
-import org.openqa.selenium.Point
-import org.openqa.selenium.WebDriver
-import org.openqa.selenium.chrome.ChromeDriver
-import org.openqa.selenium.chrome.ChromeOptions
-import org.openqa.selenium.support.ui.WebDriverWait
-import java.time.Duration
 
 /**
  * brew install --cask google-chrome
@@ -33,54 +34,87 @@ open class AbstractConformanceTest {
     val log = KotlinLogging.logger {}
 
     lateinit var embeddedServer: EmbeddedServer<*, *>
-    lateinit var driver: WebDriver
+    lateinit var playwright: Playwright
+    lateinit var browser: Browser
+    lateinit var context: BrowserContext
 
     companion object {
         val sessions = mutableMapOf<String, LoginContext>()
     }
 
-    fun authLogin(user: User): LoginContext {
-        var ctx = sessions[user.email]
-        if (ctx == null) {
-            ctx = runBlocking {
-                widWalletSvc.loginWithWallet(user.toLoginParams()).also { ctx ->
-                    widWalletSvc.findDidByPrefix(ctx, "did:key")?.also {
-                        ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
-                    }
-                }
+    fun login(user: User): LoginContext {
+        val ctx = sessions[user.email] ?: runBlocking {
+            widWalletSvc.login(user.toLoginParams()).also {
+                sessions[user.email] = it
             }
-            sessions[user.email] = ctx
         }
         return ctx
     }
 
-    fun startPortalServer() {
-        System.setProperty("webdriver.chrome.driver", "/opt/homebrew/bin/chromedriver")
-        val options = ChromeOptions().apply {
-            //addArguments("--headless=new")
+    suspend fun loginWithWallet(user: User): LoginContext {
+        val ctx = login(user).also {
+            val wi = widWalletSvc.listWallets(it).first()
+            it.putAttachment(WALLET_INFO_ATTACHMENT_KEY, wi)
         }
-        driver = ChromeDriver(options)
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
+        if (ctx.maybeDidInfo == null) {
+            widWalletSvc.findDidByPrefix(ctx, "did:key")?.also {
+                ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
+            }
+        }
+        return ctx
+    }
+
+    suspend fun loginWithDid(user: User): LoginContext {
+        val ctx = runCatching { loginWithWallet(user) }.getOrElse { ex ->
+            val apiEx = ex as? APIException ?: throw ex
+            val msg = apiEx.message as String
+            if (apiEx.code == 401 && msg.contains("Unknown user")) {
+                widWalletSvc.registerUser(user.toRegisterUserParams())
+                loginWithWallet(user)
+            } else {
+                throw ex
+            }
+        }
+        if (ctx.maybeDidInfo == null) {
+            var didInfo = widWalletSvc.findDidByPrefix(ctx, "did:key")
+            if (didInfo == null) {
+                val key = widWalletSvc.findKeyByType(ctx, KeyType.SECP256R1)
+                    ?: widWalletSvc.createKey(ctx, KeyType.SECP256R1)
+                didInfo = widWalletSvc.createDidKey(ctx, "", key.id)
+            }
+            ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, didInfo)
+        }
+        return ctx
+    }
+
+    fun startNessusServer() {
+        embeddedServer = EBSIPortal().createServer()
+        embeddedServer.start(wait = false)
+    }
+
+    fun stopNessusServer() {
+        embeddedServer.stop(3000, 5000)
+    }
+
+    fun startPlaywrightBrowser() {
+        playwright = Playwright.create()
+
+        // Launch Chromium
+        browser = playwright.chromium().launch(
+            BrowserType.LaunchOptions().setHeadless(true)
+        )
 
         val screenSize = java.awt.Toolkit.getDefaultToolkit().screenSize
         val screenWidth = screenSize.width
         val screenHeight = screenSize.height
 
-        // Move to right half
-        driver.manage().window().position = Point(screenWidth / 2, 0)
-        driver.manage().window().size = Dimension(screenWidth / 2, screenHeight)
-
-        embeddedServer = EBSIPortal().createServer()
-        embeddedServer.start(wait = false)
+        context = browser.newContext(Browser.NewContextOptions()
+            .setViewportSize(screenWidth / 2, (screenHeight * 0.8).toInt()))
     }
 
-    fun stopPortalServer() {
-        driver.quit()
-        embeddedServer.stop(3000, 5000)
-    }
-
-    fun nextStep(millis: Long = 1200) {
-        Thread.sleep(millis)
+    fun stopPlaywrightBrowser() {
+        browser.close()
+        playwright.close()
     }
 
     fun authEndpointUri(ctx: LoginContext): String {
@@ -98,19 +132,12 @@ open class AbstractConformanceTest {
         return issuerUri
     }
 
-    fun awaitCheckboxResult(checkboxId: String, buttonText: String): Boolean {
+    fun assertCheckboxResult(page: Page, checkboxId: String, buttonText: String) {
 
-        val wait = WebDriverWait(driver, Duration.ofSeconds(10))
+        page.locator("#$checkboxId ~ button:has-text(\"$buttonText\")").click()
 
-        val checkbox = driver.findElement(By.id(checkboxId))
-        checkbox.findElement(By.xpath("following-sibling::button[contains(text(), '$buttonText')]")).click()
-        nextStep()
-
-        val labelResult = wait.until {
-            val label = checkbox.findElement(By.xpath("following-sibling::label[@for='$checkboxId']/span[1]"))
-            label.text == "Yes"
-        }
-        return labelResult
+        val label = page.locator("#$checkboxId ~ label[for='$checkboxId'] span:first-child")
+        assertThat(label).hasText("Yes")
     }
 
     fun verifyCredential(ctype: String, credJson: String) {

@@ -33,7 +33,7 @@ data class Key(val id: String, val algorithm: String)
 // Users ----------------------------------------------------------------------------------------------------------------
 
 open class User(val name: String, val email: String, val password: String) {
-    val username = name.split("\\s")[0].lowercase(getDefault())
+    val username = name.split("\\s+".toRegex())[0].lowercase(getDefault())
     fun toLoginParams() : LoginParams {
         return LoginParams(LoginType.EMAIL, email, password)
     }

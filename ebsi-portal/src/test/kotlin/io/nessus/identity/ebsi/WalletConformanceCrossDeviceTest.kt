@@ -4,16 +4,13 @@ import com.google.zxing.BinaryBitmap
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource
 import com.google.zxing.common.HybridBinarizer
-import io.kotest.matchers.booleans.shouldBeTrue
+import com.microsoft.playwright.Locator
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import org.openqa.selenium.By
-import org.openqa.selenium.JavascriptExecutor
-import org.openqa.selenium.OutputType
-import org.openqa.selenium.TakesScreenshot
+import java.io.ByteArrayInputStream
 import javax.imageio.ImageIO
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -22,13 +19,15 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startPortalServer()
+        startNessusServer()
+        startPlaywrightBrowser()
         prepareWalletTests(true)
     }
 
     @AfterAll
     fun tearDown() {
-        stopPortalServer()
+        stopPlaywrightBrowser()
+        stopNessusServer()
     }
 
     @Test
@@ -36,55 +35,37 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
 
         val ctype = "CTWalletCrossAuthorisedInTime"
         log.info { ">>>>> Wallet $ctype" }
-        
+
         // Click the collapsible element
-        driver.findElement(By.id("inTime-credential")).click()
-        nextStep()
+        val page = context.pages().last()
+        page.click("#inTime-credential")
 
-        val container = driver.findElement(By.id("collapsible-content-inTime-credential"))
-        (driver as JavascriptExecutor).executeScript("arguments[0].scrollIntoView({block: 'start'});", container)
-        nextStep()
+        // Scroll container into view
+        val container = page.locator("#collapsible-content-inTime-credential")
+        container.scrollIntoViewIfNeeded()
 
-        // Click the "Initiate" link
-        val xpath = By.xpath(".//button[normalize-space()='Initiate (credential offering QR code)']")
-        container.findElement(xpath).click()
-        nextStep()
+        // Open decoded URL in a new tab
+        val targetUrl = getQRCodeLink(container).removePrefix("openid-credential-offer://")
+        val newPage = page.context().newPage()
+        newPage.navigate(targetUrl)
+        log.info {"Opened URL in new tab: $targetUrl" }
 
-        // Find the first <svg> element within the container
-        val svg = container.findElement(By.tagName("svg"))
+        // Get the credential JSON from <pre>
+        val pre = newPage.locator("pre").also { it.waitFor() }
+        val credentialJson = pre.innerText()
+        log.info { "InTime Credential: $credentialJson" }
 
-        // Take a screenshot of the SVG element
-        val screenshotFile = (svg as TakesScreenshot).getScreenshotAs(OutputType.FILE)
+        // Verify received credential
+        verifyCredential(ctype, credentialJson)
 
-        // Load it as BufferedImage for further inspection
-        val image = ImageIO.read(screenshotFile)
-        println("Image dimensions: ${image.width} x ${image.height}")
-
-        // Load image and decode with ZXing
-        val source = BufferedImageLuminanceSource(image)
-        val bitmap = BinaryBitmap(HybridBinarizer(source))
-        val result = MultiFormatReader().decode(bitmap)
-
-        val qrContent = result.text
-        println("QR Code content: $qrContent")
-
-        // Open URL in new tab
-        val mainTab = driver.windowHandle  // Save current tab
-        val targetUrl = qrContent.removePrefix("openid-credential-offer://")
-        (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
-        println("Opened URL in new tab: $targetUrl")
-        nextStep(4000)
+        // Switch back to main tab (original page)
+        newPage.close()
+        page.bringToFront()
+        log.info { "Switched back to main tab" }
 
         // Wait for the "Validate" label to become Yes
-        driver.switchTo().window(mainTab)
-        log.info { "Switched back to main tab" }
-        nextStep()
-
         val checkboxId = "ct_wallet_cross_authorised_in_time"
-        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
-        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
-
-        labelResult.shouldBeTrue()
+        assertCheckboxResult(page, checkboxId, "Validate")
     }
 
     @Test
@@ -94,53 +75,35 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         log.info { ">>>>> Wallet $ctype" }
 
         // Click the collapsible element
-        driver.findElement(By.id("deferred-credential")).click()
-        nextStep()
+        val page = context.pages().last()
+        page.click("#deferred-credential")
 
-        val container = driver.findElement(By.id("collapsible-content-deferred-credential"))
-        (driver as JavascriptExecutor).executeScript("arguments[0].scrollIntoView({block: 'start'});", container)
-        nextStep()
+        // Scroll container into view
+        val container = page.locator("#collapsible-content-deferred-credential")
+        container.scrollIntoViewIfNeeded()
 
-        // Click the "Initiate" link
-        val xpath = By.xpath(".//button[normalize-space()='Initiate (credential offering QR code)']")
-        container.findElement(xpath).click()
-        nextStep()
+        // Open decoded URL in a new tab
+        val targetUrl = getQRCodeLink(container).removePrefix("openid-credential-offer://")
+        val newPage = page.context().newPage()
+        newPage.navigate(targetUrl)
+        log.info {"Opened URL in new tab: $targetUrl" }
 
-        // Find the first <svg> element within the container
-        val svg = container.findElement(By.tagName("svg"))
+        // Get the credential JSON from <pre>
+        val pre = newPage.locator("pre").also { it.waitFor() }
+        val credentialJson = pre.innerText()
+        log.info { "Deferred Credential: $credentialJson" }
 
-        // Take a screenshot of the SVG element
-        val screenshotFile = (svg as TakesScreenshot).getScreenshotAs(OutputType.FILE)
+        // Verify received credential
+        verifyCredential(ctype, credentialJson)
 
-        // Load it as BufferedImage for further inspection
-        val image = ImageIO.read(screenshotFile)
-        println("Image dimensions: ${image.width} x ${image.height}")
-
-        // Load image and decode with ZXing
-        val source = BufferedImageLuminanceSource(image)
-        val bitmap = BinaryBitmap(HybridBinarizer(source))
-        val result = MultiFormatReader().decode(bitmap)
-
-        val qrContent = result.text
-        println("QR Code content: $qrContent")
-
-        // Open URL in new tab
-        val mainTab = driver.windowHandle  // Save current tab
-        val targetUrl = qrContent.removePrefix("openid-credential-offer://")
-        (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
-        println("Opened URL in new tab: $targetUrl")
-        nextStep(8000)
+        // Switch back to main tab (original page)
+        newPage.close()
+        page.bringToFront()
+        log.info { "Switched back to main tab" }
 
         // Wait for the "Validate" label to become Yes
-        driver.switchTo().window(mainTab)
-        log.info { "Switched back to main tab" }
-        nextStep()
-
         val checkboxId = "ct_wallet_cross_authorised_deferred"
-        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
-        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
-
-        labelResult.shouldBeTrue()
+        assertCheckboxResult(page, checkboxId, "Validate")
     }
 
     @Test
@@ -150,57 +113,39 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         log.info { ">>>>> Wallet $ctype" }
 
         // Click the collapsible element
-        driver.findElement(By.id("pre-auth-in-time-credential")).click()
-        nextStep()
+        val page = context.pages().last()
+        page.click("#pre-auth-in-time-credential")
 
-        val container = driver.findElement(By.id("collapsible-content-pre-auth-in-time-credential"))
-        (driver as JavascriptExecutor).executeScript("arguments[0].scrollIntoView({block: 'start'});", container)
-        nextStep()
+        // Scroll container into view
+        val container = page.locator("#collapsible-content-pre-auth-in-time-credential")
+        container.scrollIntoViewIfNeeded()
 
-        val userPin = extractUserPin()
+        val userPin = extractUserPin(page)
         log.info { "Pre-Auth user PIN: $userPin" }
         putCredentialOfferRecord(ctype, null, userPin)
 
-        // Click the "Initiate" link
-        val xpath = By.xpath(".//button[normalize-space()='Initiate (credential offering QR code)']")
-        container.findElement(xpath).click()
-        nextStep()
+        // Open decoded URL in a new tab
+        val targetUrl = getQRCodeLink(container).removePrefix("openid-credential-offer://")
+        val newPage = page.context().newPage()
+        newPage.navigate(targetUrl)
+        log.info {"Opened URL in new tab: $targetUrl" }
 
-        // Find the first <svg> element within the container
-        val svg = container.findElement(By.tagName("svg"))
+        // Get the credential JSON from <pre>
+        val pre = newPage.locator("pre").also { it.waitFor() }
+        val credentialJson = pre.innerText()
+        log.info { "PreAuthorised InTime Credential: $credentialJson" }
 
-        // Take a screenshot of the SVG element
-        val screenshotFile = (svg as TakesScreenshot).getScreenshotAs(OutputType.FILE)
+        // Verify received credential
+        verifyCredential(ctype, credentialJson)
 
-        // Load it as BufferedImage for further inspection
-        val image = ImageIO.read(screenshotFile)
-        println("Image dimensions: ${image.width} x ${image.height}")
-
-        // Load image and decode with ZXing
-        val source = BufferedImageLuminanceSource(image)
-        val bitmap = BinaryBitmap(HybridBinarizer(source))
-        val result = MultiFormatReader().decode(bitmap)
-
-        val qrContent = result.text
-        println("QR Code content: $qrContent")
-
-        // Open URL in new tab
-        val mainTab = driver.windowHandle  // Save current tab
-        val targetUrl = qrContent.removePrefix("openid-credential-offer://")
-        (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
-        println("Opened URL in new tab: $targetUrl")
-        nextStep(4000)
+        // Switch back to main tab (original page)
+        newPage.close()
+        page.bringToFront()
+        log.info { "Switched back to main tab" }
 
         // Wait for the "Validate" label to become Yes
-        driver.switchTo().window(mainTab)
-        log.info { "Switched back to main tab" }
-        nextStep()
-
         val checkboxId = "ct_wallet_cross_pre_authorised_in_time"
-        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
-        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
-
-        labelResult.shouldBeTrue()
+        assertCheckboxResult(page, checkboxId, "Validate")
     }
 
     @Test
@@ -210,58 +155,63 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         log.info { ">>>>> Wallet $ctype" }
 
         // Click the collapsible element
-        driver.findElement(By.id("pre-auth-deferred-credential")).click()
-        nextStep()
+        val page = context.pages().last()
+        page.click("#pre-auth-deferred-credential")
 
-        val container = driver.findElement(By.id("collapsible-content-pre-auth-deferred-credential"))
-        (driver as JavascriptExecutor).executeScript("arguments[0].scrollIntoView({block: 'start'});", container)
-        nextStep()
+        // Scroll container into view
+        val container = page.locator("#collapsible-content-pre-auth-deferred-credential")
+        container.scrollIntoViewIfNeeded()
 
-        val userPin = extractUserPin()
+        val userPin = extractUserPin(page)
         log.info { "Pre-Auth user PIN: $userPin" }
         putCredentialOfferRecord(ctype, null, userPin)
 
-        // Click the "Initiate" link
-        val xpath = By.xpath(".//button[normalize-space()='Initiate (credential offering QR code)']")
-        container.findElement(xpath).click()
-        nextStep()
+        // Open decoded URL in a new tab
+        val targetUrl = getQRCodeLink(container).removePrefix("openid-credential-offer://")
+        val newPage = page.context().newPage()
+        newPage.navigate(targetUrl)
+        log.info {"Opened URL in new tab: $targetUrl" }
 
-        // Find the first <svg> element within the container
-        val svg = container.findElement(By.tagName("svg"))
+        // Get the credential JSON from <pre>
+        val pre = newPage.locator("pre").also { it.waitFor() }
+        val credentialJson = pre.innerText()
+        log.info { "PreAuthorised Deferred Credential: $credentialJson" }
 
-        // Take a screenshot of the SVG element
-        val screenshotFile = (svg as TakesScreenshot).getScreenshotAs(OutputType.FILE)
+        // Verify received credential
+        verifyCredential(ctype, credentialJson)
 
-        // Load it as BufferedImage for further inspection
-        val image = ImageIO.read(screenshotFile)
-        println("Image dimensions: ${image.width} x ${image.height}")
+        // Switch back to main tab (original page)
+        newPage.close()
+        page.bringToFront()
+        log.info { "Switched back to main tab" }
 
-        // Load image and decode with ZXing
+        // Wait for the "Validate" label to become Yes
+        val checkboxId = "ct_wallet_cross_pre_authorised_deferred"
+        assertCheckboxResult(page, checkboxId, "Validate")
+    }
+
+    // Private -------------------------------------------------------------------------------------------------------
+
+    private fun getQRCodeLink(container: Locator): String {
+
+        // Click the "Initiate" button inside container
+        container.locator("button:has-text('Initiate (credential offering QR code)')").click()
+
+        // Locate the first <svg> element (QR code) and screenshot it
+        val svg = container.locator("svg").first()
+        val screenshotBytes = svg.screenshot()
+
+        // Load it as BufferedImage for ZXing
+        val image = ImageIO.read(ByteArrayInputStream(screenshotBytes))
+        log.info { "Image dimensions: ${image.width} x ${image.height}" }
+
+        // Decode QR with ZXing
         val source = BufferedImageLuminanceSource(image)
         val bitmap = BinaryBitmap(HybridBinarizer(source))
         val result = MultiFormatReader().decode(bitmap)
 
-        val qrContent = result.text
-        println("QR Code content: $qrContent")
-
-        // Open URL in new tab
-        val mainTab = driver.windowHandle  // Save current tab
-        val targetUrl = qrContent.removePrefix("openid-credential-offer://")
-        (driver as JavascriptExecutor).executeScript("window.open(arguments[0], '_blank');", targetUrl)
-        println("Opened URL in new tab: $targetUrl")
-        nextStep(8000)
-
-        // Wait for the "Validate" label to become Yes
-        driver.switchTo().window(mainTab)
-        log.info { "Switched back to main tab" }
-        nextStep()
-
-        val checkboxId = "ct_wallet_cross_pre_authorised_deferred"
-        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
-        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
-
-        labelResult.shouldBeTrue()
+        val qrLink = result.text
+        log.info { "QR Code: $qrLink" }
+        return qrLink
     }
-
-    // Private -------------------------------------------------------------------------------------------------------
 }

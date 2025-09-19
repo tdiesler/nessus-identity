@@ -1,28 +1,26 @@
 package io.nessus.identity.ebsi
 
-import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import org.openqa.selenium.By
-import org.openqa.selenium.support.ui.WebDriverWait
-import java.time.Duration
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startPortalServer()
+        startNessusServer()
+        startPlaywrightBrowser()
         prepareWalletTests(false)
     }
 
     @AfterAll
     fun tearDown() {
-        stopPortalServer()
+        stopPlaywrightBrowser()
+        stopNessusServer()
     }
 
     @Test
@@ -31,43 +29,36 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSameAuthorisedInTime"
         log.info { ">>>>> Wallet $ctype" }
 
-        val wait = WebDriverWait(driver, Duration.ofSeconds(10))
-        val ctx = authLogin(Max)
+        val ctx = login(Max)
 
         // Click the collapsible element
-        driver.findElement(By.id("inTime-credential-same-device")).click()
-        nextStep()
+        val page = context.pages().last()
+        page.click("#inTime-credential-same-device")
 
         // Click the "Initiate" link
-        val mainTab = driver.windowHandle
-        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctype')]")
-        fixupInitiateHref(ctx, driver.findElement(xpath)).click()
-        nextStep()
+        val link = page.locator("a[href*='credential_type=$ctype']").first()
+        fixupInitiateHref(ctx, link)
 
-        // Wait for the new window to open and switch to it
-        wait.until { driver.windowHandles.size > 1 }
-        val newTab = driver.windowHandles.first { it != mainTab }
-        driver.switchTo().window(newTab)
+        // Wait for the new tab to open
+        val newPage = page.context().waitForPage { link.click() }
         log.info { "Switched to new tab" }
-        nextStep()
 
-        val credentialJson = driver.findElement(By.tagName("pre")).text
-        log.info { "Credential: $credentialJson" }
+        // Get the credential JSON from <pre>
+        val pre = newPage.locator("pre").also { it.waitFor() }
+        val credentialJson = pre.innerText()
+        log.info { "InTime Credential: $credentialJson" }
 
-        // [TODO] verify VC json
-        // verifyCredential(ctype, credentialJson)
+        // Verify received credential
+        verifyCredential(ctype, credentialJson)
 
-        // Switch back to the original tab
-        driver.switchTo().window(mainTab)
+        // Close new tab and switch back to original
+        newPage.close()
+        page.bringToFront()
         log.info { "Switched back to main tab" }
-        nextStep()
 
         // Wait for the "Validate" label to become Yes
         val checkboxId = "ct_wallet_same_authorised_in_time"
-        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
-        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
-
-        labelResult.shouldBeTrue()
+        assertCheckboxResult(page, checkboxId, "Validate")
     }
 
     @Test
@@ -76,43 +67,35 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSameAuthorisedDeferred"
         log.info { ">>>>> Wallet $ctype" }
 
-        val wait = WebDriverWait(driver, Duration.ofSeconds(10))
-        val ctx = authLogin(Max)
+        val ctx = login(Max)
 
         // Click the collapsible element
-        driver.findElement(By.id("deferred-credential-same-device")).click()
-        nextStep()
+        val page = context.pages().last()
+        page.click("#deferred-credential-same-device")
 
         // Click the "Initiate" link
-        val mainTab = driver.windowHandle
-        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctype')]")
-        fixupInitiateHref(ctx, driver.findElement(xpath)).click()
-        nextStep()
+        val link = page.locator("a[href*='credential_type=$ctype']").first()
+        fixupInitiateHref(ctx, link)
 
-        // Wait for the new window to open and switch to it
-        wait.until { driver.windowHandles.size > 1 }
-        val newTab = driver.windowHandles.first { it != mainTab }
-        driver.switchTo().window(newTab)
+        // Wait for the new tab to open
+        val newPage = page.context().waitForPage { link.click() }
         log.info { "Switched to new tab" }
-        nextStep()
 
-        val credentialJson = driver.findElement(By.tagName("pre")).text
+        val pre = newPage.locator("pre").also { it.waitFor() }
+        val credentialJson = pre.innerText()
         log.info { "Deferred Credential: $credentialJson" }
 
-        // [TODO] verify VC json
-        // verifyCredential(ctype, credentialJson)
+        // Verify received credential
+        verifyCredential(ctype, credentialJson)
 
-        // Switch back to the original tab
-        driver.switchTo().window(mainTab)
+        // Close new tab and switch back to original
+        newPage.close()
+        page.bringToFront()
         log.info { "Switched back to main tab" }
-        nextStep()
 
         // Wait for the "Validate" label to become Yes
         val checkboxId = "ct_wallet_same_authorised_deferred"
-        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
-        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
-
-        labelResult.shouldBeTrue()
+        assertCheckboxResult(page, checkboxId, "Validate")
     }
 
     @Test
@@ -121,47 +104,40 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSamePreAuthorisedInTime"
         log.info { ">>>>> Wallet $ctype" }
 
-        val wait = WebDriverWait(driver, Duration.ofSeconds(10))
-        val ctx = authLogin(Max)
+        val ctx = login(Max)
 
         // Click the collapsible element
-        driver.findElement(By.id("pre-auth-in-time-credential-same-device")).click()
-        nextStep()
+        val page = context.pages().last()
+        page.click("#pre-auth-in-time-credential-same-device")
 
-        val userPin = extractUserPin()
+        val userPin = extractUserPin(page)
         log.info { "Pre-Auth user PIN: $userPin" }
         putCredentialOfferRecord(ctype, null, userPin)
 
         // Click the "Initiate" link
-        val mainTab = driver.windowHandle
-        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctype')]")
-        fixupInitiateHref(ctx, driver.findElement(xpath)).click()
-        nextStep()
+        val link = page.locator("a[href*='credential_type=$ctype']").first()
+        fixupInitiateHref(ctx, link)
 
-        // Wait for the new window to open and switch to it
-        wait.until { driver.windowHandles.size > 1 }
-        val newTab = driver.windowHandles.first { it != mainTab }
-        driver.switchTo().window(newTab)
+        // Wait for the new tab to open
+        val newPage = page.context().waitForPage { link.click() }
         log.info { "Switched to new tab" }
-        nextStep()
 
-        val credentialJson = driver.findElement(By.tagName("pre")).text
+        // Get the credential JSON from <pre>
+        val pre = newPage.locator("pre").also { it.waitFor() }
+        val credentialJson = pre.innerText()
         log.info { "PreAuthorised Credential: $credentialJson" }
 
-        // [TODO] verify VC json
-        // verifyCredential(ctype, credentialJson)
+        // Verify received credential
+        verifyCredential(ctype, credentialJson)
 
-        // Switch back to the original tab
-        driver.switchTo().window(mainTab)
+        // Close new tab and switch back to original
+        newPage.close()
+        page.bringToFront()
         log.info { "Switched back to main tab" }
-        nextStep()
 
         // Wait for the "Validate" label to become Yes
         val checkboxId = "ct_wallet_same_pre_authorised_in_time"
-        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
-        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
-
-        labelResult.shouldBeTrue()
+        assertCheckboxResult(page, checkboxId, "Validate")
     }
 
     @Test
@@ -170,47 +146,39 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSamePreAuthorisedDeferred"
         log.info { ">>>>> Wallet $ctype" }
 
-        val wait = WebDriverWait(driver, Duration.ofSeconds(10))
-        val ctx = authLogin(Max)
+        val ctx = login(Max)
 
         // Click the collapsible element
-        driver.findElement(By.id("pre-auth-deferred-credential-same-device")).click()
-        nextStep()
+        val page = context.pages().last()
+        page.click("#pre-auth-deferred-credential-same-device")
 
-        val userPin = extractUserPin()
+        val userPin = extractUserPin(page)
         log.info { "Pre-Auth user PIN: $userPin" }
         putCredentialOfferRecord(ctype, null, userPin)
 
         // Click the "Initiate" link
-        val mainTab = driver.windowHandle
-        val ctType = "CTWalletSamePreAuthorisedDeferred"
-        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctType')]")
-        fixupInitiateHref(ctx, driver.findElement(xpath)).click()
-        nextStep()
+        val link = page.locator("a[href*='credential_type=$ctype']").first()
+        fixupInitiateHref(ctx, link)
 
-        // Wait for the new window to open and switch to it
-        wait.until { driver.windowHandles.size > 1 }
-        val newTab = driver.windowHandles.first { it != mainTab }
-        driver.switchTo().window(newTab)
+        // Wait for the new tab to open
+        val newPage = page.context().waitForPage { link.click() }
         log.info { "Switched to new tab" }
-        nextStep()
 
-        val credentialJson = driver.findElement(By.tagName("pre")).text
+        // Get the credential JSON from <pre>
+        val pre = newPage.locator("pre").also { it.waitFor() }
+        val credentialJson = pre.innerText()
         log.info { "PreAuthorised Deferred Credential: $credentialJson" }
 
-        // [TODO] verify VC json
-        // verifyCredential(ctype, credentialJson)
+        // Verify received credential
+        verifyCredential(ctype, credentialJson)
 
-        // Switch back to the original tab
-        driver.switchTo().window(mainTab)
+        // Close new tab and switch back to original
+        newPage.close()
+        page.bringToFront()
         log.info { "Switched back to main tab" }
-        nextStep(8000)
 
         // Wait for the "Validate" label to become Yes
         val checkboxId = "ct_wallet_same_pre_authorised_deferred"
-        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
-        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
-
-        labelResult.shouldBeTrue()
+        assertCheckboxResult(page, checkboxId, "Validate")
     }
 }

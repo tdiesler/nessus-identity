@@ -55,10 +55,10 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
         runBlocking {
 
             // Issuer's OIDC context (Max is the Issuer)
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
 
             // Holders's OIDC context (Alice is the Holder)
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             issuerSrv.createCredentialOffer(max, alice.did, listOf("oid4vc_identity_credential"))
 
@@ -77,10 +77,10 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
         runBlocking {
 
             // Issuer's OIDC context (Max is the Issuer)
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
 
             // Holders's OIDC context (Alice is the Holder)
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             val clientId = "oid4vci-client"
             val ctype = "oid4vc_identity_credential"
@@ -166,7 +166,7 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
      */
     fun sendAuthorizationRequest(reqUrl: String, username: String, password: String): String {
         Playwright.create().use { plw ->
-            val browser = plw.webkit().launch(
+            val browser = plw.chromium().launch(
                 BrowserType.LaunchOptions().setHeadless(true)
             )
             val page = browser.newPage()

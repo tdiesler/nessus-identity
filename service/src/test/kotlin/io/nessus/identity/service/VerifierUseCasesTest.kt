@@ -39,11 +39,11 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Verifier's OIDC context
             //
-            val bob = OIDContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(loginWithDid(Bob))
 
             // Create the Holders's OIDC context
             //
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             // The Holder sends an AuthorizationRequest to the Verifier
             //
@@ -85,15 +85,15 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             //
-            val bob = OIDContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(loginWithDid(Bob))
 
             // Issuer creates the CredentialOffer
             //
@@ -129,16 +129,16 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
             val userPin = "1234"
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             //
-            val bob = OIDContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(loginWithDid(Bob))
 
             // Issuer creates the CredentialOffer
             //
@@ -190,16 +190,16 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
             val userPin = "1234"
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             //
-            val bob = OIDContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(loginWithDid(Bob))
 
             // Issuer creates the CredentialOffer
             //
@@ -250,16 +250,16 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
             val userPin = "1234"
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             //
-            val bob = OIDContext(setupWalletWithDid(Bob))
+            val bob = OIDContext(loginWithDid(Bob))
 
             // Issuer creates the CredentialOffer
             //

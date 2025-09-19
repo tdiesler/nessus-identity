@@ -47,11 +47,11 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             // Issuer creates the CredentialOffer
             //
@@ -105,11 +105,11 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             // Issuer creates the CredentialOffer
             //
@@ -165,11 +165,11 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             // Issuer creates the CredentialOffer
             //
@@ -222,11 +222,11 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
 
             // Create the Issuer's OIDC context (Max is the Issuer)
             //
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
 
             // Create the Holders's OIDC context (Alice is the Holder)
             //
-            val alice = OIDContext(setupWalletWithDid(Alice))
+            val alice = OIDContext(loginWithDid(Alice))
 
             // Issuer creates the CredentialOffer
             //

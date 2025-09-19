@@ -41,7 +41,6 @@
         <versio.microsoft.playwright>1.54.0</versio.microsoft.playwright>
         <version.nimbus>10.0.1</version.nimbus>
         <version.postgresql>42.7.5</version.postgresql>
-        <version.selenium>4.33.0</version.selenium>
         <version.slf4j>2.0.6</version.slf4j>
         <version.typesafe.config>1.4.3</version.typesafe.config>
         <version.waltid>0.15.1</version.waltid>
@@ -286,11 +285,6 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>${version.postgresql}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.seleniumhq.selenium</groupId>
-                <artifactId>selenium-java</artifactId>
-                <version>${version.selenium}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

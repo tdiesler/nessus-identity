@@ -1,73 +1,56 @@
 package io.nessus.identity.ebsi
 
+import com.microsoft.playwright.Locator
+import com.microsoft.playwright.Page
+import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.waltid.Max
-import org.openqa.selenium.By
-import org.openqa.selenium.JavascriptExecutor
-import org.openqa.selenium.WebElement
 import java.net.URI
 import java.net.URLEncoder
 
 abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
 
-    fun extractUserPin(): String {
-        val jsExecutor = driver as JavascriptExecutor
-        val pinElement = driver.findElement(By.xpath("//*[contains(text(), 'The required PIN-code will be')]"))
-        val pinElementText = jsExecutor.executeScript("return arguments[0].textContent;", pinElement) as String
-        val pinRegex = Regex("PIN-code will be (\\d{4})")
-        val pinMatch = pinRegex.find(pinElementText)
-        val userPin = pinMatch!!.groupValues[1]
-        return userPin
-    }
-
     fun prepareWalletTests(crossDevive: Boolean): LoginContext {
 
-        val ctx = authLogin(Max)
+        val ctx = runBlocking { loginWithDid(Max) }
         ctx.hasDidInfo.shouldBeTrue()
 
-        driver.get("https://hub.ebsi.eu/wallet-conformance")
-        nextStep()
+        val page = context.newPage()
+        page.navigate("https://hub.ebsi.eu/wallet-conformance")
 
         // Request and present Verifiable Credentials -> Start tests
-        driver.findElement(By.cssSelector("a[href='/wallet-conformance/holder-wallet']")).click()
-        nextStep()
+        page.click("a[href='/wallet-conformance/holder-wallet']")
 
         // Holder Wallet Conformance Testing -> Start
-        driver.findElement(By.cssSelector("a[href='/wallet-conformance/holder-wallet/flow?step=0']")).click()
-        nextStep()
+        page.click("a[href='/wallet-conformance/holder-wallet/flow?step=0']")
 
         // Click "Continue" button
-        driver.findElement(By.xpath("//button[.//span[text()='Continue']]")).click()
-        nextStep()
+        page.click("xpath=//button[.//span[text()='Continue']]")
 
         // Enter the did:key
-        driver.findElement(By.name("did")).sendKeys(ctx.did)
+        page.fill("input[name='did']", ctx.did)
         log.info { "DID: ${ctx.did}" }
-        nextStep()
 
         // Enter the walletUri
-        driver.findElement(By.name("credential_offer_endpoint")).sendKeys(walletEndpointUri(ctx))
+        page.fill("input[name='credential_offer_endpoint']", walletEndpointUri(ctx))
         log.info { "WalletUri: ${walletEndpointUri(ctx)}" }
-        nextStep()
 
         // Click "Continue" button
-        driver.findElement(By.xpath("//button[@type='submit'][.//span[text()='Continue']]")).click()
-        nextStep()
+        page.click("xpath=//button[@type='submit'][.//span[text()='Continue']]")
 
         // QR reading capabilities
         if (crossDevive) {
-            driver.findElement(By.xpath("//button[text()='Yes']")).click()
+            page.click("xpath=//button[text()='Yes']")
         } else {
-            driver.findElement(By.xpath("//button[text()='No']")).click()
+            page.click("xpath=//button[text()='No']")
         }
-        nextStep()
 
         return ctx
     }
 
-    fun fixupInitiateHref(ctx: LoginContext, link: WebElement): WebElement {
+    fun fixupInitiateHref(ctx: LoginContext, link: Locator): Locator {
 
         val walletUri = walletEndpointUri(ctx)
         var initiateHref = link.getAttribute("href") as String
@@ -85,12 +68,20 @@ abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
             initiateHref = "${uri.scheme}://${uri.authority}${uri.path}?$updatedQuery"
 
             log.info { "Overriding with: $initiateHref" }
-
-            (driver as JavascriptExecutor).executeScript(
-                "arguments[0].setAttribute('href', arguments[1])",
-                link, initiateHref
-            )
         }
+
+        link.evaluate("""(element, newHref) => element.setAttribute("href", newHref)""", initiateHref)
         return link
+    }
+
+    fun extractUserPin(page: Page): String {
+        val pinElement = page.locator("xpath=//*[contains(text(), 'The required PIN-code will be')]").first()
+        val pinElementText = pinElement.textContent() ?: ""
+        val pinRegex = Regex("PIN-code will be (\\d{4})")
+        val pinMatch = pinRegex.find(pinElementText)
+        val userPin = pinMatch?.groupValues?.get(1)
+            ?: throw IllegalStateException("PIN not found in: $pinElementText")
+        log.info { "Extracted PIN: $userPin" }
+        return userPin
     }
 }

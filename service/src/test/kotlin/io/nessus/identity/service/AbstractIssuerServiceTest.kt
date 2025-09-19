@@ -27,7 +27,7 @@ abstract class AbstractIssuerServiceTest<COType: CredentialOffer, IMDType: Issue
         runBlocking {
 
             // Issuer's OIDC context (Max is the Issuer)
-            val max = OIDContext(setupWalletWithDid(Max))
+            val max = OIDContext(loginWithDid(Max))
 
             val metadataUrl = issuerSrv.getIssuerMetadataUrl(max)
             metadataUrl.shouldEndWith(".well-known/openid-credential-issuer")

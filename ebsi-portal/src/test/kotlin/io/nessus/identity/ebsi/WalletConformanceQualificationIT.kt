@@ -1,27 +1,25 @@
 package io.nessus.identity.ebsi
 
-import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import org.openqa.selenium.By
-import org.openqa.selenium.support.ui.WebDriverWait
-import java.time.Duration
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startPortalServer()
+        startNessusServer()
+        startPlaywrightBrowser()
         prepareWalletTests(false)
     }
 
     @AfterAll
     fun tearDown() {
-        stopPortalServer()
+        stopPlaywrightBrowser()
+        stopNessusServer()
     }
 
     @Test
@@ -30,41 +28,35 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
         val ctype = "CTWalletQualificationCredential"
         log.info { ">>>>> CTQualificationThroughVPExchange" }
 
-        val wait = WebDriverWait(driver, Duration.ofSeconds(10))
-        val ctx = authLogin(Max)
+        val ctx = login(Max)
 
         // Click "Continue" button
-        driver.findElement(By.xpath("//button[.//span[text()='Continue']]")).click()
-        nextStep()
+        val page = context.pages().last()
+        page.click("xpath=//button[.//span[text()='Continue']]")
 
         // Click the "Initiate" link
-        val mainTab = driver.windowHandle
-        val xpath = By.xpath("//a[contains(@href, 'credential_type=$ctype')]")
-        fixupInitiateHref(ctx, driver.findElement(xpath)).click()
-        nextStep()
+        val link = page.locator("a[href*='credential_type=$ctype']").first()
+        fixupInitiateHref(ctx, link)
 
-        // Wait for the new window to open and switch to it
-        wait.until { driver.windowHandles.size > 1 }
-        val newTab = driver.windowHandles.first { it != mainTab }
-        driver.switchTo().window(newTab)
-        nextStep()
+        // Wait for the new tab to open
+        val newPage = page.context().waitForPage { link.click() }
+        log.info { "Switched to new tab" }
 
-        val credentialJson = driver.findElement(By.tagName("pre")).text
+        val pre = newPage.locator("pre").also { it.waitFor() }
+        val credentialJson = pre.innerText()
         log.info { "Credential: $credentialJson" }
 
-        // [TODO] verify VC json
-        // verifyCredential(ctype, credentialJson)
+        // Verify received credential
+        verifyCredential(ctype, credentialJson)
 
-        // Switch back to the original tab
-        driver.switchTo().window(mainTab)
-        nextStep()
+        // Close new tab and switch back to original
+        newPage.close()
+        page.bringToFront()
+        log.info { "Switched back to main tab" }
 
         // Wait for the "Validate" label to become Yes
         val checkboxId = "request_ct_wallet_qualification_credential"
-        val labelResult = awaitCheckboxResult(checkboxId, "Validate")
-        log.info { "Validation: " + if (labelResult) "Yes" else "No" }
-
-        labelResult.shouldBeTrue()
+        assertCheckboxResult(page, checkboxId, "Validate")
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
