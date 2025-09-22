@@ -2,6 +2,7 @@ package io.nessus.identity.waltid
 
 import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.*
+import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -35,6 +36,24 @@ val http = HttpClient {
     install(ContentNegotiation) {
         json()
     }
+}
+
+suspend inline fun <reified T> handleResponse(res: HttpResponse): T {
+    val body: String = res.body()
+    val json = Json { ignoreUnknownKeys = true }
+    if (res.status.value in 200..<300) {
+        return if (T::class == HttpResponse::class) {
+            @Suppress("UNCHECKED_CAST")
+            res as T
+        } else if (T::class == String::class) {
+            @Suppress("UNCHECKED_CAST")
+            body as T
+        } else {
+            json.decodeFromString<T>(body)
+        }
+    }
+    val err = json.decodeFromString<ErrorResponse>(body)
+    throw APIException(err)
 }
 
 // WaltIDApiClient =====================================================================================================
@@ -180,24 +199,6 @@ class WaltIDApiClient(val baseUrl: String) {
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
-
-    private suspend inline fun <reified T> handleResponse(res: HttpResponse): T {
-        val body = res.bodyAsText()
-        val json = Json { ignoreUnknownKeys = true }
-        if (res.status.value in 200..<300) {
-            return if (T::class == HttpResponse::class) {
-                @Suppress("UNCHECKED_CAST")
-                res as T
-            } else if (T::class == String::class) {
-                @Suppress("UNCHECKED_CAST")
-                body as T
-            } else {
-                json.decodeFromString<T>(body)
-            }
-        }
-        val err = json.decodeFromString<ErrorResponse>(body)
-        throw APIException(err)
-    }
 }
 
 // Authentication --------------------------------------------------------------------------------------------------

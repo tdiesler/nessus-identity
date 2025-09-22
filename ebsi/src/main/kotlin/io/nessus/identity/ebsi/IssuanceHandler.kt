@@ -9,7 +9,6 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.urlQueryToMap

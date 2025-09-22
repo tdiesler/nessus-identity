@@ -1,14 +1,11 @@
 package io.nessus.identity.service
 
-
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.kotest.common.runBlocking
-import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.User
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
+import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -32,11 +29,11 @@ abstract class AbstractServiceTest {
     suspend fun loginWithWallet(user: User): LoginContext {
         val ctx = login(user).also {
             val wi = widWalletSvc.listWallets(it).first()
-            it.putAttachment(WALLET_INFO_ATTACHMENT_KEY, wi)
+            it.putAttachment(AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY, wi)
         }
         if (ctx.maybeDidInfo == null) {
             widWalletSvc.findDidByPrefix(ctx, "did:key")?.also {
-                ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
+                ctx.putAttachment(AttachmentKeys.DID_INFO_ATTACHMENT_KEY, it)
             }
         }
         return ctx
@@ -60,7 +57,7 @@ abstract class AbstractServiceTest {
                     ?: widWalletSvc.createKey(ctx, KeyType.SECP256R1)
                 didInfo = widWalletSvc.createDidKey(ctx, "", key.id)
             }
-            ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, didInfo)
+            ctx.putAttachment(AttachmentKeys.DID_INFO_ATTACHMENT_KEY, didInfo)
         }
         return ctx
     }

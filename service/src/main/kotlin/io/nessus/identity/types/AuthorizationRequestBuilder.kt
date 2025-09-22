@@ -11,7 +11,6 @@ import io.nessus.identity.service.OID4VCIUtils
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.security.MessageDigest
-import kotlin.random.Random
 
 class AuthorizationRequestBuilder {
 

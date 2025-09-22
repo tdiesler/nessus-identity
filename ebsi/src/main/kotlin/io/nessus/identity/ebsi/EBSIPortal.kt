@@ -26,11 +26,6 @@ import org.slf4j.event.Level
 import java.io.File
 import java.security.KeyStore
 
-fun main() {
-    val server = EBSIPortal().createServer()
-    server.start(wait = true)
-}
-
 class EBSIPortal {
 
     val log = KotlinLogging.logger {}
@@ -46,6 +41,14 @@ class EBSIPortal {
         log.info { "ServiceConfig: ${Json.encodeToString(serviceConfig)}" }
         log.info { "DatabaseConfig: ${Json.encodeToString(databaseConfig.redacted())}" }
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
+    }
+
+    companion object {
+        @JvmStatic
+        fun main() {
+            val server = EBSIPortal().createServer()
+            server.start(wait = true)
+        }
     }
 
     fun createServer(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {

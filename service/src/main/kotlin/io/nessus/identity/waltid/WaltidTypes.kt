@@ -1,6 +1,5 @@
 package io.nessus.identity.waltid
 
-import java.util.Locale
 import java.util.Locale.getDefault
 
 // Authentication ------------------------------------------------------------------------------------------------------

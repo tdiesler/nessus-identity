@@ -70,6 +70,7 @@
     </properties>
 
     <modules>
+        <module>endpoints</module>
         <module>service</module>
     </modules>
 
@@ -461,7 +462,7 @@
         <profile>
             <id>ebsi</id>
             <modules>
-                <module>ebsi-portal</module>
+                <module>ebsi</module>
             </modules>
         </profile>
     </profiles>
