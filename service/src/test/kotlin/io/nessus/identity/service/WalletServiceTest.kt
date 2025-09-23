@@ -15,8 +15,6 @@ import org.junit.jupiter.api.Test
 
 class WalletServiceTest : AbstractServiceTest() {
 
-    val walletSrv = WalletService.create()
-
     @Test
     fun decodeCredentialOffer() {
         val credOfferJson = """

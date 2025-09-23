@@ -7,7 +7,6 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.nessus.identity.extend.signWithKey
@@ -31,18 +30,15 @@ import kotlin.uuid.ExperimentalUuidApi
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService<CredentialOfferDraft17, IssuerMetadataDraft17>(issuerUrl) {
-
-    val log = KotlinLogging.logger {}
+class KeycloakIssuerService(ctx: OIDContext, issuerUrl: String) : AbstractIssuerService<IssuerMetadataDraft17>(ctx, issuerUrl) {
 
     override suspend fun createCredentialOffer(
-        ctx: OIDContext,
         subId: String,
         types: List<String>,
         userPin: String?
     ): CredentialOfferDraft17 {
 
-        val metadata = getIssuerMetadata(ctx)
+        val metadata = getIssuerMetadata()
         val issuerUri = metadata.credentialIssuer
         val supportedTypes = metadata.supportedTypes
 
@@ -62,7 +58,7 @@ class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService<Credentia
 
         val offerClaims = JWTClaimsSet.Builder()
             .subject(subId)
-            .issuer(ctx.did)
+            .issuer(metadata.credentialIssuer)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
             .claim("client_id", subId)
@@ -97,7 +93,6 @@ class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService<Credentia
     }
 
     override suspend fun getCredentialFromRequest(
-        ctx: OIDContext,
         credReq: CredentialRequest,
         accessTokenJwt: SignedJWT,
         deferred: Boolean
@@ -106,16 +101,16 @@ class KeycloakIssuerService(issuerUrl: String) : AbstractIssuerService<Credentia
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun getCredentialFromParameters(ctx: OIDContext, vcp: CredentialParameters): CredentialResponse {
+    override suspend fun getCredentialFromParameters(vcp: CredentialParameters): CredentialResponse {
         throw IllegalStateException("Not implemented")
     }
 
-    override suspend fun getDeferredCredentialFromAcceptanceToken(ctx: OIDContext, acceptanceTokenJwt: SignedJWT): CredentialResponse {
+    override suspend fun getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt: SignedJWT): CredentialResponse {
         throw IllegalStateException("Not implemented")
     }
 
-    override suspend fun getIssuerMetadataInternal(ctx: OIDContext): IssuerMetadataDraft17 {
-        val metadataUrl = URI(getIssuerMetadataUrl(ctx)).toURL()
+    override suspend fun getIssuerMetadataInternal(ctx: OIDContext?): IssuerMetadataDraft17 {
+        val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
         val metadata = http.get(metadataUrl).bodyAsText().let {
             IssuerMetadataDraft17.fromJson(it)
         }

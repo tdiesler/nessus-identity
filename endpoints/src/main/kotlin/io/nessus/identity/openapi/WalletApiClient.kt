@@ -1,4 +1,4 @@
-package io.nessus.identity.api
+package io.nessus.identity.openapi
 
 import io.ktor.client.request.*
 import io.ktor.http.*
@@ -6,9 +6,9 @@ import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.waltid.handleResponse
 import io.nessus.identity.waltid.http
 
-// WalletAPIClient ====================================================================================================
+// WalletApiClient ====================================================================================================
 
-class WalletAPIClient: WalletAPI {
+class WalletApiClient: WalletApi {
 
     val baseUrl = "http://localhost:8080"
 

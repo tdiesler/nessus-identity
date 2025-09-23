@@ -16,7 +16,6 @@ import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.data.SubjectType
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
@@ -30,18 +29,15 @@ import kotlin.uuid.Uuid
 
 // DefaultIssuerService ================================================================================================
 
-class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIssuerService<CredentialOfferDraft11, IssuerMetadataDraft11>(issuerUrl) {
-
-    val log = KotlinLogging.logger {}
+class DefaultIssuerService(ctx: OIDContext, issuerUrl: String, val authUrl: String) : AbstractIssuerService<IssuerMetadataDraft11>(ctx, issuerUrl) {
 
     override suspend fun createCredentialOffer(
-        ctx: OIDContext,
         subId: String,
         types: List<String>,
         userPin: String?
     ): CredentialOfferDraft11 {
 
-        val metadata = getIssuerMetadata(ctx)
+        val metadata = getIssuerMetadata()
         val issuerUri = metadata.credentialIssuer
 
         // Build issuer state jwt
@@ -93,7 +89,6 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
     }
 
     override suspend fun getCredentialFromRequest(
-        ctx: OIDContext,
         credReq: CredentialRequest,
         accessTokenJwt: SignedJWT,
         deferred: Boolean
@@ -114,13 +109,13 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
                 .withIssuer(ctx.did)
                 .withSubject(ctx.authRequest.clientId)
                 .withTypes(credReq.types!!)
-            getCredentialFromParameters(ctx, params)
+            getCredentialFromParameters(params)
         }
         return credentialResponse
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun getCredentialFromParameters(ctx: OIDContext, vcp: CredentialParameters): CredentialResponse {
+    override suspend fun getCredentialFromParameters(vcp: CredentialParameters): CredentialResponse {
 
         // Init property defaults when not given
         //
@@ -137,7 +132,7 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
             throw java.lang.IllegalStateException("No types")
 
         // Verify credential types i.e. every type must bve known to this issuer
-        val metadata = getIssuerMetadata(ctx)
+        val metadata = getIssuerMetadata()
         val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = vcp.types.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())
@@ -193,7 +188,6 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
     }
 
     override suspend fun getDeferredCredentialFromAcceptanceToken(
-        ctx: OIDContext,
         acceptanceTokenJwt: SignedJWT
     ): CredentialResponse {
 
@@ -211,17 +205,19 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
             .withIssuer(ctx.did)
             .withSubject(ctx.authRequest.clientId)
             .withTypes(credReq.types!!)
-        val credentialResponse = getCredentialFromParameters(ctx, params)
+        val credentialResponse = getCredentialFromParameters(params)
 
         return credentialResponse
     }
 
-    override fun getIssuerMetadataUrl(ctx: OIDContext): String {
+    override fun getIssuerMetadataUrl(): String {
+        ctx ?: throw IllegalArgumentException("No OIDContext")
         val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerUrl/${ctx.targetId}")
         return metadataUrl
     }
 
-    override suspend fun getIssuerMetadataInternal(ctx: OIDContext): IssuerMetadataDraft11 {
+    override suspend fun getIssuerMetadataInternal(ctx: OIDContext?): IssuerMetadataDraft11 {
+        ctx ?: throw IllegalArgumentException("No OIDContext")
         val authTargetUrl = "$authUrl/${ctx.targetId}"
         val issuerTargetUrl = "$issuerUrl/${ctx.targetId}"
         val credentialSupported = mapOf(
@@ -284,7 +280,7 @@ class DefaultIssuerService(issuerUrl: String, val authUrl: String) : AbstractIss
         log.info { "CredentialRequestDeferred: ${Json.encodeToString(credReq)}" }
 
         val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequest")
-        val metadata = getIssuerMetadata(ctx)
+        val metadata = getIssuerMetadata()
         val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = types.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())

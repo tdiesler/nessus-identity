@@ -20,7 +20,6 @@ import io.ktor.http.*
 import io.nessus.identity.extend.getQueryParameters
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.types.AuthorizationRequestBuilder
-import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft17
 import io.nessus.identity.waltid.Alice
@@ -39,11 +38,21 @@ import java.util.*
 import kotlin.random.Random
 
 
-class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft17, IssuerMetadataDraft17>() {
+class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft17>() {
+
+    lateinit var max: OIDContext
+    lateinit var alice: OIDContext
 
     @BeforeEach
     fun setUp() {
-        issuerSrv = IssuerService.createKeycloak()
+        kotlinx.coroutines.runBlocking {
+            // Create the Issuer's OIDC context (Max is the Issuer)
+            max = OIDContext(login(Max).withDidInfo())
+            issuerSvc = IssuerService.createKeycloak(max)
+
+            // Create the Holders's OIDC context (Alice is the Holder)
+            alice = OIDContext(login(Alice).withDidInfo())
+        }
     }
 
     @Test
@@ -54,16 +63,10 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
         */
         runBlocking {
 
-            // Issuer's OIDC context (Max is the Issuer)
-            val max = OIDContext(loginWithDid(Max))
-
-            // Holders's OIDC context (Alice is the Holder)
-            val alice = OIDContext(loginWithDid(Alice))
-
-            issuerSrv.createCredentialOffer(max, alice.did, listOf("oid4vc_identity_credential"))
+            issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_identity_credential"))
 
             assertThrows<IllegalArgumentException> {
-                issuerSrv.createCredentialOffer(max, alice.did, listOf("oid4vc_unknown"))
+                issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_unknown"))
             }
         }
     }
@@ -76,23 +79,17 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft
         */
         runBlocking {
 
-            // Issuer's OIDC context (Max is the Issuer)
-            val max = OIDContext(loginWithDid(Max))
-
-            // Holders's OIDC context (Alice is the Holder)
-            val alice = OIDContext(loginWithDid(Alice))
-
             val clientId = "oid4vci-client"
             val ctype = "oid4vc_identity_credential"
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
 
             // Get the IssuerMetadata and make it knows to the Holder
-            val metadata = issuerSrv.getIssuerMetadata(max)
+            val metadata = issuerSvc.getIssuerMetadata()
             alice.issuerMetadata = (metadata as IssuerMetadata)
 
             // Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
-            val credOffer = issuerSrv.createCredentialOffer(max, alice.did, listOf(ctype))
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
 
             // Holder builds an Authorization Request
             //

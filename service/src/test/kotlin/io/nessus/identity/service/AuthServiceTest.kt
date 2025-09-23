@@ -11,12 +11,13 @@ class AuthServiceTest : AbstractServiceTest() {
     @Test
     fun authMetadata() {
         runBlocking {
-            val max = login(Max)
+            val max = OIDContext(login(Max))
+            val authSvc = AuthService.create(max)
 
-            val metadataUrl = AuthService.getAuthMetadataUrl(max)
+            val metadataUrl = authSvc.getAuthMetadataUrl()
             metadataUrl.shouldEndWith("/auth/${max.targetId}/.well-known/openid-configuration")
 
-            val jsonObj = AuthService.getAuthMetadata(max)
+            val jsonObj = authSvc.getAuthMetadata()
             jsonObj.shouldNotBeNull()
         }
     }

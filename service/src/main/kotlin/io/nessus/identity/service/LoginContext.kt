@@ -3,6 +3,10 @@ package io.nessus.identity.service
 import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
+import io.nessus.identity.waltid.APIException
+import io.nessus.identity.waltid.KeyType
+import io.nessus.identity.waltid.User
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import java.security.MessageDigest
 
 open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : AttachmentContext(attachments) {
@@ -21,7 +25,53 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
     val walletId get() = walletInfo.id
     val targetId get() = getTargetId(walletId, maybeDidInfo?.did ?: "")
 
+    suspend fun withWalletInfo(): LoginContext {
+        getAttachment(WALLET_INFO_ATTACHMENT_KEY) ?: run {
+            val wi = widWalletSvc.listWallets(this).first()
+            putAttachment(WALLET_INFO_ATTACHMENT_KEY, wi)
+        }
+        getAttachment(DID_INFO_ATTACHMENT_KEY) ?: run {
+            widWalletSvc.findDidByPrefix(this, "did:key")?.also {
+                putAttachment(DID_INFO_ATTACHMENT_KEY, it)
+            }
+        }
+        return this
+    }
+
+    suspend fun withDidInfo(): LoginContext {
+        withWalletInfo().also {
+            getAttachment(DID_INFO_ATTACHMENT_KEY) ?: run {
+                val key = widWalletSvc.findKeyByType(this, KeyType.SECP256R1)
+                    ?: widWalletSvc.createKey(this, KeyType.SECP256R1)
+                widWalletSvc.createDidKey(this, "", key.id).also {
+                    putAttachment(DID_INFO_ATTACHMENT_KEY, it)
+                }
+            }
+        }
+        return this
+    }
+
     companion object {
+
+        suspend fun login(user: User): LoginContext {
+            val ctx = widWalletSvc.login(user.toLoginParams())
+            return ctx
+        }
+
+        suspend fun loginOrRegister(user: User): LoginContext {
+            val ctx = runCatching { widWalletSvc.login(user.toLoginParams()) }.getOrElse { ex ->
+                val apiEx = ex as? APIException ?: throw ex
+                val msg = apiEx.message as String
+                if (apiEx.code == 401 && msg.contains("Unknown user")) {
+                    widWalletSvc.registerUser(user.toRegisterUserParams())
+                    login(user)
+                } else {
+                    throw ex
+                }
+            }
+            return ctx
+        }
+
         /**
          * Short hash from the combination of walletId + did
          */

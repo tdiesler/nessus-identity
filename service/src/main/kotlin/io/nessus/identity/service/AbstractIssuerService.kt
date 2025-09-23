@@ -1,24 +1,28 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.types.CredentialOffer
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.IssuerMetadata
 
-abstract class AbstractIssuerService<COType: CredentialOffer, IMDType: IssuerMetadata>(val issuerUrl: String) : IssuerService<COType, IMDType> {
+abstract class AbstractIssuerService<IMDType : IssuerMetadata>(val ctx: OIDContext, val issuerUrl: String) : IssuerService<IMDType> {
 
-    protected var metadata : IMDType? = null
+    val log = KotlinLogging.logger {}
 
-    override fun getIssuerMetadataUrl(ctx: OIDContext): String {
+    protected var metadata: IMDType? = null
+
+    override fun getIssuerMetadataUrl(): String {
         val metadataUrl = "$issuerUrl/.well-known/openid-credential-issuer"
         return metadataUrl
     }
 
-    final override suspend fun getIssuerMetadata(ctx: OIDContext): IMDType {
+    final override suspend fun getIssuerMetadata(): IMDType {
         if (metadata == null) {
             metadata = getIssuerMetadataInternal(ctx)
-            ctx.issuerMetadata = (metadata as IssuerMetadata)
+            ctx?.also {
+                ctx.issuerMetadata = (metadata as IssuerMetadata)
+            }
         }
         return metadata!!
     }
 
-    protected abstract suspend fun getIssuerMetadataInternal(ctx: OIDContext): IMDType
+    protected abstract suspend fun getIssuerMetadataInternal(ctx: OIDContext?): IMDType
 }

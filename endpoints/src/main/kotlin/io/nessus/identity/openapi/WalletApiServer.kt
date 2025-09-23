@@ -1,39 +1,43 @@
-package io.nessus.identity.api
+package io.nessus.identity.openapi
 
-import id.walt.webwallet.web.controllers.auth.getWalletId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.smiley4.ktoropenapi.OpenApi
+import io.github.smiley4.ktoropenapi.get
 import io.github.smiley4.ktoropenapi.openApi
-import io.github.smiley4.ktoropenapi.*
+import io.github.smiley4.ktoropenapi.post
 import io.github.smiley4.ktorswaggerui.swaggerUI
-import io.ktor.http.HttpStatusCode
+import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.request.receive
-import io.ktor.server.response.respondRedirect
-import io.ktor.server.response.respondText
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.server.util.getValue
+import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialOffer
-import kotlin.uuid.ExperimentalUuidApi
+import kotlinx.serialization.json.Json
 
 class WalletApiServer {
 
-    private val log = KotlinLogging.logger {}
-
-    init {
-        log.info { "Starting WalletApi Server ..." }
-    }
-
     companion object {
+
+        val log = KotlinLogging.logger {}
+        val versionInfo = getVersionInfo()
+
+        val serverPort = 8080
+
         @JvmStatic
         fun main(args: Array<String>) {
             val server = WalletApiServer().createServer()
             server.start(wait = true)
         }
+    }
+
+    init {
+        log.info { "Starting WalletApi Server ..." }
+        log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
     }
 
     fun createServer(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
@@ -46,10 +50,10 @@ class WalletApiServer {
                 info {
                     title = "Wallet API"
                     version = "1.0.0"
-                    description = "OID4VCI Wallet backend"
+                    description = "OID4VCI Wallet Backend"
                 }
                 server {
-                    url = "http://localhost:8080"
+                    url = "http://localhost:$serverPort"
                     description = "Local dev server"
                 }
             }
@@ -66,35 +70,6 @@ class WalletApiServer {
                 route("/swagger") {
                     swaggerUI("/openapi.json")
                 }
-
-                // CredentialOffer Request ----------------------------------------------------------------------------
-                //
-                get("/wallets/{walletId}/credential-offer/request", {
-                    summary = "Request a CredentialOffer"
-                    description = "Request a CredentialOffer for the given parameters"
-                    request {
-                        queryParameter<String>("issuer") {
-                            description = "The credential issuer URL"
-                            required = true
-                        }
-                        queryParameter<String>("subject_did") {
-                            description = "The requesting subject DID"
-                            required = true
-                        }
-                        queryParameter<String>("credential_configuration_ids") {
-                            description = "The requested credential configuration ids"
-                            required = true
-                        }
-                    }
-                    response {
-                        HttpStatusCode.Created to {
-                            description = "Stored CredentialOffer"
-                        }
-                        HttpStatusCode.BadRequest to {
-                            description = "Invalid input"
-                        }
-                    }
-                }) { handleCredentialOfferRequest(call) }
 
                 // CredentialOffer Receive ----------------------------------------------------------------------------
                 //
@@ -115,7 +90,7 @@ class WalletApiServer {
                 }) { handleCredentialOfferReceive(call) }
             }
         }
-        return embeddedServer(Netty, port = 8080, module = Application::module)
+        return embeddedServer(Netty, port = serverPort, module = Application::module)
     }
 
     private suspend fun handleCredentialOfferReceive(call: RoutingCall) {
@@ -123,13 +98,5 @@ class WalletApiServer {
         val credOffer = call.receive<CredentialOffer>()
         log.info { "Received CredentialOffer for $walletId: ${credOffer.toJson()}" }
         call.respondText("{}", status = HttpStatusCode.Created)
-    }
-
-    private suspend fun handleCredentialOfferRequest(call: RoutingCall) {
-        val walletId = call.parameters["walletId"]!!
-        val issuerUrl = call.parameters["issuer"]!!
-        val subjectId = call.parameters["subject_id"]!!
-        val configurationIds = call.parameters["credential_configuration_ids"]!!
-        throw IllegalStateException("Not implemented")
     }
 }

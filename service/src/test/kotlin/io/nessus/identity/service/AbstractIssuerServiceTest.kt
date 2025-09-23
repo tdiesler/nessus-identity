@@ -3,16 +3,15 @@ package io.nessus.identity.service
 import io.kotest.common.runBlocking
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldEndWith
-import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.Test
 
 
-abstract class AbstractIssuerServiceTest<COType: CredentialOffer, IMDType: IssuerMetadata> : AbstractServiceTest() {
+abstract class AbstractIssuerServiceTest<IMDType: IssuerMetadata> : AbstractServiceTest() {
 
-    val walletSrv = WalletService.create()
-    lateinit var issuerSrv: IssuerService<COType, IMDType>
+    val walletSvc = WalletService.create()
+    lateinit var issuerSvc: IssuerService<IMDType>
 
     @Test
     fun testGetIssuerMetadata() {
@@ -26,13 +25,10 @@ abstract class AbstractIssuerServiceTest<COType: CredentialOffer, IMDType: Issue
         */
         runBlocking {
 
-            // Issuer's OIDC context (Max is the Issuer)
-            val max = OIDContext(loginWithDid(Max))
-
-            val metadataUrl = issuerSrv.getIssuerMetadataUrl(max)
+            val metadataUrl = issuerSvc.getIssuerMetadataUrl()
             metadataUrl.shouldEndWith(".well-known/openid-credential-issuer")
 
-            val metadata = issuerSrv.getIssuerMetadata(max)
+            val metadata = issuerSvc.getIssuerMetadata()
             metadata.shouldNotBeNull()
         }
     }

@@ -39,23 +39,26 @@ import kotlin.uuid.Uuid
 
 // AuthService =========================================================================================================
 
-object AuthService {
+class AuthService(val ctx: OIDContext) {
 
-    val log = KotlinLogging.logger {}
+    companion object {
+        val log = KotlinLogging.logger {}
+        fun create(ctx: OIDContext) = AuthService(ctx)
+    }
 
-    val issuerSrv = IssuerService.create()
+    val issuerSvc = IssuerService.create(ctx)
 
-    fun getAuthMetadataUrl(ctx: LoginContext): String {
+    fun getAuthMetadataUrl(): String {
         val metadataUrl = OpenID4VCI.getOpenIdProviderMetadataUrl("$authEndpointUri/${ctx.targetId}")
         return metadataUrl
     }
 
-    fun getAuthMetadata(ctx: LoginContext): JsonObject {
-        val metadata = buildAuthEndpointMetadata(ctx)
+    fun getAuthMetadata(): JsonObject {
+        val metadata = buildAuthEndpointMetadata()
         return metadata
     }
 
-    fun buildAuthCodeRedirectUri(ctx: OIDContext, authCode: String): String {
+    fun buildAuthCodeRedirectUri(authCode: String): String {
 
         val authReq = ctx.authRequest
         val authCodeRedirect = URLBuilder("${authReq.redirectUri}").apply {
@@ -73,7 +76,7 @@ object AuthService {
         return authCodeRedirect
     }
 
-    suspend fun buildIDTokenRequest(ctx: OIDContext, authReq: AuthorizationRequest): SignedJWT {
+    suspend fun buildIDTokenRequest(authReq: AuthorizationRequest): SignedJWT {
 
         val issuerMetadata = ctx.issuerMetadata
         val authorizationServer = ctx.authorizationServer
@@ -100,7 +103,7 @@ object AuthService {
         return idTokenJwt
     }
 
-    fun buildIDTokenRedirectUrl(ctx: OIDContext, idTokenReqJwt: SignedJWT): String {
+    fun buildIDTokenRedirectUrl(idTokenReqJwt: SignedJWT): String {
 
         val authReq = ctx.authRequest
         val claims = idTokenReqJwt.jwtClaimsSet
@@ -121,7 +124,7 @@ object AuthService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun buildVPTokenRequest(ctx: OIDContext, authReq: AuthorizationRequest): SignedJWT {
+    suspend fun buildVPTokenRequest(authReq: AuthorizationRequest): SignedJWT {
 
         val issuerMetadata = ctx.issuerMetadata
         val authorizationServer = ctx.authorizationServer
@@ -169,7 +172,7 @@ object AuthService {
         return vpTokenReqJwt
     }
 
-    fun buildVPTokenRedirectUrl(ctx: OIDContext, vpTokenReqJwt: SignedJWT): String {
+    fun buildVPTokenRedirectUrl(vpTokenReqJwt: SignedJWT): String {
 
         val authorizationServer = ctx.authorizationServer
 
@@ -197,7 +200,7 @@ object AuthService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun handleTokenRequestAuthCode(ctx: OIDContext, tokenReq: TokenRequest): TokenResponse {
+    suspend fun handleTokenRequestAuthCode(tokenReq: TokenRequest): TokenResponse {
 
         val tokReq = tokenReq as TokenRequest.AuthorizationCode
         val grantType = tokReq.grantType
@@ -211,14 +214,14 @@ object AuthService {
 
         // [TODO #230] Verify token request code challenge
 
-        val tokenRes = buildTokenResponse(ctx)
+        val tokenRes = buildTokenResponse()
         return tokenRes
     }
 
-    suspend fun handleTokenRequestPreAuthorized(ctx: OIDContext, tokenReq: TokenRequest): TokenResponse {
+    suspend fun handleTokenRequestPreAuthorized(tokenReq: TokenRequest): TokenResponse {
 
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY))
-            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerSrv.getIssuerMetadata(ctx))
+            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerSvc.getIssuerMetadata())
 
         var subId = tokenReq.clientId
         val preAuthTokenRequest = tokenReq as TokenRequest.PreAuthorizedCode
@@ -238,7 +241,7 @@ object AuthService {
             if (!hasCredentialOfferRecord(preAuthCode)) {
                 log.info { "Issuing CredentialOffer $preAuthCode (on-demand) for EBSI Conformance" }
                 val types = listOf("VerifiableCredential", preAuthCode)
-                val credOffer = issuerSrv.createCredentialOffer(ctx, subId, types, userPin)
+                val credOffer = issuerSvc.createCredentialOffer(subId, types, userPin)
                 putCredentialOfferRecord(preAuthCode, credOffer, userPin)
             }
         }
@@ -265,19 +268,19 @@ object AuthService {
 
         ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
 
-        val tokenResponse = buildTokenResponse(ctx)
+        val tokenResponse = buildTokenResponse()
         return tokenResponse
     }
 
     /**
      * Handle AuthorizationRequest from remote Holder
      */
-    suspend fun validateAuthorizationRequest(ctx: OIDContext, authReq: AuthorizationRequest) {
+    suspend fun validateAuthorizationRequest(authReq: AuthorizationRequest) {
 
         // Attach issuer metadata (on demand)
         //
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY)) {
-            val metadata = issuerSrv.getIssuerMetadata(ctx)
+            val metadata = issuerSvc.getIssuerMetadata()
             ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         }
 
@@ -289,7 +292,7 @@ object AuthService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun validateIDToken(ctx: OIDContext, idTokenJwt: SignedJWT): String {
+    fun validateIDToken(idTokenJwt: SignedJWT): String {
 
         log.info { "IDToken Header: ${idTokenJwt.header}" }
         log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
@@ -319,7 +322,7 @@ object AuthService {
     // Private ---------------------------------------------------------------------------------------------------------
 
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun buildTokenResponse(ctx: OIDContext): TokenResponse {
+    private suspend fun buildTokenResponse(): TokenResponse {
         val keyJwk = ctx.didInfo.publicKeyJwk()
         val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
 
@@ -366,7 +369,7 @@ object AuthService {
         return tokenResponse
     }
 
-    private fun buildAuthEndpointMetadata(ctx: LoginContext): JsonObject {
+    private fun buildAuthEndpointMetadata(): JsonObject {
         val baseUrl = "$authEndpointUri/${ctx.targetId}"
         return Json.parseToJsonElement(
             """

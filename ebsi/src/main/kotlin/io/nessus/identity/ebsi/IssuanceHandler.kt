@@ -12,13 +12,12 @@ import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
 
 object IssuanceHandler {
 
     val log = KotlinLogging.logger {}
-
-    val issuerSrv = IssuerService.create()
 
     // Handle Issuer Requests ------------------------------------------------------------------------------------------
     //
@@ -67,9 +66,10 @@ object IssuanceHandler {
             ?.removePrefix("Bearer ")
             ?: throw IllegalArgumentException("Invalid authorization header")
 
+        val issuerSvc = IssuerService.create(ctx)
         val credReq = call.receive<CredentialRequest>()
         val accessTokenJwt = SignedJWT.parse(accessToken)
-        val credentialResponse = issuerSrv.getCredentialFromRequest(ctx, credReq, accessTokenJwt)
+        val credentialResponse = issuerSvc.getCredentialFromRequest(credReq, accessTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,
@@ -85,8 +85,9 @@ object IssuanceHandler {
             ?.removePrefix("Bearer ")
             ?: throw IllegalArgumentException("Invalid authorization header")
 
+        val issuerSvc = IssuerService.create(ctx)
         val acceptanceTokenJwt = SignedJWT.parse(acceptanceToken)
-        val credentialResponse = issuerSrv.getDeferredCredentialFromAcceptanceToken(ctx, acceptanceTokenJwt)
+        val credentialResponse = issuerSvc.getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,
@@ -97,7 +98,8 @@ object IssuanceHandler {
 
     private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: OIDContext) {
 
-        val metadata = issuerSrv.getIssuerMetadata(ctx)
+        val issuerSvc = IssuerService.create(ctx)
+        val metadata = issuerSvc.getIssuerMetadata()
         val payload = Json.encodeToString(metadata)
         call.respondText(
             status = HttpStatusCode.OK,

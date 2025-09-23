@@ -37,11 +37,11 @@ class ServicePortal {
     fun createServer(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
 
         fun configure(): NettyApplicationEngine.Configuration.() -> Unit = {
-            val srv = ConfigProvider.requireServerConfig()
+            val serverConf = ConfigProvider.requireServerConfig()
 
             connector {
-                host = srv.host
-                port = srv.port
+                host = serverConf.host
+                port = serverConf.port
             }
         }
 

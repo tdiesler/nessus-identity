@@ -54,7 +54,7 @@ class EBSIPortal {
     fun createServer(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
 
         fun configure(): NettyApplicationEngine.Configuration.() -> Unit = {
-            val srv = ConfigProvider.requireServerConfig()
+            val serverConf = ConfigProvider.requireServerConfig()
 
             val tls = ConfigProvider.root.tls
             if (tls?.enabled == true) {
@@ -67,13 +67,13 @@ class EBSIPortal {
                     { keystorePassword }, // Must both match -passout
                     { keystorePassword }
                 ) {
-                    host = srv.host
-                    port = srv.port
+                    host = serverConf.host
+                    port = serverConf.port
                 }
             } else {
                 connector {
-                    host = srv.host
-                    port = srv.port
+                    host = serverConf.host
+                    port = serverConf.port
                 }
             }
         }

@@ -37,6 +37,7 @@
         <version.kotlinx.io>0.6.0</version.kotlinx.io>
         <version.kotlinx.serialization>1.8.1</version.kotlinx.serialization>
         <version.ktor>3.1.2</version.ktor>
+        <version.ktor.openapi>5.3.0</version.ktor.openapi>
         <version.logback>1.5.18</version.logback>
         <versio.microsoft.playwright>1.54.0</versio.microsoft.playwright>
         <version.nimbus>10.0.1</version.nimbus>
@@ -151,6 +152,16 @@
                 <groupId>io.github.oshai</groupId>
                 <artifactId>kotlin-logging-jvm</artifactId>
                 <version>${version.kotlin.logging}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.smiley4</groupId>
+                <artifactId>ktor-openapi</artifactId>
+                <version>${version.ktor.openapi}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.smiley4</groupId>
+                <artifactId>ktor-swagger-ui</artifactId>
+                <version>${version.ktor.openapi}</version>
             </dependency>
             <dependency>
                 <groupId>io.kotest</groupId>

@@ -32,7 +32,7 @@ object OAuthHandler {
 
     val log = KotlinLogging.logger {}
 
-    val walletSrv = WalletService.create()
+    val walletSvc = WalletService.create()
 
     suspend fun handleAuthRequests(call: RoutingCall, dstId: String) {
 
@@ -47,7 +47,7 @@ object OAuthHandler {
         }
 
         if (path.endsWith(".well-known/openid-configuration")) {
-            val ctx = requireLoginContext(dstId)
+            val ctx = OIDContext(requireLoginContext(dstId))
             return handleAuthorizationMetadataRequest(call, ctx)
         }
 
@@ -99,9 +99,10 @@ object OAuthHandler {
 
     // Private ---------------------------------------------------------------------------------------------------------
 
-    private suspend fun handleAuthorizationMetadataRequest(call: RoutingCall, ctx: LoginContext) {
+    private suspend fun handleAuthorizationMetadataRequest(call: RoutingCall, ctx: OIDContext) {
 
-        val payload = Json.encodeToString(AuthService.getAuthMetadata(ctx))
+        val authSvc = AuthService.create(ctx)
+        val payload = Json.encodeToString(authSvc.getAuthMetadata())
         call.respondText(
             status = HttpStatusCode.OK,
             contentType = ContentType.Application.Json,
@@ -119,14 +120,15 @@ object OAuthHandler {
         log.info { "Authorization Request: ${Json.encodeToString(authReq)}" }
         queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        AuthService.validateAuthorizationRequest(ctx, authReq)
+        val authSvc = AuthService.create(ctx)
+        authSvc.validateAuthorizationRequest(authReq)
         val isVPTokenRequest = authReq.scope.any { it.contains("vp_token") }
         val redirectUrl = if (isVPTokenRequest) {
-            val vpTokenReqJwt = AuthService.buildVPTokenRequest(ctx, authReq)
-            AuthService.buildVPTokenRedirectUrl(ctx, vpTokenReqJwt)
+            val vpTokenReqJwt = authSvc.buildVPTokenRequest(authReq)
+            authSvc.buildVPTokenRedirectUrl(vpTokenReqJwt)
         } else {
-            val idTokenReqJwt = AuthService.buildIDTokenRequest(ctx, authReq)
-            AuthService.buildIDTokenRedirectUrl(ctx, idTokenReqJwt)
+            val idTokenReqJwt = authSvc.buildIDTokenRequest(authReq)
+            authSvc.buildIDTokenRedirectUrl(idTokenReqJwt)
         }
         call.respondRedirect(redirectUrl)
     }
@@ -152,8 +154,8 @@ object OAuthHandler {
             }
         }
 
-        val idTokenJwt = walletSrv.createIDToken(ctx, reqParams)
-        walletSrv.sendIDToken(ctx, redirectUri, idTokenJwt)
+        val idTokenJwt = walletSvc.createIDToken(ctx, reqParams)
+        walletSvc.sendIDToken(ctx, redirectUri, idTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -191,8 +193,8 @@ object OAuthHandler {
             authReq = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         }
 
-        val vpTokenJwt = walletSrv.createVPToken(ctx, authReq)
-        walletSrv.sendVPToken(ctx, vpTokenJwt)
+        val vpTokenJwt = walletSvc.createVPToken(ctx, authReq)
+        walletSvc.sendVPToken(ctx, vpTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -208,10 +210,11 @@ object OAuthHandler {
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
         if (postParams["id_token"] != null) {
+            val authSvc = AuthService.create(ctx)
             val idToken = postParams["id_token"]?.first()
             val idTokenJwt = SignedJWT.parse(idToken)
-            val authCode = AuthService.validateIDToken(ctx, idTokenJwt)
-            val redirectUrl = AuthService.buildAuthCodeRedirectUri(ctx, authCode)
+            val authCode = authSvc.validateIDToken(idTokenJwt)
+            val redirectUrl = authSvc.buildAuthCodeRedirectUri(authCode)
             return call.respondRedirect(redirectUrl)
         }
 
@@ -252,12 +255,14 @@ object OAuthHandler {
         val tokenResponse = when (tokenReq) {
             is TokenRequest.AuthorizationCode -> {
                 val ctx = OIDCContextRegistry.assert(dstId)
-                AuthService.handleTokenRequestAuthCode(ctx, tokenReq)
+                val authSvc = AuthService.create(ctx)
+                authSvc.handleTokenRequestAuthCode(tokenReq)
             }
 
             is TokenRequest.PreAuthorizedCode -> {
                 val ctx = OIDContext(requireLoginContext(dstId))
-                AuthService.handleTokenRequestPreAuthorized(ctx, tokenReq)
+                val authSvc = AuthService.create(ctx)
+                authSvc.handleTokenRequestPreAuthorized(tokenReq)
             }
         }
 

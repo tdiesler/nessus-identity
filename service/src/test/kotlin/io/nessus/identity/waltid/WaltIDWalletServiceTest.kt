@@ -48,7 +48,7 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
     @Test
     fun listCredentials() {
         runBlocking {
-            val ctx = loginWithWallet(Max)
+            val ctx = login(Max).withWalletInfo()
             val credentials = widWalletSvc.listCredentials(ctx)
             credentials.shouldNotBeNull()
         }
@@ -61,7 +61,7 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
         val vpdef = Json.Default.decodeFromString<PresentationDefinition>(json)
 
         runBlocking {
-            val ctx = loginWithWallet(Max)
+            val ctx = login(Max).withWalletInfo()
             widWalletSvc.findCredentialsByPresentationDefinition(ctx, vpdef)
         }
     }
@@ -71,7 +71,7 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
     @Test
     fun listKeys() {
         runBlocking {
-            val ctx = loginWithWallet(Max)
+            val ctx = login(Max).withWalletInfo()
             val keys = widWalletSvc.listKeys(ctx)
             keys.shouldNotBeEmpty()
         }
@@ -80,7 +80,7 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
     @Test
     fun createKey() {
         runBlocking {
-            val ctx = loginWithWallet(Max)
+            val ctx = login(Max).withWalletInfo()
             val key = widWalletSvc.createKey(ctx, KeyType.SECP256R1)
             key.algorithm shouldBe KeyType.SECP256R1.algorithm
         }
@@ -91,7 +91,7 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
     @Test
     fun listDids() {
         runBlocking {
-            val ctx = loginWithWallet(Max)
+            val ctx = login(Max).withWalletInfo()
             val res = widWalletSvc.listDids(ctx)
             res.shouldNotBeEmpty()
         }
@@ -100,7 +100,7 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
     @Test
     fun createDidKey() {
         runBlocking {
-            val ctx = loginWithWallet(Max)
+            val ctx = login(Max).withWalletInfo()
             val keys = widWalletSvc.listKeys(ctx)
             val alias = "did:key#${keys.size + 1}"
             widWalletSvc.findDidByPrefix(ctx, "did:key") ?: runBlocking {
@@ -114,7 +114,7 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
     @Test
     fun signVerifyWithDid() {
         runBlocking {
-            val ctx = loginWithWallet(Max)
+            val ctx = login(Max).withWalletInfo()
             val didInfo = widWalletSvc.findDidByPrefix(ctx,"did:key").shouldNotBeNull()
             val signJwt = widWalletSvc.signWithDid(ctx, didInfo.did, "Kermit")
             signJwt.shouldNotBeBlank()

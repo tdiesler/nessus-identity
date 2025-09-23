@@ -13,14 +13,24 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft11, IssuerMetadataDraft11>() {
+class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11>() {
 
     // Generates a number between 1000 and 9999
     val userPin = Random.nextInt(1000, 10000)
 
+    lateinit var max: OIDContext
+    lateinit var alice: OIDContext
+
     @BeforeEach
     fun setUp() {
-        issuerSrv = IssuerService.create()
+        runBlocking {
+            // Create the Issuer's OIDC context (Max is the Issuer)
+            max = OIDContext(login(Max).withDidInfo())
+            issuerSvc = IssuerService.create(max)
+
+            // Create the Holders's OIDC context (Alice is the Holder)
+            alice = OIDContext(login(Alice).withDidInfo())
+        }
     }
 
     /**
@@ -45,19 +55,11 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
     fun issueCredentialInTime() {
         runBlocking {
 
-            // Create the Issuer's OIDC context (Max is the Issuer)
-            //
-            val max = OIDContext(loginWithDid(Max))
-
-            // Create the Holders's OIDC context (Alice is the Holder)
-            //
-            val alice = OIDContext(loginWithDid(Alice))
-
             // Issuer creates the CredentialOffer
             //
             val ctype = "CTWalletSameAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSrv.createCredentialOffer(max, alice.did, types)
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types) as CredentialOfferDraft11
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -76,7 +78,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
 
             // Holder storages the Credential
             //
-            walletSrv.addCredential(alice, credRes)
+            walletSvc.addCredential(alice, credRes)
         }
     }
 
@@ -103,19 +105,11 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
     fun issueCredentialDeferred() {
         runBlocking {
 
-            // Create the Issuer's OIDC context (Max is the Issuer)
-            //
-            val max = OIDContext(loginWithDid(Max))
-
-            // Create the Holders's OIDC context (Alice is the Holder)
-            //
-            val alice = OIDContext(loginWithDid(Alice))
-
             // Issuer creates the CredentialOffer
             //
             val ctype = "CTWalletSameAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSrv.createCredentialOffer(max, alice.did, types)
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types) as CredentialOfferDraft11
 
             // Holder gets a deferred Credential from an Issuer based on a CredentialOffer
             //
@@ -125,7 +119,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
             // Holder requests the deferred Credential using the AcceptanceToken
             //
             val acceptanceTokenJwt = SignedJWT.parse(deferredCredRes.acceptanceToken)
-            val credRes = issuerSrv.getDeferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
+            val credRes = issuerSvc.getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt)
 
             // Holder validates the received Credential
             //
@@ -139,7 +133,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
 
             // Holder storages the Credential
             //
-            walletSrv.addCredential(alice, credRes)
+            walletSvc.addCredential(alice, credRes)
         }
     }
 
@@ -163,19 +157,11 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
     fun issueCredentialPreAuthorized() {
         runBlocking {
 
-            // Create the Issuer's OIDC context (Max is the Issuer)
-            //
-            val max = OIDContext(loginWithDid(Max))
-
-            // Create the Holders's OIDC context (Alice is the Holder)
-            //
-            val alice = OIDContext(loginWithDid(Alice))
-
             // Issuer creates the CredentialOffer
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSrv.createCredentialOffer(max, alice.did, types, "$userPin")
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, "$userPin") as CredentialOfferDraft11
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -194,7 +180,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
 
             // Holder storages the Credential
             //
-            walletSrv.addCredential(alice, credRes)
+            walletSvc.addCredential(alice, credRes)
         }
     }
 
@@ -220,20 +206,12 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
     fun issueCredentialPreAuthorizedDeferred() {
         runBlocking {
 
-            // Create the Issuer's OIDC context (Max is the Issuer)
-            //
-            val max = OIDContext(loginWithDid(Max))
-
-            // Create the Holders's OIDC context (Alice is the Holder)
-            //
-            val alice = OIDContext(loginWithDid(Alice))
-
             // Issuer creates the CredentialOffer
             //
             val sub= alice.did
             val ctype = "CTWalletSamePreAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSrv.createCredentialOffer(max, sub, types, "$userPin")
+            val credOffer = issuerSvc.createCredentialOffer(sub, types, "$userPin") as CredentialOfferDraft11
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -243,7 +221,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
             // Pre-Authorized Holder requests the deferred Credential using the AcceptanceToken
             //
             val acceptanceTokenJwt = SignedJWT.parse(deferredCredRes.acceptanceToken)
-            val credRes = issuerSrv.getDeferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
+            val credRes = issuerSvc.getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt)
 
             // Holder validates the received Credential
             //
@@ -257,7 +235,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<CredentialOfferDraft1
 
             // Holder storages the Credential
             //
-            walletSrv.addCredential(alice, credRes)
+            walletSvc.addCredential(alice, credRes)
         }
     }
 }

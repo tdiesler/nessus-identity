@@ -19,8 +19,9 @@ import kotlin.random.Random
 
 class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OIDContext) {
 
-    val walletSrv = WalletService.create()
-    val verifierSrv = VerifierService.create()
+    val authSvc = AuthService.create(verifierCtx)
+    val walletSvc = WalletService.create()
+    val verifierSvc = VerifierService.create()
 
     /**
      * Holder finds Credential by Type and presents it to the Verifier
@@ -55,9 +56,9 @@ class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OID
 
         // The Verifier sends a VPToken Request to the Holder (request of VerifiablePresentation)
         //
-        AuthService.validateAuthorizationRequest(verifierCtx, authRequest)
-        val vpTokenRequestJwt = AuthService.buildVPTokenRequest(verifierCtx, authRequest)
-        val vpTokenRedirectUrl = AuthService.buildVPTokenRedirectUrl(verifierCtx, vpTokenRequestJwt)
+        authSvc.validateAuthorizationRequest(authRequest)
+        val vpTokenRequestJwt = authSvc.buildVPTokenRequest(authRequest)
+        val vpTokenRedirectUrl = authSvc.buildVPTokenRedirectUrl(vpTokenRequestJwt)
         val vpTokenRequestParams = urlQueryToMap(vpTokenRedirectUrl)
 
         if (vpTokenRequestParams["client_id"] != holderCtx.did)
@@ -71,7 +72,7 @@ class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OID
 
         // Holder responds with a signed VPToken that contains the VerifiablePresentation
         //
-        val vpTokenJwt = walletSrv.createVPToken(holderCtx, authRequest)
+        val vpTokenJwt = walletSvc.createVPToken(holderCtx, authRequest)
 
         // Verifier validates the VPToken
         //
@@ -88,6 +89,6 @@ class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OID
             .withSubject(holderCtx.did)
             .withTypes(listOf(ctype))
 
-        verifierSrv.validateVerifiableCredential(w3Cred, vcp)
+        verifierSvc.validateVerifiableCredential(w3Cred, vcp)
     }
 }

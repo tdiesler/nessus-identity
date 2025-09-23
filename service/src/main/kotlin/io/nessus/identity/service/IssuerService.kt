@@ -10,47 +10,55 @@ import io.nessus.identity.types.IssuerMetadata
 
 // IssuerService =======================================================================================================
 
-interface IssuerService<COType: CredentialOffer, IMDType: IssuerMetadata> {
+interface IssuerService<IMDType: IssuerMetadata> {
+
+    companion object {
+        /**
+         * Creates the default IssuerService
+         */
+        fun create(ctx: OIDContext): DefaultIssuerService {
+            val issuerUrl = ConfigProvider.issuerEndpointUri
+            val authUrl = ConfigProvider.authEndpointUri
+            return DefaultIssuerService(ctx, issuerUrl, authUrl);
+        }
+        /**
+         * Creates the Keycloak IssuerService
+         */
+        fun createKeycloak(ctx: OIDContext): KeycloakIssuerService {
+            return KeycloakIssuerService(ctx, "https://auth.localtest.me/realms/oid4vci");
+        }
+    }
 
     /**
-     * Creates a CredentialOffer for the given subject and credential types.
+     * Get the Issuer's metadata Url
+     */
+    fun getIssuerMetadataUrl(): String
+
+    /**
+     * Get the IssuerMetadata
+     */
+    suspend fun getIssuerMetadata(): IMDType
+
+    /**
+     * Creates a CredentialOffer for the given subject and credential types
      */
     suspend fun createCredentialOffer(
-        ctx: OIDContext,
         subId: String,
         types: List<String>,
-        userPin: String? = null
-    ): COType
+        userPin: String? = null,
+    ): CredentialOffer
 
     suspend fun getCredentialFromParameters(
-        ctx: OIDContext,
         vcp: CredentialParameters
     ): CredentialResponse
 
     suspend fun getCredentialFromRequest(
-        ctx: OIDContext,
         credReq: CredentialRequest,
         accessTokenJwt: SignedJWT,
-        deferred: Boolean = false
+        deferred: Boolean = false,
     ): CredentialResponse
 
     suspend fun getDeferredCredentialFromAcceptanceToken(
-        ctx: OIDContext,
-        acceptanceTokenJwt: SignedJWT
+        acceptanceTokenJwt: SignedJWT,
     ): CredentialResponse
-
-    fun getIssuerMetadataUrl(ctx: OIDContext): String
-
-    suspend fun getIssuerMetadata(ctx: OIDContext): IMDType
-
-    companion object {
-        fun create(): DefaultIssuerService {
-            val issuerUrl = ConfigProvider.issuerEndpointUri
-            val authUrl = ConfigProvider.authEndpointUri
-            return DefaultIssuerService(issuerUrl, authUrl);
-        }
-        fun createKeycloak(): KeycloakIssuerService {
-            return KeycloakIssuerService("https://auth.localtest.me/realms/oid4vci");
-        }
-    }
 }
