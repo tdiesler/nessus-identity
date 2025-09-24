@@ -25,7 +25,13 @@ abstract class AbstractWalletService<COType: CredentialOffer>(val ctx: OIDContex
         return credOfferId
     }
 
-    fun getCredentialOffer(credOfferId: String): COType? {
+    @Suppress("UNCHECKED_CAST")
+    fun getCredentialOffers(): List<COType> {
+        val offers = credOfferRegistry.values.toList()
+        return offers
+    }
+
+    fun getCredentialOfferById(credOfferId: String): COType? {
         return credOfferRegistry[credOfferId]
     }
 

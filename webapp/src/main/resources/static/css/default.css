@@ -1,0 +1,112 @@
+/* === Base app layout === */
+.app-body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: "IBM Plex Sans", sans-serif;
+}
+
+/* === Top role-tabs bar === */
+.role-tabs {
+  background: #e0e0e0; /* same gray as sidebar */
+  padding: 0.5rem 1rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.role-tabs a {
+  color: #161616;
+  text-decoration: none;
+}
+
+.role-tabs a.active {
+  font-weight: 600;
+  border-bottom: 2px solid #0f62fe; /* Carbon blue highlight */
+}
+
+/* === Sidebar + content container === */
+.app-main {
+  flex: 1;
+  display: flex;          /* sidebar + content side-by-side */
+  flex-direction: row;
+  background: #f4f4f4;
+}
+
+/* === Sidebar === */
+.sidebar {
+  width: 160px;
+  background: #e0e0e0; /* same gray as role-tabs */
+  color: #161616;
+  transition: width 0.3s ease;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar.collapsed {
+  width: 48px; /* just wide enough for the arrow */
+}
+
+/* Sidebar header with arrow */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; /* arrow to the far right */
+  padding: 0.5rem 0.75rem;
+  background: #e0e0e0;
+  cursor: pointer;
+}
+
+.sidebar-header svg {
+  transition: transform 0.3s ease;
+}
+
+/* Flip arrow when collapsed */
+.sidebar.collapsed .sidebar-header svg {
+  transform: rotate(180deg);
+}
+
+/* Hide menu items completely when collapsed */
+.sidebar nav {
+  transition: opacity 0.2s ease;
+}
+.sidebar.collapsed nav {
+  opacity: 0;
+  pointer-events: none;
+  display: none;
+}
+
+/* Sidebar items */
+nav .bx--side-nav__item {
+  margin-left: 0.75rem;
+  padding: 0.5rem 0;
+  color: inherit;
+}
+
+/* === Main content === */
+.content {
+  flex: 1;
+  background: #f4f4f4;
+  padding: 1rem;
+  overflow: auto;
+}
+
+/* === Forms (horizontal layout extension) === */
+.bx--form-item-horizontal {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  column-gap: 0.5rem;
+}
+
+.bx--form-item-horizontal .bx--label {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.bx--form-item-horizontal .bx--text-input {
+  width: 100%;
+  margin: 0;
+}

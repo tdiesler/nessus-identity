@@ -71,7 +71,8 @@
     </properties>
 
     <modules>
-        <module>endpoints</module>
+        <module>openapi</module>
+        <module>webapp</module>
         <module>service</module>
     </modules>
 
@@ -206,6 +207,11 @@
             <dependency>
                 <groupId>io.ktor</groupId>
                 <artifactId>ktor-server-core-jvm</artifactId>
+                <version>${version.ktor}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.ktor</groupId>
+                <artifactId>ktor-server-cors-jvm</artifactId>
                 <version>${version.ktor}</version>
             </dependency>
             <dependency>

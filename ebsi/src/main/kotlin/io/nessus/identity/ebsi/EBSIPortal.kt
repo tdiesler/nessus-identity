@@ -29,10 +29,9 @@ import java.security.KeyStore
 class EBSIPortal {
 
     val log = KotlinLogging.logger {}
+    val versionInfo = getVersionInfo()
 
-    private val versionInfo = getVersionInfo()
-
-    constructor() {
+    init {
         log.info { "Starting the Nessus EBSI Conformance Portal ..." }
         val serverConfig = ConfigProvider.requireServerConfig()
         val serviceConfig = ConfigProvider.requireServiceConfig()
@@ -89,7 +88,7 @@ class EBSIPortal {
                 }
             }
             install(ContentNegotiation) {
-                json()
+                json(Json { ignoreUnknownKeys = true })
             }
             install(FreeMarker) {
                 templateLoader = ClassTemplateLoader(this::class.java.classLoader, "templates")
