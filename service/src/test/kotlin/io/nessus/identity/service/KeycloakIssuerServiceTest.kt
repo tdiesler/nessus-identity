@@ -14,6 +14,8 @@ import id.walt.oid4vc.requests.TokenRequest
 import id.walt.oid4vc.responses.TokenResponse
 import io.kotest.common.runBlocking
 import io.kotest.matchers.equals.shouldBeEqual
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.string.shouldEndWith
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -38,17 +40,19 @@ import java.util.*
 import kotlin.random.Random
 
 
-class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft17>() {
+class KeycloakIssuerServiceTest: AbstractServiceTest() {
 
     lateinit var max: OIDContext
     lateinit var alice: OIDContext
+
+    lateinit var issuerSvc: IssuerServiceDraft17
 
     @BeforeEach
     fun setUp() {
         kotlinx.coroutines.runBlocking {
             // Create the Issuer's OIDC context (Max is the Issuer)
             max = OIDContext(login(Max).withDidInfo())
-            issuerSvc = IssuerService.createKeycloak(max)
+            issuerSvc = IssuerService.create(max)
 
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = OIDContext(login(Alice).withDidInfo())
@@ -56,7 +60,27 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft1
     }
 
     @Test
-    fun testGetCredentialOffer() {
+    fun testGetIssuerMetadata() {
+        /*
+            Credential Issuer Metadata
+            https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
+
+            Issuer Metadata Endpoints
+            https://auth.localtest.me/realms/oid4vci/.well-known/openid-configuration
+            https://auth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer
+        */
+        runBlocking {
+
+            val metadataUrl = issuerSvc.getIssuerMetadataUrl()
+            metadataUrl.shouldEndWith(".well-known/openid-credential-issuer")
+
+            val metadata = issuerSvc.getIssuerMetadata()
+            metadata.shouldNotBeNull()
+        }
+    }
+
+    @Test
+    fun testCreateCredentialOffer() {
         /*
             Credential Offer Endpoint
             https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
@@ -93,7 +117,6 @@ class KeycloakIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft1
 
             // Holder builds an Authorization Request
             //
-
             val rndBytes = Random.nextBytes(32)
             val codeVerifier = Base64URL.encode(rndBytes).toString()
 

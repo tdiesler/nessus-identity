@@ -2,10 +2,10 @@ package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldEndWith
 import io.nessus.identity.flow.CredentialIssuanceFlow
-import io.nessus.identity.types.CredentialOfferDraft11
-import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11>() {
+class DefaultIssuerServiceTest : AbstractServiceTest() {
 
     // Generates a number between 1000 and 9999
     val userPin = Random.nextInt(1000, 10000)
@@ -21,15 +21,32 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11
     lateinit var max: OIDContext
     lateinit var alice: OIDContext
 
+    lateinit var issuerSvc: IssuerServiceEbsi32
+    lateinit var walletSvc: WalletServiceEbsi32
+
     @BeforeEach
     fun setUp() {
         runBlocking {
             // Create the Issuer's OIDC context (Max is the Issuer)
             max = OIDContext(login(Max).withDidInfo())
-            issuerSvc = IssuerService.create(max)
 
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = OIDContext(login(Alice).withDidInfo())
+
+            issuerSvc = IssuerService.createEbsi(max)
+            walletSvc = WalletService.createEbsi(alice)
+        }
+    }
+
+    @Test
+    fun testGetIssuerMetadata() {
+        runBlocking {
+
+            val metadataUrl = issuerSvc.getIssuerMetadataUrl()
+            metadataUrl.shouldEndWith(".well-known/openid-credential-issuer")
+
+            val metadata = issuerSvc.getIssuerMetadata()
+            metadata.shouldNotBeNull()
         }
     }
 
@@ -59,7 +76,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11
             //
             val ctype = "CTWalletSameAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types) as CredentialOfferDraft11
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -78,7 +95,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11
 
             // Holder storages the Credential
             //
-            walletSvc.addCredential(alice, credRes)
+            walletSvc.addCredential(credRes)
         }
     }
 
@@ -109,7 +126,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11
             //
             val ctype = "CTWalletSameAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types) as CredentialOfferDraft11
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types)
 
             // Holder gets a deferred Credential from an Issuer based on a CredentialOffer
             //
@@ -133,7 +150,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11
 
             // Holder storages the Credential
             //
-            walletSvc.addCredential(alice, credRes)
+            walletSvc.addCredential(credRes)
         }
     }
 
@@ -161,7 +178,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, "$userPin") as CredentialOfferDraft11
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, "$userPin")
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -180,7 +197,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11
 
             // Holder storages the Credential
             //
-            walletSvc.addCredential(alice, credRes)
+            walletSvc.addCredential(credRes)
         }
     }
 
@@ -211,7 +228,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11
             val sub= alice.did
             val ctype = "CTWalletSamePreAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(sub, types, "$userPin") as CredentialOfferDraft11
+            val credOffer = issuerSvc.createCredentialOffer(sub, types, "$userPin")
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -235,7 +252,7 @@ class DefaultIssuerServiceTest : AbstractIssuerServiceTest<IssuerMetadataDraft11
 
             // Holder storages the Credential
             //
-            walletSvc.addCredential(alice, credRes)
+            walletSvc.addCredential(credRes)
         }
     }
 }

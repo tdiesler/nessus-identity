@@ -46,7 +46,7 @@ class AuthService(val ctx: OIDContext) {
         fun create(ctx: OIDContext) = AuthService(ctx)
     }
 
-    val issuerSvc = IssuerService.create(ctx)
+    val issuerSvc = IssuerService.createEbsi(ctx)
 
     fun getAuthMetadataUrl(): String {
         val metadataUrl = OpenID4VCI.getOpenIdProviderMetadataUrl("$authEndpointUri/${ctx.targetId}")

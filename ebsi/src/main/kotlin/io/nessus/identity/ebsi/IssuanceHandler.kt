@@ -12,7 +12,6 @@ import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
 
 object IssuanceHandler {
@@ -66,7 +65,7 @@ object IssuanceHandler {
             ?.removePrefix("Bearer ")
             ?: throw IllegalArgumentException("Invalid authorization header")
 
-        val issuerSvc = IssuerService.create(ctx)
+        val issuerSvc = IssuerService.createEbsi(ctx)
         val credReq = call.receive<CredentialRequest>()
         val accessTokenJwt = SignedJWT.parse(accessToken)
         val credentialResponse = issuerSvc.getCredentialFromRequest(credReq, accessTokenJwt)
@@ -85,7 +84,7 @@ object IssuanceHandler {
             ?.removePrefix("Bearer ")
             ?: throw IllegalArgumentException("Invalid authorization header")
 
-        val issuerSvc = IssuerService.create(ctx)
+        val issuerSvc = IssuerService.createEbsi(ctx)
         val acceptanceTokenJwt = SignedJWT.parse(acceptanceToken)
         val credentialResponse = issuerSvc.getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt)
 
@@ -98,7 +97,7 @@ object IssuanceHandler {
 
     private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: OIDContext) {
 
-        val issuerSvc = IssuerService.create(ctx)
+        val issuerSvc = IssuerService.createEbsi(ctx)
         val metadata = issuerSvc.getIssuerMetadata()
         val payload = Json.encodeToString(metadata)
         call.respondText(

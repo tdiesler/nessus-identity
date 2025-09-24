@@ -21,8 +21,8 @@ import kotlin.random.Random
 class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContext) {
 
     val authSvc = AuthService.create(issuerCtx)
-    val issuerSvc = IssuerService.create(issuerCtx)
-    val walletSvc = WalletService.create()
+    val issuerSvc = IssuerService.createEbsi(issuerCtx)
+    val walletSvc = WalletService.createEbsi(holderCtx)
 
     init {
         val metadata = runBlocking { issuerSvc.getIssuerMetadata() }
@@ -38,7 +38,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
-        walletSvc.addCredentialOffer(holderCtx, credOffer)
+        walletSvc.addCredentialOffer(credOffer)
 
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
@@ -64,7 +64,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder issues an ID Token signed by the DID's authentication key
         //
-        val idTokenJwt = walletSvc.createIDToken(holderCtx, urlQueryToMap(idTokenRequestUrl))
+        val idTokenJwt = walletSvc.createIDToken(urlQueryToMap(idTokenRequestUrl))
 
         // Issuer validates IDToken and returns an Authorization Code
         val authCode = authSvc.validateIDToken(idTokenJwt)
@@ -72,7 +72,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends a TokenRequest to the Issuer's Token Endpoint
         //
-        val tokenReq = walletSvc.createTokenRequestAuthCode(holderCtx, authCode)
+        val tokenReq = walletSvc.createTokenRequestAuthCode(authCode)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -81,7 +81,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
         // Holder sends the CredentialRequest using the AccessToken
         //
         val types = credOffer.getTypes()
-        val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
+        val credReq = walletSvc.createCredentialRequest(types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
@@ -99,7 +99,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
-        walletSvc.addCredentialOffer(holderCtx, credOffer)
+        walletSvc.addCredentialOffer(credOffer)
 
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
@@ -125,7 +125,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder issues an ID Token signed by the DID's authentication key
         //
-        val idTokenJwt = walletSvc.createIDToken(holderCtx, urlQueryToMap(idTokenRequestUrl))
+        val idTokenJwt = walletSvc.createIDToken(urlQueryToMap(idTokenRequestUrl))
 
         // Issuer validates IDToken and returns an Authorization Code
         val authCode = authSvc.validateIDToken(idTokenJwt)
@@ -133,7 +133,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // Holder sends a TokenRequest to the Issuer's Token Endpoint
         //
-        val tokenReq = walletSvc.createTokenRequestAuthCode(holderCtx, authCode)
+        val tokenReq = walletSvc.createTokenRequestAuthCode(authCode)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -142,7 +142,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
         // Holder sends the CredentialRequest using the AccessToken
         //
         val types = credOffer.getTypes()
-        val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
+        val credReq = walletSvc.createCredentialRequest(types, accessTokenRes)
 
         // Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
         //
@@ -160,11 +160,11 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // The Holder received a CredentialOffer
         //
-        walletSvc.addCredentialOffer(holderCtx, credOffer)
+        walletSvc.addCredentialOffer(credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = walletSvc.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
+        val tokenReq = walletSvc.createTokenRequestPreAuthorized(credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -173,7 +173,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
         // Holder sends the CredentialRequest using the AccessToken
         //
         val types = credOffer.getTypes()
-        val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
+        val credReq = walletSvc.createCredentialRequest(types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
@@ -196,11 +196,11 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
 
         // The Holder received a CredentialOffer
         //
-        walletSvc.addCredentialOffer(holderCtx, credOffer)
+        walletSvc.addCredentialOffer(credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = walletSvc.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
+        val tokenReq = walletSvc.createTokenRequestPreAuthorized(credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -209,7 +209,7 @@ class CredentialIssuanceFlow(val holderCtx: OIDContext, val issuerCtx: OIDContex
         // Holder sends the CredentialRequest using the AccessToken
         //
         val types = credOffer.getTypes()
-        val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
+        val credReq = walletSvc.createCredentialRequest(types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //

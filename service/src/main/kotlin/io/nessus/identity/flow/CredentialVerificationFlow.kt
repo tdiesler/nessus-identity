@@ -20,8 +20,8 @@ import kotlin.random.Random
 class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OIDContext) {
 
     val authSvc = AuthService.create(verifierCtx)
-    val walletSvc = WalletService.create()
-    val verifierSvc = VerifierService.create()
+    val walletSvc = WalletService.createEbsi(holderCtx)
+    val verifierSvc = VerifierService.createEbsi()
 
     /**
      * Holder finds Credential by Type and presents it to the Verifier
@@ -72,7 +72,7 @@ class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OID
 
         // Holder responds with a signed VPToken that contains the VerifiablePresentation
         //
-        val vpTokenJwt = walletSvc.createVPToken(holderCtx, authRequest)
+        val vpTokenJwt = walletSvc.createVPToken(authRequest)
 
         // Verifier validates the VPToken
         //

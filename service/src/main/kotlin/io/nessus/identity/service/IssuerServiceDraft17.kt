@@ -5,15 +5,12 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.requests.CredentialRequest
-import id.walt.oid4vc.responses.CredentialResponse
+import io.ktor.client.call.body
 import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.CredentialOfferDraft17
-import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataDraft17
 import io.nessus.identity.types.PreAuthorizedCodeGrant
@@ -21,7 +18,6 @@ import io.nessus.identity.waltid.authenticationId
 import java.net.URI
 import java.time.Instant
 import java.util.*
-import kotlin.uuid.ExperimentalUuidApi
 
 // KeycloakIssuerService =======================================================================================================================================
 
@@ -30,7 +26,8 @@ import kotlin.uuid.ExperimentalUuidApi
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class KeycloakIssuerService(ctx: OIDContext, issuerUrl: String) : AbstractIssuerService<IssuerMetadataDraft17>(ctx, issuerUrl) {
+class IssuerServiceDraft17(ctx: OIDContext, issuerUrl: String)
+    : AbstractIssuerService<IssuerMetadataDraft17, CredentialOfferDraft17>(ctx, issuerUrl) {
 
     override suspend fun createCredentialOffer(
         subId: String,
@@ -92,28 +89,9 @@ class KeycloakIssuerService(ctx: OIDContext, issuerUrl: String) : AbstractIssuer
         return credOffer
     }
 
-    override suspend fun getCredentialFromRequest(
-        credReq: CredentialRequest,
-        accessTokenJwt: SignedJWT,
-        deferred: Boolean
-    ): CredentialResponse {
-        throw IllegalStateException("Not implemented")
-    }
-
-    @OptIn(ExperimentalUuidApi::class)
-    override suspend fun getCredentialFromParameters(vcp: CredentialParameters): CredentialResponse {
-        throw IllegalStateException("Not implemented")
-    }
-
-    override suspend fun getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt: SignedJWT): CredentialResponse {
-        throw IllegalStateException("Not implemented")
-    }
-
-    override suspend fun getIssuerMetadataInternal(ctx: OIDContext?): IssuerMetadataDraft17 {
+    override suspend fun getIssuerMetadataInternal(): IssuerMetadataDraft17 {
         val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
-        val metadata = http.get(metadataUrl).bodyAsText().let {
-            IssuerMetadataDraft17.fromJson(it)
-        }
+        val metadata = http.get(metadataUrl).body<IssuerMetadataDraft17>()
         return metadata
     }
 

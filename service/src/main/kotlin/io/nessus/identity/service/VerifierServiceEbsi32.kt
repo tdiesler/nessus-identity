@@ -7,7 +7,7 @@ import java.time.Instant
 
 // VerifierService =====================================================================================================
 
-class DefaultVerifierService : VerifierService {
+class VerifierServiceEbsi32 : VerifierService {
 
     val log = KotlinLogging.logger {}
 

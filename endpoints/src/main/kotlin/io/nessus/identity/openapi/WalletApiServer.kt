@@ -4,7 +4,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.smiley4.ktoropenapi.OpenApi
 import io.github.smiley4.ktoropenapi.get
 import io.github.smiley4.ktoropenapi.openApi
-import io.github.smiley4.ktoropenapi.post
 import io.github.smiley4.ktorswaggerui.swaggerUI
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -12,14 +11,22 @@ import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.OIDContext
+import io.nessus.identity.service.WalletService
+import io.nessus.identity.service.WalletServiceDraft17
 import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialOfferDraft17
+import io.nessus.identity.waltid.Alice
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 
 class WalletApiServer {
+
+    var walletSvc: WalletServiceDraft17
 
     companion object {
 
@@ -30,7 +37,7 @@ class WalletApiServer {
 
         @JvmStatic
         fun main(args: Array<String>) {
-            val server = WalletApiServer().createServer()
+            val server = WalletApiServer().create()
             server.start(wait = true)
         }
     }
@@ -38,9 +45,13 @@ class WalletApiServer {
     init {
         log.info { "Starting WalletApi Server ..." }
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
+        runBlocking {
+            val ctx = OIDContext(LoginContext.login(Alice).withDidInfo())
+            walletSvc = WalletService.create(ctx)
+        }
     }
 
-    fun createServer(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
+    fun create(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
         fun Application.module() {
             install(ContentNegotiation) {
                 json()  // kotlinx.serialization JSON
@@ -73,11 +84,14 @@ class WalletApiServer {
 
                 // CredentialOffer Receive ----------------------------------------------------------------------------
                 //
-                post("/wallets/{walletId}/credential-offer", {
+                get("/wallets/{walletId}/receive", {
                     summary = "Receive a CredentialOffer"
                     description = "Accepts and stores a CredentialOffer for the given wallet"
                     request {
-                        body<CredentialOffer>()
+                        queryParameter<String>("credential_offer") {
+                            description = "The requesting subject id"
+                            required = true
+                        }
                     }
                     response {
                         HttpStatusCode.Created to {
@@ -94,9 +108,9 @@ class WalletApiServer {
     }
 
     private suspend fun handleCredentialOfferReceive(call: RoutingCall) {
-        val walletId = call.parameters["walletId"]!!
-        val credOffer = call.receive<CredentialOffer>()
-        log.info { "Received CredentialOffer for $walletId: ${credOffer.toJson()}" }
-        call.respondText("{}", status = HttpStatusCode.Created)
+        val offerJson = call.parameters["credential_offer"]!!
+        val credOffer = Json.decodeFromString<CredentialOfferDraft17>(offerJson)
+        val credOfferId = walletSvc.addCredentialOffer(credOffer)
+        call.respondText(credOfferId, status = HttpStatusCode.Created)
     }
 }

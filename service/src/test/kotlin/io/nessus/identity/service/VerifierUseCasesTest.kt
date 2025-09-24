@@ -11,7 +11,6 @@ import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.CredentialStatus
-import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.Max
@@ -23,8 +22,8 @@ import java.time.Instant
 
 class VerifierUseCasesTest : AbstractServiceTest() {
 
-    lateinit var issuerSvc: IssuerService<IssuerMetadataDraft11>
-    lateinit var walletSvc: WalletService<CredentialOfferDraft11>
+    lateinit var issuerSvc: IssuerServiceEbsi32
+    lateinit var walletSvc: WalletServiceEbsi32
     lateinit var authSvc: AuthService
 
     lateinit var max: OIDContext
@@ -36,11 +35,11 @@ class VerifierUseCasesTest : AbstractServiceTest() {
         runBlocking {
             // Create the Issuer's OIDC context (Max is the Issuer)
             max = OIDContext(login(Max).withDidInfo())
-            issuerSvc = IssuerService.create(max)
-            walletSvc = WalletService.create()
+            issuerSvc = IssuerService.createEbsi(max)
 
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = OIDContext(login(Alice).withDidInfo())
+            walletSvc = WalletService.createEbsi(alice)
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             bob = OIDContext(login(Bob).withDidInfo())
@@ -77,7 +76,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Holder issues an ID Token signed by the DID's authentication key
             //
-            val idTokenJwt = walletSvc.createIDToken(alice, urlQueryToMap(idTokenRedirectUrl))
+            val idTokenJwt = walletSvc.createIDToken(urlQueryToMap(idTokenRedirectUrl))
 
             // Verifier validates the IDToken
             //
@@ -103,13 +102,13 @@ class VerifierUseCasesTest : AbstractServiceTest() {
             //
             val ctype = "CTWalletSameAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types) as CredentialOfferDraft11
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
             val issuanceFlow = CredentialIssuanceFlow(alice, max)
             val credRes = issuanceFlow.credentialFromOfferInTime(credOffer)
-            walletSvc.addCredential(alice, credRes)
+            walletSvc.addCredential(credRes)
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
@@ -137,7 +136,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, userPin) as CredentialOfferDraft11
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -152,7 +151,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
                     .withIssuedAt(iat)
                     .withValidUntil(exp)
             )
-            walletSvc.addCredential(alice, credRes)
+            walletSvc.addCredential(credRes)
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
@@ -187,7 +186,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, userPin) as CredentialOfferDraft11
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -201,7 +200,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
                     .withIssuedAt(iat)
                     .withValidFrom(nbf)
             )
-            walletSvc.addCredential(alice, credRes)
+            walletSvc.addCredential(credRes)
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
@@ -236,7 +235,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, userPin) as CredentialOfferDraft11
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -253,7 +252,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
                         type =  "StatusList2021Entry"
                     ))
             )
-            walletSvc.addCredential(alice, credRes)
+            walletSvc.addCredential(credRes)
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
@@ -290,11 +289,11 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
         // The Holder received a CredentialOffer
         //
-        walletSvc.addCredentialOffer(holderCtx, credOffer)
+        walletSvc.addCredentialOffer(credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = walletSvc.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
+        val tokenReq = walletSvc.createTokenRequestPreAuthorized(credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -303,7 +302,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
         // Holder sends the CredentialRequest using the AccessToken
         //
         val types = credOffer.getTypes()
-        val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
+        val credReq = walletSvc.createCredentialRequest(types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //

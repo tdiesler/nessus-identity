@@ -29,7 +29,8 @@ import kotlin.uuid.Uuid
 
 // DefaultIssuerService ================================================================================================
 
-class DefaultIssuerService(ctx: OIDContext, issuerUrl: String, val authUrl: String) : AbstractIssuerService<IssuerMetadataDraft11>(ctx, issuerUrl) {
+class IssuerServiceEbsi32(ctx: OIDContext, issuerUrl: String, val authUrl: String)
+    : AbstractIssuerService<IssuerMetadataDraft11, CredentialOfferDraft11>(ctx, issuerUrl) {
 
     override suspend fun createCredentialOffer(
         subId: String,
@@ -88,10 +89,10 @@ class DefaultIssuerService(ctx: OIDContext, issuerUrl: String, val authUrl: Stri
         return credOffer
     }
 
-    override suspend fun getCredentialFromRequest(
+    suspend fun getCredentialFromRequest(
         credReq: CredentialRequest,
         accessTokenJwt: SignedJWT,
-        deferred: Boolean
+        deferred: Boolean = false
     ): CredentialResponse {
 
         // Validate the AccessToken
@@ -115,7 +116,7 @@ class DefaultIssuerService(ctx: OIDContext, issuerUrl: String, val authUrl: Stri
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    override suspend fun getCredentialFromParameters(vcp: CredentialParameters): CredentialResponse {
+    suspend fun getCredentialFromParameters(vcp: CredentialParameters): CredentialResponse {
 
         // Init property defaults when not given
         //
@@ -187,9 +188,7 @@ class DefaultIssuerService(ctx: OIDContext, issuerUrl: String, val authUrl: Stri
         return credRes
     }
 
-    override suspend fun getDeferredCredentialFromAcceptanceToken(
-        acceptanceTokenJwt: SignedJWT
-    ): CredentialResponse {
+    suspend fun getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt: SignedJWT): CredentialResponse {
 
         // Validate the AcceptanceTokenJwt
         // [TODO #241] Validate the AcceptanceToken
@@ -211,13 +210,11 @@ class DefaultIssuerService(ctx: OIDContext, issuerUrl: String, val authUrl: Stri
     }
 
     override fun getIssuerMetadataUrl(): String {
-        ctx ?: throw IllegalArgumentException("No OIDContext")
         val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerUrl/${ctx.targetId}")
         return metadataUrl
     }
 
-    override suspend fun getIssuerMetadataInternal(ctx: OIDContext?): IssuerMetadataDraft11 {
-        ctx ?: throw IllegalArgumentException("No OIDContext")
+    override suspend fun getIssuerMetadataInternal(): IssuerMetadataDraft11 {
         val authTargetUrl = "$authUrl/${ctx.targetId}"
         val issuerTargetUrl = "$issuerUrl/${ctx.targetId}"
         val credentialSupported = mapOf(

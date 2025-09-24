@@ -14,18 +14,17 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.KeycloakIssuerService
+import io.nessus.identity.service.IssuerServiceDraft17
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.getVersionInfo
-import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 
 class IssuerApiServer {
 
-    lateinit var issuerSvc: KeycloakIssuerService
+    var issuerSvc: IssuerServiceDraft17
 
     companion object {
 
@@ -36,7 +35,7 @@ class IssuerApiServer {
 
         @JvmStatic
         fun main(args: Array<String>) {
-            val server = IssuerApiServer().createServer()
+            val server = IssuerApiServer().create()
             server.start(wait = true)
         }
     }
@@ -46,11 +45,11 @@ class IssuerApiServer {
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
         runBlocking {
             val ctx = OIDContext(LoginContext.login(Max).withDidInfo())
-            issuerSvc = IssuerService.createKeycloak(ctx)
+            issuerSvc = IssuerService.create(ctx)
         }
     }
 
-    fun createServer(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
+    fun create(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
         fun Application.module() {
             install(ContentNegotiation) {
                 json()  // kotlinx.serialization JSON

@@ -32,8 +32,6 @@ object OAuthHandler {
 
     val log = KotlinLogging.logger {}
 
-    val walletSvc = WalletService.create()
-
     suspend fun handleAuthRequests(call: RoutingCall, dstId: String) {
 
         val reqUri = call.request.uri
@@ -154,8 +152,9 @@ object OAuthHandler {
             }
         }
 
-        val idTokenJwt = walletSvc.createIDToken(ctx, reqParams)
-        walletSvc.sendIDToken(ctx, redirectUri, idTokenJwt)
+        val walletSvc = WalletService.createEbsi(ctx)
+        val idTokenJwt = walletSvc.createIDToken(reqParams)
+        walletSvc.sendIDToken(redirectUri, idTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -193,8 +192,9 @@ object OAuthHandler {
             authReq = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         }
 
-        val vpTokenJwt = walletSvc.createVPToken(ctx, authReq)
-        walletSvc.sendVPToken(ctx, vpTokenJwt)
+        val walletSvc = WalletService.createEbsi(ctx)
+        val vpTokenJwt = walletSvc.createVPToken(authReq)
+        walletSvc.sendVPToken(vpTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,

@@ -16,9 +16,8 @@ class WalletApiClient: WalletApi {
      * Receives a CredentialOffer for the given walletId.
      */
     override suspend fun receiveCredentialOffer(walletId: String, offer: CredentialOffer): String {
-        val res = http.post("$baseUrl/wallets/${walletId}/credential-offer") {
-            contentType(ContentType.Application.Json)
-            setBody(offer)
+        val res = http.get("$baseUrl/wallets/${walletId}/receive") {
+            parameter("credential_offer", offer.toJson())
         }
         return handleResponse<String>(res)
     }

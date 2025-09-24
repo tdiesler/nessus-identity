@@ -20,8 +20,6 @@ object WalletHandler {
 
     val log = KotlinLogging.logger {}
 
-    val walletSvc = WalletService.create()
-
     // Handle Wallet requests ------------------------------------------------------------------------------------------
     //
     suspend fun handleWalletRequests(call: RoutingCall, dstId: String) {
@@ -61,8 +59,9 @@ object WalletHandler {
         val credOfferUri = call.request.queryParameters["credential_offer_uri"]
             ?: throw HttpStatusException(HttpStatusCode.BadRequest, "No 'credential_offer_uri' param")
 
+        val walletSvc = WalletService.createEbsi(ctx)
         val oid4vcOfferUri = "openid-credential-offer://?credential_offer_uri=$credOfferUri"
-        val credOffer = walletSvc.getCredentialOfferFromUri(ctx, oid4vcOfferUri)
+        val credOffer = walletSvc.getCredentialOfferFromUri(oid4vcOfferUri)
 
         // Init with the default UserPin for EBSI Credential types
         if (credOffer.getPreAuthorizedCodeGrant() != null) {
@@ -79,7 +78,7 @@ object WalletHandler {
             }
         }
 
-        var credRes = walletSvc.getCredentialFromOffer(ctx, credOffer)
+        var credRes = walletSvc.getCredentialFromOffer(credOffer)
 
         // In-Time CredentialResponses MUST have a 'format'
         var credJwt: SignedJWT? = null
@@ -92,14 +91,14 @@ object WalletHandler {
             // The credential will be available with a delay of 5 seconds from the first Credential Request.
             Thread.sleep(5500)
             val acceptanceToken = credRes.acceptanceToken as String
-            credRes = walletSvc.getDeferredCredential(ctx, acceptanceToken)
+            credRes = walletSvc.getDeferredCredential(acceptanceToken)
             credJwt = credRes.toSignedJWT()
         }
 
         if (credJwt == null)
             throw IllegalStateException("No Credential JWT")
 
-        walletSvc.addCredential(ctx, credRes)
+        walletSvc.addCredential(credRes)
 
         call.respondText(
             status = HttpStatusCode.Accepted,

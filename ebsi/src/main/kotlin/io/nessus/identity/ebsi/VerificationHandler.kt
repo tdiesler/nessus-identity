@@ -20,7 +20,7 @@ object VerificationHandler {
 
     val log = KotlinLogging.logger {}
 
-    val verifierSvc = VerifierService.create()
+    val verifierSvc = VerifierService.createEbsi()
 
     @OptIn(ExperimentalUuidApi::class)
     fun handleVPTokenResponse(ctx: OIDContext, postParams: Map<String, List<String>>): String {
