@@ -1,6 +1,7 @@
 package io.nessus.identity.openapi
 
 import io.nessus.identity.types.CredentialOffer
+import kotlinx.serialization.json.JsonObject
 
 // WalletApi ==========================================================================================================
 
@@ -19,4 +20,13 @@ interface WalletApi {
         walletId: String,
         offer: CredentialOffer
     ): String
+
+    /**
+     * Fetches the Credential from the Issuer for the given CredentialOffer id.
+     * Uses the in-time authorization flow.
+     */
+    suspend fun fetchCredentialFromOffer(
+        walletId: String,
+        offerId: String
+    ): JsonObject
 }

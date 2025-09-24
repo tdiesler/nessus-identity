@@ -1,14 +1,13 @@
 package io.nessus.identity.service
 
+import io.ktor.client.call.body
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.nessus.identity.types.IssuerMetadata
 
 object OID4VCIUtils {
-    suspend fun resolveIssuerMetadata(issuerUrl: String): IssuerMetadata {
+    suspend inline fun <reified IMType : IssuerMetadata> resolveIssuerMetadata(issuerUrl: String): IMType {
         val issuerMetadataUrl = "$issuerUrl/.well-known/openid-credential-issuer"
-        return http.get(issuerMetadataUrl).bodyAsText().let {
-            IssuerMetadata.fromJson(it)
-        }
+        return http.get(issuerMetadataUrl).body<IMType>()
     }
 }

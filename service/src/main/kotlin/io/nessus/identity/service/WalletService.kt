@@ -12,8 +12,8 @@ interface WalletService<COType: CredentialOffer> {
         fun createEbsi(ctx: OIDContext): WalletServiceEbsi32 {
             return WalletServiceEbsi32(ctx)
         }
-        fun create(ctx: OIDContext): WalletServiceDraft17 {
-            return WalletServiceDraft17(ctx)
+        fun createKeycloak(ctx: OIDContext): WalletServiceKeycloak {
+            return WalletServiceKeycloak(ctx)
         }
     }
 }

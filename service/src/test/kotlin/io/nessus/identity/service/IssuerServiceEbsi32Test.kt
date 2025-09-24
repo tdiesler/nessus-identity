@@ -5,7 +5,7 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldEndWith
-import io.nessus.identity.flow.CredentialIssuanceFlow
+import io.nessus.identity.flow.CredentialIssuanceEbsi32
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-class DefaultIssuerServiceTest : AbstractServiceTest() {
+class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
     // Generates a number between 1000 and 9999
     val userPin = Random.nextInt(1000, 10000)
@@ -80,7 +80,7 @@ class DefaultIssuerServiceTest : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val flow = CredentialIssuanceFlow(alice, max)
+            val flow = CredentialIssuanceEbsi32(alice, max)
             val credRes = flow.credentialFromOfferInTime(credOffer)
 
             // Holder validates the received Credential
@@ -130,7 +130,7 @@ class DefaultIssuerServiceTest : AbstractServiceTest() {
 
             // Holder gets a deferred Credential from an Issuer based on a CredentialOffer
             //
-            val flow = CredentialIssuanceFlow(alice, max)
+            val flow = CredentialIssuanceEbsi32(alice, max)
             val deferredCredRes = flow.credentialFromOfferDeferred(credOffer)
 
             // Holder requests the deferred Credential using the AcceptanceToken
@@ -182,7 +182,7 @@ class DefaultIssuerServiceTest : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val flow = CredentialIssuanceFlow(alice, max)
+            val flow = CredentialIssuanceEbsi32(alice, max)
             val credRes = flow.credentialFromOfferPreAuthorized(credOffer, "$userPin")
 
             // Holder validates the received Credential
@@ -232,7 +232,7 @@ class DefaultIssuerServiceTest : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val flow = CredentialIssuanceFlow(alice, max)
+            val flow = CredentialIssuanceEbsi32(alice, max)
             val deferredCredRes = flow.credentialFromOfferPreAuthorizedDeferred(credOffer, "$userPin")
 
             // Pre-Authorized Holder requests the deferred Credential using the AcceptanceToken

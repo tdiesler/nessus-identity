@@ -12,7 +12,7 @@ class AuthServiceTest : AbstractServiceTest() {
     fun authMetadata() {
         runBlocking {
             val max = OIDContext(login(Max))
-            val authSvc = AuthService.create(max)
+            val authSvc = AuthServiceEbsi32.create(max)
 
             val metadataUrl = authSvc.getAuthMetadataUrl()
             metadataUrl.shouldEndWith("/auth/${max.targetId}/.well-known/openid-configuration")

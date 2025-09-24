@@ -4,8 +4,8 @@ import id.walt.oid4vc.responses.CredentialResponse
 import io.kotest.matchers.string.shouldContain
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.flow.CredentialIssuanceFlow
-import io.nessus.identity.flow.CredentialVerificationFlow
+import io.nessus.identity.flow.CredentialIssuanceEbsi32
+import io.nessus.identity.flow.CredentialVerificationEbsi32
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -24,7 +24,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
     lateinit var issuerSvc: IssuerServiceEbsi32
     lateinit var walletSvc: WalletServiceEbsi32
-    lateinit var authSvc: AuthService
+    lateinit var authSvc: AuthServiceEbsi32
 
     lateinit var max: OIDContext
     lateinit var alice: OIDContext
@@ -43,7 +43,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             bob = OIDContext(login(Bob).withDidInfo())
-            authSvc = AuthService.create(bob)
+            authSvc = AuthServiceEbsi32.create(bob)
         }
     }
 
@@ -106,13 +106,13 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val issuanceFlow = CredentialIssuanceFlow(alice, max)
+            val issuanceFlow = CredentialIssuanceEbsi32(alice, max)
             val credRes = issuanceFlow.credentialFromOfferInTime(credOffer)
             walletSvc.addCredential(credRes)
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
-            val verificationFlow = CredentialVerificationFlow(alice, bob)
+            val verificationFlow = CredentialVerificationEbsi32(alice, bob)
             verificationFlow.verifyPresentationByType(ctype)
         }
     }
@@ -155,7 +155,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
-            val verificationFlow = CredentialVerificationFlow(alice, bob)
+            val verificationFlow = CredentialVerificationEbsi32(alice, bob)
             runCatching {
                 verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
@@ -204,7 +204,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
-            val verificationFlow = CredentialVerificationFlow(alice, bob)
+            val verificationFlow = CredentialVerificationEbsi32(alice, bob)
             runCatching {
                 verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
@@ -256,7 +256,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
-            val verificationFlow = CredentialVerificationFlow(alice, bob)
+            val verificationFlow = CredentialVerificationEbsi32(alice, bob)
             runCatching {
                 verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
@@ -273,7 +273,7 @@ class VerifierUseCasesTest : AbstractServiceTest() {
     /**
      * This flow allows us to issue (invalid) credentials that the Verifier cannot accept
      *
-     * @See CredentialIssuanceFlow.credentialFromOfferPreAuthorized
+     * @See CredentialIssuanceEbsi32.credentialFromOfferPreAuthorized
      */
     private suspend fun issueCredentialFromParameters(
         issuerCtx: OIDContext,

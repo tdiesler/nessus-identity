@@ -1,5 +1,6 @@
 package io.nessus.identity.types
 
+import io.nessus.identity.service.OID4VCIUtils
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

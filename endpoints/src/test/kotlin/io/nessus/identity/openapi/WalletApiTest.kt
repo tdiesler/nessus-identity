@@ -1,7 +1,7 @@
 package io.nessus.identity.openapi
 
 import io.kotest.common.runBlocking
-import io.kotest.matchers.equals.shouldBeEqual
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.ktor.server.engine.EmbeddedServer
 import io.nessus.identity.service.AbstractServiceTest
 import io.nessus.identity.service.OIDContext
@@ -42,11 +42,32 @@ class WalletApiTest : AbstractServiceTest() {
 
             val ctype = "oid4vc_identity_credential"
 
-            // Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
+            // The Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
             val credOffer = issuer.createCredentialOffer(alice.did, listOf(ctype))
-            val credOfferId = wallet.receiveCredentialOffer(alice.walletId, credOffer)
+            val offerId = wallet.receiveCredentialOffer(alice.walletId, credOffer)
+            offerId.shouldNotBeNull()
+        }
+    }
 
+    @Test
+    fun testFetchCredentialFromOffer() {
+        runBlocking {
+
+            // Holders's OIDC context (Alice is the Holder)
+            val alice = OIDContext(login(Alice).withDidInfo())
+
+            val ctype = "oid4vc_identity_credential"
+
+            // The Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
+            // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
+            val credOffer = issuer.createCredentialOffer(alice.did, listOf(ctype))
+            val offerId = wallet.receiveCredentialOffer(alice.walletId, credOffer)
+
+            // The Holder fetches the Credential from the Issuer for the given CredentialOffer id
+            // Uses the in-time authorization flow
+            val credObj = wallet.fetchCredentialFromOffer(alice.walletId, offerId)
+            credObj.shouldNotBeNull()
         }
     }
 }

@@ -24,19 +24,13 @@ interface IssuerService<IMType: IssuerMetadata, COType: CredentialOffer> {
     suspend fun createCredentialOffer(subId: String, types: List<String>, userPin: String? = null): COType
 
     companion object {
-        /**
-         * Creates the default IssuerService
-         */
         fun createEbsi(ctx: OIDContext): IssuerServiceEbsi32 {
             val issuerUrl = ConfigProvider.issuerEndpointUri
             val authUrl = ConfigProvider.authEndpointUri
             return IssuerServiceEbsi32(ctx, issuerUrl, authUrl);
         }
-        /**
-         * Creates the Keycloak IssuerService
-         */
-        fun create(ctx: OIDContext): IssuerServiceDraft17 {
-            return IssuerServiceDraft17(ctx, "https://auth.localtest.me/realms/oid4vci");
+        fun createKeycloak(ctx: OIDContext): IssuerServiceKeycloak {
+            return IssuerServiceKeycloak(ctx, "https://auth.localtest.me/realms/oid4vci");
         }
     }
 }

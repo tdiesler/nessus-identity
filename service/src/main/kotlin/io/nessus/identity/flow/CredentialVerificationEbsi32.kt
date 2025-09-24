@@ -4,7 +4,7 @@ import com.nimbusds.jose.util.Base64URL
 import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthService
+import io.nessus.identity.service.AuthServiceEbsi32
 import io.nessus.identity.service.CredentialMatcher
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.VerifierService
@@ -17,9 +17,9 @@ import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import kotlin.random.Random
 
-class CredentialVerificationFlow(val holderCtx: OIDContext, val verifierCtx: OIDContext) {
+class CredentialVerificationEbsi32(val holderCtx: OIDContext, val verifierCtx: OIDContext) {
 
-    val authSvc = AuthService.create(verifierCtx)
+    val authSvc = AuthServiceEbsi32.create(verifierCtx)
     val walletSvc = WalletService.createEbsi(holderCtx)
     val verifierSvc = VerifierService.createEbsi()
 

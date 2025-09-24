@@ -26,7 +26,7 @@ import java.util.*
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceDraft17(ctx: OIDContext, issuerUrl: String)
+class IssuerServiceKeycloak(ctx: OIDContext, issuerUrl: String)
     : AbstractIssuerService<IssuerMetadataDraft17, CredentialOfferDraft17>(ctx, issuerUrl) {
 
     override suspend fun createCredentialOffer(

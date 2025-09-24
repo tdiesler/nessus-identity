@@ -15,18 +15,19 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDContext
+import io.nessus.identity.service.PlaywrightAuthCallbackHandler
 import io.nessus.identity.service.WalletService
-import io.nessus.identity.service.WalletServiceDraft17
+import io.nessus.identity.service.WalletServiceKeycloak
 import io.nessus.identity.service.getVersionInfo
-import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.waltid.Alice
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import java.lang.IllegalStateException
 
 class WalletApiServer {
 
-    var walletSvc: WalletServiceDraft17
+    var walletSvc: WalletServiceKeycloak
 
     companion object {
 
@@ -34,6 +35,8 @@ class WalletApiServer {
         val versionInfo = getVersionInfo()
 
         val serverPort = 8080
+        val username = Alice.username
+        val password = Alice.password
 
         @JvmStatic
         fun main(args: Array<String>) {
@@ -47,7 +50,7 @@ class WalletApiServer {
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
         runBlocking {
             val ctx = OIDContext(LoginContext.login(Alice).withDidInfo())
-            walletSvc = WalletService.create(ctx)
+            walletSvc = WalletService.createKeycloak(ctx)
         }
     }
 
@@ -84,17 +87,17 @@ class WalletApiServer {
 
                 // CredentialOffer Receive ----------------------------------------------------------------------------
                 //
-                get("/wallets/{walletId}/receive", {
+                get("/wallets/{walletId}/credential-offer/receive", {
                     summary = "Receive a CredentialOffer"
-                    description = "Accepts and stores a CredentialOffer for the given wallet"
+                    description = "Accept and store a CredentialOffer for the given wallet"
                     request {
                         queryParameter<String>("credential_offer") {
-                            description = "The requesting subject id"
+                            description = "The credential offer"
                             required = true
                         }
                     }
                     response {
-                        HttpStatusCode.Created to {
+                        HttpStatusCode.OK to {
                             description = "Stored CredentialOffer"
                         }
                         HttpStatusCode.BadRequest to {
@@ -102,15 +105,48 @@ class WalletApiServer {
                         }
                     }
                 }) { handleCredentialOfferReceive(call) }
+
+                // CredentialOffer Receive ----------------------------------------------------------------------------
+                //
+                get("/wallets/{walletId}/credential/fetch", {
+                    summary = "Fetch a Credential"
+                    description = "Fetch a Credential from a given CredentialOffer"
+                    request {
+                        queryParameter<String>("credential_offer_id") {
+                            description = "The credential offer id"
+                            required = true
+                        }
+                    }
+                    response {
+                        HttpStatusCode.Created to {
+                            description = "Stored Credential"
+                        }
+                        HttpStatusCode.BadRequest to {
+                            description = "Invalid input"
+                        }
+                    }
+                }) { handleCredentialFetch(call) }
             }
         }
         return embeddedServer(Netty, port = serverPort, module = Application::module)
     }
 
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+
     private suspend fun handleCredentialOfferReceive(call: RoutingCall) {
-        val offerJson = call.parameters["credential_offer"]!!
-        val credOffer = Json.decodeFromString<CredentialOfferDraft17>(offerJson)
+        val credOffer = call.parameters["credential_offer"]?.let {
+            Json.decodeFromString<CredentialOfferDraft17>(it)
+        } ?: throw IllegalStateException("No credential_offer")
         val credOfferId = walletSvc.addCredentialOffer(credOffer)
-        call.respondText(credOfferId, status = HttpStatusCode.Created)
+        call.respondText { credOfferId }
+    }
+
+    private suspend fun handleCredentialFetch(call: RoutingCall) {
+        val offerId = call.parameters["credential_offer_id"]!!
+        val credOffer = walletSvc.getCredentialOffer(offerId)
+            ?: throw IllegalStateException("No credential_offer")
+        val authCallbackHandler = PlaywrightAuthCallbackHandler(username, password)
+        val credObj = walletSvc.credentialFromOfferInTime(credOffer, authCallbackHandler)
+        call.respond(credObj)
     }
 }

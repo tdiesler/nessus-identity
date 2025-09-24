@@ -1,5 +1,6 @@
 package io.nessus.identity.types
 
+import io.nessus.identity.service.OID4VCIUtils
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -16,14 +17,18 @@ abstract class CredentialOffer {
     abstract val credentialIssuer: String
     abstract val grants: Grants?
 
-    abstract fun getTypes(): List<String>
-
     fun getAuthorizationCodeGrant() : AuthorizationCodeGrant? {
         return grants?.authorizationCode
     }
 
     fun getPreAuthorizedCodeGrant() : PreAuthorizedCodeGrant? {
         return grants?.preAuthorizedCode
+    }
+
+    abstract fun getTypes(): List<String>
+
+    suspend inline fun <reified IMType: IssuerMetadata> resolveIssuerMetadata(): IMType {
+        return OID4VCIUtils.resolveIssuerMetadata<IMType>(credentialIssuer)
     }
 
     fun toJson() = Json.encodeToString(this)

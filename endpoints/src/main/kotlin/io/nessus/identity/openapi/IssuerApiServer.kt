@@ -14,7 +14,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.IssuerServiceDraft17
+import io.nessus.identity.service.IssuerServiceKeycloak
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.getVersionInfo
@@ -24,7 +24,7 @@ import kotlinx.serialization.json.Json
 
 class IssuerApiServer {
 
-    var issuerSvc: IssuerServiceDraft17
+    var issuerSvc: IssuerServiceKeycloak
 
     companion object {
 
@@ -45,7 +45,7 @@ class IssuerApiServer {
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
         runBlocking {
             val ctx = OIDContext(LoginContext.login(Max).withDidInfo())
-            issuerSvc = IssuerService.create(ctx)
+            issuerSvc = IssuerService.createKeycloak(ctx)
         }
     }
 

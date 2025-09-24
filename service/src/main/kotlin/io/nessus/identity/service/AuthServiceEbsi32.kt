@@ -39,11 +39,11 @@ import kotlin.uuid.Uuid
 
 // AuthService =========================================================================================================
 
-class AuthService(val ctx: OIDContext) {
+class AuthServiceEbsi32(val ctx: OIDContext) {
 
     companion object {
         val log = KotlinLogging.logger {}
-        fun create(ctx: OIDContext) = AuthService(ctx)
+        fun create(ctx: OIDContext) = AuthServiceEbsi32(ctx)
     }
 
     val issuerSvc = IssuerService.createEbsi(ctx)

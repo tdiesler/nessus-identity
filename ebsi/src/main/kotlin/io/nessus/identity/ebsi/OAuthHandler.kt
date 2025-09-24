@@ -15,7 +15,7 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthService
+import io.nessus.identity.service.AuthServiceEbsi32
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDCContextRegistry
@@ -99,7 +99,7 @@ object OAuthHandler {
 
     private suspend fun handleAuthorizationMetadataRequest(call: RoutingCall, ctx: OIDContext) {
 
-        val authSvc = AuthService.create(ctx)
+        val authSvc = AuthServiceEbsi32.create(ctx)
         val payload = Json.encodeToString(authSvc.getAuthMetadata())
         call.respondText(
             status = HttpStatusCode.OK,
@@ -118,7 +118,7 @@ object OAuthHandler {
         log.info { "Authorization Request: ${Json.encodeToString(authReq)}" }
         queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val authSvc = AuthService.create(ctx)
+        val authSvc = AuthServiceEbsi32.create(ctx)
         authSvc.validateAuthorizationRequest(authReq)
         val isVPTokenRequest = authReq.scope.any { it.contains("vp_token") }
         val redirectUrl = if (isVPTokenRequest) {
@@ -210,7 +210,7 @@ object OAuthHandler {
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
         if (postParams["id_token"] != null) {
-            val authSvc = AuthService.create(ctx)
+            val authSvc = AuthServiceEbsi32.create(ctx)
             val idToken = postParams["id_token"]?.first()
             val idTokenJwt = SignedJWT.parse(idToken)
             val authCode = authSvc.validateIDToken(idTokenJwt)
@@ -255,13 +255,13 @@ object OAuthHandler {
         val tokenResponse = when (tokenReq) {
             is TokenRequest.AuthorizationCode -> {
                 val ctx = OIDCContextRegistry.assert(dstId)
-                val authSvc = AuthService.create(ctx)
+                val authSvc = AuthServiceEbsi32.create(ctx)
                 authSvc.handleTokenRequestAuthCode(tokenReq)
             }
 
             is TokenRequest.PreAuthorizedCode -> {
                 val ctx = OIDContext(requireLoginContext(dstId))
-                val authSvc = AuthService.create(ctx)
+                val authSvc = AuthServiceEbsi32.create(ctx)
                 authSvc.handleTokenRequestPreAuthorized(tokenReq)
             }
         }
