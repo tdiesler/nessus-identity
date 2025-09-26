@@ -12,28 +12,48 @@ import kotlinx.serialization.json.JsonObject
 
 // WalletApiClient ====================================================================================================
 
-class WalletApiClient(val ctx: LoginContext) : WalletApi {
+class WalletApiClient() : WalletApi {
 
     val baseUrl = "http://localhost:7000"
 
-    override suspend fun listCredentialOffers(): List<CredentialOfferDraft17> {
+    override suspend fun getCredentialOffers(ctx: LoginContext): Map<String, CredentialOfferDraft17> {
         val res = http.get("$baseUrl/wallets/${ctx.walletId}/credential-offers") {
             contentType(Application.Json)
         }
-        return handleResponse<List<CredentialOfferDraft17>>(res)
+        return handleResponse<Map<String, CredentialOfferDraft17>>(res)
     }
 
-    override suspend fun addCredentialOffer(offer: CredentialOffer): String {
-        val res = http.get("$baseUrl/wallets/${ctx.walletId}/credential-offers/receive") {
+    override suspend fun addCredentialOffer(ctx: LoginContext, offer: CredentialOffer): String {
+        val res = http.put("$baseUrl/wallets/${ctx.walletId}/credential-offer") {
             parameter("credential_offer", offer.toJson())
         }
         return handleResponse<String>(res)
     }
 
-    override suspend fun fetchCredentialFromOffer(offerId: String): JsonObject {
-        val res = http.get("$baseUrl/wallets/${ctx.walletId}/credentials/fetch") {
+    override suspend fun acceptCredentialOffer(ctx: LoginContext, offerId: String): JsonObject {
+        val res = http.get("$baseUrl/wallets/${ctx.walletId}/credential-offer/${offerId}/accept") {
             contentType(Application.Json)
-            parameter("credential_offer_id", offerId)
+        }
+        return handleResponse<JsonObject>(res)
+    }
+
+    override suspend fun deleteCredentialOffer(ctx: LoginContext, offerId: String): JsonObject {
+        val res = http.delete("$baseUrl/wallets/${ctx.walletId}/credential-offer/${offerId}") {
+            contentType(Application.Json)
+        }
+        return handleResponse<JsonObject>(res)
+    }
+
+    override suspend fun getCredentials(ctx: LoginContext): Map<String, JsonObject> {
+        val res = http.get("$baseUrl/wallets/${ctx.walletId}/credentials") {
+            contentType(Application.Json)
+        }
+        return handleResponse<Map<String, JsonObject>>(res)
+    }
+
+    override suspend fun getCredential(ctx: LoginContext, credId: String): JsonObject? {
+        val res = http.get("$baseUrl/wallets/${ctx.walletId}/credential/$credId") {
+            contentType(Application.Json)
         }
         return handleResponse<JsonObject>(res)
     }

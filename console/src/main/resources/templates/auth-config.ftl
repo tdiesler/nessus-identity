@@ -7,8 +7,7 @@
     <!-- Main content -->
     <div class="content">
         <h1>OID4VC Issuer</h1>
-        <p>Issuer Config URL: <a href="${issuerConfigUrl}">${issuerConfigUrl}</a></p>
-        <textarea style="width:60%; height:80%; margin-top:10px; font-family:monospace"
-        readonly>${issuerConfigJson?html}</textarea>
+        <p>Authorization Config URL: <a href="${authConfigUrl}">${authConfigUrl}</a></p>
+        <textarea readonly>${authConfigJson?html}</textarea>
     </div>
 </@layout.layout>

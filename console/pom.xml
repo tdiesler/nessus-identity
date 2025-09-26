@@ -10,9 +10,9 @@
         <version>25.3.0-SNAPSHOT</version>
     </parent>
 
-    <name>Nessus Identity :: Webapp</name>
+    <name>Nessus Identity :: Console</name>
 
-    <artifactId>nessus-identity-webapp</artifactId>
+    <artifactId>nessus-identity-console</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>

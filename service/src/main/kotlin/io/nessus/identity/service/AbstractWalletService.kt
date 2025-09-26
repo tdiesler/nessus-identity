@@ -8,11 +8,12 @@ import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.IssuerMetadataDraft17
+import kotlinx.serialization.json.JsonObject
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
-abstract class AbstractWalletService<COType: CredentialOffer>(val ctx: OIDContext) : WalletService<COType> {
+abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<COType> {
 
     val log = KotlinLogging.logger {}
 
@@ -26,17 +27,20 @@ abstract class AbstractWalletService<COType: CredentialOffer>(val ctx: OIDContex
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun getCredentialOffers(): List<COType> {
-        val offers = credOfferRegistry.values.toList()
-        return offers
+    override fun getCredentialOffers(): Map<String, COType> {
+        return credOfferRegistry.toMap()
     }
 
-    fun getCredentialOfferById(credOfferId: String): COType? {
-        return credOfferRegistry[credOfferId]
+    override fun getCredentialOffer(offerId: String): COType? {
+        return credOfferRegistry[offerId]
+    }
+
+    override fun deleteCredentialOffer(offerId: String): COType? {
+        return credOfferRegistry.remove(offerId)
     }
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun <IMType: IssuerMetadata> resolveIssuerMetadata(credOffer: CredentialOffer): IMType {
+    suspend fun <IMType: IssuerMetadata> resolveIssuerMetadata(ctx: OIDContext, credOffer: CredentialOffer): IMType {
         val metadata = ctx.getAttachment(ISSUER_METADATA_ATTACHMENT_KEY) ?: let {
             val metadata = when (credOffer) {
                 is CredentialOfferDraft11 -> credOffer.resolveIssuerMetadata() as IssuerMetadataDraft11

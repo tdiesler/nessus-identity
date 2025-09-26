@@ -152,9 +152,9 @@ object OAuthHandler {
             }
         }
 
-        val walletSvc = WalletService.createEbsi(ctx)
-        val idTokenJwt = walletSvc.createIDToken(reqParams)
-        walletSvc.sendIDToken(redirectUri, idTokenJwt)
+        val walletSvc = WalletService.createEbsi()
+        val idTokenJwt = walletSvc.createIDToken(ctx, reqParams)
+        walletSvc.sendIDToken(ctx, redirectUri, idTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -186,15 +186,15 @@ object OAuthHandler {
             if (!requestUri.startsWith(ConfigProvider.authEndpointUri))
                 throw IllegalStateException("Unexpected request_uri: $requestUri")
 
-            urlQueryToMap(requestUri).get("request_object")
+            urlQueryToMap(requestUri)["request_object"]
                 ?: throw IllegalStateException("No request_object in: $requestUri")
 
             authReq = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         }
 
-        val walletSvc = WalletService.createEbsi(ctx)
-        val vpTokenJwt = walletSvc.createVPToken(authReq)
-        walletSvc.sendVPToken(vpTokenJwt)
+        val walletSvc = WalletService.createEbsi()
+        val vpTokenJwt = walletSvc.createVPToken(ctx, authReq)
+        walletSvc.sendVPToken(ctx, vpTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,

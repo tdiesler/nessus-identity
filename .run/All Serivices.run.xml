@@ -1,9 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="All Serivices" type="CompoundRunConfigurationType">
-    <toRun name="IssuerApiServer" type="JetRunConfigurationType" />
-    <toRun name="IssuerUIServer" type="JetRunConfigurationType" />
-    <toRun name="WalletApiServer" type="JetRunConfigurationType" />
-    <toRun name="WalletUIServer" type="JetRunConfigurationType" />
-    <method v="2" />
-  </configuration>
-</component>

@@ -21,11 +21,11 @@ import kotlin.random.Random
 class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDContext) {
 
     val authSvc = AuthServiceEbsi32.create(issuerCtx)
-    val issuerSvc = IssuerService.createEbsi(issuerCtx)
-    val walletSvc = WalletService.createEbsi(holderCtx)
+    val issuerSvc = IssuerService.createEbsi()
+    val walletSvc = WalletService.createEbsi()
 
     init {
-        val metadata = runBlocking { issuerSvc.getIssuerMetadata() }
+        val metadata = runBlocking { issuerSvc.getIssuerMetadata(issuerCtx) }
         issuerCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         holderCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
     }
@@ -34,7 +34,9 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
      * Holder gets a Credential from an Issuer based on a CredentialOffer
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
      */
-    suspend fun credentialFromOfferInTime(credOffer: CredentialOfferDraft11): CredentialResponse {
+    suspend fun credentialFromOfferInTime(
+        credOffer: CredentialOfferDraft11
+    ): CredentialResponse {
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
@@ -64,7 +66,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
 
         // Holder issues an ID Token signed by the DID's authentication key
         //
-        val idTokenJwt = walletSvc.createIDToken(urlQueryToMap(idTokenRequestUrl))
+        val idTokenJwt = walletSvc.createIDToken(holderCtx,urlQueryToMap(idTokenRequestUrl))
 
         // Issuer validates IDToken and returns an Authorization Code
         val authCode = authSvc.validateIDToken(idTokenJwt)
@@ -72,7 +74,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
 
         // Holder sends a TokenRequest to the Issuer's Token Endpoint
         //
-        val tokenReq = walletSvc.createTokenRequestAuthCode(authCode)
+        val tokenReq = walletSvc.createTokenRequestAuthCode(holderCtx, authCode)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -81,12 +83,12 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
         // Holder sends the CredentialRequest using the AccessToken
         //
         val types = credOffer.getTypes()
-        val credReq = walletSvc.createCredentialRequest(types, accessTokenRes)
+        val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = issuerSvc.getCredentialFromRequest(credReq, accessTokenJwt)
+        val credRes = issuerSvc.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt)
 
         return credRes
     }
@@ -95,7 +97,9 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
      * Holder gets a deferred Credential from an Issuer based on a CredentialOffer
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#deferred-issuance
      */
-    suspend fun credentialFromOfferDeferred(credOffer: CredentialOfferDraft11): CredentialResponse {
+    suspend fun credentialFromOfferDeferred(
+        credOffer: CredentialOfferDraft11
+    ): CredentialResponse {
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
@@ -125,7 +129,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
 
         // Holder issues an ID Token signed by the DID's authentication key
         //
-        val idTokenJwt = walletSvc.createIDToken(urlQueryToMap(idTokenRequestUrl))
+        val idTokenJwt = walletSvc.createIDToken(holderCtx,urlQueryToMap(idTokenRequestUrl))
 
         // Issuer validates IDToken and returns an Authorization Code
         val authCode = authSvc.validateIDToken(idTokenJwt)
@@ -133,7 +137,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
 
         // Holder sends a TokenRequest to the Issuer's Token Endpoint
         //
-        val tokenReq = walletSvc.createTokenRequestAuthCode(authCode)
+        val tokenReq = walletSvc.createTokenRequestAuthCode(holderCtx, authCode)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -142,12 +146,12 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
         // Holder sends the CredentialRequest using the AccessToken
         //
         val types = credOffer.getTypes()
-        val credReq = walletSvc.createCredentialRequest(types, accessTokenRes)
+        val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = issuerSvc.getCredentialFromRequest(credReq, accessTokenJwt, true)
+        val credRes = issuerSvc.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt, true)
 
         return credRes
     }
@@ -156,7 +160,10 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
      * Pre-Authorized Holder gets a Credential from an Issuer based on a CredentialOffer
      * https://hub.ebsi.eu/conformance/build-solutions/holder-wallet-functional-flows#pre-authorised
      */
-    suspend fun credentialFromOfferPreAuthorized(credOffer: CredentialOfferDraft11, userPin: String): CredentialResponse {
+    suspend fun credentialFromOfferPreAuthorized(
+        credOffer: CredentialOfferDraft11,
+        userPin: String
+    ): CredentialResponse {
 
         // The Holder received a CredentialOffer
         //
@@ -164,7 +171,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = walletSvc.createTokenRequestPreAuthorized(credOffer, userPin)
+        val tokenReq = walletSvc.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -173,12 +180,12 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
         // Holder sends the CredentialRequest using the AccessToken
         //
         val types = credOffer.getTypes()
-        val credReq = walletSvc.createCredentialRequest(types, accessTokenRes)
+        val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = issuerSvc.getCredentialFromRequest(credReq, accessTokenJwt)
+        val credRes = issuerSvc.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt)
 
         return credRes
     }
@@ -200,7 +207,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
-        val tokenReq = walletSvc.createTokenRequestPreAuthorized(credOffer, userPin)
+        val tokenReq = walletSvc.createTokenRequestPreAuthorized(holderCtx, credOffer, userPin)
 
         // Issuer validates the TokenRequest and responds with an AccessToken
         //
@@ -209,12 +216,12 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
         // Holder sends the CredentialRequest using the AccessToken
         //
         val types = credOffer.getTypes()
-        val credReq = walletSvc.createCredentialRequest(types, accessTokenRes)
+        val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //
         val accessTokenJwt = SignedJWT.parse(accessTokenRes.accessToken)
-        val credRes = issuerSvc.getCredentialFromRequest(credReq, accessTokenJwt, true)
+        val credRes = issuerSvc.getCredentialFromRequest(issuerCtx, credReq, accessTokenJwt, true)
 
         return credRes
     }

@@ -10,16 +10,14 @@
 
         <#if credentialOffer??>
             <!-- Show textarea with the CredentialOffer -->
-            <p>Generated Credential Offer</p>
-            <textarea id="credentialOfferBox" style="width:100%; min-height: 300px; font-family: monospace; margin-top: 1rem;"
-            readonly>${credentialOffer?html}
-            </textarea>
+            <h5>Generated Credential Offer</h5>
+            <textarea id="credentialOfferBox" readonly>${credentialOffer?html}</textarea>
             <button type="button" class="bx--btn bx--btn--secondary" style="margin-top: 1rem;"
             onclick="copyToClipboard('credentialOfferBox')"> Copy
             </button>
         <#else>
-            <p>Create a credential offer</p>
-            <form action="/issuer/credential-offer" method="post" style="margin-top: 20px; max-width: 400px;">
+            <h5>Create a credential offer</h5>
+            <form action="/issuer/credential-offer" method="get" style="margin-top: 20px; max-width: 400px;">
                 <div class="bx--form-item-horizontal">
                     <label for="ctype" class="bx--label">Credential Type</label>
                     <input type="text" name="ctype" class="bx--text-input" value="${ctype}" readonly/>

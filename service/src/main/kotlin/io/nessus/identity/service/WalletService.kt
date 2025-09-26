@@ -8,12 +8,18 @@ interface WalletService<COType: CredentialOffer> {
 
     fun addCredentialOffer(credOffer: COType): String
 
+    fun getCredentialOffers(): Map<String, COType>
+
+    fun getCredentialOffer(offerId: String): COType?
+
+    fun deleteCredentialOffer(offerId: String): COType?
+
     companion object {
-        fun createEbsi(ctx: OIDContext): WalletServiceEbsi32 {
-            return WalletServiceEbsi32(ctx)
+        fun createEbsi(): WalletServiceEbsi32 {
+            return WalletServiceEbsi32()
         }
-        fun createKeycloak(ctx: OIDContext): WalletServiceKeycloak {
-            return WalletServiceKeycloak(ctx)
+        fun createKeycloak(): WalletServiceKeycloak {
+            return WalletServiceKeycloak()
         }
     }
 }

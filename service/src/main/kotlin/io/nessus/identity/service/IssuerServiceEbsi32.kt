@@ -29,16 +29,17 @@ import kotlin.uuid.Uuid
 
 // DefaultIssuerService ================================================================================================
 
-class IssuerServiceEbsi32(ctx: OIDContext, issuerUrl: String, val authUrl: String)
-    : AbstractIssuerService<IssuerMetadataDraft11, CredentialOfferDraft11>(ctx, issuerUrl) {
+class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
+    : AbstractIssuerService<IssuerMetadataDraft11, CredentialOfferDraft11>(issuerUrl) {
 
     override suspend fun createCredentialOffer(
+        ctx: LoginContext,
         subId: String,
         types: List<String>,
         userPin: String?
     ): CredentialOfferDraft11 {
 
-        val metadata = getIssuerMetadata()
+        val metadata = getIssuerMetadata(ctx)
         val issuerUri = metadata.credentialIssuer
 
         // Build issuer state jwt
@@ -90,13 +91,14 @@ class IssuerServiceEbsi32(ctx: OIDContext, issuerUrl: String, val authUrl: Strin
     }
 
     suspend fun getCredentialFromRequest(
+        ctx: OIDContext,
         credReq: CredentialRequest,
         accessTokenJwt: SignedJWT,
         deferred: Boolean = false
     ): CredentialResponse {
 
         // Validate the AccessToken
-        ctx.validateAccessToken(accessTokenJwt)
+        validateAccessToken(accessTokenJwt)
 
         log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
 
@@ -110,13 +112,16 @@ class IssuerServiceEbsi32(ctx: OIDContext, issuerUrl: String, val authUrl: Strin
                 .withIssuer(ctx.did)
                 .withSubject(ctx.authRequest.clientId)
                 .withTypes(credReq.types!!)
-            getCredentialFromParameters(params)
+            getCredentialFromParameters(ctx, params)
         }
         return credentialResponse
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun getCredentialFromParameters(vcp: CredentialParameters): CredentialResponse {
+    suspend fun getCredentialFromParameters(
+        ctx: OIDContext,
+        vcp: CredentialParameters
+    ): CredentialResponse {
 
         // Init property defaults when not given
         //
@@ -133,7 +138,7 @@ class IssuerServiceEbsi32(ctx: OIDContext, issuerUrl: String, val authUrl: Strin
             throw java.lang.IllegalStateException("No types")
 
         // Verify credential types i.e. every type must bve known to this issuer
-        val metadata = getIssuerMetadata()
+        val metadata = getIssuerMetadata(ctx)
         val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = vcp.types.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())
@@ -188,7 +193,10 @@ class IssuerServiceEbsi32(ctx: OIDContext, issuerUrl: String, val authUrl: Strin
         return credRes
     }
 
-    suspend fun getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt: SignedJWT): CredentialResponse {
+    suspend fun getDeferredCredentialFromAcceptanceToken(
+        ctx: OIDContext,
+        acceptanceTokenJwt: SignedJWT
+    ): CredentialResponse {
 
         // Validate the AcceptanceTokenJwt
         // [TODO #241] Validate the AcceptanceToken
@@ -204,17 +212,25 @@ class IssuerServiceEbsi32(ctx: OIDContext, issuerUrl: String, val authUrl: Strin
             .withIssuer(ctx.did)
             .withSubject(ctx.authRequest.clientId)
             .withTypes(credReq.types!!)
-        val credentialResponse = getCredentialFromParameters(params)
+        val credentialResponse = getCredentialFromParameters(ctx, params)
 
         return credentialResponse
     }
 
     override fun getIssuerMetadataUrl(): String {
+        throw IllegalStateException("Not implemented")
+    }
+
+    override suspend fun getIssuerMetadata(): IssuerMetadataDraft11 {
+        throw IllegalStateException("Not implemented")
+    }
+
+    fun getIssuerMetadataUrl(ctx: LoginContext): String {
         val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerUrl/${ctx.targetId}")
         return metadataUrl
     }
 
-    override suspend fun getIssuerMetadataInternal(): IssuerMetadataDraft11 {
+    fun getIssuerMetadata(ctx: LoginContext): IssuerMetadataDraft11 {
         val authTargetUrl = "$authUrl/${ctx.targetId}"
         val issuerTargetUrl = "$issuerUrl/${ctx.targetId}"
         val credentialSupported = mapOf(
@@ -277,7 +293,7 @@ class IssuerServiceEbsi32(ctx: OIDContext, issuerUrl: String, val authUrl: Strin
         log.info { "CredentialRequestDeferred: ${Json.encodeToString(credReq)}" }
 
         val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequest")
-        val metadata = getIssuerMetadata()
+        val metadata = getIssuerMetadata(ctx)
         val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = types.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())

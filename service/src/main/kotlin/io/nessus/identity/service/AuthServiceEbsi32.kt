@@ -46,7 +46,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         fun create(ctx: OIDContext) = AuthServiceEbsi32(ctx)
     }
 
-    val issuerSvc = IssuerService.createEbsi(ctx)
+    val issuerSvc = IssuerService.createEbsi()
 
     fun getAuthMetadataUrl(): String {
         val metadataUrl = OpenID4VCI.getOpenIdProviderMetadataUrl("$authEndpointUri/${ctx.targetId}")
@@ -221,7 +221,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
     suspend fun handleTokenRequestPreAuthorized(tokenReq: TokenRequest): TokenResponse {
 
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY))
-            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerSvc.getIssuerMetadata())
+            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerSvc.getIssuerMetadata(ctx))
 
         var subId = tokenReq.clientId
         val preAuthTokenRequest = tokenReq as TokenRequest.PreAuthorizedCode
@@ -241,7 +241,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
             if (!hasCredentialOfferRecord(preAuthCode)) {
                 log.info { "Issuing CredentialOffer $preAuthCode (on-demand) for EBSI Conformance" }
                 val types = listOf("VerifiableCredential", preAuthCode)
-                val credOffer = issuerSvc.createCredentialOffer(subId, types, userPin)
+                val credOffer = issuerSvc.createCredentialOffer(ctx, subId, types, userPin)
                 putCredentialOfferRecord(preAuthCode, credOffer, userPin)
             }
         }
@@ -280,7 +280,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         // Attach issuer metadata (on demand)
         //
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY)) {
-            val metadata = issuerSvc.getIssuerMetadata()
+            val metadata = issuerSvc.getIssuerMetadata(ctx)
             ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         }
 

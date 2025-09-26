@@ -1,5 +1,6 @@
 package io.nessus.identity.backend
 
+import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft17
 import kotlinx.serialization.json.JsonObject
@@ -9,12 +10,16 @@ import kotlinx.serialization.json.JsonObject
 interface WalletApi {
 
     /**
-     * Get available CredentialOffers for the given walletId.
+     * Accept a CredentialOffer and fetch the associated Credential from the Issuer.
+     * Uses the in-time authorization flow.
      */
-    suspend fun listCredentialOffers(): List<CredentialOfferDraft17>
+    suspend fun acceptCredentialOffer(
+        ctx: LoginContext,
+        offerId: String
+    ): JsonObject
 
     /**
-     * Receives a CredentialOffer for the given walletId.
+     * Add a CredentialOffer to the Wallet.
      *
      * The Wallet can publish a credential_offer_endpoint
      * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-client-metadata
@@ -23,14 +28,37 @@ interface WalletApi {
      * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer
      */
     suspend fun addCredentialOffer(
+        ctx: LoginContext,
         offer: CredentialOffer
     ): String
 
     /**
-     * Fetches the Credential from the Issuer for the given CredentialOffer id.
-     * Uses the in-time authorization flow.
+     * Get available CredentialOffers
      */
-    suspend fun fetchCredentialFromOffer(
+    suspend fun getCredentialOffers(
+        ctx: LoginContext
+    ): Map<String, CredentialOfferDraft17>
+
+    /**
+     * Delete a CredentialOffer from the Wallet.
+     */
+    suspend fun deleteCredentialOffer(
+        ctx: LoginContext,
         offerId: String
-    ): JsonObject
+    ): JsonObject?
+
+    /**
+     * Get available Credentials
+     */
+    suspend fun getCredentials(
+        ctx: LoginContext
+    ): Map<String, JsonObject>
+
+    /**
+     * Get a Credential by id
+     */
+    suspend fun getCredential(
+        ctx: LoginContext,
+        credId: String
+    ): JsonObject?
 }

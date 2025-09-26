@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 
-class IssuerServiceKeycloakTest: AbstractServiceTest() {
+class IssuerServiceKeycloakTest : AbstractServiceTest() {
 
     lateinit var max: OIDContext
     lateinit var alice: OIDContext
@@ -27,11 +27,11 @@ class IssuerServiceKeycloakTest: AbstractServiceTest() {
         kotlinx.coroutines.runBlocking {
             // Create the Issuer's OIDC context (Max is the Issuer)
             max = OIDContext(login(Max).withDidInfo())
-            issuerSvc = IssuerService.createKeycloak(max)
+            issuerSvc = IssuerService.createKeycloak()
 
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = OIDContext(login(Alice).withDidInfo())
-            walletSvc = WalletService.createKeycloak(alice)
+            walletSvc = WalletService.createKeycloak()
         }
     }
 
@@ -63,10 +63,10 @@ class IssuerServiceKeycloakTest: AbstractServiceTest() {
         */
         runBlocking {
 
-            issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_identity_credential"))
+            issuerSvc.createCredentialOffer(max, alice.did, listOf("oid4vc_identity_credential"))
 
             assertThrows<IllegalArgumentException> {
-                issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_unknown"))
+                issuerSvc.createCredentialOffer(max, alice.did, listOf("oid4vc_unknown"))
             }
         }
     }
@@ -83,10 +83,11 @@ class IssuerServiceKeycloakTest: AbstractServiceTest() {
 
             // Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
+            val credOffer = issuerSvc.createCredentialOffer(max, alice.did, listOf(ctype))
 
             val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-            val vc = walletSvc.credentialFromOfferInTime(credOffer, callbackHandler)
+            val credObj = walletSvc.credentialFromOfferInTime(alice, credOffer, callbackHandler)
+            val vc = credObj.getValue("vc").jsonObject
             log.info { "Credential: $vc" }
 
             val wasTypes = vc.getValue("type").jsonArray.map { it.jsonPrimitive.content }

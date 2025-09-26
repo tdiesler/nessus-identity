@@ -21,16 +21,23 @@ interface IssuerService<IMType: IssuerMetadata, COType: CredentialOffer> {
     /**
      * Creates a CredentialOffer for the given subject and credential types
      */
-    suspend fun createCredentialOffer(subId: String, types: List<String>, userPin: String? = null): COType
+    suspend fun createCredentialOffer(
+        ctx: LoginContext,
+        subjectId: String,
+        types: List<String>,
+        userPin: String? = null
+    ): COType
 
     companion object {
-        fun createEbsi(ctx: OIDContext): IssuerServiceEbsi32 {
+        fun createEbsi(): IssuerServiceEbsi32 {
             val issuerUrl = ConfigProvider.issuerEndpointUri
             val authUrl = ConfigProvider.authEndpointUri
-            return IssuerServiceEbsi32(ctx, issuerUrl, authUrl);
+            return IssuerServiceEbsi32(issuerUrl, authUrl);
         }
-        fun createKeycloak(ctx: OIDContext): IssuerServiceKeycloak {
-            return IssuerServiceKeycloak(ctx, "https://auth.localtest.me/realms/oid4vci");
+        fun createKeycloak(): IssuerServiceKeycloak {
+            // [TODO] Get these value from config
+            // https://github.com/tdiesler/nessus-identity/issues/277
+            return IssuerServiceKeycloak("https://auth.localtest.me/realms/oid4vci", "oid4vci-client");
         }
     }
 }

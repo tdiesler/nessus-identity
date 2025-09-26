@@ -20,7 +20,7 @@ import kotlin.random.Random
 class CredentialVerificationEbsi32(val holderCtx: OIDContext, val verifierCtx: OIDContext) {
 
     val authSvc = AuthServiceEbsi32.create(verifierCtx)
-    val walletSvc = WalletService.createEbsi(holderCtx)
+    val walletSvc = WalletService.createEbsi()
     val verifierSvc = VerifierService.createEbsi()
 
     /**
@@ -72,7 +72,7 @@ class CredentialVerificationEbsi32(val holderCtx: OIDContext, val verifierCtx: O
 
         // Holder responds with a signed VPToken that contains the VerifiablePresentation
         //
-        val vpTokenJwt = walletSvc.createVPToken(authRequest)
+        val vpTokenJwt = walletSvc.createVPToken(holderCtx, authRequest)
 
         // Verifier validates the VPToken
         //

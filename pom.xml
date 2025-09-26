@@ -71,8 +71,8 @@
     </properties>
 
     <modules>
+        <module>console</module>
         <module>openapi</module>
-        <module>webapp</module>
         <module>service</module>
     </modules>
 

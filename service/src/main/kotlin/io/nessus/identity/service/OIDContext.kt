@@ -41,16 +41,6 @@ open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
         OIDCContextRegistry.remove(targetId)
         super.close()
     }
-
-    fun validateAccessToken(bearerToken: SignedJWT) {
-
-        val claims = bearerToken.jwtClaimsSet
-        val exp = claims.expirationTime?.toInstant()
-        if (exp == null || exp.isBefore(Instant.now()))
-            throw IllegalStateException("Token expired")
-
-        // [TODO #235] Properly validate the AccessToken
-    }
 }
 
 object OIDCContextRegistry {

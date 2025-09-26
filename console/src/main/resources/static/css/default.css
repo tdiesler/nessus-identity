@@ -1,3 +1,23 @@
+
+/* === Customizations === */
+h5 {
+  margin-top: 0.8rem;
+}
+
+textarea {
+  width:60%;
+  height:80%;
+  margin-top:10px;
+  font-family:monospace
+}
+
+.disabled-link {
+  color: #8d8d8d !important;   /* Carbon Gray 50 */
+  cursor: not-allowed;
+  text-decoration: none;
+  pointer-events: none;        /* makes it unclickable */
+}
+
 /* === Base app layout === */
 .app-body {
   margin: 0;
@@ -35,53 +55,65 @@
 
 /* === Sidebar === */
 .sidebar {
-  width: 160px;
-  background: #e0e0e0; /* same gray as role-tabs */
+  width: 200px;
+  background: #e0e0e0;
   color: #161616;
-  transition: width 0.3s ease;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  padding-top: 0.5rem;
 }
 
-.sidebar.collapsed {
-  width: 48px; /* just wide enough for the arrow */
+/* === Collapsible groups === */
+.sidebar .menu-group {
+  border-bottom: 1px solid #c6c6c6;
 }
 
-/* Sidebar header with arrow */
-.sidebar-header {
+.sidebar .menu-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: flex-end; /* arrow to the far right */
-  padding: 0.5rem 0.75rem;
-  background: #e0e0e0;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.sidebar-header svg {
-  transition: transform 0.3s ease;
+.sidebar .menu-header:hover {
+  background: #d8d8d8;
 }
 
-/* Flip arrow when collapsed */
-.sidebar.collapsed .sidebar-header svg {
-  transform: rotate(180deg);
+.sidebar .menu-header svg {
+  transition: transform 0.2s ease;
 }
 
-/* Hide menu items completely when collapsed */
-.sidebar nav {
-  transition: opacity 0.2s ease;
+.sidebar .menu-group.collapsed .menu-header svg {
+  transform: rotate(-90deg);
 }
-.sidebar.collapsed nav {
-  opacity: 0;
-  pointer-events: none;
+
+/* Menu items inside a group */
+.sidebar .menu-items {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1rem;
+  display: block;
+}
+
+.sidebar .menu-group.collapsed .menu-items {
   display: none;
 }
 
-/* Sidebar items */
-nav .bx--side-nav__item {
-  margin-left: 0.75rem;
+.sidebar .menu-items li {
   padding: 0.5rem 0;
-  color: inherit;
+}
+
+.sidebar .menu-items a {
+  text-decoration: none;
+  color: #0f62fe;
+  font-size: 0.95rem;
+}
+
+.sidebar .menu-items a:hover {
+  text-decoration: underline;
 }
 
 /* === Main content === */
@@ -109,4 +141,9 @@ nav .bx--side-nav__item {
 .bx--form-item-horizontal .bx--text-input {
   width: 100%;
   margin: 0;
+}
+
+.bx--list--unordered {
+  margin-left: 1.25rem;          /* indent list as a whole */
+  list-style-position: inside;   /* dash aligns with text instead of hanging left */
 }

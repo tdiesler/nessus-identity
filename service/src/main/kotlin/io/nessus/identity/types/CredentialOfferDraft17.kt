@@ -40,7 +40,12 @@ data class AuthorizationCodeGrant(
     val issuerState: String? = null,
 
     @SerialName("authorization_server")
-    val authorizationServer: String? = null
+    val authorizationServer: String? = null,
+
+    // [TODO] How to know the client_id for the Authorization Request
+    // https://github.com/tdiesler/nessus-identity/issues/275
+    @SerialName("client_id")
+    val clientId: String? = null,
 )
 
 @Serializable

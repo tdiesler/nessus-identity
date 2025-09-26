@@ -39,7 +39,7 @@ import kotlin.random.Random
 
 // WalletServiceKeycloak =======================================================================================================================================
 
-class WalletServiceKeycloak(ctx: OIDContext) : AbstractWalletService<CredentialOfferDraft17>(ctx) {
+class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
 
     // [TODO] Derive Authorization callback Url
     val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
@@ -47,17 +47,20 @@ class WalletServiceKeycloak(ctx: OIDContext) : AbstractWalletService<CredentialO
     // [TODO] Derive Keycloak clientId from CredentialOffer
     val clientId = "oid4vci-client"
 
+    private val credRegistry = mutableMapOf<String, JsonObject>()
+
     /**
      * Holder gets a Credential from an Issuer based on a CredentialOffer
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
      */
     suspend fun credentialFromOfferInTime(
+        ctx: OIDContext,
         credOffer: CredentialOfferDraft17,
         authCallbackHandler: (URI) -> String
     ): JsonObject {
 
         // Resolve the Issuer's metadata from the CredentialOffer
-        val metadata: IssuerMetadataDraft17 = resolveIssuerMetadata(credOffer)
+        val metadata: IssuerMetadataDraft17 = resolveIssuerMetadata(ctx, credOffer)
 
         // Holder sends an Authorization Request to obtain an Authorization Code
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-request
@@ -79,7 +82,7 @@ class WalletServiceKeycloak(ctx: OIDContext) : AbstractWalletService<CredentialO
 
         // Holder sends a CredentialRequest
         //
-        val credRes = sendCredentialRequest(credOffer, tokenRes)
+        val credRes = sendCredentialRequest(ctx, credOffer, tokenRes)
         log.info { "CredentialResponse: $credRes" }
 
         // Extract the VerifiableCredential from the CredentialResponse
@@ -95,10 +98,23 @@ class WalletServiceKeycloak(ctx: OIDContext) : AbstractWalletService<CredentialO
         // [TODO] Keycloak credential cannot be decoded to W3CCredential
         // https://github.com/tdiesler/nessus-identity/issues/268
         val credObj = Json.decodeFromString<JsonObject>("${credJwt.payload}")
-        val vc = credObj.getValue("vc").jsonObject
-        log.info { "Credential: $vc" }
+        log.info { "Credential: $credObj" }
+        val jti = credObj.getValue("jti").jsonPrimitive.content
+        credRegistry[jti] = credObj
+        return credObj
+    }
 
-        return vc
+    fun getCredentials(
+        ctx: OIDContext,
+    ): Map<String, JsonObject> {
+        return credRegistry.toMap()
+    }
+
+    fun getCredential(
+        ctx: OIDContext,
+        credId: String
+    ): JsonObject? {
+        return credRegistry[credId]
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -170,11 +186,12 @@ class WalletServiceKeycloak(ctx: OIDContext) : AbstractWalletService<CredentialO
     }
 
     private suspend fun sendCredentialRequest(
+        ctx: OIDContext,
         credOffer: CredentialOfferDraft17,
         tokenRes: TokenResponse
     ): JsonObject {
 
-        val metadata: IssuerMetadataDraft17 = resolveIssuerMetadata(credOffer)
+        val metadata: IssuerMetadataDraft17 = resolveIssuerMetadata(ctx, credOffer)
 
         val ctypes = credOffer.getTypes()
         if (ctypes.size != 1) throw IllegalArgumentException("Multiple types not supported: $ctypes")

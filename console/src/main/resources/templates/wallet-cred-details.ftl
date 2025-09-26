@@ -5,8 +5,10 @@
     <#include "fragments/wallet-sidebar.ftl">
 
     <!-- Main content -->
-    <div class="content" style="flex:1; padding:1rem;">
+    <div class="content">
         <h1>OID4VC Wallet</h1>
-        <p>This is the Wallet main content area.</p>
+        <h4>${holderName}</h4>
+        <h5>Credential Details</h5>
+        <textarea readonly>${credObj?html}</textarea>
     </div>
 </@layout.layout>

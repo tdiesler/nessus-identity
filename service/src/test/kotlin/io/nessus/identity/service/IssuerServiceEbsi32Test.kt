@@ -33,8 +33,8 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = OIDContext(login(Alice).withDidInfo())
 
-            issuerSvc = IssuerService.createEbsi(max)
-            walletSvc = WalletService.createEbsi(alice)
+            issuerSvc = IssuerService.createEbsi()
+            walletSvc = WalletService.createEbsi()
         }
     }
 
@@ -42,10 +42,10 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
     fun testGetIssuerMetadata() {
         runBlocking {
 
-            val metadataUrl = issuerSvc.getIssuerMetadataUrl()
+            val metadataUrl = issuerSvc.getIssuerMetadataUrl(max)
             metadataUrl.shouldEndWith(".well-known/openid-credential-issuer")
 
-            val metadata = issuerSvc.getIssuerMetadata()
+            val metadata = issuerSvc.getIssuerMetadata(max)
             metadata.shouldNotBeNull()
         }
     }
@@ -76,7 +76,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             //
             val ctype = "CTWalletSameAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types)
+            val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -95,7 +95,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder storages the Credential
             //
-            walletSvc.addCredential(credRes)
+            walletSvc.addCredential(alice, credRes)
         }
     }
 
@@ -126,7 +126,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             //
             val ctype = "CTWalletSameAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types)
+            val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types)
 
             // Holder gets a deferred Credential from an Issuer based on a CredentialOffer
             //
@@ -136,7 +136,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             // Holder requests the deferred Credential using the AcceptanceToken
             //
             val acceptanceTokenJwt = SignedJWT.parse(deferredCredRes.acceptanceToken)
-            val credRes = issuerSvc.getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt)
+            val credRes = issuerSvc.getDeferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
 
             // Holder validates the received Credential
             //
@@ -150,7 +150,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder storages the Credential
             //
-            walletSvc.addCredential(credRes)
+            walletSvc.addCredential(alice, credRes)
         }
     }
 
@@ -178,7 +178,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, types, "$userPin")
+            val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types, "$userPin")
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -197,7 +197,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder storages the Credential
             //
-            walletSvc.addCredential(credRes)
+            walletSvc.addCredential(alice, credRes)
         }
     }
 
@@ -228,7 +228,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             val sub= alice.did
             val ctype = "CTWalletSamePreAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(sub, types, "$userPin")
+            val credOffer = issuerSvc.createCredentialOffer(max, sub, types, "$userPin")
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -238,7 +238,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             // Pre-Authorized Holder requests the deferred Credential using the AcceptanceToken
             //
             val acceptanceTokenJwt = SignedJWT.parse(deferredCredRes.acceptanceToken)
-            val credRes = issuerSvc.getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt)
+            val credRes = issuerSvc.getDeferredCredentialFromAcceptanceToken(max, acceptanceTokenJwt)
 
             // Holder validates the received Credential
             //
@@ -252,7 +252,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder storages the Credential
             //
-            walletSvc.addCredential(credRes)
+            walletSvc.addCredential(alice, credRes)
         }
     }
 }

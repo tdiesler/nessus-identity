@@ -1,31 +1,29 @@
 package io.nessus.identity.service
 
+import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadata
+import java.time.Instant
 
 abstract class AbstractIssuerService<IMType: IssuerMetadata, COType: CredentialOffer>(
-    val ctx: OIDContext,
     val issuerUrl: String,
 ) : IssuerService<IMType, COType> {
 
     val log = KotlinLogging.logger {}
-
-    protected var metadata: IMType? = null
 
     override fun getIssuerMetadataUrl(): String {
         val metadataUrl = "$issuerUrl/.well-known/openid-credential-issuer"
         return metadataUrl
     }
 
-    @Suppress("UNCHECKED_CAST")
-    final override suspend fun getIssuerMetadata(): IMType {
-        if (metadata == null) {
-            metadata = getIssuerMetadataInternal()
-            ctx.issuerMetadata = (metadata as IssuerMetadata)
-        }
-        return metadata as IMType
-    }
+    fun validateAccessToken(bearerToken: SignedJWT) {
 
-    protected abstract suspend fun getIssuerMetadataInternal(): IMType
+        val claims = bearerToken.jwtClaimsSet
+        val exp = claims.expirationTime?.toInstant()
+        if (exp == null || exp.isBefore(Instant.now()))
+            throw IllegalStateException("Token expired")
+
+        // [TODO #235] Properly validate the AccessToken
+    }
 }

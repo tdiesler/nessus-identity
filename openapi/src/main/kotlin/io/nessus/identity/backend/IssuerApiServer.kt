@@ -16,7 +16,6 @@ import io.ktor.server.routing.*
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.IssuerServiceKeycloak
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
@@ -24,6 +23,7 @@ import kotlinx.serialization.json.Json
 
 class IssuerApiServer(val host: String = "0.0.0.0", val port: Int = 7010) {
 
+    var issuerCtx: LoginContext
     var issuerSvc: IssuerServiceKeycloak
 
     companion object {
@@ -41,8 +41,8 @@ class IssuerApiServer(val host: String = "0.0.0.0", val port: Int = 7010) {
         log.info { "Starting IssuerAPI Server ..." }
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
         runBlocking {
-            val ctx = OIDContext(LoginContext.login(Max).withDidInfo())
-            issuerSvc = IssuerService.createKeycloak(ctx)
+            issuerCtx = LoginContext.login(Max).withDidInfo()
+            issuerSvc = IssuerService.createKeycloak()
         }
     }
 
@@ -111,7 +111,7 @@ class IssuerApiServer(val host: String = "0.0.0.0", val port: Int = 7010) {
     private suspend fun handleCredentialOfferRequest(call: RoutingCall) {
         val subjectId = call.parameters["subject_id"]!!
         val configurationIds = call.parameters.getAll("credential_configuration_id")!!
-        val credOffer = issuerSvc.createCredentialOffer(subId = subjectId, types = configurationIds)
+        val credOffer = issuerSvc.createCredentialOffer(issuerCtx, subjectId = subjectId, types = configurationIds)
         call.respond(HttpStatusCode.Created, credOffer)
     }
 }

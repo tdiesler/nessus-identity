@@ -26,11 +26,12 @@ import java.util.*
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceKeycloak(ctx: OIDContext, issuerUrl: String)
-    : AbstractIssuerService<IssuerMetadataDraft17, CredentialOfferDraft17>(ctx, issuerUrl) {
+class IssuerServiceKeycloak(issuerUrl: String, val clientId: String)
+    : AbstractIssuerService<IssuerMetadataDraft17, CredentialOfferDraft17>(issuerUrl) {
 
     override suspend fun createCredentialOffer(
-        subId: String,
+        ctx: LoginContext,
+        subjectId: String,
         types: List<String>,
         userPin: String?
     ): CredentialOfferDraft17 {
@@ -46,7 +47,7 @@ class IssuerServiceKeycloak(ctx: OIDContext, issuerUrl: String)
         // Build issuer state jwt
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5min
-        val kid = ctx.didInfo.authenticationId()
+        val kid = ctx.didInfo.authenticationId() // The Issuer's DID
 
         val header = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType.JWT)
@@ -54,11 +55,10 @@ class IssuerServiceKeycloak(ctx: OIDContext, issuerUrl: String)
             .build()
 
         val offerClaims = JWTClaimsSet.Builder()
-            .subject(subId)
-            .issuer(metadata.credentialIssuer)
+            .subject(subjectId)
+            .issuer(issuerUrl)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
-            .claim("client_id", subId)
             .claim("credential_types", types)
             .build()
 
@@ -73,7 +73,7 @@ class IssuerServiceKeycloak(ctx: OIDContext, issuerUrl: String)
                 Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
             } else {
                 val issuerState = credOfferJwt.serialize()
-                Grants(authorizationCode = AuthorizationCodeGrant(issuerState = issuerState))
+                Grants(authorizationCode = AuthorizationCodeGrant(issuerState, clientId = clientId))
             }
         )
 
@@ -89,7 +89,7 @@ class IssuerServiceKeycloak(ctx: OIDContext, issuerUrl: String)
         return credOffer
     }
 
-    override suspend fun getIssuerMetadataInternal(): IssuerMetadataDraft17 {
+    override suspend fun getIssuerMetadata(): IssuerMetadataDraft17 {
         val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
         val metadata = http.get(metadataUrl).body<IssuerMetadataDraft17>()
         return metadata

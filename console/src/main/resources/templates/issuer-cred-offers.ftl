@@ -7,10 +7,12 @@
     <!-- Main content -->
     <div class="content">
         <h1>OID4VC Issuer</h1>
-        <p>Issuer Config URL: <a href="${issuerConfigUrl}">${issuerConfigUrl}</a></p>
-        <ul style="margin-top:10px">
+        <h5>Credential Configurations</h5>
+        <ul class="bx--list--unordered">
             <#list credentialConfigurationIds as id>
-                <li style="margin-bottom:6px;">- <a href="/issuer/credential-offer?ctype=${id}">${id}</a></li>
+                <li class="bx--list__item">
+                    ${id} <a href="/issuer/credential-offer?ctype=${id}">offer</a>
+                </li>
             </#list>
         </ul>
     </div>

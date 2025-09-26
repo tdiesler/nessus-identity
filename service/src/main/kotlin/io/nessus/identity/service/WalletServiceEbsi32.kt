@@ -54,9 +54,12 @@ import kotlin.uuid.Uuid
 
 // WalletServiceEbsi32 ================================================================================================
 
-class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOfferDraft11>(ctx) {
+class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
 
-    fun addCredential(credRes: CredentialResponse) {
+    fun addCredential(
+        ctx: OIDContext,
+        credRes: CredentialResponse,
+    ) {
         val walletId = ctx.walletId
         val credJwt = credRes.toSignedJWT()
         val format = credRes.format as CredentialFormat
@@ -67,7 +70,11 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         widWalletSvc.addCredential(walletId, format, credJwt)
     }
 
-    suspend fun createCredentialRequest(types: List<String>, accessToken: TokenResponse): CredentialRequest {
+    suspend fun createCredentialRequest(
+        ctx: OIDContext,
+        types: List<String>,
+        accessToken: TokenResponse
+    ): CredentialRequest {
 
         val cNonce = accessToken.cNonce
             ?: throw IllegalStateException("No c_nonce")
@@ -114,7 +121,10 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         return credReq
     }
 
-    suspend fun createIDToken(reqParams: Map<String, String>): SignedJWT {
+    suspend fun createIDToken(
+        ctx: OIDContext,
+        reqParams: Map<String, String>
+    ): SignedJWT {
 
         // Verify required query params
         for (key in listOf("client_id", "redirect_uri", "response_type")) {
@@ -166,7 +176,10 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun createVPToken(authReq: AuthorizationRequest): SignedJWT {
+    suspend fun createVPToken(
+        ctx: OIDContext,
+        authReq: AuthorizationRequest
+    ): SignedJWT {
 
         log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(authReq)}" }
 
@@ -262,7 +275,10 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         return vpTokenJwt
     }
 
-    fun createTokenRequestAuthCode(authCode: String): TokenRequest {
+    fun createTokenRequestAuthCode(
+        ctx: OIDContext,
+        authCode: String
+    ): TokenRequest {
 
         val tokenRequest = TokenRequest.AuthorizationCode(
             clientId = ctx.did,
@@ -273,7 +289,11 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         return tokenRequest
     }
 
-    fun createTokenRequestPreAuthorized(credOffer: CredentialOfferDraft11, userPin: String): TokenRequest {
+    fun createTokenRequestPreAuthorized(
+        ctx: OIDContext,
+        credOffer: CredentialOfferDraft11,
+        userPin: String
+    ): TokenRequest {
 
         val preAuthCode = credOffer.getPreAuthorizedCodeGrant()?.preAuthorizedCode
             ?: throw IllegalStateException("No pre-authorized code")
@@ -296,15 +316,18 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         return credOffer as CredentialOfferDraft11
     }
 
-    suspend fun getCredentialFromOffer(credOffer: CredentialOfferDraft11): CredentialResponse {
+    suspend fun getCredentialFromOffer(
+        ctx: OIDContext,
+        credOffer: CredentialOfferDraft11
+    ): CredentialResponse {
 
-        val metadata: IssuerMetadataDraft11 = resolveIssuerMetadata(credOffer)
+        val metadata: IssuerMetadataDraft11 = resolveIssuerMetadata(ctx, credOffer)
 
         val accessToken = credOffer.getPreAuthorizedCodeGrant()?.let {
             val authCode = it.preAuthorizedCode
             val userPin = assertCredentialOfferRecord(authCode).userPin as String
-            val tokenRequest = createTokenRequestPreAuthorized(credOffer, userPin)
-            sendTokenRequestPreAuthorized(tokenRequest)
+            val tokenRequest = createTokenRequestPreAuthorized(ctx, credOffer, userPin)
+            sendTokenRequestPreAuthorized(ctx, tokenRequest)
         } ?: run {
             val rndBytes = Random.nextBytes(32)
             val codeVerifier = Base64URL.encode(rndBytes).toString()
@@ -319,19 +342,22 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
                 .buildFrom(credOffer)
             ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
             ctx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
-            val authCode = sendAuthorizationRequest(authRequest)
-            val tokenReq = createTokenRequestAuthCode(authCode)
-            sendTokenRequestAuthCode(tokenReq)
+            val authCode = sendAuthorizationRequest(ctx, authRequest)
+            val tokenReq = createTokenRequestAuthCode(ctx, authCode)
+            sendTokenRequestAuthCode(ctx, tokenReq)
         }
 
         val types = credOffer.getTypes()
-        val credReq = createCredentialRequest(types, accessToken)
-        val credRes = sendCredentialRequest(credReq)
+        val credReq = createCredentialRequest(ctx, types, accessToken)
+        val credRes = sendCredentialRequest(ctx, credReq)
 
         return credRes
     }
 
-    suspend fun getDeferredCredential(acceptanceToken: String): CredentialResponse {
+    suspend fun getDeferredCredential(
+        ctx: OIDContext,
+        acceptanceToken: String
+    ): CredentialResponse {
 
         val metadata = ctx.issuerMetadata as IssuerMetadataDraft11
         val deferredCredentialEndpoint = metadata.deferredCredentialEndpoint
@@ -358,7 +384,10 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    suspend fun sendAuthorizationRequest(authRequest: AuthorizationRequest): String {
+    suspend fun sendAuthorizationRequest(
+        ctx: OIDContext,
+        authRequest: AuthorizationRequest
+    ): String {
 
         val authReqUrl = URLBuilder("${ctx.authorizationServer}/authorize").apply {
             authRequest.toHttpParameters().forEach { (k, lst) -> lst.forEach { v -> parameters.append(k, v) } }
@@ -431,7 +460,10 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         return ctx.authCode
     }
 
-    suspend fun sendCredentialRequest(credReq: CredentialRequest): CredentialResponse {
+    suspend fun sendCredentialRequest(
+        ctx: OIDContext,
+        credReq: CredentialRequest
+    ): CredentialResponse {
 
         val accessToken = ctx.accessToken
         val credentialEndpoint = ctx.issuerMetadata.credentialEndpoint
@@ -462,7 +494,11 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         return credRes
     }
 
-    suspend fun sendIDToken(redirectUri: String, idTokenJwt: SignedJWT): String {
+    suspend fun sendIDToken(
+        ctx: OIDContext,
+        redirectUri: String,
+        idTokenJwt: SignedJWT
+    ): String {
 
         log.info { "Send IDToken: $redirectUri" }
         val formData = mutableMapOf(
@@ -494,7 +530,10 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         return authCode
     }
 
-    suspend fun sendVPToken(vpTokenJwt: SignedJWT): String {
+    suspend fun sendVPToken(
+        ctx: OIDContext,
+        vpTokenJwt: SignedJWT
+    ): String {
 
         val reqObject = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         val vpSubmission = ctx.assertAttachment(PRESENTATION_SUBMISSION_ATTACHMENT_KEY, true)
@@ -535,7 +574,10 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         return authCode
     }
 
-    suspend fun sendTokenRequestAuthCode(tokenReq: TokenRequest): TokenResponse {
+    suspend fun sendTokenRequestAuthCode(
+        ctx: OIDContext,
+        tokenReq: TokenRequest
+    ): TokenResponse {
 
         val tokenReqUrl = "${ctx.authorizationServer}/token"
 
@@ -563,7 +605,10 @@ class WalletServiceEbsi32(ctx: OIDContext) : AbstractWalletService<CredentialOff
         return tokenRes
     }
 
-    suspend fun sendTokenRequestPreAuthorized(tokenRequest: TokenRequest): TokenResponse {
+    suspend fun sendTokenRequestPreAuthorized(
+        ctx: OIDContext,
+        tokenRequest: TokenRequest
+    ): TokenResponse {
 
         val tokenReqUrl = "${ctx.authorizationServer}/token"
         val formData = tokenRequest.toHttpParameters()

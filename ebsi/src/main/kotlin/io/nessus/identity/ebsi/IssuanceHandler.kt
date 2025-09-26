@@ -65,10 +65,10 @@ object IssuanceHandler {
             ?.removePrefix("Bearer ")
             ?: throw IllegalArgumentException("Invalid authorization header")
 
-        val issuerSvc = IssuerService.createEbsi(ctx)
+        val issuerSvc = IssuerService.createEbsi()
         val credReq = call.receive<CredentialRequest>()
         val accessTokenJwt = SignedJWT.parse(accessToken)
-        val credentialResponse = issuerSvc.getCredentialFromRequest(credReq, accessTokenJwt)
+        val credentialResponse = issuerSvc.getCredentialFromRequest(ctx, credReq, accessTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,
@@ -84,9 +84,9 @@ object IssuanceHandler {
             ?.removePrefix("Bearer ")
             ?: throw IllegalArgumentException("Invalid authorization header")
 
-        val issuerSvc = IssuerService.createEbsi(ctx)
+        val issuerSvc = IssuerService.createEbsi()
         val acceptanceTokenJwt = SignedJWT.parse(acceptanceToken)
-        val credentialResponse = issuerSvc.getDeferredCredentialFromAcceptanceToken(acceptanceTokenJwt)
+        val credentialResponse = issuerSvc.getDeferredCredentialFromAcceptanceToken(ctx, acceptanceTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,
@@ -97,8 +97,8 @@ object IssuanceHandler {
 
     private suspend fun handleIssuerMetadataRequest(call: RoutingCall, ctx: OIDContext) {
 
-        val issuerSvc = IssuerService.createEbsi(ctx)
-        val metadata = issuerSvc.getIssuerMetadata()
+        val issuerSvc = IssuerService.createEbsi()
+        val metadata = issuerSvc.getIssuerMetadata(ctx)
         val payload = Json.encodeToString(metadata)
         call.respondText(
             status = HttpStatusCode.OK,
