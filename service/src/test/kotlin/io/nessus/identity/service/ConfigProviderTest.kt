@@ -10,15 +10,16 @@ class ConfigProviderTest {
     @Test
     fun loadConfig() {
 
-        val holder = ConfigProvider.requireWalletConfig()
-        val service = ConfigProvider.requireServiceConfig()
         val database = ConfigProvider.requireDatabaseConfig()
-
-        holder.userEmail.shouldNotBeBlank()
-        holder.userPassword.shouldNotBeBlank()
-
-        service.walletApiUrl shouldBe "https://wallet-api.localtest.me"
-
         database.jdbcUrl.shouldNotBeBlank()
+
+        val walletApiConfig = ConfigProvider.requireWalletApiConfig()
+        walletApiConfig.baseUrl shouldBe "http://localhost:8001"
+
+        val issuerApiConfig = ConfigProvider.requireIssuerApiConfig()
+        issuerApiConfig.baseUrl shouldBe "http://localhost:8002"
+
+        val waltIdWalletApiConfig = ConfigProvider.requireWaltIdWalletApiConfig()
+        waltIdWalletApiConfig.baseUrl shouldBe "https://waltid-wallet-api.localtest.me"
     }
 }

@@ -8,18 +8,20 @@ IMAGE_REGISTRY_STAGE := "registry.vps6c.eu.ebsi:30443/"
 KUBE_CONTEXT_LOCAL := "rancher-desktop"
 IMAGE_REGISTRY_LOCAL := ""
 
-IMAGE_NAME := nessusio/ebsi-portal
 IMAGE_TAG := "latest"
 
 # Set the IMAGE_REGISTRY based on the deployment TARGET
-ifeq ($(TARGET), stage)
-  KUBE_CONTEXT := $(KUBE_CONTEXT_STAGE)
-  IMAGE_REGISTRY := $(IMAGE_REGISTRY_STAGE)
-endif
 ifeq ($(TARGET), dev)
   KUBE_CONTEXT := $(KUBE_CONTEXT_LOCAL)
   IMAGE_REGISTRY := $(IMAGE_REGISTRY_LOCAL)
 endif
+ifeq ($(TARGET), stage)
+  KUBE_CONTEXT := $(KUBE_CONTEXT_STAGE)
+  IMAGE_REGISTRY := $(IMAGE_REGISTRY_STAGE)
+  JIB_PLATFORM_OPTS := "-Djib.from.platforms=linux/amd64"
+endif
+
+CAROOT_DIR := $(shell mkcert -CAROOT)
 
 check-docker:
 	@docker --version || echo "docker command failed"
@@ -28,35 +30,60 @@ clean:
 	@mvn clean
 
 package: clean
-	@mvn package -DskipTests
+	@mvn package -Pebsi -DskipTests
 
 # Build the Docker images
-nessus-image: package
+nessus-images: package
+		@cp "$(CAROOT_DIR)/rootCA.pem" console/target
+		@cp "$(CAROOT_DIR)/rootCA.pem" openapi/issuer/target
+		@cp "$(CAROOT_DIR)/rootCA.pem" openapi/wallet/target
 		@docker buildx build --platform linux/amd64 \
 			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
-			-t $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG) \
-			-t $(IMAGE_NAME):$(IMAGE_TAG) \
-			-f ./ebsi-portal/Dockerfile ./ebsi-portal;
-		@if [ $(TARGET) != "dev" ]; then \
-			echo "Pushing $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG) ..."; \
-			docker push $(IMAGE_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG); \
+			-t $(IMAGE_REGISTRY)nessusio/issuer-api:$(IMAGE_TAG) \
+			-t nessusio/issuer-api:$(IMAGE_TAG) \
+			-f ./openapi/issuer/Dockerfile ./openapi/issuer
+		@docker buildx build --platform linux/amd64 \
+			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
+			-t $(IMAGE_REGISTRY)nessusio/wallet-api:$(IMAGE_TAG) \
+			-t nessusio/wallet-api:$(IMAGE_TAG) \
+			-f ./openapi/wallet/Dockerfile ./openapi/wallet
+		@docker buildx build --platform linux/amd64 \
+			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
+			-t $(IMAGE_REGISTRY)nessusio/console:$(IMAGE_TAG) \
+			-t nessusio/console:$(IMAGE_TAG) \
+			-f ./console/Dockerfile ./console
+		@docker buildx build --platform linux/amd64 \
+			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
+			-t $(IMAGE_REGISTRY)nessusio/ebsi-portal:$(IMAGE_TAG) \
+			-t nessusio/ebsi-portal:$(IMAGE_TAG) \
+			-f ./ebsi/Dockerfile ./ebsi
+		@if [ $(TARGET) == "stage" ]; then \
+			docker push $(IMAGE_REGISTRY)nessusio/issuer-api:$(IMAGE_TAG); \
+			docker push $(IMAGE_REGISTRY)nessusio/wallet-api:$(IMAGE_TAG); \
+			docker push $(IMAGE_REGISTRY)nessusio/console:$(IMAGE_TAG); \
+			docker push $(IMAGE_REGISTRY)nessusio/ebsi-portal:$(IMAGE_TAG); \
 		fi
 
 wallet-api:
 	@cd ../waltid-identity && ./gradlew -x jvmTest publishToMavenLocal
 
-# Build WaltID images (supports build options)
-# make build_waltid_images BUILD_OPTS=--no-cache
+# Build WaltID images (only needed for unreleased PRs)
 waltid-images: wallet-api
-	@cd ../waltid-identity && ./gradlew jibDockerBuild
-	@cd ../waltid-identity/docker-compose && \
-		docker compose build $(BUILD_OPTS) waltid-dev-wallet && \
-		docker compose build $(BUILD_OPTS) waltid-demo-wallet && \
-		docker compose build $(BUILD_OPTS) web-portal && \
-		docker compose pull opa-server && \
-		docker compose pull vc-repo
+	@cd ../waltid-identity && \
+		./gradlew :waltid-services:waltid-wallet-api:jibDockerBuild $(JIB_PLATFORM_OPTS)
+	@if [ $(TARGET) == "stage" ]; then \
+  		docker tag waltid-wallet-api:1.0.0-SNAPSHOT $(IMAGE_REGISTRY)waltid-wallet-api:1.0.0-SNAPSHOT; \
+		docker push $(IMAGE_REGISTRY)waltid-wallet-api:1.0.0-SNAPSHOT; \
+	fi
 
-images: waltid-images nessus-image
+images: waltid-images nessus-images
+
+run-all: package
+	trap 'kill 0' INT TERM; \
+	(mvn -pl openapi/issuer exec:java) & \
+	(mvn -pl openapi/wallet exec:java) & \
+	(mvn -pl console exec:java) & \
+	wait
 
 upgrade:
 	@helm --kube-context $(KUBE_CONTEXT) upgrade --install nessus-identity ./helm -f ./helm/values-services-$(TARGET).yaml

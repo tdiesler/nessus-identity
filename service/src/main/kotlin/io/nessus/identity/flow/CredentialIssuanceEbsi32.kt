@@ -3,12 +3,12 @@ package io.nessus.identity.flow
 import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.responses.CredentialResponse
-import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32
+import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService

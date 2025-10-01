@@ -1,21 +1,7 @@
 {{- with .Values.deployments.issuer_api }}
 ---
 
-# Issuer API ConfigMap
-#
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: issuer-api-config
-data:
-  {{- $files := $.Files.Glob "config/issuer-api/*" }}
-  {{- range $path, $file := $files }}
-  {{ base $path }}: |
-  {{ toString $file | nindent 4 }}
-  {{- end }}
----
-
-# Issuer API Deployment
+# WalletAPI Deployment
 #
 apiVersion: apps/v1
 kind: Deployment
@@ -30,29 +16,23 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: issuer-api
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/release: {{ $.Release.Name }}
     spec:
       containers:
         - name: issuer-api
-          image: {{ .image }}:{{ .version }}
+          image: {{ .imagePrefix }}{{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
-            - name: ISSUER_BASE_URL
-              value: "https://{{ $.Values.issuerApiHost }}"
-            - name: ISSUER_API_PORT
-              value: '7002'
+            - name: ISSUER__BASE_URL
+              value: "https://{{ $.Values.oauthApiHost }}/realms/oid4vci"
+            - name: WALTID__WALLETAPI__BASE_URL
+              value: "http://waltid-wallet-api:7001"
           ports:
-            - containerPort: 7002
-          volumeMounts:
-            - name: config
-              mountPath: /waltid-issuer-api/config
-      volumes:
-        - name: config
-          configMap:
-            name: issuer-api-config
-
+            - containerPort: 8002
 ---
 
-# Issuer API Service
+# WalletAPI Service
 #
 apiVersion: v1
 kind: Service
@@ -61,12 +41,12 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 7002
+    - port: 8002
   selector:
     app.kubernetes.io/name: issuer-api
 ---
 
-# Issuer API IngressRoute
+# WalletAPI IngressRoute
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -82,7 +62,7 @@ spec:
       kind: Rule
       services:
         - name: issuer-api
-          port: 7002
+          port: 8002
   tls:
     secretName: {{ $.Values.tlsSecret }}
 ---

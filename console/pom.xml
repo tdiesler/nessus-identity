@@ -15,10 +15,19 @@
     <artifactId>nessus-identity-console</artifactId>
     <packaging>jar</packaging>
 
+    <properties>
+        <projectMainClass>io.nessus.identity.console.ConsoleServer</projectMainClass>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.nessus.identity</groupId>
-            <artifactId>nessus-identity-openapi</artifactId>
+            <artifactId>nessus-identity-openapi-issuer</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.nessus.identity</groupId>
+            <artifactId>nessus-identity-openapi-wallet</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -64,7 +73,60 @@
 
     <build>
         <plugins>
-        </plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>create</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <overWriteIfNewer>false</overWriteIfNewer>
+                            <includeScope>runtime</includeScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>${projectMainClass}</mainClass>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>lib/</classpathPrefix>
+                        </manifest>
+                        <manifestEntries>
+                            <Build-Version>${project.version}</Build-Version>
+                            <Build-Revision>${buildNumber}</Build-Revision>
+                            <Build-Timestamp>${timestamp}</Build-Timestamp>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>${projectMainClass}</mainClass>
+                </configuration>
+            </plugin>
+         </plugins>
     </build>
 
 </project>

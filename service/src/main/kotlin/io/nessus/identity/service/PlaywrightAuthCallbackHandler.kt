@@ -9,7 +9,7 @@ class PlaywrightAuthCallbackHandler(val username: String, val password: String) 
 
     override fun invoke(authRequestUrl: URI): String {
         return Playwright.create().use { plw ->
-            val browser = plw.chromium().launch(
+            val browser = plw.firefox().launch(
                 BrowserType.LaunchOptions().setHeadless(true)
             )
             val page = browser.newPage()

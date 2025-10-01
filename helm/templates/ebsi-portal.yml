@@ -20,22 +20,23 @@ spec:
         app.kubernetes.io/name: ebsi-portal
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/release: {{ $.Release.Name }}
-        app.kubernetes.io/revision: '{{ $.Release.Revision }}'
     spec:
       containers:
         - name: ebsi-portal
-          image: {{ .imagePrefix }}nessusio/ebsi-portal:{{ .version }}
+          image: {{ .imagePrefix }}{{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
-            - name: SERVER__PORT
+            - name: EBSI__PORT
               value: "9090"
-            - name: SERVER__BASE_URL
+            - name: EBSI__BASE_URL
               value: "https://{{ $.Values.ebsiPortalHost }}"
-            - name: SERVICE__WALLET_API_URL
-              value: "http://wallet-api:7001"
-            - name: SERVICE__DEMO_WALLET_URL
+            - name: EBSI__PREAUTHORIZED_PIN
+              value: "1234"
+            - name: WALTID__WALLETAPI__BASE_URL
+              value: "https://{{ $.Values.waltidWalletApiHost }}"
+            - name: WALTID__DEMO_WALLET_URL
               value: "https://{{ $.Values.demoWalletHost }}"
-            - name: SERVICE__DEV_WALLET_URL
+            - name: WALTID__DEV_WALLET_URL
               value: "https://{{ $.Values.devWalletHost }}"
             - name: DATABASE__JDBC_URL
               value: "jdbc:postgresql://postgres:5432/waltid"
@@ -49,11 +50,6 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
-            - name: EBSI__PREAUTHORIZED_PIN
-              valueFrom:
-                secretKeyRef:
-                  name: ebsi-secret
-                  key: PREAUTHORIZED_PIN
           ports:
             - containerPort: 9090
 ---

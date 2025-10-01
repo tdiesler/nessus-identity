@@ -15,93 +15,66 @@ object ConfigProvider {
         .addResourceSource("/application.conf")
         .build().loadConfigOrThrow<RootConfig>()
 
-    val authEndpointUri get() = requireAuthConfig().baseUrl
-    val issuerEndpointUri get() = "${requireServerConfig().baseUrl}/issuer"
-    val walletEndpointUri get() = "${requireServerConfig().baseUrl}/wallet"
-
-    fun requireAuthConfig(): AuthConfig {
-        return root.auth ?: throw IllegalStateException("No 'auth' config")
-    }
-
     fun requireDatabaseConfig(): DatabaseConfig {
         return root.database ?: throw IllegalStateException("No 'database' config")
     }
 
-    fun requireWalletConfig(): WalletConfig {
-        return root.wallet ?: throw IllegalStateException("No 'wallet' config")
+    fun requireEbsiConfig(): EbsiConfig {
+        return root.ebsi ?: throw IllegalStateException("No 'ebsi' config")
     }
 
     fun requireIssuerConfig(): IssuerConfig {
         return root.issuer ?: throw IllegalStateException("No 'issuer' config")
     }
 
-    fun requireServerConfig(): ServerConfig {
-        return root.server ?: throw IllegalStateException("No 'server' config")
+    fun requireIssuerApiConfig(): EndpointConfig {
+        return root.issuerApi ?: throw IllegalStateException("No 'issuerApi' config")
     }
 
-    fun requireServiceConfig(): ServiceConfig {
-        return root.service ?: throw IllegalStateException("No 'service' config")
+    fun requireWalletApiConfig(): EndpointConfig {
+        return root.walletApi ?: throw IllegalStateException("No 'walletApi' config")
+    }
+
+    fun requireWaltIdConfig(): WaltIdConfig {
+        return root.waltid ?: throw IllegalStateException("No 'waltid' config")
+    }
+
+    fun requireWaltIdWalletApiConfig(): EndpointConfig {
+        val waltIdCfg = requireWaltIdConfig()
+        return waltIdCfg.walletApi ?: throw IllegalStateException("No 'waltid.walletApi' config")
     }
 }
 
 @Serializable
 data class RootConfig(
     val version: String,
-    val server: ServerConfig?,
-    val tls: TlsConfig?,
-    val issuer: IssuerConfig?,
-    val wallet: WalletConfig?,
-    val verifier: VerifierConfig?,
-    val auth: AuthConfig?,
-    val service: ServiceConfig?,
+    val console: EndpointConfig?,
     val database: DatabaseConfig?,
+    val ebsi: EbsiConfig?,
+    val issuer: IssuerConfig?,
+    val issuerApi: EndpointConfig?,
+    val walletApi: EndpointConfig?,
+    val waltid: WaltIdConfig?,
 )
 
 @Serializable
-data class ServerConfig(
-    val host: String,
+data class EndpointConfig(
+    var host: String = "0.0.0.0",
     val port: Int,
     val baseUrl: String,
 )
 
 @Serializable
-data class TlsConfig(
-    val enabled: Boolean,
-    val keyAlias: String,
-    val keystoreFile: String,
-    val keystorePassword: String,
-)
-
-@Serializable
-data class IssuerConfig(
+data class EbsiConfig(
+    var host: String = "0.0.0.0",
+    val port: Int,
+    val baseUrl: String,
     // The Issuer needs to know the Requester's DID for the Pre-Authorized use cases
     // https://hub.ebsi.eu/wallet-conformance/issue-to-holder/flow
-    val ebsiRequesterDid: String?
-)
-
-@Serializable
-data class WalletConfig(
-    val userEmail: String,
-    val userPassword: String,
-)
-
-@Serializable
-data class VerifierConfig(
-    val dummy: String?
-)
-
-@Serializable
-data class AuthConfig(
-    val baseUrl: String,
-)
-
-@Serializable
-data class ServiceConfig(
-    val walletApiUrl: String,
-    val issuerApiUrl: String?,
-    val verifierApiUrl: String?,
-    val demoWalletUrl: String,
-    val devWalletUrl: String?,
+    val requesterDid: String?,
+    val preauthorizedPin: String?,
+    val userEmail: String?,
+    val userPassword: String?,
 )
 
 @Serializable
@@ -111,6 +84,16 @@ data class DatabaseConfig(
     val password: String,
 )
 
-fun DatabaseConfig.redacted(): DatabaseConfig {
-    return DatabaseConfig(jdbcUrl, username,"******")
-}
+@Serializable
+data class IssuerConfig(
+    val baseUrl: String,
+    val clientId: String,
+)
+
+@Serializable
+data class WaltIdConfig(
+    val walletApi: EndpointConfig?,
+    val demoWallet: EndpointConfig?,
+    val devWallet: EndpointConfig?,
+    val vcRepo: EndpointConfig?,
+)

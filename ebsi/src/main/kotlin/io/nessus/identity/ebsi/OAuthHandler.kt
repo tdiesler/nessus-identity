@@ -16,6 +16,7 @@ import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32
+import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDCContextRegistry
@@ -183,7 +184,7 @@ object OAuthHandler {
         val requestUri = reqParams["request_uri"]
         if (requestUri != null) {
 
-            if (!requestUri.startsWith(ConfigProvider.authEndpointUri))
+            if (!requestUri.startsWith(authEndpointUri))
                 throw IllegalStateException("Unexpected request_uri: $requestUri")
 
             urlQueryToMap(requestUri)["request_object"]

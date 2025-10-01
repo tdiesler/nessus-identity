@@ -1,0 +1,92 @@
+{{- with .Values.deployments.waltid_issuer_api }}
+---
+
+# Issuer API ConfigMap
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: issuer-api-config
+data:
+  {{- $files := $.Files.Glob "config/issuer-api/*" }}
+  {{- range $path, $file := $files }}
+  {{ base $path }}: |
+  {{ toString $file | nindent 4 }}
+  {{- end }}
+---
+
+# Issuer API Deployment
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: issuer-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: issuer-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: issuer-api
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/release: {{ $.Release.Name }}
+    spec:
+      containers:
+        - name: issuer-api
+          image: {{ .image }}:{{ .version }}
+          imagePullPolicy: {{ .pullPolicy }}
+          env:
+            - name: ISSUER_BASE_URL
+              value: "https://{{ $.Values.issuerApiHost }}"
+            - name: ISSUER_API_PORT
+              value: '7002'
+          ports:
+            - containerPort: 7002
+          volumeMounts:
+            - name: config
+              mountPath: /waltid-issuer-api/config
+      volumes:
+        - name: config
+          configMap:
+            name: issuer-api-config
+
+---
+
+# Issuer API Service
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: issuer-api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 7002
+  selector:
+    app.kubernetes.io/name: issuer-api
+---
+
+# Issuer API IngressRoute
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: issuer-api
+  labels:
+    app.kubernetes.io/name: issuer-api
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host("{{ $.Values.issuerApiHost }}")
+      kind: Rule
+      services:
+        - name: issuer-api
+          port: 7002
+  tls:
+    secretName: {{ $.Values.tlsSecret }}
+---
+
+{{- end }}

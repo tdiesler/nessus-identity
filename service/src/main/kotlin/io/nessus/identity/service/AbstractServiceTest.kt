@@ -26,6 +26,15 @@ abstract class AbstractServiceTest {
         return ctx
     }
 
+    suspend fun loginOrRegister(user: User): LoginContext {
+        val ctx = sessions[user.email] ?: run {
+            LoginContext.loginOrRegister(user).also {
+                sessions[user.email] = it
+            }
+        }
+        return ctx
+    }
+
     fun loadResourceAsString(path: String): String {
         val resourceUrl = AbstractServiceTest::class.java.classLoader.getResource(path)
             ?: throw IllegalArgumentException("Resource not found: $path")

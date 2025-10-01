@@ -2,11 +2,11 @@ package io.nessus.identity.service
 
 import id.walt.oid4vc.responses.CredentialResponse
 import io.kotest.matchers.string.shouldContain
-import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.flow.CredentialIssuanceEbsi32
 import io.nessus.identity.flow.CredentialVerificationEbsi32
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.CredentialParameters
@@ -38,11 +38,11 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
             issuerSvc = IssuerService.createEbsi()
 
             // Create the Holders's OIDC context (Alice is the Holder)
-            alice = OIDContext(login(Alice).withDidInfo())
+            alice = OIDContext(loginOrRegister(Alice).withDidInfo())
             walletSvc = WalletService.createEbsi()
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
-            bob = OIDContext(login(Bob).withDidInfo())
+            bob = OIDContext(loginOrRegister(Bob).withDidInfo())
             authSvc = AuthServiceEbsi32.create(bob)
         }
     }

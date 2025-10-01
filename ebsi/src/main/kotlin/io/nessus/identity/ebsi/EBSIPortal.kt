@@ -17,14 +17,12 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.config.ConfigProvider
-import io.nessus.identity.config.redacted
+import io.nessus.identity.config.DatabaseConfig
 import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.getVersionInfo
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
-import java.io.File
-import java.security.KeyStore
 
 class EBSIPortal {
 
@@ -33,49 +31,24 @@ class EBSIPortal {
 
     init {
         log.info { "Starting the Nessus EBSI Conformance Portal ..." }
-        val serverConfig = ConfigProvider.requireServerConfig()
-        val serviceConfig = ConfigProvider.requireServiceConfig()
-        val databaseConfig = ConfigProvider.requireDatabaseConfig()
-        log.info { "ServerConfig: ${Json.encodeToString(serverConfig)}" }
-        log.info { "ServiceConfig: ${Json.encodeToString(serviceConfig)}" }
-        log.info { "DatabaseConfig: ${Json.encodeToString(databaseConfig.redacted())}" }
+        val ebsi = ConfigProvider.requireEbsiConfig()
+        val waltid = ConfigProvider.requireWaltIdConfig()
+        val db = ConfigProvider.requireDatabaseConfig()
+        val redacted = DatabaseConfig(db.jdbcUrl, db.username, "******")
+        log.info { "EBSI Config: ${Json.encodeToString(ebsi)}" }
+        log.info { "ServicesConfig: ${Json.encodeToString(waltid)}" }
+        log.info { "DatabaseConfig: ${Json.encodeToString(redacted)}" }
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
     }
 
     companion object {
         @JvmStatic
-        fun main() {
-            val server = EBSIPortal().createServer()
-            server.start(wait = true)
+        fun main(args: Array<String>) {
+            EBSIPortal().create().start(wait = true)
         }
     }
 
-    fun createServer(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
-
-        fun configure(): NettyApplicationEngine.Configuration.() -> Unit = {
-            val serverConf = ConfigProvider.requireServerConfig()
-
-            val tls = ConfigProvider.root.tls
-            if (tls?.enabled == true) {
-                val keystorePassword = tls.keystorePassword.toCharArray()
-                val keyStore = KeyStore.getInstance("PKCS12").apply {
-                    load(File(tls.keystoreFile).inputStream(), keystorePassword)
-                }
-                sslConnector(
-                    keyStore, tls.keyAlias,
-                    { keystorePassword }, // Must both match -passout
-                    { keystorePassword }
-                ) {
-                    host = serverConf.host
-                    port = serverConf.port
-                }
-            } else {
-                connector {
-                    host = serverConf.host
-                    port = serverConf.port
-                }
-            }
-        }
+    fun create(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
 
         fun module(): Application.() -> Unit = {
             install(CallLogging) {
@@ -141,26 +114,28 @@ class EBSIPortal {
             }
         }
 
-        return embeddedServer(Netty, configure = configure(), module = module())
+        val ebsiCfg = ConfigProvider.requireEbsiConfig()
+        return embeddedServer(Netty, host = ebsiCfg.host, port = ebsiCfg.port, module = module())
     }
 
     suspend fun handleHome(call: RoutingCall) {
-        val serviceConfig = ConfigProvider.requireServiceConfig()
+        val ebsiCfg = ConfigProvider.requireEbsiConfig()
+        val waltidCfg = ConfigProvider.requireWaltIdConfig()
         val ctx = SessionsStore.getLoginContextFromSession(call)
         val model = mutableMapOf(
             "hasWalletId" to (ctx?.maybeWalletInfo?.name?.isNotBlank() ?: false),
             "hasDidKey" to (ctx?.maybeDidInfo?.did?.isNotBlank() ?: false),
             "walletName" to ctx?.maybeWalletInfo?.name,
             "did" to ctx?.maybeDidInfo?.did,
-            "demoWalletUrl" to serviceConfig.demoWalletUrl,
-            "devWalletUrl" to serviceConfig.devWalletUrl,
+            "demoWalletUrl" to waltidCfg.demoWallet!!.baseUrl,
+            "devWalletUrl" to waltidCfg.devWallet!!.baseUrl,
             "versionInfo" to versionInfo,
         )
         if (ctx?.hasWalletInfo == true) {
             model["targetId"] = ctx.targetId
-            model["walletUri"] = "${ConfigProvider.walletEndpointUri}/${ctx.targetId}"
-            model["issuerUri"] = "${ConfigProvider.issuerEndpointUri}/${ctx.targetId}"
-            model["authUri"] = "${ConfigProvider.authEndpointUri}/${ctx.targetId}"
+            model["walletUri"] = "${ebsiCfg.baseUrl}/wallet/${ctx.targetId}"
+            model["issuerUri"] = "${ebsiCfg.baseUrl}/issuer/${ctx.targetId}"
+            model["authUri"] = "${ebsiCfg.baseUrl}/auth/${ctx.targetId}"
         }
         call.respond(
             FreeMarkerContent(

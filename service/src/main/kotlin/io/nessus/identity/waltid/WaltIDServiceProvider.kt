@@ -5,7 +5,7 @@ import io.nessus.identity.config.ConfigProvider
 object WaltIDServiceProvider {
 
     val widWalletSvc = run {
-        val serviceConfig = ConfigProvider.requireServiceConfig()
-        WaltIDWalletService(serviceConfig.walletApiUrl)
+        val waltidCfg = ConfigProvider.requireWaltIdConfig()
+        WaltIDWalletService(waltidCfg.walletApi!!.baseUrl)
     }
 }

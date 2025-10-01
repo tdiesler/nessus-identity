@@ -25,32 +25,6 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
     val walletId get() = walletInfo.id
     val targetId get() = getTargetId(walletId, maybeDidInfo?.did ?: "")
 
-    suspend fun withWalletInfo(): LoginContext {
-        getAttachment(WALLET_INFO_ATTACHMENT_KEY) ?: run {
-            val wi = widWalletSvc.listWallets(this).first()
-            putAttachment(WALLET_INFO_ATTACHMENT_KEY, wi)
-        }
-        getAttachment(DID_INFO_ATTACHMENT_KEY) ?: run {
-            widWalletSvc.findDidByPrefix(this, "did:key")?.also {
-                putAttachment(DID_INFO_ATTACHMENT_KEY, it)
-            }
-        }
-        return this
-    }
-
-    suspend fun withDidInfo(): LoginContext {
-        withWalletInfo().also {
-            getAttachment(DID_INFO_ATTACHMENT_KEY) ?: run {
-                val key = widWalletSvc.findKeyByType(this, KeyType.SECP256R1)
-                    ?: widWalletSvc.createKey(this, KeyType.SECP256R1)
-                widWalletSvc.createDidKey(this, "", key.id).also {
-                    putAttachment(DID_INFO_ATTACHMENT_KEY, it)
-                }
-            }
-        }
-        return this
-    }
-
     companion object {
 
         suspend fun login(user: User): LoginContext {
@@ -80,6 +54,32 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
             val subHash = sha256.digest("$wid|$did".toByteArray(Charsets.US_ASCII))
             return subHash.joinToString("") { "%02x".format(it) }.substring(0, 12)
         }
+    }
+
+    suspend fun withWalletInfo(): LoginContext {
+        getAttachment(WALLET_INFO_ATTACHMENT_KEY) ?: run {
+            val wi = widWalletSvc.listWallets(this).first()
+            putAttachment(WALLET_INFO_ATTACHMENT_KEY, wi)
+        }
+        getAttachment(DID_INFO_ATTACHMENT_KEY) ?: run {
+            widWalletSvc.findDidByPrefix(this, "did:key")?.also {
+                putAttachment(DID_INFO_ATTACHMENT_KEY, it)
+            }
+        }
+        return this
+    }
+
+    suspend fun withDidInfo(): LoginContext {
+        withWalletInfo().also {
+            getAttachment(DID_INFO_ATTACHMENT_KEY) ?: run {
+                val key = widWalletSvc.findKeyByType(this, KeyType.SECP256R1)
+                    ?: widWalletSvc.createKey(this, KeyType.SECP256R1)
+                widWalletSvc.createDidKey(this, "", key.id).also {
+                    putAttachment(DID_INFO_ATTACHMENT_KEY, it)
+                }
+            }
+        }
+        return this
     }
 
     open fun close() {

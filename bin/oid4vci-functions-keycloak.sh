@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
+KCADM="kcadm-insecure"
+
 # Log in as Keycloak Admin
 #
 kc_admin_login() {
   local adminUser="$1"
   local adminPass="$2"
 
-  kcadm config credentials --server "${AUTH_SERVER_URL}" --realm master \
+  ${KCADM} config credentials --server "${AUTH_SERVER_URL}" --realm master \
       --user "${adminUser}" --password "${adminPass}"
 }
 
@@ -17,13 +19,12 @@ kc_create_realm() {
   local credential_format="$4"
   local force="$5"
 
-
   # Check if realm already exists
   #
-  realm_exists=$(kcadm get realms | jq -e ".[] | select(.realm==\"${realm}\")" >/dev/null 2>&1 && echo true || echo false)
+  realm_exists=$(${KCADM} get realms | jq -e ".[] | select(.realm==\"${realm}\")" >/dev/null 2>&1 && echo true || echo false)
   if [[ $realm_exists == true ]]; then
     if [[ ${force} == true ]]; then
-      kcadm delete "realms/${realm}" 2>/dev/null
+      ${KCADM} delete "realms/${realm}" 2>/dev/null
       echo "Deleting realm '${realm}'"
     else
       echo "Realm '${realm}' already exists"
@@ -33,15 +34,15 @@ kc_create_realm() {
 
   # Create realm
   #
-  kcadm create realms -s realm="${realm}" -s enabled=true
-  realmId=$(kcadm get "realms/${realm}" --fields id --format csv --noquotes)
+  ${KCADM} create realms -s realm="${realm}" -s enabled=true
+  realmId=$(${KCADM} get "realms/${realm}" --fields id --format csv --noquotes)
 
   ## Delete Keys with unwanted algos
   #
   local curr_algos keep_algos unwanted_algos
 
   keep_algos=("ES256" "RS256" "RSA-OAEP")
-  curr_algos=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
+  curr_algos=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
 
   unwanted_algos=()
   for alg in ${curr_algos}; do
@@ -52,17 +53,17 @@ kc_create_realm() {
 
   for alg in "${unwanted_algos[@]}"; do
     local providerId
-    providerId=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r ".keys[] | select(.algorithm==\"${alg}\") | .providerId")
+    providerId=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r ".keys[] | select(.algorithm==\"${alg}\") | .providerId")
     if [ -n "${providerId}" ]; then
       echo "Deleting $alg key: ${providerId}"
-      kcadm delete "components/${providerId}" -r "${realm}"
+      ${KCADM} delete "components/${providerId}" -r "${realm}"
     fi
   done
 
   ## Generate a Key for signing VCs with the ES256
   #
   echo "Creating a Key with algorithm: ES256"
-  kcadm create components -r "${realm}" \
+  ${KCADM} create components -r "${realm}" \
     -s name="es256-vc-signing" \
     -s providerId="ecdsa-generated" \
     -s providerType="org.keycloak.keys.KeyProvider" \
@@ -74,16 +75,16 @@ kc_create_realm() {
 
   # 2) Get the ACTIVE ES256 kid
   local es256KeyId
-  es256KeyId=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r '.keys[] | select(.algorithm=="ES256" and .status=="ACTIVE" and .use=="SIG") | .kid')
+  es256KeyId=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[] | select(.algorithm=="ES256" and .status=="ACTIVE" and .use=="SIG") | .kid')
   echo "ES256 key id: ${es256KeyId}"
 
-  curr_algos=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
+  curr_algos=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
   echo "Current key algorithms: ${curr_algos[*]}"
 
   # Configure oid4vci realm attributes
   #
   echo "Configure realm attributes ..."
-  kcadm update "realms/${realm}" -f - <<-EOF
+  ${KCADM} update "realms/${realm}" -f - <<-EOF
   {
     "realm": "${realm}",
     "enabled": true,
@@ -95,7 +96,7 @@ EOF
 
   ## Show realm  attributes
   #
-  kcadm get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
+  ${KCADM} get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
 
   ## Apply the profile to the realm
   #
@@ -113,7 +114,7 @@ EOF
       }
     }
   }'
-  users_profile=$(kcadm get "realms/${realm}/users/profile" 2>/dev/null)
+  users_profile=$(${KCADM} get "realms/${realm}/users/profile" 2>/dev/null)
   # echo "Current users profile ..." && echo "${users_profile}" | jq .
 
   users_profile=$(echo "${users_profile}" | jq \
@@ -122,12 +123,12 @@ EOF
   # echo "Updated users profile ..." && echo "${users_profile}" | jq .
 
   echo "Updating users profile ..."
-  echo "$users_profile" | kcadm update "realms/${realm}/users/profile" -f -
+  echo "$users_profile" | ${KCADM} update "realms/${realm}/users/profile" -f -
 
   # Configure oid4vci client scopes
   #
   echo "Create client scopes ..."
-  kcadm create "realms/${realm}/client-scopes" -f - <<EOF
+  ${KCADM} create "realms/${realm}/client-scopes" -f - <<EOF
   {
     "name": "${credential_id}",
     "protocol": "oid4vc",
@@ -197,7 +198,7 @@ EOF
   # Create a client for credential issuance
   #
   echo "Create OIDC client: ${client_id} ..."
-  kcadm create "realms/${realm}/clients" -f - <<-EOF
+  ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
   {
     "clientId": "${client_id}",
     "enabled": true,
@@ -217,7 +218,7 @@ EOF
 EOF
 
   # Inspect the Issuer's metadata
-  # https://auth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer
+  # https://oauth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer
   local metadataUrl metadata
   metadataUrl="${AUTH_SERVER_URL}/realms/${realm}/.well-known/openid-credential-issuer"
   echo "Inspect ${metadataUrl} ..."
@@ -243,14 +244,14 @@ kc_create_user() {
 
   # Check if user already exists
   local userId
-  userId=$(kcadm get users -r "${realm}" -q username="${lowerName}" --fields id --format csv --noquotes)
+  userId=$(${KCADM} get users -r "${realm}" -q username="${lowerName}" --fields id --format csv --noquotes)
 
   if [[ -n "${userId}" ]]; then
     echo "User '${userName}' already exists (id=${userId})" >&2
   else
     echo "Creating user '${userName}' with role '${role}' in realm '${realm}'" >&2
     did=$(jq -r '.did' ".secret/${role}-details.json")
-    kcadm create users -r "${realm}" \
+    ${KCADM} create users -r "${realm}" \
       -s username="${lowerName}" \
       -s email="${userEmail}" \
       -s firstName="${firstName}" \
@@ -259,7 +260,7 @@ kc_create_user() {
       -s enabled=true \
       -s "attributes.did=${did}"
 
-    kcadm set-password -r "${realm}" --username "${lowerName}" --new-password "${userPassword}" --temporary=false
+    ${KCADM} set-password -r "${realm}" --username "${lowerName}" --new-password "${userPassword}" --temporary=false
   fi
 }
 

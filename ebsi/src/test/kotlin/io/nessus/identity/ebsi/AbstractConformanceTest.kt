@@ -88,7 +88,7 @@ open class AbstractConformanceTest {
     }
 
     fun startNessusServer() {
-        embeddedServer = EBSIPortal().createServer()
+        embeddedServer = EBSIPortal().create()
         embeddedServer.start(wait = false)
     }
 
@@ -118,17 +118,20 @@ open class AbstractConformanceTest {
     }
 
     fun authEndpointUri(ctx: LoginContext): String {
-        val authUri = "${ConfigProvider.authEndpointUri}/${ctx.targetId}"
+        val ebsiCfg = ConfigProvider.requireEbsiConfig()
+        val authUri = "${ebsiCfg.baseUrl}/auth/${ctx.targetId}"
         return authUri
     }
 
     fun walletEndpointUri(ctx: LoginContext): String {
-        val walletUri = "${ConfigProvider.walletEndpointUri}/${ctx.targetId}"
+        val ebsiCfg = ConfigProvider.requireEbsiConfig()
+        val walletUri = "${ebsiCfg.baseUrl}/wallet/${ctx.targetId}"
         return walletUri
     }
 
     fun issuerEndpointUri(ctx: LoginContext): String {
-        val issuerUri = "${ConfigProvider.issuerEndpointUri}/${ctx.targetId}"
+        val ebsiCfg = ConfigProvider.requireEbsiConfig()
+        val issuerUri = "${ebsiCfg.baseUrl}/issuer/${ctx.targetId}"
         return issuerUri
     }
 

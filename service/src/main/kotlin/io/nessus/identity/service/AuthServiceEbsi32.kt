@@ -15,7 +15,6 @@ import id.walt.oid4vc.responses.TokenResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.nessus.identity.config.ConfigProvider
-import io.nessus.identity.config.ConfigProvider.authEndpointUri
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
@@ -43,6 +42,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
     companion object {
         val log = KotlinLogging.logger {}
+        val authEndpointUri = "${ConfigProvider.requireEbsiConfig().baseUrl}/auth"
         fun create(ctx: OIDContext) = AuthServiceEbsi32(ctx)
     }
 
@@ -233,8 +233,8 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         if (isEBSIPreAuthorizedType(preAuthCode)) {
 
             if (subId == null) {
-                val issuerConfig = ConfigProvider.requireIssuerConfig()
-                subId = issuerConfig.ebsiRequesterDid as String
+                val ebsiConfig = ConfigProvider.requireEbsiConfig()
+                subId = ebsiConfig.requesterDid as String
             }
 
             // Issuing CredentialOffers (on-demand) for EBSI Conformance

@@ -6,7 +6,7 @@ import io.nessus.identity.types.IssuerMetadata
 
 // IssuerService =======================================================================================================
 
-interface IssuerService<IMType: IssuerMetadata, COType: CredentialOffer> {
+interface IssuerService<IMType : IssuerMetadata, COType : CredentialOffer> {
 
     /**
      * Get the Issuer's metadata Url
@@ -30,14 +30,15 @@ interface IssuerService<IMType: IssuerMetadata, COType: CredentialOffer> {
 
     companion object {
         fun createEbsi(): IssuerServiceEbsi32 {
-            val issuerUrl = ConfigProvider.issuerEndpointUri
-            val authUrl = ConfigProvider.authEndpointUri
+            val ebsi = ConfigProvider.requireEbsiConfig()
+            val authUrl = "${ebsi.baseUrl}/auth"
+            val issuerUrl = "${ebsi.baseUrl}/issuer"
             return IssuerServiceEbsi32(issuerUrl, authUrl);
         }
+
         fun createKeycloak(): IssuerServiceKeycloak {
-            // [TODO] Get these value from config
-            // https://github.com/tdiesler/nessus-identity/issues/277
-            return IssuerServiceKeycloak("https://auth.localtest.me/realms/oid4vci", "oid4vci-client");
+            val issuerCfg = ConfigProvider.requireIssuerConfig()
+            return IssuerServiceKeycloak(issuerCfg.baseUrl, issuerCfg.clientId);
         }
     }
 }

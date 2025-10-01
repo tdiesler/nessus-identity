@@ -5,8 +5,8 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import io.ktor.client.call.body
 import io.ktor.client.request.*
+import io.ktor.client.statement.bodyAsText
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.types.AuthorizationCodeGrant
@@ -91,8 +91,13 @@ class IssuerServiceKeycloak(issuerUrl: String, val clientId: String)
 
     override suspend fun getIssuerMetadata(): IssuerMetadataDraft17 {
         val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
-        val metadata = http.get(metadataUrl).body<IssuerMetadataDraft17>()
-        return metadata
+        log.info { "metadataUrl: $metadataUrl" }
+        val res = http.get(metadataUrl)
+        log.info { "Status: ${res.status}" }
+        log.info { "Headers: ${res.headers}" }
+        val jsonStr = res.bodyAsText()
+        log.info { "Body: $jsonStr" }
+        return IssuerMetadataDraft17.fromJson(jsonStr)
     }
 
     // Private ---------------------------------------------------------------------------------------------------------

@@ -42,8 +42,8 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
             https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
 
             Issuer Metadata Endpoints
-            https://auth.localtest.me/realms/oid4vci/.well-known/openid-configuration
-            https://auth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer
+            https://oauth.localtest.me/realms/oid4vci/.well-known/openid-configuration
+            https://oauth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer
         */
         runBlocking {
 

@@ -49,16 +49,12 @@ object SessionsStore {
 
         // Fallback
         if (ctx == null) {
-            val cfg = ConfigProvider.requireWalletConfig()
-            if (cfg.userEmail.isNotBlank() && cfg.userPassword.isNotBlank()) {
-                val loginParams = LoginParams(LoginType.EMAIL, cfg.userEmail, cfg.userPassword)
-                ctx = widWalletSvc.loginWithWallet(loginParams)
-                val subjectId = LoginContext.getTargetId(ctx.walletId, "")
-                sessions[subjectId] = ctx
-            }
+            val cfg = ConfigProvider.requireEbsiConfig()
+            val loginParams = LoginParams(LoginType.EMAIL, cfg.userEmail!!, cfg.userPassword!!)
+            ctx = widWalletSvc.loginWithWallet(loginParams)
+            val subjectId = LoginContext.getTargetId(ctx.walletId, "")
+            sessions[subjectId] = ctx
         }
-
-        ctx ?: throw IllegalStateException("Login required")
 
         if (ctx.maybeDidInfo == null) {
             val didInfo = widWalletSvc.findDidByPrefix(ctx, "did:key")

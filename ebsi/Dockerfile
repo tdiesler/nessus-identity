@@ -1,9 +1,11 @@
 FROM eclipse-temurin:21
 
-ARG PROJECT_VERSION
+WORKDIR /nessus-identity
 
-COPY ./target/nessus-identity-ebsi-portal-*.jar /ebsi/nessus-identity-ebsi-portal.jar
+# Copy dependency jars
+COPY target/lib ./lib
 
-WORKDIR /ebsi
+# Copy the project jar
+COPY target/nessus-identity-ebsi-portal-*.jar ./nessus-identity-ebsi-portal.jar
 
 ENTRYPOINT ["java", "-jar", "nessus-identity-ebsi-portal.jar"]

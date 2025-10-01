@@ -1,15 +1,13 @@
 package io.nessus.identity.waltid
 
 import id.walt.webwallet.db.models.WalletCredential
-import io.ktor.client.*
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.http.HttpHeaders.Authorization
-import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.http
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -29,12 +27,6 @@ class APIException(val id: String, val code: Int, val status: String, message: S
         } else {
             message!!
         }
-    }
-}
-
-val http = HttpClient {
-    install(ContentNegotiation) {
-        json()
     }
 }
 

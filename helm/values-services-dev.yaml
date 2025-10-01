@@ -3,27 +3,18 @@
 #
 environment: dev
 
-# OAuth Service
+# Services
 #
-authApiHost: "auth.localtest.me"
+oauthApiHost: "oauth.localtest.me"
 
-# WaltID Services
+# WaltId Services
 #
-issuerApiHost: "issuer-api.localtest.me"
-walletApiHost: "wallet-api.localtest.me"
-verifierApiHost: "verifier-api.localtest.me"
+waltidWalletApiHost: "waltid-wallet-api.localtest.me"
+waltidDemoWalletHost: "waltid-wallet-demo.localtest.me"
+waltidDevWalletHost: "waltid-wallet-dev.localtest.me"
 
-demoWalletHost: "wallet.localtest.me"
-devWalletHost: "wallet-dev.localtest.me"
-
-opaServiceHost: "opa.localtest.me"
-repoServiceHost: "vc-repo.localtest.me"
-webPortalHost: "portal.localtest.me"
-
-# NessusID Services
+# Edge Certificate for all public Services
 #
-ebsiPortalHost: "ebsi.localtest.me"
-
 tlsSecret: edge-tls
 
 deployments:
@@ -37,49 +28,20 @@ deployments:
   # OAuth Service
   #
   keycloak:
+    version: 26.4
     pullPolicy: Always
-    version: nightly
 
-  # WaltID Services
+  # WaltId Services
   #
-  wallet_api:
+  waltid_wallet_api:
     image: "waltid-wallet-api"
-    pullPolicy: IfNotPresent
     version: 1.0.0-SNAPSHOT
-
-  issuer_api:
-    image: "waltid-issuer-api"
-    pullPolicy: IfNotPresent
-    version: 1.0.0-SNAPSHOT
-
-  verifier_api:
-    image: "waltid-verifier-api"
-    pullPolicy: IfNotPresent
-    version: 1.0.0-SNAPSHOT
-
-#  wallet_demo:
-#    image: "waltid/waltid-demo-wallet"
-#    pullPolicy: IfNotPresent
-#    version: 1.0.0-SNAPSHOT
-
-  wallet_dev:
-    image: "waltid/waltid-dev-wallet"
-    pullPolicy: IfNotPresent
-    version: 1.0.0-SNAPSHOT
-
-  web_portal:
-    pullPolicy: IfNotPresent
-    version: 1.0.0-SNAPSHOT
-
-  vc_repo:
     pullPolicy: Always
+  waltid_demo_wallet:
+    image: "waltid/waltid-demo-wallet"
     version: latest
-
-#  opa_server:
-#    version: 1.4.2
-
-  # NessusID Services
-  #
-  ebsi_portal:
     pullPolicy: IfNotPresent
+  waltid_dev_wallet:
+    image: "waltid/waltid-dev-wallet"
     version: latest
+    pullPolicy: IfNotPresent

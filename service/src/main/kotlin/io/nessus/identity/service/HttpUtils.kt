@@ -1,6 +1,7 @@
 package io.nessus.identity.service
 
 import io.ktor.client.*
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -12,6 +13,11 @@ import java.net.URLDecoder
 val http = HttpClient {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
+    }
+    install(HttpTimeout) {
+        requestTimeoutMillis = 120_000   // whole request must finish in 120s
+        connectTimeoutMillis = 30_000    // TCP handshake
+        socketTimeoutMillis = 120_000    // inactivity between packets
     }
 }
 

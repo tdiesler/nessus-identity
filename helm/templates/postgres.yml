@@ -1,7 +1,33 @@
 {{- with .Values.deployments.postgres }}
 ---
 
-# PostgreSQL StatefulSet
+# Postgres PVC
+#
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+data:
+  init.sql: |
+    CREATE DATABASE keycloak;
+    CREATE DATABASE waltid;
+
+---
+# Postgres StatefulSet
 #
 apiVersion: apps/v1
 kind: StatefulSet
@@ -17,6 +43,8 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: postgres
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/release: {{ $.Release.Name }}
     spec:
       containers:
         - name: postgres
@@ -36,16 +64,28 @@ spec:
               value: postgres
           ports:
             - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: [ "sh", "-c", "pg_isready -U $POSTGRES_USER -d waltid -h 127.0.0.1" ]
+            initialDelaySeconds: 10     # wait 10s minute before first probe
+            periodSeconds: 10           # check every 10s
+            failureThreshold: 18        # allow 18 failures (→ 180s grace period)
+            timeoutSeconds: 5           # each probe times out after 5s
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:
             claimName: postgres-pvc
+        - name: init-script
+          configMap:
+            name: postgres-init
 ---
 
-# PostgreSQL Service
+# Postgres Service
 #
 apiVersion: v1
 kind: Service

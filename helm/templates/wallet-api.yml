@@ -1,21 +1,7 @@
 {{- with .Values.deployments.wallet_api }}
 ---
 
-# Wallet API ConfigMap
-#
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: wallet-config
-data:
-  {{- $files := $.Files.Glob "config/wallet-api/*" }}
-  {{- range $path, $file := $files }}
-  {{ base $path }}: |
-  {{ toString $file | nindent 4 }}
-  {{- end }}
----
-
-# Wallet API Deployment
+# WalletAPI Deployment
 #
 apiVersion: apps/v1
 kind: Deployment
@@ -30,42 +16,23 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: wallet-api
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/release: {{ $.Release.Name }}
     spec:
       containers:
         - name: wallet-api
-          image: {{ .image }}:{{ .version }}
+          image: {{ .imagePrefix }}{{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
-            - name: DB_HOST
-              value: 'postgres'
-            - name: DB_PORT
-              value: '5432'
-            - name: DB_NAME
-              value: 'waltid'
-            - name: DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_USER
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_PASSWORD
-            - name: WALLET_BACKEND_PORT
-              value: '7001'
+            - name: ISSUER__BASE_URL
+              value: "https://{{ $.Values.oauthApiHost }}/realms/oid4vci"
+            - name: WALTID__WALLETAPI__BASE_URL
+              value: "http://waltid-wallet-api:7001"
           ports:
-            - containerPort: 7001
-          volumeMounts:
-            - name: config
-              mountPath: /waltid-wallet-api/config
-      volumes:
-        - name: config
-          configMap:
-            name: wallet-config
+            - containerPort: 8001
 ---
 
-# Wallet API Service
+# WalletAPI Service
 #
 apiVersion: v1
 kind: Service
@@ -74,12 +41,12 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 7001
+    - port: 8001
   selector:
     app.kubernetes.io/name: wallet-api
 ---
 
-# Wallet API IngressRoute
+# WalletAPI IngressRoute
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -95,7 +62,7 @@ spec:
       kind: Rule
       services:
         - name: wallet-api
-          port: 7001
+          port: 8001
   tls:
     secretName: {{ $.Values.tlsSecret }}
 ---

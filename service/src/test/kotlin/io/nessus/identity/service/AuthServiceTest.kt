@@ -11,7 +11,7 @@ class AuthServiceTest : AbstractServiceTest() {
     @Test
     fun authMetadata() {
         runBlocking {
-            val max = OIDContext(login(Max))
+            val max = OIDContext(login(Max).withDidInfo())
             val authSvc = AuthServiceEbsi32.create(max)
 
             val metadataUrl = authSvc.getAuthMetadataUrl()

@@ -31,7 +31,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             max = OIDContext(login(Max).withDidInfo())
 
             // Create the Holders's OIDC context (Alice is the Holder)
-            alice = OIDContext(login(Alice).withDidInfo())
+            alice = OIDContext(loginOrRegister(Alice).withDidInfo())
 
             issuerSvc = IssuerService.createEbsi()
             walletSvc = WalletService.createEbsi()

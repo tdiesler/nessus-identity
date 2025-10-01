@@ -15,14 +15,14 @@ case "$TARGET" in
   dev)
     echo "Doing development setup..."
     export KUBE_CONTEXT="rancher-desktop"
-    export AUTH_SERVER_URL="https://auth.localtest.me"
-    export WALLET_API_URL="https://wallet-api.localtest.me"
+    export AUTH_SERVER_URL="https://oauth.localtest.me"
+    export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
   stage)
     echo "Doing staging setup..."
     export KUBE_CONTEXT="ebsi"
-    export AUTH_SERVER_URL="https://auth.nessustech.io"
-    export WALLET_API_URL="https://wallet-api.nessustech.io"
+    export AUTH_SERVER_URL="https://oauth.nessustech.io"
+    export WALLET_API_URL="https://waltid-wallet-api.nessustech.io"
     ;;
   *)
     echo "Unknown target: $TARGET"
@@ -30,9 +30,9 @@ case "$TARGET" in
     ;;
 esac
 
-HOLDER_NAME="Alice Wonderland"
-HOLDER_EMAIL="alice@email.com"
-HOLDER_PASSWORD="password"
+ISSUER=("Max Mustermann" "user@email.com" "password")
+HOLDER=("Alice Wonderland" "alice@email.com" "password")
+VERIFIER=("Bob Baumeister" "bob@email.com" "password")
 
 source "${SCRIPT_DIR}/oid4vci-functions-keycloak.sh"
 source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
@@ -55,13 +55,15 @@ done
 
 ## Setup WaltId Users --------------------------------------------------------------------------------------------------
 #
-setup_waltid_holder "${HOLDER_NAME}" "${HOLDER_EMAIL}" "${HOLDER_PASSWORD}" || exit 1
+setup_waltid_user "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[2]}" || exit 1
+setup_waltid_user "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}" || exit 1
+setup_waltid_user "verifier" "${VERIFIER[0]}" "${VERIFIER[1]}" "${VERIFIER[2]}" || exit 1
 
 ## Keycloak admin login ------------------------------------------------------------------------------------------------
 #
 kubecmd="kubectl --context ${KUBE_CONTEXT}"
-adminUser=$(${kubecmd} get secret keycloak-admin -o jsonpath='{.data.ADMIN_USERNAME}' | base64 -d)
-adminPass=$(${kubecmd} get secret keycloak-admin -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d)
+adminUser=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.ADMIN_USERNAME}' | base64 -d)
+adminPass=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d)
 
 kc_admin_login "${adminUser}" "${adminPass}"
 
@@ -77,7 +79,7 @@ kc_create_realm "${realm}" "${client_id}" "${credential_id}" "${credential_forma
 
 ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
 #
-kc_create_user "${realm}" "holder" "${HOLDER_NAME}" "${HOLDER_EMAIL}" "${HOLDER_PASSWORD}"
+kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}"
 
 # Fetch a Credential - Authorization Flow ------------------------------------------------------------------------------
 #

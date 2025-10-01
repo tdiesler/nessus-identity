@@ -1,13 +1,14 @@
 {{- with .Values.deployments.keycloak }}
 ---
 
-# Keycloak Deployment
+# Keycloak StatefulSet
 #
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: keycloak
 spec:
+  serviceName: keycloak
   replicas: 1
   selector:
     matchLabels:
@@ -16,18 +17,20 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: keycloak
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/release: {{ $.Release.Name }}
     spec:
       containers:
         - name: keycloak
           image: "keycloak/keycloak:{{ .version }}"
           imagePullPolicy: {{ .pullPolicy }}
-          args: ["start", "--features=oid4vc-vci"]
+          args: [ "start", "--features=oid4vc-vci" ]
           env:
             # Admin bootstrap
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
-              valueFrom: { secretKeyRef: { name: keycloak-admin, key: ADMIN_USERNAME } }
+              valueFrom: { secretKeyRef: { name: keycloak-secret, key: ADMIN_USERNAME }}
             - name: KC_BOOTSTRAP_ADMIN_PASSWORD
-              valueFrom: { secretKeyRef: { name: keycloak-admin, key: ADMIN_PASSWORD } }
+              valueFrom: { secretKeyRef: { name: keycloak-secret, key: ADMIN_PASSWORD }}
 
             # Database config
             - name: KC_DB
@@ -39,7 +42,13 @@ spec:
             - name: KC_DB_USERNAME
               value: postgres
             - name: KC_DB_PASSWORD
-              valueFrom: { secretKeyRef: { name: postgres-secret, key: POSTGRES_PASSWORD } }
+              valueFrom: { secretKeyRef: { name: postgres-secret, key: POSTGRES_PASSWORD }}
+
+            # Enable Health/Metrics
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_METRICS_ENABLED
+              value: "true"
 
             # Log levels
             - name: KC_LOG_LEVEL
@@ -49,14 +58,29 @@ spec:
             - name: KC_PROXY_HEADERS
               value: "xforwarded"
             - name: KC_HOSTNAME
-              value: "https://{{ $.Values.authApiHost }}"
+              value: "{{ $.Values.oauthApiHost }}"
             - name: KC_HTTP_ENABLED
               value: "true"
           ports:
             - containerPort: 8080
-#          readinessProbe: { httpGet: { path: /health/ready, port: 9000 }, initialDelaySeconds: 20, periodSeconds: 5 }
-#          livenessProbe:  { httpGet: { path: /health/live,  port: 9000 }, initialDelaySeconds: 30, periodSeconds: 10 }
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9000
+            initialDelaySeconds: 40     # wait 40s before first probe
+            periodSeconds: 10           # check every 10s
+            failureThreshold: 60        # allow failures (→ 10m grace period)
+            timeoutSeconds: 5           # each probe times out after 5s
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9000
+            initialDelaySeconds: 30     # wait 40s before first probe
+            periodSeconds: 10           # check every 10s
+            failureThreshold: 30        # allow failures (→ 5m grace period)
+            timeoutSeconds: 5           # each probe times out after 5s
 ---
+
 # Keycloak Service
 #
 apiVersion: v1
@@ -84,7 +108,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host("{{ $.Values.authApiHost }}")
+    - match: Host("{{ $.Values.oauthApiHost }}")
       kind: Rule
       services:
         - name: keycloak
