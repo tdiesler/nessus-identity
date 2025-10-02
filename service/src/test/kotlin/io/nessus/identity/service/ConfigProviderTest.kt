@@ -13,11 +13,11 @@ class ConfigProviderTest {
         val database = ConfigProvider.requireDatabaseConfig()
         database.jdbcUrl.shouldNotBeBlank()
 
-        val walletApiConfig = ConfigProvider.requireWalletApiConfig()
-        walletApiConfig.baseUrl shouldBe "http://localhost:8001"
+        val walletConfig = ConfigProvider.requireWalletConfig()
+        walletConfig.baseUrl shouldBe "http://localhost:9000/wallet"
 
-        val issuerApiConfig = ConfigProvider.requireIssuerApiConfig()
-        issuerApiConfig.baseUrl shouldBe "http://localhost:8002"
+        val issuerConfig = ConfigProvider.requireIssuerConfig()
+        issuerConfig.baseUrl shouldBe "https://oauth.localtest.me/realms/oid4vci"
 
         val waltIdWalletApiConfig = ConfigProvider.requireWaltIdWalletApiConfig()
         waltIdWalletApiConfig.baseUrl shouldBe "https://waltid-wallet-api.localtest.me"

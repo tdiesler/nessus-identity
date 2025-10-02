@@ -25,7 +25,9 @@ import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.Max
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
+import kotlin.uuid.ExperimentalUuidApi
 
+@ExperimentalUuidApi
 class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
 
     val log = KotlinLogging.logger {}
@@ -119,6 +121,9 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 //
                 get("/wallet") {
                     walletHandler.handleWalletHome(call)
+                }
+                get("/wallet/oauth/callback") {
+                    walletHandler.handleOAuthCallback(call)
                 }
                 get("/wallet/credential-offers") {
                     walletHandler.handleWalletCredentialOffers(call)

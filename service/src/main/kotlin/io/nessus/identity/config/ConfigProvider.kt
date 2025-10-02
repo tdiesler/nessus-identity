@@ -27,6 +27,10 @@ object ConfigProvider {
         return root.issuer ?: throw IllegalStateException("No 'issuer' config")
     }
 
+    fun requireWalletConfig(): WalletConfig {
+        return root.wallet ?: throw IllegalStateException("No 'wallet' config")
+    }
+
     fun requireIssuerApiConfig(): EndpointConfig {
         return root.issuerApi ?: throw IllegalStateException("No 'issuerApi' config")
     }
@@ -52,6 +56,7 @@ data class RootConfig(
     val database: DatabaseConfig?,
     val ebsi: EbsiConfig?,
     val issuer: IssuerConfig?,
+    val wallet: WalletConfig?,
     val issuerApi: EndpointConfig?,
     val walletApi: EndpointConfig?,
     val waltid: WaltIdConfig?,
@@ -88,6 +93,12 @@ data class DatabaseConfig(
 data class IssuerConfig(
     val baseUrl: String,
     val clientId: String,
+)
+
+@Serializable
+data class WalletConfig(
+    val baseUrl: String,
+    val redirectUri: String,
 )
 
 @Serializable

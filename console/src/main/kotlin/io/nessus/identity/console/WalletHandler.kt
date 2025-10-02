@@ -1,29 +1,33 @@
 package io.nessus.identity.console
 
-import io.ktor.server.freemarker.FreeMarkerContent
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondRedirect
-import io.ktor.server.routing.RoutingCall
+import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.server.freemarker.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.console.SessionsStore.findOrCreateLoginContext
+import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDContext
-import io.nessus.identity.service.PlaywrightAuthCallbackHandler
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.CredentialOfferDraft17
-import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.collections.component1
-import kotlin.collections.component2
+import kotlin.uuid.ExperimentalUuidApi
 
+@ExperimentalUuidApi
 class WalletHandler(val holder: User) {
+
+    val log = KotlinLogging.logger {}
 
     val jsonPretty = Json { prettyPrint = true }
 
     val walletSvc = WalletService.createKeycloak()
+
+    lateinit var authContext: AuthorizationContext
 
     fun walletModel(ctx: LoginContext): MutableMap<String, Any> {
         return mutableMapOf(
@@ -55,8 +59,20 @@ class WalletHandler(val holder: User) {
     suspend fun handleWalletCredentialOfferAccept(call: RoutingCall, offerId: String) {
         val ctx = OIDContext(findOrCreateLoginContext(call, holder))
         val credOffer = walletSvc.getCredentialOffer(offerId) ?: error("No credential_offer for: $offerId")
-        val authCallbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-        val credObj = walletSvc.credentialFromOfferInTime(ctx, credOffer, authCallbackHandler)
+
+        val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
+        authContext = walletSvc.authorizationContextFromOffer(ctx, redirectUri, credOffer)
+        val authRequestUrl = authContext.authRequestUrl
+        log.info { "AuthRequestUrl: $authRequestUrl" }
+        call.respondRedirect("$authRequestUrl")
+    }
+
+    suspend fun handleOAuthCallback(call: RoutingCall) {
+        call.parameters["code"]?. also {
+            authContext.withAuthCode(it)
+            log.info { "AuthCode: $it" }
+        } ?: error("No code")
+        val credObj = walletSvc.credentialFromOfferInTime(authContext)
         val credId = credObj.getValue("jti").jsonPrimitive.content
         call.respondRedirect("/wallet/credential/$credId")
     }

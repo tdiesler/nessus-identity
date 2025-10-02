@@ -1,6 +1,7 @@
 package io.nessus.identity.service
 
 import io.nessus.identity.types.CredentialOffer
+import kotlin.uuid.ExperimentalUuidApi
 
 // WalletService =======================================================================================================
 

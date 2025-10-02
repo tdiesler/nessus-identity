@@ -3,6 +3,7 @@ package io.nessus.identity.types
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.nessus.identity.service.http
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -23,24 +24,26 @@ abstract class IssuerMetadata {
 
     private lateinit var authMetadata: JsonObject
 
-    suspend fun getAuthorizationMetadata(): JsonObject {
+    fun getAuthorizationMetadata(): JsonObject {
         if (!::authMetadata.isInitialized) {
             val authServerUrl = when(this) {
                 is IssuerMetadataDraft11 -> authorizationServer!!
                 is IssuerMetadataDraft17 -> authorizationServers!!.first()
                 else -> throw IllegalStateException("Unsupported IssuerMetadata type")
             }
-            val res = http.get("$authServerUrl/.well-known/openid-configuration")
-            authMetadata = res.body<JsonObject>()
+            runBlocking {
+                val res = http.get("$authServerUrl/.well-known/openid-configuration")
+                authMetadata = res.body<JsonObject>()
+            }
         }
         return authMetadata
     }
 
-    suspend fun getAuthorizationAuthEndpoint(): String {
+    fun getAuthorizationAuthEndpoint(): String {
         return getAuthorizationMetadata().getValue("authorization_endpoint").jsonPrimitive.content
     }
 
-    suspend fun getAuthorizationTokenEndpoint(): String {
+    fun getAuthorizationTokenEndpoint(): String {
         return getAuthorizationMetadata().getValue("token_endpoint").jsonPrimitive.content
     }
 

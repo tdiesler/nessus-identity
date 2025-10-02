@@ -85,8 +85,13 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, listOf(ctype))
 
+            val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
+            val authContext = walletSvc.authorizationContextFromOffer(alice, redirectUri, credOffer)
+
             val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-            val credObj = walletSvc.credentialFromOfferInTime(alice, credOffer, callbackHandler)
+            val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
+
+            val credObj = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
             val vc = credObj.getValue("vc").jsonObject
             log.info { "Credential: $vc" }
 
