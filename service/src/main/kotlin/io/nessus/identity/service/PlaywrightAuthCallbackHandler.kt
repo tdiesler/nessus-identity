@@ -3,11 +3,10 @@ package io.nessus.identity.service
 import com.microsoft.playwright.BrowserType
 import com.microsoft.playwright.Playwright
 import java.net.URI
-import kotlin.use
 
-class PlaywrightAuthCallbackHandler(val username: String, val password: String) : (URI) -> String {
+class PlaywrightAuthCallbackHandler(val username: String, val password: String) {
 
-    override fun invoke(authRequestUrl: URI): String {
+    fun getAuthCode(authRequestUrl: URI): String {
         return Playwright.create().use { plw ->
             val browser = plw.firefox().launch(
                 BrowserType.LaunchOptions().setHeadless(true)

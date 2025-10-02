@@ -25,7 +25,7 @@ KEYCLAOK_PASSWORD="admin"
 kubectl delete secret postgres-secret --ignore-not-found=true
 kubectl create secret generic postgres-secret \
   --from-literal=POSTGRES_USER=postgres \
-  --from-literal=POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+  --from-literal=POSTGRES_PASSWORD=Repent0-Garment1-Laurel4-Keep4-Porthole1
 ```
 
 Create Keycloak admin/password secret
@@ -42,7 +42,7 @@ Create and install TLS edge certificate
 ```
 brew install mkcert nss
 
-# Make sure the mkcert root CA is trusted
+# Make sure the mkcert root CA is trusted at the system and JDK level
 mkcert --install
 
 mkcert "localtest.me" "*.localtest.me"
@@ -52,10 +52,4 @@ kubectl delete secret edge-tls --ignore-not-found=true
 kubectl create secret tls edge-tls \
     --cert=helm/tls/localtest.me+1.pem \
     --key=helm/tls/localtest.me+1-key.pem
-
-# Java does not use the system truststore (i.e. mkcert --install is not enough)
-# Import the mkcert rootCA.pem to the Java truststore
-keytool -delete -cacerts -alias mkcert-root -storepass changeit
-keytool -importcert -cacerts -alias mkcert-root -storepass changeit -noprompt \
-    -file "$(mkcert -CAROOT)/rootCA.pem"
 ```

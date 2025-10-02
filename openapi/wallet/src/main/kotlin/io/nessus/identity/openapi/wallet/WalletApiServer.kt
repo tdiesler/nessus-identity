@@ -213,8 +213,14 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
 
     private suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: OIDContext, offerId: String) {
         val credOffer = walletSvc.getCredentialOffer(offerId) ?: error("No credential_offer for: $offerId")
-        val authCallbackHandler = PlaywrightAuthCallbackHandler(username, password)
-        val credObj = walletSvc.credentialFromOfferInTime(ctx, credOffer, authCallbackHandler)
+
+        val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
+        val authContext = walletSvc.authorizationContextFromOffer(ctx, redirectUri, credOffer)
+
+        val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
+        val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
+
+        val credObj = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
         call.respond(credObj)
     }
 

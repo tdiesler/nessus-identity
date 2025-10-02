@@ -386,6 +386,11 @@
                             <goals>
                                 <goal>compile</goal>
                             </goals>
+                            <configuration>
+                                <args>
+                                    <arg>-opt-in=kotlin.uuid.ExperimentalUuidApi</arg>
+                                </args>
+                            </configuration>
                         </execution>
                         <execution>
                             <id>test-compile</id>
@@ -393,6 +398,11 @@
                             <goals>
                                 <goal>test-compile</goal>
                             </goals>
+                            <configuration>
+                                <args>
+                                    <arg>-opt-in=kotlin.uuid.ExperimentalUuidApi</arg>
+                                </args>
+                            </configuration>
                         </execution>
                     </executions>
                     <configuration>

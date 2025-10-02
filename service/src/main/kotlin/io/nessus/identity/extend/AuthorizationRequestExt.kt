@@ -10,18 +10,21 @@ fun AuthorizationRequest.getQueryParameters(): String {
     sb.append("response_type=${responseType.first().value}")
     sb.append("&client_id=${clientId}")
     sb.append("&redirect_uri=${redirectUri}")
-    scope.let {
+    scope.also {
         val txt = it.joinToString(" ")
         sb.append("&scope=${urlEncode(txt)}")
     }
-    authorizationDetails?.let {
+    state?.also {
+        sb.append("&state=${urlEncode(it)}")
+    }
+    authorizationDetails?.also {
         val json = Json.encodeToString(it)
         sb.append("&authorization_details=${urlEncode(json)}")
     }
-    codeChallenge?.let {
+    codeChallenge?.also {
         sb.append("&code_challenge=${urlEncode(it)}")
     }
-    codeChallengeMethod?.let {
+    codeChallengeMethod?.also {
         sb.append("&code_challenge_method=${urlEncode(it)}")
     }
     return sb.toString()

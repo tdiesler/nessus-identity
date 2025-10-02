@@ -210,7 +210,7 @@ EOF
     "enabled": true,
     "protocol": "openid-connect",
     "publicClient": true,
-    "redirectUris": ["https://app.example.com/callback", "urn:ietf:wg:oauth:2.0:oob"],
+    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "http://localhost:9000/wallet/oauth/callback", "http://console.nessustech.io/wallet/oauth/callback"],
     "directAccessGrantsEnabled": false,
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": ["${credential_id}"],

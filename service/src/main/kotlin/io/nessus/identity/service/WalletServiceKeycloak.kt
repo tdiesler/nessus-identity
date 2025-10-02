@@ -36,10 +36,11 @@ import java.net.URI
 import java.time.Instant
 import java.util.Date
 import kotlin.random.Random
+import kotlin.uuid.Uuid
 
 // WalletServiceKeycloak =======================================================================================================================================
 
-class WalletServiceKeycloak(val redirectUri: String = "urn:ietf:wg:oauth:2.0:oob") : AbstractWalletService<CredentialOfferDraft17>() {
+class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
 
     // [TODO #282] Derive Keycloak clientId from CredentialOffer
     // https://github.com/tdiesler/nessus-identity/issues/282
@@ -48,39 +49,47 @@ class WalletServiceKeycloak(val redirectUri: String = "urn:ietf:wg:oauth:2.0:oob
     private val credRegistry = mutableMapOf<String, JsonObject>()
 
     /**
-     * Holder gets a Credential from an Issuer based on a CredentialOffer
-     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
+     * Holder builds the AuthorizationRequest from a CredentialOffer
      */
-    suspend fun credentialFromOfferInTime(
+    suspend fun authorizationContextFromOffer(
         ctx: OIDContext,
+        redirectUri: String,
         credOffer: CredentialOfferDraft17,
-        authCallbackHandler: (URI) -> String
-    ): JsonObject {
+    ): AuthorizationContext {
 
         // Resolve the Issuer's metadata from the CredentialOffer
-        val metadata: IssuerMetadataDraft17 = resolveIssuerMetadata(ctx, credOffer)
-
-        // Holder sends an Authorization Request to obtain an Authorization Code
-        // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-request
+        val metadata = resolveIssuerMetadata(ctx, credOffer) as IssuerMetadataDraft17
 
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
 
-        val authEndpointUrl = metadata.getAuthorizationAuthEndpoint()
-        val authReq = buildAuthorizationRequest(credOffer, codeVerifier)
+        val authReq = buildAuthorizationRequest(redirectUri, credOffer, codeVerifier)
 
-        val authCode = sendAuthorizationRequest(authEndpointUrl, authReq, authCallbackHandler)
-        log.info { "AuthCode: $authCode" }
+        val authContext = AuthorizationContext(ctx).
+            withIssuerMetadata(metadata).
+            withCredentialOffer(credOffer).
+            withCodeVerifier(codeVerifier).
+            withAuthorizationRequest(authReq)
+
+        return authContext
+    }
+
+    /**
+     * Holder gets a Credential from an Issuer based on a CredentialOffer
+     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
+     */
+    suspend fun credentialFromOfferInTime(authContext: AuthorizationContext): JsonObject {
+
+        val credOffer = authContext.credOffer ?: error("No Credential Offer")
 
         // Holder sends a TokenRequest to obtain an AccessToken
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-token-request
-        val tokenEndpointUrl = metadata.getAuthorizationTokenEndpoint()
-        val tokenRes = sendTokenRequest(tokenEndpointUrl, authCode, codeVerifier)
+        val tokenRes = sendTokenRequest(authContext)
         log.info { "AccessToken: ${tokenRes.accessToken}" }
 
         // Holder sends a CredentialRequest
         //
-        val credRes = sendCredentialRequest(ctx, credOffer, tokenRes)
+        val credRes = sendCredentialRequest(OIDContext(authContext), credOffer, tokenRes)
         log.info { "CredentialResponse: $credRes" }
 
         // Extract the VerifiableCredential from the CredentialResponse
@@ -125,12 +134,14 @@ class WalletServiceKeycloak(val redirectUri: String = "urn:ietf:wg:oauth:2.0:oob
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
     private suspend fun buildAuthorizationRequest(
+        redirectUri: String,
         credOffer: CredentialOfferDraft17,
         codeVerifier: String? = null
     ): AuthorizationRequest {
 
         val builder = AuthorizationRequestBuilder()
             .withRedirectUri(redirectUri)
+            .withClientState("${Uuid.random()}")
             .withClientId(clientId)
 
         if (codeVerifier != null) {
@@ -150,22 +161,25 @@ class WalletServiceKeycloak(val redirectUri: String = "urn:ietf:wg:oauth:2.0:oob
     private fun sendAuthorizationRequest(
         authEndpointUrl: String,
         authReq: AuthorizationRequest,
-        codeSupplier: (URI) -> String
+        authCallbackHandler: (URI, AuthorizationRequest) -> String
     ): String {
         val authRequestUrl = URI("$authEndpointUrl?${authReq.getQueryParameters()}")
         log.info { "AuthorizationRequest: $authRequestUrl" }
-        return codeSupplier(authRequestUrl)
+        return authCallbackHandler(authRequestUrl, authReq)
     }
 
-    private suspend fun sendTokenRequest(
-        tokenEndpointUrl: String,
-        authCode: String,
-        codeVerifier: String? = null
-    ): TokenResponse {
+    private suspend fun sendTokenRequest(authContext: AuthorizationContext): TokenResponse {
+
+        val authCode = authContext.authCode ?: error("No Auth Code")
+        val authReq = authContext.authRequest ?: error("No AuthorizationRequest")
+        val codeVerifier = authContext.codeVerifier ?: error("No Code Verifier")
+        val metadata = authContext.metadata ?: error("No IssuerMetadata")
+
+        val tokenEndpointUrl = metadata.getAuthorizationTokenEndpoint()
 
         val tokenReq = TokenRequest.AuthorizationCode(
             clientId = clientId,
-            redirectUri = redirectUri,
+            redirectUri = authReq.redirectUri,
             codeVerifier = codeVerifier,
             code = authCode
         )
