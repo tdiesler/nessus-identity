@@ -9,13 +9,23 @@
         <h1>OID4VC Wallet</h1>
         <h4>${holderName}</h4>
         <h5>Available Credential Offers</h5>
-        <ul class="bx--list--unordered">
-            <#list credentialOffers as p>
-                <li class="bx--list__item">${p.second}
-                    <a href="/wallet/credential-offer/${p.first}/accept">accept</a>
-                    <a href="/wallet/credential-offer/${p.first}/delete">delete</a>
-                </li>
-            </#list>
-        </ul>
+
+        <table class="bx--data-table bx--data-table--compact" style="width: auto; table-layout: auto;">
+            <thead>
+                <tr><th>Issuer</th><th>Types</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                <#list credentialOffers as v>
+                    <tr>
+                        <td>${v[1]}</td>
+                        <td>${v[2]}</td>
+                        <td>
+                            <a href="/wallet/credential-offer/${v[0]}/accept">accept</a>
+                            <a href="/wallet/credential-offer/${v[0]}/delete">delete</a>
+                        </td>
+                    </tr>
+                </#list>
+            </tbody>
+        </table>
     </div>
 </@layout.layout>

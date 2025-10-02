@@ -105,16 +105,23 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
     }
 
     fun getCredentials(
-        ctx: OIDContext,
+        ctx: LoginContext,
     ): Map<String, JsonObject> {
         return credRegistry.toMap()
     }
 
     fun getCredential(
-        ctx: OIDContext,
+        ctx: LoginContext,
         credId: String
     ): JsonObject? {
         return credRegistry[credId]
+    }
+
+    fun deleteCredential(
+        ctx: LoginContext,
+        credId: String
+    ): JsonObject? {
+        return credRegistry.remove(credId)
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------

@@ -176,7 +176,7 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
                     summary = "Get a Credential"
                     description = "Get a Credential by Id"
                 }) {
-                    val ctx = OIDContext(holderCtx)
+                    val ctx = holderCtx
                     val credId = call.parameters["credId"] ?: error("No credId")
                     handleCredentialGet(call, ctx, credId)
                 }
@@ -223,12 +223,12 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
         call.respond("{}")
     }
 
-    private suspend fun handleCredentialsList(call: RoutingCall, ctx: OIDContext) {
+    private suspend fun handleCredentialsList(call: RoutingCall, ctx: LoginContext) {
         val creds: Map<String, JsonObject> = walletSvc.getCredentials(ctx)
         call.respond(creds)
     }
 
-    private suspend fun handleCredentialGet(call: RoutingCall, ctx: OIDContext, credId: String) {
+    private suspend fun handleCredentialGet(call: RoutingCall, ctx: LoginContext, credId: String) {
         val cred = walletSvc.getCredential(ctx, credId)
         if (cred != null) {
             call.respond(cred)

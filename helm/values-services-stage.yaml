@@ -48,24 +48,14 @@ deployments:
   waltid_demo_wallet:
     image: "waltid/waltid-demo-wallet"
     version: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   waltid_dev_wallet:
     image: "waltid/waltid-dev-wallet"
     version: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
 
   # Nessus Services
   #
-  issuer_api:
-    imagePrefix: "registry.vps6c.eu.ebsi:30443/"
-    image: "nessusio/issuer-api"
-    version: latest
-    pullPolicy: Always
-  wallet_api:
-    imagePrefix: "registry.vps6c.eu.ebsi:30443/"
-    image: "nessusio/wallet-api"
-    version: latest
-    pullPolicy: Always
   console:
     imagePrefix: "registry.vps6c.eu.ebsi:30443/"
     image: "nessusio/console"

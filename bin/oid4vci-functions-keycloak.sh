@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
-KCADM="kcadm-insecure"
+# kcadm does not accept the TLS cert from oauth.nessustech.io
+# https://github.com/tdiesler/nessus-identity/issues/279
+if [[ "$AUTH_SERVER_URL" != *localtest.me ]]; then
+  KCADM="kcadm-insecure"
+else
+  KCADM="kcadm"
+fi
 
 # Log in as Keycloak Admin
 #

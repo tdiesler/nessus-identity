@@ -2,18 +2,19 @@
 PROJECT_VERSION := $(shell mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 
 TARGET ?= dev
+
+KUBE_CONTEXT_DEV := "rancher-desktop"
+IMAGE_REGISTRY_DEV := ""
+
 KUBE_CONTEXT_STAGE := "ebsi"
 IMAGE_REGISTRY_STAGE := "registry.vps6c.eu.ebsi:30443/"
-
-KUBE_CONTEXT_LOCAL := "rancher-desktop"
-IMAGE_REGISTRY_LOCAL := ""
 
 IMAGE_TAG := "latest"
 
 # Set the IMAGE_REGISTRY based on the deployment TARGET
 ifeq ($(TARGET), dev)
-  KUBE_CONTEXT := $(KUBE_CONTEXT_LOCAL)
-  IMAGE_REGISTRY := $(IMAGE_REGISTRY_LOCAL)
+  KUBE_CONTEXT := $(KUBE_CONTEXT_DEV)
+  IMAGE_REGISTRY := $(IMAGE_REGISTRY_DEV)
 endif
 ifeq ($(TARGET), stage)
   KUBE_CONTEXT := $(KUBE_CONTEXT_STAGE)
@@ -34,19 +35,6 @@ package: clean
 
 # Build the Docker images
 nessus-images: package
-		@cp "$(CAROOT_DIR)/rootCA.pem" console/target
-		@cp "$(CAROOT_DIR)/rootCA.pem" openapi/issuer/target
-		@cp "$(CAROOT_DIR)/rootCA.pem" openapi/wallet/target
-		@docker buildx build --platform linux/amd64 \
-			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
-			-t $(IMAGE_REGISTRY)nessusio/issuer-api:$(IMAGE_TAG) \
-			-t nessusio/issuer-api:$(IMAGE_TAG) \
-			-f ./openapi/issuer/Dockerfile ./openapi/issuer
-		@docker buildx build --platform linux/amd64 \
-			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
-			-t $(IMAGE_REGISTRY)nessusio/wallet-api:$(IMAGE_TAG) \
-			-t nessusio/wallet-api:$(IMAGE_TAG) \
-			-f ./openapi/wallet/Dockerfile ./openapi/wallet
 		@docker buildx build --platform linux/amd64 \
 			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
 			-t $(IMAGE_REGISTRY)nessusio/console:$(IMAGE_TAG) \
@@ -58,8 +46,6 @@ nessus-images: package
 			-t nessusio/ebsi-portal:$(IMAGE_TAG) \
 			-f ./ebsi/Dockerfile ./ebsi
 		@if [ $(TARGET) == "stage" ]; then \
-			docker push $(IMAGE_REGISTRY)nessusio/issuer-api:$(IMAGE_TAG); \
-			docker push $(IMAGE_REGISTRY)nessusio/wallet-api:$(IMAGE_TAG); \
 			docker push $(IMAGE_REGISTRY)nessusio/console:$(IMAGE_TAG); \
 			docker push $(IMAGE_REGISTRY)nessusio/ebsi-portal:$(IMAGE_TAG); \
 		fi
@@ -80,8 +66,6 @@ images: waltid-images nessus-images
 
 run-all: package
 	trap 'kill 0' INT TERM; \
-	(mvn -pl openapi/issuer exec:java) & \
-	(mvn -pl openapi/wallet exec:java) & \
 	(mvn -pl console exec:java) & \
 	wait
 

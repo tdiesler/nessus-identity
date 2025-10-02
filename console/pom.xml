@@ -22,12 +22,7 @@
     <dependencies>
         <dependency>
             <groupId>io.nessus.identity</groupId>
-            <artifactId>nessus-identity-openapi-issuer</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.nessus.identity</groupId>
-            <artifactId>nessus-identity-openapi-wallet</artifactId>
+            <artifactId>nessus-identity-service</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -39,6 +34,10 @@
         <dependency>
             <groupId>io.ktor</groupId>
             <artifactId>ktor-server-netty-jvm</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-server-call-logging-jvm</artifactId>
         </dependency>
         <dependency>
             <groupId>io.ktor</groupId>

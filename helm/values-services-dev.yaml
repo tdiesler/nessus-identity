@@ -36,12 +36,12 @@ deployments:
   waltid_wallet_api:
     image: "waltid-wallet-api"
     version: 1.0.0-SNAPSHOT
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   waltid_demo_wallet:
     image: "waltid/waltid-demo-wallet"
     version: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   waltid_dev_wallet:
     image: "waltid/waltid-dev-wallet"
     version: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always

@@ -17,7 +17,7 @@
             </button>
         <#else>
             <h5>Create a credential offer</h5>
-            <form action="/issuer/credential-offer" method="get" style="margin-top: 20px; max-width: 400px;">
+            <form action="/issuer/credential-offer" method="get" style="max-width: 400px;">
                 <div class="bx--form-item-horizontal">
                     <label for="ctype" class="bx--label">Credential Type</label>
                     <input type="text" name="ctype" class="bx--text-input" value="${ctype}" readonly/>

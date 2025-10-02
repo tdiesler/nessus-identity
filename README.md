@@ -38,10 +38,16 @@ realm in Keycloak.
 
 If all goes well, this will ... 
 
-* Create a Key and DID for the Holder (Alice)
+* Create a Key and DID for the Issuer, Holder and Verifier (Max, Alice, Bob)
 * Create OID4VCI Realm in Keycloak
 * Add a Verifiable Credential definition to the OID4VCI Realm
 * Attempt to issue the VC to Alice (give your consent with alice/password)
 
 You should now also be able to access the Issuer's configuration [here](https://oauth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer)
+
+To run the console app ...
+
+```
+make run-all
+```
 
