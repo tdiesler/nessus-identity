@@ -39,12 +39,10 @@ import kotlin.random.Random
 
 // WalletServiceKeycloak =======================================================================================================================================
 
-class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
+class WalletServiceKeycloak(val redirectUri: String = "urn:ietf:wg:oauth:2.0:oob") : AbstractWalletService<CredentialOfferDraft17>() {
 
-    // [TODO] Derive Authorization callback Url
-    val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
-
-    // [TODO] Derive Keycloak clientId from CredentialOffer
+    // [TODO #282] Derive Keycloak clientId from CredentialOffer
+    // https://github.com/tdiesler/nessus-identity/issues/282
     val clientId = "oid4vci-client"
 
     private val credRegistry = mutableMapOf<String, JsonObject>()
@@ -95,7 +93,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
         log.info { "CredentialJwt Header: ${credJwt.header}" }
         log.info { "CredentialJwt Claims: ${credJwt.jwtClaimsSet}" }
 
-        // [TODO] Keycloak credential cannot be decoded to W3CCredential
+        // [TODO #268] Keycloak credential cannot be decoded to W3CCredential
         // https://github.com/tdiesler/nessus-identity/issues/268
         val credObj = Json.decodeFromString<JsonObject>("${credJwt.payload}")
         log.info { "Credential: $credObj" }
@@ -235,8 +233,8 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
         log.info { "ProofHeader: ${proofJwt.header}" }
         log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
 
-        // [TODO] Creating a CredentialRequest type for Draft17
-        // https://github.com/tdiesler/nessus-identity/issues/266
+        // [TODO #267] CredentialRequest + CredentialResponse type for Draft17
+        // https://github.com/tdiesler/nessus-identity/issues/267
         val credReqObj = Json.decodeFromString<JsonObject>(
             """{
           "credential_configuration_id": "$ctype",

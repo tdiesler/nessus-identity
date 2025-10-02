@@ -144,7 +144,6 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
         if (unknownTypes.isNotEmpty())
             throw IllegalStateException("Unknown credential types: $unknownTypes")
 
-        // [TODO #234] Derive CredentialSchema from somewhere
         val cred = W3CCredentialJwtBuilder()
             .withId(id)
             .withIssuerId(ctx.did)
@@ -200,6 +199,7 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
 
         // Validate the AcceptanceTokenJwt
         // [TODO #241] Validate the AcceptanceToken
+        // https://github.com/tdiesler/nessus-identity/issues/241
 
         // Derive the deferred case from the CredentialRequest type
         //
@@ -329,5 +329,16 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
         log.info { "CredentialResponseDeferred: ${Json.encodeToString(credentialResponse)}" }
 
         return credentialResponse
+    }
+
+    fun validateAccessToken(bearerToken: SignedJWT) {
+
+        val claims = bearerToken.jwtClaimsSet
+        val exp = claims.expirationTime?.toInstant()
+        if (exp == null || exp.isBefore(Instant.now()))
+            throw IllegalStateException("Token expired")
+
+        // [TODO #235] Properly validate the AccessToken
+        // https://github.com/tdiesler/nessus-identity/issues/235
     }
 }

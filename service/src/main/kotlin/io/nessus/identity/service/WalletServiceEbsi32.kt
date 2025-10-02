@@ -305,6 +305,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         )
 
         // [TODO #247] TokenRequest not serializable to json
+        // https://github.com/tdiesler/nessus-identity/issues/247
         log.info { "TokenRequest: $tokenRequest" }
         return tokenRequest
     }

@@ -18,6 +18,7 @@ object CredentialMatcher {
         .addOptions(Option.DEFAULT_PATH_LEAF_TO_NULL)
 
     // [TODO #238] Add comprehensive Presentation matching
+    // https://github.com/tdiesler/nessus-identity/issues/238
     fun matchCredential(wc: WalletCredential, ind: InputDescriptor): Boolean {
         val indId = ind.id
         val fields = ind.constraints?.fields

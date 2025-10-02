@@ -16,14 +16,4 @@ abstract class AbstractIssuerService<IMType: IssuerMetadata, COType: CredentialO
         val metadataUrl = "$issuerUrl/.well-known/openid-credential-issuer"
         return metadataUrl
     }
-
-    fun validateAccessToken(bearerToken: SignedJWT) {
-
-        val claims = bearerToken.jwtClaimsSet
-        val exp = claims.expirationTime?.toInstant()
-        if (exp == null || exp.isBefore(Instant.now()))
-            throw IllegalStateException("Token expired")
-
-        // [TODO #235] Properly validate the AccessToken
-    }
 }

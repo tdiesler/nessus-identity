@@ -48,7 +48,7 @@
 
         <!--
             [TODO #199] Remove dependency on local wallet-api build
-            ./gradlew :waltid-services:waltid-wallet-api:publishToMavenLocal
+            https://github.com/tdiesler/nessus-identity/issues/199
         -->
         <version.waltid.local>1.0.0-SNAPSHOT</version.waltid.local>
 

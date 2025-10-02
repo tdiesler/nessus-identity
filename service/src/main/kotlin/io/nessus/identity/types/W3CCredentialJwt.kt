@@ -135,6 +135,7 @@ data class W3CCredential(
 }
 
 // [TODO #237] Review W3C standards and their serialization
+// https://github.com/tdiesler/nessus-identity/issues/237
 @OptIn(ExperimentalUuidApi::class)
 class W3CCredentialBuilder {
 
@@ -221,6 +222,7 @@ class W3CCredentialBuilder {
             credentialSubject = credentialSubject,
             issuer = issuer,
             // [TODO #236] why do we need three properties for validFrom
+            // https://github.com/tdiesler/nessus-identity/issues/236
             // https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
             issued = issuanceDate,
             issuanceDate = issuanceDate,

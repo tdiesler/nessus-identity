@@ -106,7 +106,7 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                     val ctype = call.request.queryParameters["ctype"]
                     if (ctype != null) {
                         issuerHandler.handleIssuerCredentialOffer(call, ctype) ?. also {
-                            // [TODO] Issuer should use the wallet's cred offer endpoint
+                            // [TODO #280] Issuer should use the wallet's cred offer endpoint
                             // https://github.com/tdiesler/nessus-identity/issues/280
                             walletHandler.walletSvc.addCredentialOffer(it)
                         }

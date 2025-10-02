@@ -12,7 +12,8 @@ import java.time.Instant
 
 open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 
-    // [TODO] The Wallet derives the Issuer's metadata from the CredentialOffer
+    // [TODO #281] Derive Issuer metadata from the CredentialOffer
+    // https://github.com/tdiesler/nessus-identity/issues/281
     var issuerMetadata: IssuerMetadata
         get() = assertAttachment(ISSUER_METADATA_ATTACHMENT_KEY)
         set(value) = putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, value)

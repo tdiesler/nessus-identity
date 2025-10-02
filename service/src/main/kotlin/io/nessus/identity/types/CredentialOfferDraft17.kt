@@ -19,7 +19,8 @@ data class CredentialOfferDraft17(
     override val grants: Grants? = null
 ) : CredentialOffer() {
 
-    // [TODO] Remove when Draft11 is gone
+    // [TODO #283] Remove 'types' from CredentialOfferDraft17
+    // https://github.com/tdiesler/nessus-identity/issues/283
     override fun getTypes(): List<String> {
         return credentialConfigurationIds
     }
@@ -42,7 +43,7 @@ data class AuthorizationCodeGrant(
     @SerialName("authorization_server")
     val authorizationServer: String? = null,
 
-    // [TODO] How to know the client_id for the Authorization Request
+    // [TODO #275] How to know the client_id for the Authorization Request
     // https://github.com/tdiesler/nessus-identity/issues/275
     @SerialName("client_id")
     val clientId: String? = null,

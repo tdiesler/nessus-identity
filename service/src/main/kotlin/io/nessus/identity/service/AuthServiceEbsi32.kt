@@ -188,6 +188,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
             parameters.append("scope", scopes)
             parameters.append("redirect_uri", "$authorizationServer/direct_post")
             // [TODO #227] May need to use request_uri for VPToken Request redirect url
+            // https://github.com/tdiesler/nessus-identity/issues/227
             parameters.append("request", "${vpTokenReqJwt.serialize()}")
         }.buildString()
 
@@ -213,6 +214,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         if (tokReq.clientId != ctx.authRequest.clientId) throw IllegalArgumentException("Invalid client_id: ${tokReq.clientId}")
 
         // [TODO #230] Verify token request code challenge
+        // https://github.com/tdiesler/nessus-identity/issues/230
 
         val tokenRes = buildTokenResponse()
         return tokenRes
@@ -287,6 +289,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         // Validate the AuthorizationRequest
         //
         // [TODO #232] Check VC types in authorization_details
+        // https://github.com/tdiesler/nessus-identity/issues/232
 
         ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authReq)
     }
@@ -298,6 +301,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
 
         // [TODO #233] Verify IDToken proof DID ownership
+        // https://github.com/tdiesler/nessus-identity/issues/233
         // We should be able to use the Holder's public key to do that
 
         val authCode = "${Uuid.random()}"

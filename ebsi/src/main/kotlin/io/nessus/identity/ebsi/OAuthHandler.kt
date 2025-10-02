@@ -178,6 +178,7 @@ object OAuthHandler {
         //  - Here, we restore that AuthorizationRequest and use it's PresentationDefinition to build the VPToken
 
         // [TODO #229] Access to request_uri object not thread safe
+        // https://github.com/tdiesler/nessus-identity/issues/229
 
         var authReq = ctx.assertAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
 
