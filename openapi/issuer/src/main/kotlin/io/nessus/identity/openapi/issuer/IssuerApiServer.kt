@@ -15,9 +15,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.IssuerServiceKeycloak
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking

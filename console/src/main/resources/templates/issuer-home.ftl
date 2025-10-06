@@ -7,8 +7,18 @@
     <!-- Main content -->
     <div class="content" style="flex:1; padding:1rem;">
         <h1>OID4VC Issuer</h1>
-        <p><a href="${issuerUrl}" target="_blank">Keycloak</a></p>
-        <p><a href="${issuerConfigUrl}" target="_blank">Issuer Config</a></p>
-        <p><a href="${authConfigUrl}" target="_blank">Authorization Config</a></p>
+
+        <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
+            <p>
+                This is the Issuer's main content area.
+            </p>
+            <p>
+                On the left we see links to Keycloak itself and to its respected well-known metadata
+                for OIDC and OIDC4VCI.
+            </p>
+            <p>
+                We can then access the list of supported credential configurations that the Issuer can offer to registered Users.
+            </p>
+        </div>
     </div>
 </@layout.layout>

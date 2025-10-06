@@ -7,6 +7,6 @@
     <!-- Main content -->
     <div class="content" style="flex:1; padding:1rem;">
         <h1>OID4VC Verifier</h1>
-        <p>This is the Verifier main content area.</p>
+        <p>This is the Verifier's main content area.</p>
     </div>
 </@layout.layout>

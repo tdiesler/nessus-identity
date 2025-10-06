@@ -18,7 +18,7 @@
                     <tr>
                         <td>${id}</td>
                         <td>
-                            <a href="/issuer/credential-offer?ctype=${id}">offer</a>
+                            <a href="/issuer/credential-offer?ctype=${id}">send offer</a>
                         </td>
                     </tr>
                 </#list>

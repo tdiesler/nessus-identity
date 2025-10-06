@@ -148,3 +148,7 @@ textarea {
   margin-left: 1.25rem;          /* indent list as a whole */
   list-style-position: inside;   /* dash aligns with text instead of hanging left */
 }
+
+.bx--doc-text p {
+  margin-top: 1rem;
+}

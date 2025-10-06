@@ -31,6 +31,7 @@
         <version.jayway.jsonpath>2.9.0</version.jayway.jsonpath>
         <version.jetbrains.exposed>0.59.0</version.jetbrains.exposed>
         <version.junit>5.10.0</version.junit>
+        <version.keycloak.client>26.0.7</version.keycloak.client>
         <version.kotest>5.9.1</version.kotest>
         <version.kotlin.logging>7.0.5</version.kotlin.logging>
         <version.kotlinx.datetime>0.6.2</version.kotlinx.datetime>
@@ -298,6 +299,11 @@
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-engine</artifactId>
                 <version>${version.junit}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.keycloak</groupId>
+                <artifactId>keycloak-admin-client</artifactId>
+                <version>${version.keycloak.client}</version>
             </dependency>
             <dependency>
                 <groupId>org.postgresql</groupId>

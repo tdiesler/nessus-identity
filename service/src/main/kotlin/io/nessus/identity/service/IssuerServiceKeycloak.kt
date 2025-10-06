@@ -8,6 +8,8 @@ import com.nimbusds.jwt.SignedJWT
 import io.ktor.client.call.body
 import io.ktor.client.request.*
 import io.ktor.client.statement.bodyAsText
+import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.types.AuthorizationCodeGrant
@@ -16,6 +18,8 @@ import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataDraft17
 import io.nessus.identity.types.PreAuthorizedCodeGrant
 import io.nessus.identity.waltid.authenticationId
+import org.keycloak.admin.client.KeycloakBuilder
+import org.keycloak.representations.idm.UserRepresentation
 import java.net.URI
 import java.time.Instant
 import java.util.*
@@ -27,8 +31,10 @@ import java.util.*
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceKeycloak(issuerUrl: String, val clientId: String)
-    : AbstractIssuerService<IssuerMetadataDraft17, CredentialOfferDraft17>(issuerUrl) {
+class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
+    : AbstractIssuerService<IssuerMetadataDraft17, CredentialOfferDraft17>("${issuerCfg.baseUrl}/realms/${issuerCfg.realm}") {
+
+    val issuerBaseUrl = issuerCfg.baseUrl
 
     override suspend fun createCredentialOffer(
         ctx: LoginContext,
@@ -73,6 +79,7 @@ class IssuerServiceKeycloak(issuerUrl: String, val clientId: String)
                 val preAuthCode = credOfferJwt.serialize()
                 Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
             } else {
+                val clientId = issuerCfg.clientId
                 val issuerState = credOfferJwt.serialize()
                 Grants(authorizationCode = AuthorizationCodeGrant(issuerState, clientId = clientId))
             }
@@ -94,6 +101,29 @@ class IssuerServiceKeycloak(issuerUrl: String, val clientId: String)
         val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
         log.info { "IssuerMetadata from: $metadataUrl" }
         return http.get(metadataUrl).body<IssuerMetadataDraft17>()
+    }
+
+    fun getRealmUsers(): List<UserRepresentation> {
+
+        val realm = issuerCfg.realm
+        val keycloak = KeycloakBuilder.builder()
+            .serverUrl(issuerBaseUrl)
+            .username(issuerCfg.username)
+            .password(issuerCfg.password)
+            .clientId("admin-cli")
+            .realm("master")
+            .build()
+
+        log.info { "Connected to Keycloak realm: $realm" }
+
+        // Fetch all users (paginated)
+        val realmResource = keycloak.realm(realm)
+        val usersResource = realmResource.users()
+
+        val realmUsers = usersResource.list()
+        keycloak.close()
+
+        return realmUsers
     }
 
     // Private ---------------------------------------------------------------------------------------------------------

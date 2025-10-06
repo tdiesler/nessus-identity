@@ -90,7 +90,7 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 // Root -----------------------------------------------------------------------------------
                 //
                 get("/") {
-                    call.respondRedirect("/wallet")
+                    call.respondRedirect("/issuer")
                 }
 
                 // Issuer ---------------------------------------------------------------------------------

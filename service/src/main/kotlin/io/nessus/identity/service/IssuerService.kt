@@ -38,7 +38,7 @@ interface IssuerService<IMType : IssuerMetadata, COType : CredentialOffer> {
 
         fun createKeycloak(): IssuerServiceKeycloak {
             val issuerCfg = ConfigProvider.requireIssuerConfig()
-            return IssuerServiceKeycloak(issuerCfg.baseUrl, issuerCfg.clientId);
+            return IssuerServiceKeycloak(issuerCfg);
         }
     }
 }

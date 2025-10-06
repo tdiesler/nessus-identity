@@ -72,7 +72,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     }
 
     @Test
-    fun issueCredentialInTime() {
+    fun testIssueCredentialInTime() {
         /*
             Authorization Code Flow
             https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-code-flow
@@ -101,6 +101,16 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
             val subject = vc.getValue("credentialSubject").jsonObject
             subject.getValue("email").jsonPrimitive.content shouldBeEqual Alice.email
             subject.getValue("id").jsonPrimitive.content shouldBeEqual alice.did
+        }
+    }
+
+    @Test
+    fun testGetRealmUsers() {
+
+        val realmUsers = issuerSvc.getRealmUsers()
+        realmUsers.forEach { usr ->
+            val did = usr.attributes?.get("did")?.firstOrNull()
+            log.info { "id=${usr.id}, name=${usr.firstName} ${usr.lastName}, username=${usr.username}, email=${usr.email}, did=$did" }
         }
     }
 }
