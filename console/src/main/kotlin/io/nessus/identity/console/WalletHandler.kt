@@ -16,9 +16,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.uuid.ExperimentalUuidApi
 
-@ExperimentalUuidApi
 class WalletHandler(val holder: User) {
 
     val log = KotlinLogging.logger {}

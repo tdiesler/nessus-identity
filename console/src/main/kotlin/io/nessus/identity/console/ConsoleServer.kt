@@ -8,7 +8,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.engine.*
 import io.ktor.server.freemarker.*
-import io.ktor.server.http.content.staticResources
+import io.ktor.server.http.content.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.plugins.contentnegotiation.*
@@ -25,9 +25,7 @@ import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.Max
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
-import kotlin.uuid.ExperimentalUuidApi
 
-@ExperimentalUuidApi
 class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
 
     val log = KotlinLogging.logger {}

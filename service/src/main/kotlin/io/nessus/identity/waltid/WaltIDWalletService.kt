@@ -15,13 +15,12 @@ import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialMatcher
 import io.nessus.identity.service.LoginContext
-import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.v1.jdbc.Database
 import javax.sql.DataSource
-import kotlin.uuid.ExperimentalUuidApi
+import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 class WaltIDWalletService {
@@ -95,7 +94,6 @@ class WaltIDWalletService {
 
     // Credentials -----------------------------------------------------------------------------------------------------
 
-    @OptIn(ExperimentalUuidApi::class)
     fun addCredential(walletId: String, format: CredentialFormat, credJwt: SignedJWT): String {
 
         if (format != CredentialFormat.jwt_vc)
@@ -115,8 +113,8 @@ class WaltIDWalletService {
             deletedOn = null,
         )
 
+        log.info { "Adding WalletCredential: ${Json.encodeToString(walletCredential)}" }
         withConnection {
-            log.info { "Adding WalletCredential: ${Json.encodeToString(walletCredential)}" }
             CredentialsService().add(walletUid, walletCredential)
             log.info { "Added WalletCredential: $credId" }
         }

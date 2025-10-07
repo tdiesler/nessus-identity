@@ -13,7 +13,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.*
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 object VerificationHandler {
@@ -22,7 +21,6 @@ object VerificationHandler {
 
     val verifierSvc = VerifierService.createEbsi()
 
-    @OptIn(ExperimentalUuidApi::class)
     fun handleVPTokenResponse(ctx: OIDContext, postParams: Map<String, List<String>>): String {
 
         val vpToken = postParams["vp_token"]?.firstOrNull() ?: throw IllegalStateException("No vp_token")

@@ -8,11 +8,8 @@ import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.IssuerMetadataDraft17
-import kotlinx.serialization.json.JsonObject
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-@OptIn(ExperimentalUuidApi::class)
 abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<COType> {
 
     val log = KotlinLogging.logger {}

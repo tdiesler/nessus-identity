@@ -33,7 +33,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import java.util.*
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 // AuthService =========================================================================================================
@@ -89,7 +88,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
         val idTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256).type(JOSEObjectType.JWT).keyID(kid).build()
 
-        @OptIn(ExperimentalUuidApi::class) val idTokenClaims =
+        val idTokenClaims =
             JWTClaimsSet.Builder().issuer(issuerMetadata.credentialIssuer).audience(authReq.clientId)
                 .issueTime(Date.from(iat)).expirationTime(Date.from(exp)).claim("response_type", "id_token")
                 .claim("response_mode", "direct_post").claim("client_id", issuerMetadata.credentialIssuer)
@@ -123,7 +122,6 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         return idTokenRedirectUrl
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     suspend fun buildVPTokenRequest(authReq: AuthorizationRequest): SignedJWT {
 
         val issuerMetadata = ctx.issuerMetadata
@@ -157,7 +155,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         val presentationDefinitionJson = Json.encodeToString(presentationDefinition)
         log.info { "PresentationDefinition: $presentationDefinitionJson" }
 
-        @OptIn(ExperimentalUuidApi::class) val vpTokenClaims =
+        val vpTokenClaims =
             JWTClaimsSet.Builder().issuer(issuerMetadata.credentialIssuer).audience(authReq.clientId)
                 .issueTime(Date.from(iat)).expirationTime(Date.from(exp)).claim("response_type", "vp_token")
                 .claim("response_mode", "direct_post").claim("client_id", issuerMetadata.credentialIssuer)
@@ -200,7 +198,6 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         return vpTokenRedirectUrl
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     suspend fun handleTokenRequestAuthCode(tokenReq: TokenRequest): TokenResponse {
 
         val tokReq = tokenReq as TokenRequest.AuthorizationCode
@@ -294,7 +291,6 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authReq)
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     fun validateIDToken(idTokenJwt: SignedJWT): String {
 
         log.info { "IDToken Header: ${idTokenJwt.header}" }
@@ -325,7 +321,6 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
     // Private ---------------------------------------------------------------------------------------------------------
 
-    @OptIn(ExperimentalUuidApi::class)
     private suspend fun buildTokenResponse(): TokenResponse {
         val keyJwk = ctx.didInfo.publicKeyJwk()
         val kid = keyJwk["kid"]?.jsonPrimitive?.content as String

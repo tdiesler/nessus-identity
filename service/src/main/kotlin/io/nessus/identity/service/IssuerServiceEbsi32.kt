@@ -24,7 +24,6 @@ import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.util.*
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 // DefaultIssuerService ================================================================================================
@@ -117,7 +116,6 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
         return credentialResponse
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     suspend fun getCredentialFromParameters(
         ctx: OIDContext,
         vcp: CredentialParameters
@@ -284,7 +282,6 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
 
     // Private ---------------------------------------------------------------------------------------------------------
 
-    @OptIn(ExperimentalUuidApi::class)
     private suspend fun credentialFromRequestDeferred(
         ctx: OIDContext,
         credReq: CredentialRequest,

@@ -19,7 +19,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import java.time.Instant
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @Serializable
@@ -40,7 +39,6 @@ data class W3CCredentialJwt(
     }
 }
 
-@OptIn(ExperimentalUuidApi::class)
 class W3CCredentialJwtBuilder {
     var id: String = "${Uuid.random()}"
     var issuerId: String? = null
@@ -106,7 +104,6 @@ class W3CCredentialJwtBuilder {
 }
 
 @Serializable
-@OptIn(ExperimentalUuidApi::class)
 data class W3CCredential(
     val id: String? = null,
     @SerialName("@context")
@@ -136,7 +133,6 @@ data class W3CCredential(
 
 // [TODO #237] Review W3C standards and their serialization
 // https://github.com/tdiesler/nessus-identity/issues/237
-@OptIn(ExperimentalUuidApi::class)
 class W3CCredentialBuilder {
 
     // v1.1

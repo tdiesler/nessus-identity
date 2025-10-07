@@ -49,7 +49,6 @@ import kotlinx.serialization.json.buildJsonObject
 import java.time.Instant
 import java.util.*
 import kotlin.random.Random
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 // WalletServiceEbsi32 ================================================================================================
@@ -175,7 +174,6 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         return idTokenJwt
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     suspend fun createVPToken(
         ctx: OIDContext,
         authReq: AuthorizationRequest
@@ -384,7 +382,6 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         return credRes
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     suspend fun sendAuthorizationRequest(
         ctx: OIDContext,
         authRequest: AuthorizationRequest

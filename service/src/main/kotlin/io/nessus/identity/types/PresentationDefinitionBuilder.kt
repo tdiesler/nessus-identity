@@ -9,10 +9,8 @@ import id.walt.oid4vc.util.ShortIdUtils
 import id.walt.w3c.utils.VCFormat
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-@OptIn(ExperimentalUuidApi::class)
 class PresentationDefinitionBuilder() {
 
     private var id: String = ShortIdUtils.randomSessionId()
