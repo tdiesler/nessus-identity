@@ -79,7 +79,7 @@ kc_create_realm() {
     -s 'config.active=["true"]' \
     -s 'config.algorithm=["ES256"]'
 
-  # 2) Get the ACTIVE ES256 kid
+  # Get the ACTIVE ES256 kid
   local es256KeyId
   es256KeyId=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[] | select(.algorithm=="ES256" and .status=="ACTIVE" and .use=="SIG") | .kid')
   echo "ES256 key id: ${es256KeyId}"

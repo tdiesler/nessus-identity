@@ -17,7 +17,7 @@ class ConfigProviderTest {
         walletConfig.baseUrl shouldBe "http://localhost:9000/wallet"
 
         val issuerConfig = ConfigProvider.requireIssuerConfig()
-        issuerConfig.baseUrl shouldBe "https://oauth.localtest.me/realms/oid4vci"
+        issuerConfig.baseUrl shouldBe "https://oauth.localtest.me"
 
         val waltIdWalletApiConfig = ConfigProvider.requireWaltIdWalletApiConfig()
         waltIdWalletApiConfig.baseUrl shouldBe "https://waltid-wallet-api.localtest.me"

@@ -7,8 +7,6 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import io.ktor.client.call.body
 import io.ktor.client.request.*
-import io.ktor.client.statement.bodyAsText
-import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
@@ -61,7 +59,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
             .keyID(kid)
             .build()
 
-        val offerClaims = JWTClaimsSet.Builder()
+        val issuerStateClaims = JWTClaimsSet.Builder()
             .subject(subjectId)
             .issuer(issuerUrl)
             .issueTime(Date.from(iat))
@@ -69,18 +67,18 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
             .claim("credential_types", types)
             .build()
 
-        val credOfferJwt = SignedJWT(header, offerClaims).signWithKey(ctx, kid)
+        val issuerStateJwt = SignedJWT(header, issuerStateClaims).signWithKey(ctx, kid)
 
         // Build CredentialOffer
         val credOffer = CredentialOfferDraft17(
             credentialIssuer = issuerUri,
             credentialConfigurationIds = types,
             grants = if (userPin != null) {
-                val preAuthCode = credOfferJwt.serialize()
+                val preAuthCode = issuerStateJwt.serialize()
                 Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
             } else {
                 val clientId = issuerCfg.clientId
-                val issuerState = credOfferJwt.serialize()
+                val issuerState = issuerStateJwt.serialize()
                 Grants(authorizationCode = AuthorizationCodeGrant(issuerState, clientId = clientId))
             }
         )

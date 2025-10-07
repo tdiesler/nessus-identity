@@ -151,4 +151,5 @@ textarea {
 
 .bx--doc-text p {
   margin-top: 1rem;
+  color: #6f6f6f;   /* same as Carbon label text color in light theme */
 }

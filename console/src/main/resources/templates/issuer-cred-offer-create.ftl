@@ -15,8 +15,7 @@
 
             <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
                 <p>
-                    Here we have the Credential Offer as seen by the Holder. Currently it does not show the individual claims,
-                    which is still a <a href="https://github.com/tdiesler/nessus-identity/issues/288" target="_blank">TODO</a>.
+                    Here we have the Credential Offer as seen by the Holder.
                 </p>
             </div>
         <#else>
@@ -47,8 +46,9 @@
                 </p>
                 <p>
                     Only because the Holder receives an Offer does not mean that she has to trust it. In contrary, it is the
-                    resposibility of the Holder to verify the correctness of the offered claims and the Offer's authenticity - the
-                    Holder needs to verify the Offers signature to make sure that it was really sent by an Issuer that is authorized to make such offers
+                    resposibility of the Holder to verify that the Offer comes from a known Issuer and is of a known type.
+                    The <a href="https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer" target="_blank">core spec</a>
+                    has no provision for individual claim key/value pairs, nor it it required to be signed by the Issuer.
                 </p>
                 <p>
                     If all is well, the Holder can accept the Offer, authenticate with the Issuer and request a Verifiable Credential that
