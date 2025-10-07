@@ -83,6 +83,7 @@ kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}"
 
 # Fetch a Credential - Authorization Flow ------------------------------------------------------------------------------
 #
+credential_id="oid4vc_natural_person"
 kc_authorization_request "${realm}" "${client_id}" "${credential_id}" "${redirect_uri}"
 
 kc_token_request "${realm}" "${client_id}" "${credential_id}"

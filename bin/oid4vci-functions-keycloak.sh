@@ -201,6 +201,34 @@ EOF
   }
 EOF
 
+  #
+  local natural_person_scope_id
+  natural_person_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r '.[] | select(.name=="oid4vc_natural_person") | .id')
+
+  if [ -n "${natural_person_scope_id}" ]; then
+    echo "Patch preinstalled oid4vc_natural_person client scope: ${natural_person_scope_id}"
+  ${KCADM} update "realms/${realm}/client-scopes/${natural_person_scope_id}" -f - <<EOF
+  {
+    "name": "oid4vc_natural_person",
+    "protocol": "oid4vc",
+    "attributes": {
+      "include.in.token.scope": "true",
+      "vc.include_in_metadata": "true",
+      "vc.issuer_did": "${AUTH_SERVER_URL}/realms/${realm}",
+      "vc.format": "dc+sd-jwt",
+      "vc.credential_contexts": "oid4vc_natural_person",
+      "vc.credential_configuration_id": "oid4vc_natural_person",
+      "vc.supported_credential_types": "oid4vc_natural_person",
+      "vc.verifiable_credential_type": "oid4vc_natural_person",
+      "vc.cryptographic_binding_methods_supported": "jwk",
+      "vc.proof_signing_alg_values_supported": "ES256",
+      "vc.expiry_in_seconds": "31536000",
+      "vc.signing_key_id": "${es256KeyId}"
+    }
+  }
+EOF
+  fi
+
   # Create a client for credential issuance
   #
   echo "Create OIDC client: ${client_id} ..."
@@ -210,10 +238,10 @@ EOF
     "enabled": true,
     "protocol": "openid-connect",
     "publicClient": true,
-    "redirectUris": ["https://app.example.com/callback", "urn:ietf:wg:oauth:2.0:oob"],
+    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "http://localhost:9000/wallet/oauth/callback"],
     "directAccessGrantsEnabled": false,
     "defaultClientScopes": ["profile"],
-    "optionalClientScopes": ["${credential_id}"],
+    "optionalClientScopes": ["oid4vc_natural_person", "${credential_id}"],
     "attributes": {
       "client.introspection.response.allow.jwt.claim.enabled": "false",
       "post.logout.redirect.uris": "${AUTH_SERVER_URL}",

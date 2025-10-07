@@ -98,8 +98,9 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
         // https://github.com/tdiesler/nessus-identity/issues/268
         val credObj = Json.decodeFromString<JsonObject>("${credJwt.payload}")
         log.info { "Credential: $credObj" }
-        val jti = credObj.getValue("jti").jsonPrimitive.content
-        credRegistry[jti] = credObj
+        val credIdObj = credObj["jti"] ?: credObj["id"] ?: error("No credential Id")
+        val credId = credIdObj.jsonPrimitive.content
+        credRegistry[credId] = credObj
         return credObj
     }
 

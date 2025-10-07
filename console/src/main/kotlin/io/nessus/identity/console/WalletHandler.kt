@@ -73,7 +73,8 @@ class WalletHandler(val holder: User) {
             log.info { "AuthCode: $it" }
         } ?: error("No code")
         val credObj = walletSvc.credentialFromOfferInTime(authContext)
-        val credId = credObj.getValue("jti").jsonPrimitive.content
+        val credIdObj = credObj["jti"] ?: credObj["id"] ?: error("No credential Id")
+        val credId = credIdObj.jsonPrimitive.content
         call.respondRedirect("/wallet/credential/$credId")
     }
 
