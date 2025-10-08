@@ -1,7 +1,6 @@
 package io.nessus.identity.waltid
 
 import id.walt.webwallet.db.models.WalletCredential
-import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -30,19 +29,24 @@ class APIException(val id: String, val code: Int, val status: String, message: S
     }
 }
 
+@Suppress("UNCHECKED_CAST")
 suspend inline fun <reified T> handleResponse(res: HttpResponse): T {
-    val body: String = res.body()
+    val body = res.bodyAsText()
     val json = Json { ignoreUnknownKeys = true }
     if (res.status.value in 200..<300) {
-        return if (T::class == HttpResponse::class) {
-            @Suppress("UNCHECKED_CAST")
+        val resVal = if (T::class == HttpResponse::class) {
             res as T
         } else if (T::class == String::class) {
-            @Suppress("UNCHECKED_CAST")
             body as T
+        } else if (T::class == Boolean::class) {
+            when {
+                body.isEmpty() -> true as T
+                else -> body.toBoolean() as T
+            }
         } else {
             json.decodeFromString<T>(body)
         }
+        return resVal
     }
     val err = json.decodeFromString<ErrorResponse>(body)
     throw APIException(err)
@@ -101,6 +105,15 @@ class WaltIDApiClient(val baseUrl: String) {
             }
         }
         return handleResponse<Array<WalletCredential>>(res)
+    }
+
+    suspend fun deleteCredential(ctx: LoginContext, vcId: String): Boolean {
+        val res = http.delete("$baseUrl/wallet-api/wallet/${ctx.walletId}/credentials/$vcId?permanent=true") {
+            headers {
+                append(Authorization, "Bearer ${ctx.authToken}")
+            }
+        }
+        return handleResponse<Boolean>(res)
     }
 
     // Keys ------------------------------------------------------------------------------------------------------------

@@ -38,6 +38,8 @@ data class VerifiableCredentialV11Jwt(
     var exp: Long? = null,
     val vc: VerifiableCredentialV11,
 ) {
+    val vcId get() = jti ?: vc.id ?: error("No credential id")
+
     fun toJson(): JsonObject {
         return Json.encodeToJsonElement(this).jsonObject
     }
@@ -72,9 +74,7 @@ data class VerifiableCredentialV11(
 @Serializable(with = IssuerSerializer::class)
 data class Issuer(
     val id: String,
-    /** optional additional fields for issuer (e.g. did methods, service endpoints) */
-    @Contextual
-    // @JsonNames  // pseudo-annotation idea; else fallback map
+    /** extra fields if any */
     val extras: Map<String, JsonElement> = emptyMap()
 )
 
@@ -155,9 +155,12 @@ object IssuerSerializer : KSerializer<Issuer> {
 
     override fun serialize(encoder: Encoder, value: Issuer) {
         val jsonEncoder = encoder as? JsonEncoder ?: error("No a JsonEncoder")
-        val json = buildJsonObject {
-            put("id", JsonPrimitive(value.id))
-            value.extras.forEach { (k, v) -> put(k, v) }
+        val json = when {
+            value.extras.isEmpty() -> JsonPrimitive(value.id)
+            else -> buildJsonObject {
+                put("id", JsonPrimitive(value.id))
+                value.extras.forEach { (k, v) -> put(k, v) }
+            }
         }
         jsonEncoder.encodeJsonElement(json)
     }

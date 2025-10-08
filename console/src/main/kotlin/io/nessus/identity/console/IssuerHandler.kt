@@ -83,7 +83,12 @@ class IssuerHandler(val issuer: User) {
     }
 
     suspend fun handleIssuerCredentialOfferList(call: RoutingCall) {
-        val credentialConfigurationIds = issuerMetadata.credentialConfigurationsSupported.keys.toList()
+        val supported = issuerMetadata.credentialConfigurationsSupported
+        val credentialConfigurationIds = supported.keys
+            // [TODO #294] Provide common VC data model
+            // https://github.com/tdiesler/nessus-identity/issues/294
+            .filter { it != "oid4vc_natural_person" }
+            .toList()
         val model = issuerModel().also {
             it.put("credentialConfigurationIds", credentialConfigurationIds)
         }

@@ -59,6 +59,6 @@ interface WalletApi {
      */
     suspend fun getCredential(
         ctx: LoginContext,
-        credId: String
+        vcId: String
     ): JsonObject?
 }

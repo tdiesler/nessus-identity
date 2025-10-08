@@ -13,9 +13,6 @@ import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 class WalletHandler(val holder: User) {
 
@@ -71,7 +68,7 @@ class WalletHandler(val holder: User) {
             log.info { "AuthCode: $it" }
         } ?: error("No code")
         val vcJwt = walletSvc.credentialFromOfferInTime(authContext)
-        call.respondRedirect("/wallet/credential/${vcJwt.jti}")
+        call.respondRedirect("/wallet/credential/${vcJwt.vcId}")
     }
 
     suspend fun handleWalletCredentialOfferAdd(call: RoutingCall) {
@@ -87,7 +84,7 @@ class WalletHandler(val holder: User) {
         val ctx = findOrCreateLoginContext(call, holder)
         val credentialList = walletSvc.getCredentials(ctx).map { (jti, vcJwt) ->
             val vc = vcJwt.vc
-            listOf(jti, vc.issuer, "${vc.type}")
+            listOf(jti, vc.issuer.id, "${vc.type}")
         }
         val model = walletModel(ctx).also {
             it.put("credentialList", credentialList)
@@ -97,9 +94,9 @@ class WalletHandler(val holder: User) {
         )
     }
 
-    suspend fun handleWalletCredentialDetails(call: RoutingCall, credId: String) {
+    suspend fun handleWalletCredentialDetails(call: RoutingCall, vcId: String) {
         val ctx = findOrCreateLoginContext(call, holder)
-        val credObj = walletSvc.getCredential(ctx, credId) ?: error("No credential for: $credId")
+        val credObj = walletSvc.getCredential(ctx, vcId) ?: error("No credential for: $vcId")
         val prettyJson = jsonPretty.encodeToString(credObj)
         val model = walletModel(ctx).also {
             it.put("credObj", prettyJson)
@@ -109,9 +106,9 @@ class WalletHandler(val holder: User) {
         )
     }
 
-    suspend fun handleWalletCredentialDelete(call: RoutingCall, credId: String) {
+    suspend fun handleWalletCredentialDelete(call: RoutingCall, vcId: String) {
         val ctx = findOrCreateLoginContext(call, holder)
-        walletSvc.deleteCredential(ctx, credId)
+        walletSvc.deleteCredential(ctx, vcId)
         call.respondRedirect("/wallet/credentials")
     }
 }

@@ -8,6 +8,7 @@ import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.TokenRequest
 import id.walt.oid4vc.responses.TokenResponse
@@ -36,8 +37,6 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
     // [TODO #282] Derive Keycloak clientId from CredentialOffer
     // https://github.com/tdiesler/nessus-identity/issues/282
     val clientId = "oid4vci-client"
-
-    private val credRegistry = mutableMapOf<String, VerifiableCredentialV11Jwt>()
 
     /**
      * Holder builds the AuthorizationRequest from a CredentialOffer
@@ -83,7 +82,10 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
         val credRes = sendCredentialRequest(OIDContext(authContext), credOffer, tokenRes)
         log.info { "CredentialResponse: $credRes" }
 
+        credOffer.credentialConfigurationIds.first()
+
         // Extract the VerifiableCredential from the CredentialResponse
+        //
         val credJwt = credRes.getValue("credentials").jsonArray
             .map { it.jsonObject }
             .map { it.getValue("credential").jsonPrimitive.content }
@@ -95,29 +97,54 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
 
         val vcJwt = Json.decodeFromString<VerifiableCredentialV11Jwt>("${credJwt.payload}")
         log.info { "Credential: ${vcJwt.vc.toJson()}" }
-        val vcId = vcJwt.jti ?: error("No credential Id")
-        credRegistry[vcId] = vcJwt
+
+        if (vcJwt.vc.type.size != 1) error("Multiple types not supported")
+        val ctype = vcJwt.vc.type.first()
+
+        // Add Credential to WaltId storage
+        //
+        val walletId = authContext.walletId
+        val formatStr = authContext.metadata?.credentialConfigurationsSupported[ctype]?.format ?: error("No format for: $ctype")
+        val format = CredentialFormat.fromValue(formatStr) as CredentialFormat
+        widWalletSvc.addCredential(walletId, format, credJwt)
         return vcJwt
     }
 
-    fun getCredentials(
+    suspend fun getCredentials(
         ctx: LoginContext,
     ): Map<String, VerifiableCredentialV11Jwt> {
-        return credRegistry.toMap()
+        val resMap = widWalletSvc.findCredentials(ctx) { true }.mapNotNull { wc ->
+            runCatching {
+                val jwt = SignedJWT.parse(wc.document)
+                val vcJwt = Json.decodeFromString<VerifiableCredentialV11Jwt>("${jwt.payload}")
+                wc.id to vcJwt
+            }.onFailure {
+                log.debug { "Ignore wallet credential: ${wc.id}" }
+            }.getOrNull()
+        }.toMap()
+        return resMap
     }
 
-    fun getCredential(
+    suspend fun getCredential(
         ctx: LoginContext,
-        credId: String
+        vcId: String
     ): VerifiableCredentialV11Jwt? {
-        return credRegistry[credId]
+        val res = widWalletSvc.findCredentialsById(ctx, vcId)?.let {
+            val jwt = SignedJWT.parse(it.document)
+            Json.decodeFromString<VerifiableCredentialV11Jwt>("${jwt.payload}")
+        }
+        return res
     }
 
-    fun deleteCredential(
+    suspend fun deleteCredential(
         ctx: LoginContext,
-        credId: String
+        vcId: String
     ): VerifiableCredentialV11Jwt? {
-        return credRegistry.remove(credId)
+        val res = widWalletSvc.deleteCredential(ctx, vcId)?.let {
+            val jwt = SignedJWT.parse(it.document)
+            Json.decodeFromString<VerifiableCredentialV11Jwt>("${jwt.payload}")
+        }
+        return res
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------

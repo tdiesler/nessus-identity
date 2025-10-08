@@ -57,8 +57,8 @@ class WalletApiClient() : WalletApi {
         return handleResponse<Map<String, JsonObject>>(res)
     }
 
-    override suspend fun getCredential(ctx: LoginContext, credId: String): JsonObject? {
-        val res = http.get("$baseUrl/wallets/${ctx.walletId}/credential/$credId") {
+    override suspend fun getCredential(ctx: LoginContext, vcId: String): JsonObject? {
+        val res = http.get("$baseUrl/wallets/${ctx.walletId}/credential/$vcId") {
             contentType(Application.Json)
         }
         return handleResponse<JsonObject>(res)

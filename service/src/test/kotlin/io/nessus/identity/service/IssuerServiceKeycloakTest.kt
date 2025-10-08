@@ -6,8 +6,6 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldEndWith
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -91,10 +89,10 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
             val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
             val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
 
-            val vc = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode)).vc
-            vc.type shouldBeEqual credOffer.getTypes()
+            val vcJwt = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
+            vcJwt.vc.type shouldBeEqual credOffer.getTypes()
 
-            val subject = vc.credentialSubject
+            val subject = vcJwt.vc.credentialSubject
             subject.claims.getValue("email").jsonPrimitive.content shouldBeEqual Alice.email
             subject.id!! shouldBeEqual alice.did
         }

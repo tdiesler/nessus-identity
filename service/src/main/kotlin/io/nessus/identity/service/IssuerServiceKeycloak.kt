@@ -97,7 +97,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
 
     override suspend fun getIssuerMetadata(): IssuerMetadataDraft17 {
         val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
-        log.info { "IssuerMetadata from: $metadataUrl" }
+        log.info { "IssuerMetadataUrl: $metadataUrl" }
         return http.get(metadataUrl).body<IssuerMetadataDraft17>()
     }
 

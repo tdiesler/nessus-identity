@@ -10,13 +10,14 @@ import id.walt.webwallet.db.models.WalletCredential
 import id.walt.webwallet.service.credentials.CredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.config.ConfigProvider
-import io.nessus.identity.extend.toW3CCredentialJwt
 import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialMatcher
 import io.nessus.identity.service.LoginContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.jetbrains.exposed.v1.jdbc.Database
 import javax.sql.DataSource
@@ -99,12 +100,12 @@ class WaltIDWalletService {
         if (format != CredentialFormat.jwt_vc)
             throw IllegalStateException("Unsupported credential format: $format")
 
-        val credId = getCredentialId(credJwt)
-        val walletUid = Uuid.Companion.parse(walletId)
+        val vcId = getCredentialId(credJwt)
+        val walletUid = Uuid.parse(walletId)
         val document = credJwt.serialize()
 
         val walletCredential = WalletCredential(
-            id = credId,
+            id = vcId,
             format = format,
             wallet = walletUid,
             document = document,
@@ -116,9 +117,9 @@ class WaltIDWalletService {
         log.info { "Adding WalletCredential: ${Json.encodeToString(walletCredential)}" }
         withConnection {
             CredentialsService().add(walletUid, walletCredential)
-            log.info { "Added WalletCredential: $credId" }
+            log.info { "Added WalletCredential: $vcId" }
         }
-        return credId
+        return vcId
     }
 
     suspend fun listCredentials(ctx: LoginContext): List<WalletCredential> {
@@ -131,11 +132,23 @@ class WaltIDWalletService {
         return res.toList()
     }
 
+    suspend fun findCredentialsById(ctx: LoginContext, vcId: String): WalletCredential? {
+        val res = findCredentials(ctx) { it.id == vcId }.firstOrNull()
+        return res
+    }
+
     suspend fun findCredentialsByType(ctx: LoginContext, ctype: String): List<WalletCredential> {
-        val walletCredentials = findCredentials(ctx) {
-            ctype in it.toW3CCredentialJwt().vc.type.orEmpty()
+        val res = findCredentials(ctx) {
+            val typeArr = it.parsedDocument?.getValue("type")?.jsonArray ?: error("No 'type' claim")
+            ctype in typeArr.map { it.jsonPrimitive.content }
         }
-        return walletCredentials
+        return res
+    }
+
+    suspend fun deleteCredential(ctx: LoginContext, vcId: String): WalletCredential? {
+        val res = findCredentialsById(ctx, vcId)
+        api.deleteCredential(ctx, vcId)
+        return res
     }
 
     /**
@@ -232,9 +245,12 @@ class WaltIDWalletService {
     // Private ---------------------------------------------------------------------------------------------------------
 
     private fun getCredentialId(credJwt: SignedJWT): String {
-        val credClaims = Json.Default.parseToJsonElement("${credJwt.jwtClaimsSet}") as JsonObject
-        val vc = credClaims["vc"] as? JsonObject ?: throw IllegalArgumentException("No 'vc' claim")
-        return vc["id"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("No 'vc.id' claim")
+        val jsonObj = Json.parseToJsonElement("${credJwt.payload}") as JsonObject
+        val vcId = jsonObj["jti"]?.jsonPrimitive?.content ?: run {
+            val vcObj = jsonObj.getValue("vc").jsonObject
+            vcObj.getValue("id").jsonPrimitive.content
+        }
+        return vcId
     }
 
     private fun withConnection(block: () -> Unit) {

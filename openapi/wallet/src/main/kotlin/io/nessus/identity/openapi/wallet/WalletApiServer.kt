@@ -12,10 +12,9 @@ import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import io.ktor.server.plugins.calllogging.CallLogging
+import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.request.httpMethod
-import io.ktor.server.request.uri
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.service.IssuerService
@@ -29,7 +28,6 @@ import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.encodeToJsonElement
 import org.slf4j.event.Level
 
 class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
@@ -38,9 +36,6 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
 
         val log = KotlinLogging.logger {}
         val versionInfo = getVersionInfo()
-
-        val username = Alice.username
-        val password = Alice.password
 
         @JvmStatic
         fun main(args: Array<String>) {
@@ -171,13 +166,13 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
                     handleCredentialsList(call, ctx)
                 }
 
-                get("/wallets/{walletId}/credential/{credId}", {
+                get("/wallets/{walletId}/credential/{vcId}", {
                     summary = "Get a Credential"
                     description = "Get a Credential by Id"
                 }) {
                     val ctx = holderCtx
-                    val credId = call.parameters["credId"] ?: error("No credId")
-                    handleCredentialGet(call, ctx, credId)
+                    val vcId = call.parameters["vcId"] ?: error("No vcId")
+                    handleCredentialGet(call, ctx, vcId)
                 }
             }
         }
@@ -233,8 +228,8 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
         call.respond(resMap)
     }
 
-    private suspend fun handleCredentialGet(call: RoutingCall, ctx: LoginContext, credId: String) {
-        val vcJwt = walletSvc.getCredential(ctx, credId)
+    private suspend fun handleCredentialGet(call: RoutingCall, ctx: LoginContext, vcId: String) {
+        val vcJwt = walletSvc.getCredential(ctx, vcId)
         if (vcJwt != null) {
             call.respond(vcJwt.toJson())
         } else {

@@ -140,13 +140,13 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 get("/wallet/credentials") {
                     walletHandler.handleWalletCredentials(call)
                 }
-                get("/wallet/credential/{credId}") {
-                    val credId = call.parameters["credId"] ?: error("No credId")
-                    walletHandler.handleWalletCredentialDetails(call, credId)
+                get("/wallet/credential/{vcId}") {
+                    val vcId = call.parameters["vcId"] ?: error("No vcId")
+                    walletHandler.handleWalletCredentialDetails(call, vcId)
                 }
-                get("/wallet/credential/{credId}/delete") {
-                    val credId = call.parameters["credId"] ?: error("No credId")
-                    walletHandler.handleWalletCredentialDelete(call, credId)
+                get("/wallet/credential/{vcId}/delete") {
+                    val vcId = call.parameters["vcId"] ?: error("No vcId")
+                    walletHandler.handleWalletCredentialDelete(call, vcId)
                 }
 
                 // Verifier -------------------------------------------------------------------------------
