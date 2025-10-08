@@ -23,14 +23,13 @@ import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.PlaywrightAuthCallbackHandler
 import io.nessus.identity.service.WalletService
-import io.nessus.identity.service.WalletServiceKeycloak
 import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.encodeToJsonElement
 import org.slf4j.event.Level
 
 class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
@@ -220,8 +219,8 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
         val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
         val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
 
-        val credObj = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
-        call.respond(credObj)
+        val vcJwt = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
+        call.respond(vcJwt.toJson())
     }
 
     private suspend fun handleCredentialOfferDelete(call: RoutingCall, offerId: String) {
@@ -230,14 +229,14 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
     }
 
     private suspend fun handleCredentialsList(call: RoutingCall, ctx: LoginContext) {
-        val creds: Map<String, JsonObject> = walletSvc.getCredentials(ctx)
-        call.respond(creds)
+        val resMap = walletSvc.getCredentials(ctx).mapValues { (_, v) -> v.toJson() }
+        call.respond(resMap)
     }
 
     private suspend fun handleCredentialGet(call: RoutingCall, ctx: LoginContext, credId: String) {
-        val cred = walletSvc.getCredential(ctx, credId)
-        if (cred != null) {
-            call.respond(cred)
+        val vcJwt = walletSvc.getCredential(ctx, credId)
+        if (vcJwt != null) {
+            call.respond(vcJwt.toJson())
         } else {
             call.respond(HttpStatusCode.NotFound)
         }

@@ -2,7 +2,7 @@ package io.nessus.identity.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialParameters
-import io.nessus.identity.types.W3CCredential
+import io.nessus.identity.types.VerifiableCredentialV10
 import java.time.Instant
 
 // VerifierService =====================================================================================================
@@ -11,7 +11,7 @@ class VerifierServiceEbsi32 : VerifierService {
 
     val log = KotlinLogging.logger {}
 
-    override fun validateVerifiableCredential(vc: W3CCredential, vcp: CredentialParameters?) {
+    override fun validateVerifiableCredential(vc: VerifiableCredentialV10, vcp: CredentialParameters?) {
 
         val id = vc.id ?: throw IllegalArgumentException("No credential id: $vc")
 

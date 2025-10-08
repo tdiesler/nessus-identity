@@ -1,8 +1,8 @@
 package io.nessus.identity.extend
 
 import id.walt.webwallet.db.models.WalletCredential
-import io.nessus.identity.types.W3CCredentialJwt
+import io.nessus.identity.types.VerifiableCredentialV10Jwt
 
-fun WalletCredential.toW3CCredentialJwt(): W3CCredentialJwt {
-    return W3CCredentialJwt.fromEncodedJwt(this.document)
+fun WalletCredential.toW3CCredentialJwt(): VerifiableCredentialV10Jwt {
+    return VerifiableCredentialV10Jwt.fromEncodedJwt(this.document)
 }

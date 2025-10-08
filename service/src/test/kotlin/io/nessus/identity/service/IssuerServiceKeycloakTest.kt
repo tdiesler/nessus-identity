@@ -91,16 +91,12 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
             val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
             val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
 
-            val credObj = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
-            val vc = credObj.getValue("vc").jsonObject
-            log.info { "Credential: $vc" }
+            val vc = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode)).vc
+            vc.type shouldBeEqual credOffer.getTypes()
 
-            val wasTypes = vc.getValue("type").jsonArray.map { it.jsonPrimitive.content }
-            wasTypes shouldBeEqual credOffer.getTypes()
-
-            val subject = vc.getValue("credentialSubject").jsonObject
-            subject.getValue("email").jsonPrimitive.content shouldBeEqual Alice.email
-            subject.getValue("id").jsonPrimitive.content shouldBeEqual alice.did
+            val subject = vc.credentialSubject
+            subject.claims.getValue("email").jsonPrimitive.content shouldBeEqual Alice.email
+            subject.id!! shouldBeEqual alice.did
         }
     }
 

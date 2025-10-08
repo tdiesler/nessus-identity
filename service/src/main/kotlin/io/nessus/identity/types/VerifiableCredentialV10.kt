@@ -21,97 +21,18 @@ import kotlinx.serialization.json.jsonObject
 import java.time.Instant
 import kotlin.uuid.Uuid
 
+// VC-Data Model v1.0
+// https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-11.html#VC_DATA
+// https://www.w3.org/TR/vc-data-model-1.0/
 @Serializable
-data class W3CCredentialJwt(
-    val sub: String,
-    val iss: String,
-    val jti: String? = null,
-    val iat: Long? = null,
-    val nbf: Long? = null,
-    var exp: Long? = null,
-    val vc: W3CCredential,
-) {
-    companion object {
-        fun fromEncodedJwt(encoded: String): W3CCredentialJwt {
-            val vcJwt = SignedJWT.parse(encoded)
-            return Json.decodeFromString<W3CCredentialJwt>("${vcJwt.payload}")
-        }
-    }
-}
-
-class W3CCredentialJwtBuilder {
-    var id: String = "${Uuid.random()}"
-    var issuerId: String? = null
-    var subjectId: String? = null
-    var issuedAt: Instant = Instant.now()
-    var validFrom: Instant? = null
-    var validUntil: Instant? = null
-    var credential: W3CCredential? = null
-
-    fun withId(id: String): W3CCredentialJwtBuilder {
-        this.id = id
-        return this
-    }
-
-    fun withIssuerId(id: String): W3CCredentialJwtBuilder {
-        this.issuerId = id
-        return this
-    }
-
-    fun withSubjectId(id: String): W3CCredentialJwtBuilder {
-        this.subjectId = id
-        return this
-    }
-
-    fun withIssuedAt(iat: Instant): W3CCredentialJwtBuilder {
-        this.issuedAt = iat
-        return this
-    }
-
-    fun withValidFrom(nbf: Instant): W3CCredentialJwtBuilder {
-        this.validFrom = nbf
-        return this
-    }
-
-    fun withValidUntil(exp: Instant): W3CCredentialJwtBuilder {
-        this.validUntil = exp
-        return this
-    }
-
-    fun withCredential(vc: W3CCredential): W3CCredentialJwtBuilder {
-        this.credential = vc
-        return this
-    }
-
-    fun build(): W3CCredentialJwt {
-        val issuerId = issuerId ?: throw IllegalStateException("No issuerId")
-        val subjectId = subjectId ?: throw IllegalStateException("No subjectId")
-        val credential = credential ?: throw IllegalStateException("No credential")
-        val cred = W3CCredentialJwt(
-            jti = id,
-            iss = issuerId,
-            sub = subjectId,
-            iat = issuedAt.epochSecond,
-            nbf = validFrom?.epochSecond,
-            exp = validUntil?.epochSecond,
-            vc = credential
-        )
-        validUntil?.also {
-            cred.exp = it.epochSecond
-        }
-        return cred
-    }
-}
-
-@Serializable
-data class W3CCredential(
+data class VerifiableCredentialV10(
     val id: String? = null,
     @SerialName("@context")
     val context: List<String>? = null,
     @Serializable(with = CredentialSchemaSerializer::class)
     var credentialSchema: CredentialSchemaWrapper? = null,
-    val credentialStatus: CredentialStatus? = null,
-    val credentialSubject: CredentialSubject? = null,
+    val credentialStatus: CredentialStatusV10? = null,
+    val credentialSubject: CredentialSubjectV10? = null,
     val issuer: String? = null,
     @Serializable(with = InstantSerializer::class)
     val issued: Instant? = null,
@@ -133,15 +54,15 @@ data class W3CCredential(
 
 // [TODO #237] Review W3C standards and their serialization
 // https://github.com/tdiesler/nessus-identity/issues/237
-class W3CCredentialBuilder {
+class VerifiableCredentialV10Builder {
 
     // v1.1
     // https://www.w3.org/standards/history/vc-data-model-1.1/
     var context: List<String>? = listOf("https://www.w3.org/2018/credentials/v1")
     var credentialSchema: CredentialSchemaWrapper? = null
     var id: String = "${Uuid.random()}"
-    var credentialStatus: CredentialStatus? = null
-    var credentialSubject: CredentialSubject? = null
+    var credentialStatus: CredentialStatusV10? = null
+    var credentialSubject: CredentialSubjectV10? = null
     var issuer: String? = null
     var issuanceDate: Instant? = null
     var validFrom: Instant? = null
@@ -154,63 +75,63 @@ class W3CCredentialBuilder {
     // https://www.w3.org/standards/history/vc-data-model-2.0/
     // var validUntil: Instant? = null
 
-    fun withContexts(contexts: List<String>): W3CCredentialBuilder {
+    fun withContexts(contexts: List<String>): VerifiableCredentialV10Builder {
         this.context = contexts
         return this
     }
 
-    fun withCredentialSchema(schema: CredentialSchema): W3CCredentialBuilder {
+    fun withCredentialSchema(schema: CredentialSchemaV11): VerifiableCredentialV10Builder {
         this.credentialSchema = CredentialSchemaWrapper.Single(schema)
         return this
     }
 
-    fun withCredentialSchemas(schemas: List<CredentialSchema>): W3CCredentialBuilder {
+    fun withCredentialSchemas(schemas: List<CredentialSchemaV11>): VerifiableCredentialV10Builder {
         this.credentialSchema = CredentialSchemaWrapper.Multiple(schemas)
         return this
     }
 
-    fun withCredentialStatus(status: CredentialStatus?): W3CCredentialBuilder {
+    fun withCredentialStatus(status: CredentialStatusV10?): VerifiableCredentialV10Builder {
         this.credentialStatus = status
         return this
     }
 
-    fun withCredentialSubject(sub: String): W3CCredentialBuilder {
-        this.credentialSubject = CredentialSubject(sub)
+    fun withCredentialSubject(sub: String): VerifiableCredentialV10Builder {
+        this.credentialSubject = CredentialSubjectV10(sub)
         return this
     }
 
-    fun withId(id: String): W3CCredentialBuilder {
+    fun withId(id: String): VerifiableCredentialV10Builder {
         this.id = id
         return this
     }
 
-    fun withIssuer(id: String): W3CCredentialBuilder {
+    fun withIssuer(id: String): VerifiableCredentialV10Builder {
         this.issuer = id
         return this
     }
 
-    fun withTypes(types: List<String>): W3CCredentialBuilder {
+    fun withTypes(types: List<String>): VerifiableCredentialV10Builder {
         (this.type as MutableList).addAll(types)
         return this
     }
 
-    fun withIssuedAt(iat: Instant): W3CCredentialBuilder {
+    fun withIssuedAt(iat: Instant): VerifiableCredentialV10Builder {
         this.issuanceDate = iat
         return this
     }
 
-    fun withValidFrom(nbf: Instant): W3CCredentialBuilder {
+    fun withValidFrom(nbf: Instant): VerifiableCredentialV10Builder {
         this.validFrom = nbf
         return this
     }
 
-    fun withValidUntil(exp: Instant): W3CCredentialBuilder {
+    fun withValidUntil(exp: Instant): VerifiableCredentialV10Builder {
         this.validUntil = exp
         return this
     }
 
-    fun build(): W3CCredential {
-        val vc = W3CCredential(
+    fun build(): VerifiableCredentialV10 {
+        val vc = VerifiableCredentialV10(
             id = id,
             context = context,
             credentialSchema = credentialSchema,
@@ -233,18 +154,18 @@ class W3CCredentialBuilder {
 }
 
 @Serializable
-data class CredentialSchema(
+data class CredentialSchemaV11(
     val id: String,
     val type: String
 )
 
 @Serializable
-data class CredentialSubject(
+data class CredentialSubjectV10(
     val id: String
 )
 
 @Serializable
-data class CredentialStatus(
+data class CredentialStatusV10(
     val id: String,
     val type: String,
     val statusListCredential: String,
@@ -266,8 +187,8 @@ data class TrustFramework(
 )
 
 sealed class CredentialSchemaWrapper {
-    data class Single(val schema: CredentialSchema) : CredentialSchemaWrapper()
-    data class Multiple(val schemas: List<CredentialSchema>) : CredentialSchemaWrapper()
+    data class Single(val schema: CredentialSchemaV11) : CredentialSchemaWrapper()
+    data class Multiple(val schemas: List<CredentialSchemaV11>) : CredentialSchemaWrapper()
 }
 
 object CredentialSchemaSerializer : KSerializer<CredentialSchemaWrapper?> {
@@ -278,12 +199,12 @@ object CredentialSchemaSerializer : KSerializer<CredentialSchemaWrapper?> {
     override fun serialize(encoder: Encoder, value: CredentialSchemaWrapper?) {
         when (value) {
             is CredentialSchemaWrapper.Single -> encoder.encodeSerializableValue(
-                CredentialSchema.serializer(),
+                CredentialSchemaV11.serializer(),
                 value.schema
             )
 
             is CredentialSchemaWrapper.Multiple -> encoder.encodeSerializableValue(
-                ListSerializer(CredentialSchema.serializer()),
+                ListSerializer(CredentialSchemaV11.serializer()),
                 value.schemas
             )
 
@@ -295,11 +216,11 @@ object CredentialSchemaSerializer : KSerializer<CredentialSchemaWrapper?> {
         val element = (decoder as JsonDecoder).decodeJsonElement()
         return when (element) {
             is JsonObject -> CredentialSchemaWrapper.Single(
-                Json.decodeFromJsonElement(CredentialSchema.serializer(), element)
+                Json.decodeFromJsonElement(CredentialSchemaV11.serializer(), element)
             )
 
             is JsonArray -> CredentialSchemaWrapper.Multiple(
-                Json.decodeFromJsonElement(ListSerializer(CredentialSchema.serializer()), element)
+                Json.decodeFromJsonElement(ListSerializer(CredentialSchemaV11.serializer()), element)
             )
 
             else -> null
@@ -307,6 +228,89 @@ object CredentialSchemaSerializer : KSerializer<CredentialSchemaWrapper?> {
     }
 
 }
+
+@Serializable
+data class VerifiableCredentialV10Jwt(
+    val sub: String,
+    val iss: String,
+    val jti: String? = null,
+    val iat: Long? = null,
+    val nbf: Long? = null,
+    var exp: Long? = null,
+    val vc: VerifiableCredentialV10,
+) {
+    companion object {
+        fun fromEncodedJwt(encoded: String): VerifiableCredentialV10Jwt {
+            val vcJwt = SignedJWT.parse(encoded)
+            return Json.decodeFromString<VerifiableCredentialV10Jwt>("${vcJwt.payload}")
+        }
+    }
+}
+
+class VerifiableCredentialV10JwtBuilder {
+    var id: String = "${Uuid.random()}"
+    var issuerId: String? = null
+    var subjectId: String? = null
+    var issuedAt: Instant = Instant.now()
+    var validFrom: Instant? = null
+    var validUntil: Instant? = null
+    var credential: VerifiableCredentialV10? = null
+
+    fun withId(id: String): VerifiableCredentialV10JwtBuilder {
+        this.id = id
+        return this
+    }
+
+    fun withIssuerId(id: String): VerifiableCredentialV10JwtBuilder {
+        this.issuerId = id
+        return this
+    }
+
+    fun withSubjectId(id: String): VerifiableCredentialV10JwtBuilder {
+        this.subjectId = id
+        return this
+    }
+
+    fun withIssuedAt(iat: Instant): VerifiableCredentialV10JwtBuilder {
+        this.issuedAt = iat
+        return this
+    }
+
+    fun withValidFrom(nbf: Instant): VerifiableCredentialV10JwtBuilder {
+        this.validFrom = nbf
+        return this
+    }
+
+    fun withValidUntil(exp: Instant): VerifiableCredentialV10JwtBuilder {
+        this.validUntil = exp
+        return this
+    }
+
+    fun withCredential(vc: VerifiableCredentialV10): VerifiableCredentialV10JwtBuilder {
+        this.credential = vc
+        return this
+    }
+
+    fun build(): VerifiableCredentialV10Jwt {
+        val issuerId = issuerId ?: throw IllegalStateException("No issuerId")
+        val subjectId = subjectId ?: throw IllegalStateException("No subjectId")
+        val credential = credential ?: throw IllegalStateException("No credential")
+        val cred = VerifiableCredentialV10Jwt(
+            jti = id,
+            iss = issuerId,
+            sub = subjectId,
+            iat = issuedAt.epochSecond,
+            nbf = validFrom?.epochSecond,
+            exp = validUntil?.epochSecond,
+            vc = credential
+        )
+        validUntil?.also {
+            cred.exp = it.epochSecond
+        }
+        return cred
+    }
+}
+
 
 object InstantSerializer : KSerializer<Instant> {
     override val descriptor: SerialDescriptor =

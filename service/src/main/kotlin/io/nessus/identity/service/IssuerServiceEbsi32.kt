@@ -142,7 +142,7 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
         if (unknownTypes.isNotEmpty())
             throw IllegalStateException("Unknown credential types: $unknownTypes")
 
-        val cred = W3CCredentialJwtBuilder()
+        val cred = VerifiableCredentialV10JwtBuilder()
             .withId(id)
             .withIssuerId(ctx.did)
             .withSubjectId(vcp.sub as String)
@@ -150,9 +150,9 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
             .withValidFrom(nbf)
             .withValidUntil(exp)
             .withCredential(
-                W3CCredentialBuilder()
+                VerifiableCredentialV10Builder()
                     .withCredentialSchema(
-                        CredentialSchema(
+                        CredentialSchemaV11(
                             "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
                             "FullJsonSchemaValidator2021"
                         )

@@ -14,18 +14,17 @@ import id.walt.oid4vc.responses.TokenResponse
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.nessus.identity.extend.getQueryParameters
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.types.IssuerMetadataDraft17
+import io.nessus.identity.types.VerifiableCredentialV11Jwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.net.URI
 import java.time.Instant
 import java.util.*
 import kotlin.random.Random
@@ -38,7 +37,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
     // https://github.com/tdiesler/nessus-identity/issues/282
     val clientId = "oid4vci-client"
 
-    private val credRegistry = mutableMapOf<String, JsonObject>()
+    private val credRegistry = mutableMapOf<String, VerifiableCredentialV11Jwt>()
 
     /**
      * Holder builds the AuthorizationRequest from a CredentialOffer
@@ -70,7 +69,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
      * Holder gets a Credential from an Issuer based on a CredentialOffer
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
      */
-    suspend fun credentialFromOfferInTime(authContext: AuthorizationContext): JsonObject {
+    suspend fun credentialFromOfferInTime(authContext: AuthorizationContext): VerifiableCredentialV11Jwt {
 
         val credOffer = authContext.credOffer ?: error("No Credential Offer")
 
@@ -94,33 +93,30 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
         log.info { "CredentialJwt Header: ${credJwt.header}" }
         log.info { "CredentialJwt Claims: ${credJwt.jwtClaimsSet}" }
 
-        // [TODO #268] Keycloak credential cannot be decoded to W3CCredential
-        // https://github.com/tdiesler/nessus-identity/issues/268
-        val credObj = Json.decodeFromString<JsonObject>("${credJwt.payload}")
-        log.info { "Credential: $credObj" }
-        val credIdObj = credObj["jti"] ?: credObj["id"] ?: error("No credential Id")
-        val credId = credIdObj.jsonPrimitive.content
-        credRegistry[credId] = credObj
-        return credObj
+        val vcJwt = Json.decodeFromString<VerifiableCredentialV11Jwt>("${credJwt.payload}")
+        log.info { "Credential: ${vcJwt.vc.toJson()}" }
+        val vcId = vcJwt.jti ?: error("No credential Id")
+        credRegistry[vcId] = vcJwt
+        return vcJwt
     }
 
     fun getCredentials(
         ctx: LoginContext,
-    ): Map<String, JsonObject> {
+    ): Map<String, VerifiableCredentialV11Jwt> {
         return credRegistry.toMap()
     }
 
     fun getCredential(
         ctx: LoginContext,
         credId: String
-    ): JsonObject? {
+    ): VerifiableCredentialV11Jwt? {
         return credRegistry[credId]
     }
 
     fun deleteCredential(
         ctx: LoginContext,
         credId: String
-    ): JsonObject? {
+    ): VerifiableCredentialV11Jwt? {
         return credRegistry.remove(credId)
     }
 
@@ -143,21 +139,6 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
 
         val authReq = builder.buildFrom(credOffer)
         return authReq
-    }
-
-    /**
-     * Send an AuthorizationRequest to Keycloak
-     *
-     * @return The requested auth code
-     */
-    private fun sendAuthorizationRequest(
-        authEndpointUrl: String,
-        authReq: AuthorizationRequest,
-        authCallbackHandler: (URI, AuthorizationRequest) -> String
-    ): String {
-        val authRequestUrl = URI("$authEndpointUrl?${authReq.getQueryParameters()}")
-        log.info { "AuthorizationRequest: $authRequestUrl" }
-        return authCallbackHandler(authRequestUrl, authReq)
     }
 
     private suspend fun sendTokenRequest(authContext: AuthorizationContext): TokenResponse {

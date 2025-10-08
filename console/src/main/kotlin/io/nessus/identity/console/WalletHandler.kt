@@ -70,10 +70,8 @@ class WalletHandler(val holder: User) {
             authContext.withAuthCode(it)
             log.info { "AuthCode: $it" }
         } ?: error("No code")
-        val credObj = walletSvc.credentialFromOfferInTime(authContext)
-        val credIdObj = credObj["jti"] ?: credObj["id"] ?: error("No credential Id")
-        val credId = credIdObj.jsonPrimitive.content
-        call.respondRedirect("/wallet/credential/$credId")
+        val vcJwt = walletSvc.credentialFromOfferInTime(authContext)
+        call.respondRedirect("/wallet/credential/${vcJwt.jti}")
     }
 
     suspend fun handleWalletCredentialOfferAdd(call: RoutingCall) {
@@ -87,11 +85,9 @@ class WalletHandler(val holder: User) {
 
     suspend fun handleWalletCredentials(call: RoutingCall) {
         val ctx = findOrCreateLoginContext(call, holder)
-        val credentialList = walletSvc.getCredentials(ctx).map { (jti, cred) ->
-            val vc = cred.getValue("vc").jsonObject
-            val issuer = vc.getValue("issuer").jsonPrimitive.content
-            val ctypes = vc.getValue("type").jsonArray.map { it.jsonPrimitive.content }
-            listOf(jti, issuer, "$ctypes")
+        val credentialList = walletSvc.getCredentials(ctx).map { (jti, vcJwt) ->
+            val vc = vcJwt.vc
+            listOf(jti, vc.issuer, "${vc.type}")
         }
         val model = walletModel(ctx).also {
             it.put("credentialList", credentialList)

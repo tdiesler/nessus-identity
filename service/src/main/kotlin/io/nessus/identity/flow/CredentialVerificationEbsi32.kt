@@ -13,7 +13,7 @@ import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.PresentationDefinitionBuilder
-import io.nessus.identity.types.W3CCredentialJwt
+import io.nessus.identity.types.VerifiableCredentialV10Jwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import kotlin.random.Random
 
@@ -83,7 +83,7 @@ class CredentialVerificationEbsi32(val holderCtx: OIDContext, val verifierCtx: O
         // Verifier validates the Credential
         //
         val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
-        val w3Cred = W3CCredentialJwt.fromEncodedJwt(vpCred).vc
+        val w3Cred = VerifiableCredentialV10Jwt.fromEncodedJwt(vpCred).vc
 
         val vcp = CredentialParameters()
             .withSubject(holderCtx.did)

@@ -10,7 +10,7 @@ import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.CredentialParameters
-import io.nessus.identity.types.CredentialStatus
+import io.nessus.identity.types.CredentialStatusV10
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.Max
@@ -244,7 +244,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
                     .withIssuer(max.did)
                     .withSubject(alice.did)
                     .withTypes(types)
-                    .withStatus(CredentialStatus(
+                    .withStatus(CredentialStatusV10(
                         id = "someId",
                         statusListCredential = "someListCredential",
                         statusListIndex = "1",

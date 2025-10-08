@@ -11,7 +11,7 @@ class CredentialParameters() {
     var nbf: Instant? = null
     var exp: Instant? = null
     var types = listOf<String>()
-    var status: CredentialStatus? = null
+    var status: CredentialStatusV10? = null
 
     fun withId(id: String): CredentialParameters {
         this.id = id
@@ -28,7 +28,7 @@ class CredentialParameters() {
         return this
     }
 
-    fun withStatus(status: CredentialStatus): CredentialParameters {
+    fun withStatus(status: CredentialStatusV10): CredentialParameters {
         this.status = status
         return this
     }
