@@ -10,6 +10,7 @@ import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
+import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
@@ -25,9 +26,11 @@ class WalletHandler(val holder: User) {
     lateinit var authContext: AuthorizationContext
 
     fun walletModel(ctx: LoginContext): MutableMap<String, Any> {
+        val versionInfo = getVersionInfo()
         return mutableMapOf(
             "holderName" to ctx.walletInfo.name,
             "holderDid" to ctx.didInfo.did,
+            "versionInfo" to versionInfo,
         )
     }
 

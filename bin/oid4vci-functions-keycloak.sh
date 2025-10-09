@@ -238,7 +238,7 @@ EOF
     "enabled": true,
     "protocol": "openid-connect",
     "publicClient": true,
-    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "http://localhost:9000/wallet/oauth/callback"],
+    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${AUTH_REDIRECT_URI}"],
     "directAccessGrantsEnabled": false,
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": ["oid4vc_natural_person", "${credential_id}"],

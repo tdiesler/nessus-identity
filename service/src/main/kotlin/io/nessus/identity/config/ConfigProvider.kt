@@ -94,8 +94,8 @@ data class IssuerConfig(
     val baseUrl: String,
     val realm: String,
     val clientId: String,
-    val username: String,
-    val password: String,
+    val adminUsername: String,
+    val adminPassword: String,
 )
 
 @Serializable

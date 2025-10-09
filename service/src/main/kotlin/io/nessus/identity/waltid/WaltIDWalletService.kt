@@ -30,12 +30,12 @@ class WaltIDWalletService {
     val api: WaltIDApiClient
 
     val dataSource: Lazy<DataSource> = lazy {
-        val dbcfg = ConfigProvider.requireDatabaseConfig()
-        log.info { "Database: ${dbcfg.jdbcUrl}" }
+        val cfg = ConfigProvider.requireDatabaseConfig()
+        log.info { "Database: ${cfg.jdbcUrl}" }
         HikariDataSource(HikariConfig().apply {
-            jdbcUrl = dbcfg.jdbcUrl
-            username = dbcfg.username
-            password = dbcfg.password
+            jdbcUrl = cfg.jdbcUrl
+            username = cfg.username
+            password = cfg.password
             driverClassName = "org.postgresql.Driver"
             transactionIsolation = "TRANSACTION_SERIALIZABLE"
             maximumPoolSize = 10

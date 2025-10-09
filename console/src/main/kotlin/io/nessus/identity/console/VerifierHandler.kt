@@ -8,6 +8,7 @@ import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.PlaywrightAuthCallbackHandler
 import io.nessus.identity.service.WalletService
+import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.User
@@ -22,8 +23,16 @@ class VerifierHandler(val verifier: User) {
 
     val jsonPretty = Json { prettyPrint = true }
 
+    fun verifierModel(): MutableMap<String, Any> {
+        val versionInfo = getVersionInfo()
+        return mutableMapOf(
+            "versionInfo" to versionInfo,
+        )
+    }
+
     suspend fun handleVerifierHome(call: RoutingCall) {
+        val model = verifierModel()
         call.respond(
-            FreeMarkerContent("verifier-home.ftl", null)
+            FreeMarkerContent("verifier-home.ftl", model)
         )
     }}

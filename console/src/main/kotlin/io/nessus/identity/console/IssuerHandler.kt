@@ -5,6 +5,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.RoutingCall
 import io.nessus.identity.console.SessionsStore.findOrCreateLoginContext
 import io.nessus.identity.service.IssuerService
+import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialOfferDraft17
 import io.nessus.identity.waltid.User
 import kotlinx.coroutines.runBlocking
@@ -25,10 +26,12 @@ class IssuerHandler(val issuer: User) {
         val authServerUrl = issuerMetadata.authorizationServers?.first() ?: error("No AuthorizationServer")
         val authConfigUrl = "$authServerUrl/.well-known/openid-configuration"
         val issuerConfigUrl = issuerSvc.getIssuerMetadataUrl()
+        val versionInfo = getVersionInfo()
         return mutableMapOf(
             "issuerUrl" to issuerSvc.issuerBaseUrl,
             "issuerConfigUrl" to issuerConfigUrl,
             "authConfigUrl" to authConfigUrl,
+            "versionInfo" to versionInfo,
         )
     }
 

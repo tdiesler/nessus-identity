@@ -26,12 +26,22 @@ spec:
           image: {{ .imagePrefix }}{{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
+            - name: DATABASE__JDBC_URL
+              value: "jdbc:postgresql://postgres:5432/waltid"
+            - name: DATABASE__USERNAME
+              valueFrom: { secretKeyRef: { name: postgres-secret, key: POSTGRES_USER }}
+            - name: DATABASE__PASSWORD
+              valueFrom: { secretKeyRef: { name: postgres-secret, key: POSTGRES_PASSWORD }}
             - name: ISSUER__BASE_URL
-              value: "https://{{ $.Values.oauthApiHost }}/realms/oid4vci"
-            - name: ISSUERAPI__BASE_URL
-              value: "http://issuer-api:8002"
-            - name: WALLETAPI__BASE_URL
-              value: "http://wallet-api:8001"
+              value: "https://{{ $.Values.oauthApiHost }}"
+            - name: ISSUER__ADMIN_USERNAME
+              valueFrom: { secretKeyRef: { name: keycloak-secret, key: ADMIN_USERNAME }}
+            - name: ISSUER__ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: keycloak-secret, key: ADMIN_PASSWORD }}
+            - name: WALLET__BASE_URL
+              value: "https://{{ $.Values.consoleHost }}/wallet"
+            - name: WALLET__REDIRECT_URI
+              value: "https://{{ $.Values.consoleHost }}/wallet/oauth/callback"
             - name: WALTID__WALLETAPI__BASE_URL
               value: "http://waltid-wallet-api:7001"
           ports:

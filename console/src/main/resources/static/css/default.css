@@ -28,20 +28,20 @@ textarea {
   font-family: "IBM Plex Sans", sans-serif;
 }
 
-/* === Top role-tabs bar === */
-.role-tabs {
+/* === Top app-header bar === */
+.app-header {
   background: #e0e0e0; /* same gray as sidebar */
   padding: 0.5rem 1rem;
   display: flex;
   gap: 1rem;
 }
 
-.role-tabs a {
+.app-header a {
   color: #161616;
   text-decoration: none;
 }
 
-.role-tabs a.active {
+.app-header a.active {
   font-weight: 600;
   border-bottom: 2px solid #0f62fe; /* Carbon blue highlight */
 }
@@ -52,6 +52,13 @@ textarea {
   display: flex;          /* sidebar + content side-by-side */
   flex-direction: row;
   background: #f4f4f4;
+}
+
+.app-footer {
+  background: #e0e0e0;   /* same as .app-header */
+  color: #161616;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
 }
 
 /* === Sidebar === */
