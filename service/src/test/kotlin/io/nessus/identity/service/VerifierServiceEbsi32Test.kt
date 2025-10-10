@@ -10,7 +10,7 @@ import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.CredentialParameters
-import io.nessus.identity.types.CredentialStatusV10
+import io.nessus.identity.types.CredentialStatus
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.Max
@@ -18,7 +18,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
-import java.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
@@ -102,7 +103,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
             //
             val ctype = "CTWalletSameAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(max,alice.did, types)
+            val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
@@ -140,9 +141,9 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val now = Instant.now()
-            val iat = now.plusSeconds(-10)
-            val exp = now.plusSeconds(-5)
+            val now = Clock.System.now()
+            val iat = now - 10.seconds
+            val exp = now - 5.seconds
             val credRes = issueCredentialFromParameters(
                 max, alice, credOffer, userPin, CredentialParameters()
                     .withIssuer(max.did)
@@ -186,12 +187,12 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
             //
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
-            val credOffer = issuerSvc.createCredentialOffer(max,alice.did, types, userPin)
+            val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val iat = Instant.now()
-            val nbf = iat.plusSeconds(10)
+            val iat = Clock.System.now()
+            val nbf = iat + 10.seconds
             val credRes = issueCredentialFromParameters(
                 max, alice, credOffer, userPin, CredentialParameters()
                     .withIssuer(max.did)
@@ -244,13 +245,15 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
                     .withIssuer(max.did)
                     .withSubject(alice.did)
                     .withTypes(types)
-                    .withStatus(CredentialStatusV10(
-                        id = "someId",
-                        statusListCredential = "someListCredential",
-                        statusListIndex = "1",
-                        statusPurpose = "revocation",
-                        type =  "StatusList2021Entry"
-                    ))
+                    .withStatus(
+                        CredentialStatus(
+                            id = "someId",
+                            statusListCredential = "someListCredential",
+                            statusListIndex = "1",
+                            statusPurpose = "revocation",
+                            type = "StatusList2021Entry"
+                        )
+                    )
             )
             walletSvc.addCredential(alice, credRes)
 

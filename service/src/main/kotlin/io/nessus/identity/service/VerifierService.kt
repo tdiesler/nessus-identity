@@ -1,13 +1,13 @@
 package io.nessus.identity.service
 
 import io.nessus.identity.types.CredentialParameters
-import io.nessus.identity.types.VerifiableCredentialV10
+import io.nessus.identity.types.VCDataV11
 
 // VerifierService =====================================================================================================
 
 interface VerifierService {
 
-    fun validateVerifiableCredential(vc: VerifiableCredentialV10, vcp: CredentialParameters? = null)
+    fun validateVerifiableCredential(vc: VCDataV11, vcp: CredentialParameters? = null)
 
     companion object {
         fun createEbsi(): VerifierServiceEbsi32 {

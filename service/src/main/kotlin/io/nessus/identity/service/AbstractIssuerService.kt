@@ -1,10 +1,8 @@
 package io.nessus.identity.service
 
-import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadata
-import java.time.Instant
 
 abstract class AbstractIssuerService<IMType: IssuerMetadata, COType: CredentialOffer>(
     val issuerUrl: String,

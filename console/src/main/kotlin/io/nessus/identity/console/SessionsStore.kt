@@ -6,7 +6,6 @@ import io.ktor.server.sessions.*
 import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.User
-import java.lang.IllegalStateException
 
 object SessionsStore {
 
@@ -16,23 +15,16 @@ object SessionsStore {
     private val sessions = mutableMapOf<String, LoginContext>()
 
     suspend fun findOrCreateLoginContext(call: RoutingCall, user: User): LoginContext {
-        val ctx = getCookieDataFromSession(call)?. let {
+        var ctx = getCookieDataFromSession(call)?.let {
             findLoginContext(it.wid, it.did ?: "")
-        } ?: run {
-            val ctx = LoginContext.login(user).withWalletInfo()
+        }
+        if (ctx == null || ctx.walletInfo.name != user.name) {
+            ctx = LoginContext.login(user).withWalletInfo()
             val wid = ctx.walletId
             val did = ctx.maybeDidInfo?.did
             setCookieDataInSession(call, CookieData(wid, did))
             sessions[ctx.targetId] = ctx
-            ctx
         }
-        return ctx
-    }
-
-    fun requireLoginContext(call: RoutingCall): LoginContext {
-        val ctx = getCookieDataFromSession(call)?. let {
-            findLoginContext(it.wid, it.did ?: "")
-        } ?: throw IllegalStateException("No LoginContext")
         return ctx
     }
 

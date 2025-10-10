@@ -1,11 +1,7 @@
 package io.nessus.identity.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.nessus.identity.waltid.APIException
-import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.User
-import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
-import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Paths
 

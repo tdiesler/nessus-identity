@@ -2,7 +2,7 @@ package io.nessus.identity.openapi.issuer
 
 import io.kotest.common.runBlocking
 import io.kotest.matchers.nulls.shouldNotBeNull
-import io.ktor.server.engine.EmbeddedServer
+import io.ktor.server.engine.*
 import io.nessus.identity.service.AbstractServiceTest
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.waltid.Alice

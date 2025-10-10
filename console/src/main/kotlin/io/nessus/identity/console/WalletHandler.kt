@@ -1,6 +1,7 @@
 package io.nessus.identity.console
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.http.*
 import io.ktor.server.freemarker.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -12,6 +13,8 @@ import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialOfferDraft17
+import io.nessus.identity.types.VCDataSdV11Jwt
+import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
 
@@ -45,7 +48,9 @@ class WalletHandler(val holder: User) {
     suspend fun handleWalletCredentialOffers(call: RoutingCall) {
         val ctx = findOrCreateLoginContext(call, holder)
         val credOffers: Map<String, CredentialOfferDraft17> = walletSvc.getCredentialOffers()
-        val credOfferData = credOffers.map { (k, v) -> listOf(k, v.credentialIssuer, v.credentialConfigurationIds.first()) }.toList()
+        val credOfferData = credOffers.map { (k, v) ->
+            listOf(k.encodeURLPath(), v.credentialIssuer, v.credentialConfigurationIds.first())
+        }.toList()
         val model = walletModel(ctx).also {
             it.put("credentialOffers", credOfferData)
         }
@@ -66,7 +71,7 @@ class WalletHandler(val holder: User) {
     }
 
     suspend fun handleOAuthCallback(call: RoutingCall) {
-        call.parameters["code"]?. also {
+        call.parameters["code"]?.also {
             authContext.withAuthCode(it)
             log.info { "AuthCode: $it" }
         } ?: error("No code")
@@ -85,9 +90,16 @@ class WalletHandler(val holder: User) {
 
     suspend fun handleWalletCredentials(call: RoutingCall) {
         val ctx = findOrCreateLoginContext(call, holder)
-        val credentialList = walletSvc.getCredentials(ctx).map { (jti, vcJwt) ->
-            val vc = vcJwt.vc
-            listOf(jti, vc.issuer.id, "${vc.type}")
+        val credentialList = walletSvc.getCredentials(ctx).map { (vcId, vcJwt) ->
+            when(vcJwt) {
+                is VCDataV11Jwt -> {
+                    val vc = vcJwt.vc
+                    listOf(vcId.encodeURLPath(), vc.issuer.id, "${vc.type}")
+                }
+                is VCDataSdV11Jwt -> {
+                    listOf(vcId.encodeURLPath(), vcJwt.iss ?: "unknown", vcJwt.vct ?: "unknown")
+                }
+            }
         }
         val model = walletModel(ctx).also {
             it.put("credentialList", credentialList)
@@ -111,7 +123,10 @@ class WalletHandler(val holder: User) {
 
     suspend fun handleWalletCredentialDelete(call: RoutingCall, vcId: String) {
         val ctx = findOrCreateLoginContext(call, holder)
-        walletSvc.deleteCredential(ctx, vcId)
+        when(vcId) {
+            "__all__" -> walletSvc.deleteCredentials(ctx) { true }
+            else -> walletSvc.deleteCredential(ctx, vcId)
+        }
         call.respondRedirect("/wallet/credentials")
     }
 }

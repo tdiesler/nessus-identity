@@ -1,6 +1,5 @@
 package io.nessus.identity.service
 
-import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
@@ -8,7 +7,6 @@ import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTA
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft11
-import java.time.Instant
 
 open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 

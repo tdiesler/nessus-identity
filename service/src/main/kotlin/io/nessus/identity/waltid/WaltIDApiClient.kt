@@ -13,8 +13,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.net.URLEncoder
-import kotlin.text.Charsets.UTF_8
 
 class APIException(val id: String, val code: Int, val status: String, message: String) : RuntimeException(message) {
 
@@ -108,7 +106,8 @@ class WaltIDApiClient(val baseUrl: String) {
     }
 
     suspend fun deleteCredential(ctx: LoginContext, vcId: String): Boolean {
-        val res = http.delete("$baseUrl/wallet-api/wallet/${ctx.walletId}/credentials/$vcId?permanent=true") {
+        val encId = vcId.encodeURLPath()
+        val res = http.delete("$baseUrl/wallet-api/wallet/${ctx.walletId}/credentials/$encId?permanent=true") {
             headers {
                 append(Authorization, "Bearer ${ctx.authToken}")
             }
@@ -119,7 +118,8 @@ class WaltIDApiClient(val baseUrl: String) {
     // Keys ------------------------------------------------------------------------------------------------------------
 
     suspend fun export(ctx: LoginContext, kid: String): String {
-        val res = http.get("$baseUrl/wallet-api/wallet/${ctx.walletId}/keys/${kid}/export") {
+        val encKid = kid.encodeURLPath()
+        val res = http.get("$baseUrl/wallet-api/wallet/${ctx.walletId}/keys/$encKid/export") {
             contentType(ContentType.Application.Json)
             headers {
                 append(Authorization, "Bearer ${ctx.authToken}")
@@ -151,8 +151,8 @@ class WaltIDApiClient(val baseUrl: String) {
     }
 
     suspend fun keysSign(ctx: LoginContext, alias: String, message: String): String {
-        val encodedAlias = URLEncoder.encode(alias, UTF_8.toString())
-        val res = http.post("$baseUrl/wallet-api/wallet/${ctx.walletId}/keys/${encodedAlias}/sign") {
+        val encAlias = alias.encodeURLPath()
+        val res = http.post("$baseUrl/wallet-api/wallet/${ctx.walletId}/keys/$encAlias/sign") {
             contentType(ContentType.Application.Json)
             headers {
                 append(Authorization, "Bearer ${ctx.authToken}")
@@ -164,14 +164,14 @@ class WaltIDApiClient(val baseUrl: String) {
 
     // DIDs ------------------------------------------------------------------------------------------------------------
 
-    suspend fun did(ctx: LoginContext, did: String): String {
+    suspend fun did(ctx: LoginContext, did: String): JsonObject {
         val res = http.get("$baseUrl/wallet-api/wallet/${ctx.walletId}/dids/${did}") {
             contentType(ContentType.Application.Json)
             headers {
                 append(Authorization, "Bearer ${ctx.authToken}")
             }
         }
-        return handleResponse<String>(res)
+        return handleResponse<JsonObject>(res)
     }
 
     suspend fun dids(ctx: LoginContext): Array<DidInfo> {

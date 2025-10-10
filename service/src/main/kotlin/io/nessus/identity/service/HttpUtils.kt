@@ -1,7 +1,7 @@
 package io.nessus.identity.service
 
 import io.ktor.client.*
-import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*

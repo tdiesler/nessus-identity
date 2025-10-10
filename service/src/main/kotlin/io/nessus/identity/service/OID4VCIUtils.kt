@@ -1,8 +1,7 @@
 package io.nessus.identity.service
 
-import io.ktor.client.call.body
+import io.ktor.client.call.*
 import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import io.nessus.identity.types.IssuerMetadata
 
 object OID4VCIUtils {

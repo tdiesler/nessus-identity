@@ -28,6 +28,9 @@
                 </#list>
             </tbody>
         </table>
+        <div style="margin-top: 1em;">
+            <a href="/wallet/credential/__all__/delete">delete all</a>
+        </div>
         </#if>
     </div>
 </@layout.layout>

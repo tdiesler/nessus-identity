@@ -4,6 +4,7 @@ import io.kotest.common.runBlocking
 import io.kotest.matchers.equals.shouldBeEqual
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldEndWith
+import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.serialization.json.jsonPrimitive
@@ -89,7 +90,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
             val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
             val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
 
-            val vcJwt = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
+            val vcJwt = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode)) as VCDataV11Jwt
             vcJwt.vc.type shouldBeEqual credOffer.getTypes()
 
             val subject = vcJwt.vc.credentialSubject

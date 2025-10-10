@@ -10,6 +10,7 @@
         <h4>${holderName}</h4>
         <h5>Available Credential Offers</h5>
 
+        <#if credentialOffers?size gt 0>
         <table class="bx--data-table bx--data-table--compact" style="width: auto; table-layout: auto;">
             <thead>
                 <tr><th>Issuer</th><th>Types</th><th>Actions</th></tr>
@@ -27,5 +28,6 @@
                 </#list>
             </tbody>
         </table>
+        </#if>
     </div>
 </@layout.layout>

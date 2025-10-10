@@ -14,6 +14,7 @@ import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialMatcher
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.types.VCDataJwt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -97,13 +98,11 @@ class WaltIDWalletService {
 
     fun addCredential(walletId: String, format: CredentialFormat, credJwt: SignedJWT): String {
 
-        if (format != CredentialFormat.jwt_vc)
-            throw IllegalStateException("Unsupported credential format: $format")
-
-        val vcId = getCredentialId(credJwt)
+        val vcJwt = Json.decodeFromString<VCDataJwt>("${credJwt.payload}")
         val walletUid = Uuid.parse(walletId)
         val document = credJwt.serialize()
 
+        val vcId = vcJwt.vcId
         val walletCredential = WalletCredential(
             id = vcId,
             format = format,
@@ -138,9 +137,9 @@ class WaltIDWalletService {
     }
 
     suspend fun findCredentialsByType(ctx: LoginContext, ctype: String): List<WalletCredential> {
-        val res = findCredentials(ctx) {
-            val typeArr = it.parsedDocument?.getValue("type")?.jsonArray ?: error("No 'type' claim")
-            ctype in typeArr.map { it.jsonPrimitive.content }
+        val res = findCredentials(ctx) { wc ->
+            val vcJwt = VCDataJwt.fromEncoded(wc.document)
+            vcJwt.containsType(ctype)
         }
         return res
     }
@@ -225,9 +224,9 @@ class WaltIDWalletService {
             ?: throw IllegalStateException("No default did for: $ctx.walletId")
     }
 
-    suspend fun getDidDocument(ctx: LoginContext, did: String): String {
-        val didInfo = api.did(ctx, did)
-        return didInfo
+    suspend fun getDidDocument(ctx: LoginContext, did: String): JsonObject {
+        val didDoc = api.did(ctx, did)
+        return didDoc
     }
 
     suspend fun listDids(ctx: LoginContext): List<DidInfo> {
@@ -243,15 +242,6 @@ class WaltIDWalletService {
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
-
-    private fun getCredentialId(credJwt: SignedJWT): String {
-        val jsonObj = Json.parseToJsonElement("${credJwt.payload}") as JsonObject
-        val vcId = jsonObj["jti"]?.jsonPrimitive?.content ?: run {
-            val vcObj = jsonObj.getValue("vc").jsonObject
-            vcObj.getValue("id").jsonPrimitive.content
-        }
-        return vcId
-    }
 
     private fun withConnection(block: () -> Unit) {
         if (!dataSource.isInitialized()) {

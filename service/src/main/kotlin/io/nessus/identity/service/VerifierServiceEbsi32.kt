@@ -2,8 +2,8 @@ package io.nessus.identity.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialParameters
-import io.nessus.identity.types.VerifiableCredentialV10
-import java.time.Instant
+import io.nessus.identity.types.VCDataV11
+import kotlin.time.Clock
 
 // VerifierService =====================================================================================================
 
@@ -11,7 +11,7 @@ class VerifierServiceEbsi32 : VerifierService {
 
     val log = KotlinLogging.logger {}
 
-    override fun validateVerifiableCredential(vc: VerifiableCredentialV10, vcp: CredentialParameters?) {
+    override fun validateVerifiableCredential(vc: VCDataV11, vcp: CredentialParameters?) {
 
         val id = vc.id ?: throw IllegalArgumentException("No credential id: $vc")
 
@@ -20,11 +20,11 @@ class VerifierServiceEbsi32 : VerifierService {
                 throw VerificationException(id, "Credential '$id' is revoked")
         }
 
-        val now = Instant.now()
-        if (vc.expirationDate?.isBefore(now) ?: false)
+        val now = Clock.System.now()
+        if (vc.expirationDate != null && vc.expirationDate < now)
             throw VerificationException(id, "Credential '$id' is expired")
 
-        if (vc.validFrom?.isAfter(now) ?: false)
+        if (vc.validFrom != null && vc.validFrom > now)
             throw VerificationException(id, "Credential '$id' is not yet valid")
 
         if (vcp?.sub != null) {

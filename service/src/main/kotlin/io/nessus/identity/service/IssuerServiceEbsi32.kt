@@ -24,6 +24,8 @@ import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.util.*
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
 
 // DefaultIssuerService ================================================================================================
@@ -124,9 +126,9 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
         // Init property defaults when not given
         //
         val id = vcp.id ?: "vc:nessus#${Uuid.random()}"
-        val iat = vcp.iat ?: Instant.now()
+        val iat = vcp.iat ?: Clock.System.now()
         val nbf = vcp.nbf ?: iat
-        val exp = vcp.exp ?: iat.plusSeconds(86400) // 24h
+        val exp = vcp.exp ?: (iat + 24.hours)
         val iss = vcp.iss ?: ctx.did
 
         // Verify required properties
@@ -142,7 +144,7 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
         if (unknownTypes.isNotEmpty())
             throw IllegalStateException("Unknown credential types: $unknownTypes")
 
-        val cred = VerifiableCredentialV10JwtBuilder()
+        val cred = VCDataV11JwtBuilder()
             .withId(id)
             .withIssuerId(ctx.did)
             .withSubjectId(vcp.sub as String)
@@ -150,9 +152,9 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
             .withValidFrom(nbf)
             .withValidUntil(exp)
             .withCredential(
-                VerifiableCredentialV10Builder()
+                VCDataV11Builder()
                     .withCredentialSchema(
-                        CredentialSchemaV11(
+                        CredentialSchema(
                             "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
                             "FullJsonSchemaValidator2021"
                         )

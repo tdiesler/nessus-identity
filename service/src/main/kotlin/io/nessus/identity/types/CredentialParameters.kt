@@ -1,6 +1,6 @@
 package io.nessus.identity.types
 
-import java.time.Instant
+import kotlin.time.Instant
 
 class CredentialParameters() {
 
@@ -11,7 +11,7 @@ class CredentialParameters() {
     var nbf: Instant? = null
     var exp: Instant? = null
     var types = listOf<String>()
-    var status: CredentialStatusV10? = null
+    var status: CredentialStatus? = null
 
     fun withId(id: String): CredentialParameters {
         this.id = id
@@ -28,7 +28,7 @@ class CredentialParameters() {
         return this
     }
 
-    fun withStatus(status: CredentialStatusV10): CredentialParameters {
+    fun withStatus(status: CredentialStatus): CredentialParameters {
         this.status = status
         return this
     }

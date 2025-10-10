@@ -1,8 +1,8 @@
 package io.nessus.identity.console
 
-import io.ktor.server.freemarker.FreeMarkerContent
-import io.ktor.server.response.respond
-import io.ktor.server.routing.RoutingCall
+import io.ktor.server.freemarker.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import io.nessus.identity.console.SessionsStore.findOrCreateLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.getVersionInfo
@@ -11,7 +11,6 @@ import io.nessus.identity.waltid.User
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.keycloak.representations.idm.UserRepresentation
-import kotlin.collections.firstOrNull
 
 
 class IssuerHandler(val issuer: User) {
@@ -87,13 +86,8 @@ class IssuerHandler(val issuer: User) {
 
     suspend fun handleIssuerCredentialOfferList(call: RoutingCall) {
         val supported = issuerMetadata.credentialConfigurationsSupported
-        val credentialConfigurationIds = supported.keys
-            // [TODO #294] Provide common VC data model
-            // https://github.com/tdiesler/nessus-identity/issues/294
-            .filter { it != "oid4vc_natural_person" }
-            .toList()
         val model = issuerModel().also {
-            it.put("credentialConfigurationIds", credentialConfigurationIds)
+            it.put("credentialConfigurationIds", supported.keys)
         }
         call.respond(
             FreeMarkerContent("issuer-cred-offers.ftl", model)

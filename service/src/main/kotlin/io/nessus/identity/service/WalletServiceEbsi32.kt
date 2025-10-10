@@ -39,7 +39,7 @@ import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.IssuerMetadataDraft11
-import io.nessus.identity.types.VerifiableCredentialV10Jwt
+import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
@@ -64,7 +64,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         val format = credRes.format as CredentialFormat
 
         // Verify that we can unmarshall the credential
-        Json.decodeFromString<VerifiableCredentialV10Jwt>("${credJwt.payload}")
+        Json.decodeFromString<VCDataV11Jwt>("${credJwt.payload}")
 
         widWalletSvc.addCredential(walletId, format, credJwt)
     }
