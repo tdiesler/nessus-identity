@@ -2,6 +2,7 @@ package io.nessus.identity.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialOfferDraft11
 
 data class CredentialOfferRecord(
     val credOffer:  CredentialOffer?,

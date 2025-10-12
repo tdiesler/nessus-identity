@@ -90,7 +90,7 @@ class AuthorizationRequestBuilder {
             }
 
             is CredentialOfferDraft17 -> {
-                credOffer.getTypes().forEach { ctype ->
+                credOffer.credentialConfigurationIds.forEach { ctype ->
                     authDetails.add(AuthorizationDetails.fromJSONString("""{
                         "type": "openid_credential",
                         "credential_configuration_id": "$ctype",

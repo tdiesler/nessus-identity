@@ -42,7 +42,6 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
             val metadata = when (credOffer) {
                 is CredentialOfferDraft11 -> credOffer.resolveIssuerMetadata() as IssuerMetadataDraft11
                 is CredentialOfferDraft17 -> credOffer.resolveIssuerMetadata() as IssuerMetadataDraft17
-                else -> throw IllegalArgumentException("Unsupported CredentialOffer type")
             }
             ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
             log.info { "Issuer Metadata: ${metadata.toJson()}" }

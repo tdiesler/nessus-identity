@@ -16,14 +16,7 @@ data class CredentialOfferDraft17(
 
     @SerialName("grants")
     override val grants: Grants? = null
-) : CredentialOffer() {
-
-    // [TODO #283] Remove 'types' from CredentialOfferDraft17
-    // https://github.com/tdiesler/nessus-identity/issues/283
-    override fun getTypes(): List<String> {
-        return credentialConfigurationIds
-    }
-}
+) : CredentialOffer()
 
 @Serializable
 data class Grants(

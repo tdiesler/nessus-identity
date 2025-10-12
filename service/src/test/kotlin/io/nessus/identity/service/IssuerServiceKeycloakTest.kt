@@ -91,7 +91,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
             val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
 
             val vcJwt = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode)) as VCDataV11Jwt
-            vcJwt.vc.type shouldBeEqual credOffer.getTypes()
+            vcJwt.vc.type shouldBeEqual credOffer.credentialConfigurationIds
 
             val subject = vcJwt.vc.credentialSubject
             subject.claims.getValue("email").jsonPrimitive.content shouldBeEqual Alice.email

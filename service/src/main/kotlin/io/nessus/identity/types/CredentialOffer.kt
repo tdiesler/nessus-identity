@@ -13,7 +13,7 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 
 @Serializable(with = CredentialOfferSerializer::class)
-abstract class CredentialOffer {
+sealed class CredentialOffer {
     abstract val credentialIssuer: String
     abstract val grants: Grants?
 
@@ -24,8 +24,6 @@ abstract class CredentialOffer {
     fun getPreAuthorizedCodeGrant() : PreAuthorizedCodeGrant? {
         return grants?.preAuthorizedCode
     }
-
-    abstract fun getTypes(): List<String>
 
     suspend inline fun <reified IMType: IssuerMetadata> resolveIssuerMetadata(): IMType {
         return OID4VCIUtils.resolveIssuerMetadata<IMType>(credentialIssuer)

@@ -228,7 +228,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
 
         val metadata: IssuerMetadataDraft17 = resolveIssuerMetadata(ctx, credOffer)
 
-        val ctypes = credOffer.getTypes()
+        val ctypes = credOffer.credentialConfigurationIds
         if (ctypes.size != 1) throw IllegalArgumentException("Multiple types not supported: $ctypes")
         val ctype = ctypes.first()
 

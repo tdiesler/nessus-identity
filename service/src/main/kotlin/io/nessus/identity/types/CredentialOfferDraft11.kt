@@ -26,7 +26,7 @@ data class CredentialOfferDraft11(
     override val grants: Grants? = null
 ) : CredentialOffer() {
 
-    override fun getTypes(): List<String> {
+    fun getTypes(): List<String> {
         return when (val entry = credentials.first()) {
             is CredentialObject -> entry.types
             is CredentialReference -> listOf(entry.reference)

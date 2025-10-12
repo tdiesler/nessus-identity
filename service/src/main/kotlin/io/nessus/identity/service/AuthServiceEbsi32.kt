@@ -25,6 +25,7 @@ import io.nessus.identity.service.CredentialOfferRegistry.hasCredentialOfferReco
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
+import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.Json
@@ -255,8 +256,8 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         if (userPin != expUserPin)
             throw IllegalStateException("Invalid UserPin")
 
-        val credOffer = credOfferRecord.credOffer
-        val types = credOffer?.getTypes()
+        val credOffer = credOfferRecord.credOffer as CredentialOfferDraft11
+        val types = credOffer.getTypes()
         val authRequest = AuthorizationRequest(
             clientId = subId ?: throw IllegalStateException("No subId"), authorizationDetails = listOf(
                 AuthorizationDetails(
