@@ -19,8 +19,8 @@ make images
 Create Postgres username/password secret
 
 ```
-POSTGRES_PASSWORD="postgres"
 KEYCLAOK_PASSWORD="admin"
+POSTGRES_PASSWORD="changeme"
 
 kubectl delete secret postgres-secret --ignore-not-found=true
 kubectl create secret generic postgres-secret \
