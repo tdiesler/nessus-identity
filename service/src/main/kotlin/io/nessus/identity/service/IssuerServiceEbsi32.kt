@@ -35,7 +35,7 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
 
     override suspend fun createCredentialOffer(
         ctx: LoginContext,
-        subId: String,
+        subjectId: String,
         types: List<String>,
         userPin: String?
     ): CredentialOfferDraft11 {
@@ -55,12 +55,12 @@ class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
             .build()
 
         val offerClaims = JWTClaimsSet.Builder()
-            .subject(subId)
+            .subject(subjectId)
             .audience(aud)
             .issuer(ctx.did)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
-            .claim("client_id", subId)
+            .claim("client_id", subjectId)
             .claim("credential_types", types)
             .build()
 

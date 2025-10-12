@@ -320,7 +320,8 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         credOffer: CredentialOfferDraft11
     ): CredentialResponse {
 
-        val metadata: IssuerMetadataDraft11 = resolveIssuerMetadata(ctx, credOffer)
+        ctx.credentialOffer = credOffer
+        ctx.issuerMetadata = credOffer.resolveIssuerMetadata()
 
         val accessToken = credOffer.getPreAuthorizedCodeGrant()?.let {
             val authCode = it.preAuthorizedCode
@@ -336,7 +337,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
                 .withClientState(ctx.walletId)
                 .withCodeChallengeMethod("S256")
                 .withCodeVerifier(codeVerifier)
-                .withIssuerMetadata(metadata)
+                .withIssuerMetadata(ctx.issuerMetadata)
                 .withRedirectUri(redirectUri)
                 .buildFrom(credOffer)
             ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)

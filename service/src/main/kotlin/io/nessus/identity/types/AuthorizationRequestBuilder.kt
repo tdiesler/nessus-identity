@@ -7,7 +7,6 @@ import id.walt.oid4vc.data.OpenIDClientMetadata
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.oid4vc.requests.AuthorizationRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.nessus.identity.service.OID4VCIUtils
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.security.MessageDigest
@@ -73,7 +72,7 @@ class AuthorizationRequestBuilder {
         this.credOffer = credOffer
 
         if (metadata == null)
-            metadata = OID4VCIUtils.resolveIssuerMetadata(credOffer.credentialIssuer)
+            metadata = credOffer.resolveIssuerMetadata()
 
         when (credOffer) {
 

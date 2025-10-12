@@ -45,13 +45,13 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
      * Holder builds the AuthorizationRequest from a CredentialOffer
      */
     suspend fun authorizationContextFromOffer(
-        ctx: OIDContext,
+        ctx: LoginContext,
         redirectUri: String,
         credOffer: CredentialOfferDraft17,
     ): AuthorizationContext {
 
         // Resolve the Issuer's metadata from the CredentialOffer
-        val metadata = resolveIssuerMetadata(ctx, credOffer) as IssuerMetadataDraft17
+        val metadata = credOffer.resolveIssuerMetadata() as IssuerMetadataDraft17
 
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
@@ -221,12 +221,12 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
     }
 
     private suspend fun sendCredentialRequest(
-        ctx: OIDContext,
+        ctx: LoginContext,
         credOffer: CredentialOfferDraft17,
         tokenRes: TokenResponse
     ): JsonObject {
 
-        val metadata: IssuerMetadataDraft17 = resolveIssuerMetadata(ctx, credOffer)
+        val metadata: IssuerMetadataDraft17 = credOffer.resolveIssuerMetadata()
 
         val ctypes = credOffer.credentialConfigurationIds
         if (ctypes.size != 1) throw IllegalArgumentException("Multiple types not supported: $ctypes")

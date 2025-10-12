@@ -1,6 +1,8 @@
 package io.nessus.identity.types
 
-import io.nessus.identity.service.OID4VCIUtils
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.nessus.identity.service.http
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -14,8 +16,12 @@ import kotlinx.serialization.json.jsonObject
 
 @Serializable(with = CredentialOfferSerializer::class)
 sealed class CredentialOffer {
+
     abstract val credentialIssuer: String
     abstract val grants: Grants?
+
+    @Transient
+    private lateinit var issuerMetadata: IssuerMetadata
 
     fun getAuthorizationCodeGrant() : AuthorizationCodeGrant? {
         return grants?.authorizationCode
@@ -25,8 +31,13 @@ sealed class CredentialOffer {
         return grants?.preAuthorizedCode
     }
 
-    suspend inline fun <reified IMType: IssuerMetadata> resolveIssuerMetadata(): IMType {
-        return OID4VCIUtils.resolveIssuerMetadata<IMType>(credentialIssuer)
+    @Suppress("UNCHECKED_CAST")
+    suspend fun <IMType: IssuerMetadata> resolveIssuerMetadata(): IMType {
+        if (!::issuerMetadata.isInitialized) {
+            val issuerMetadataUrl = "$credentialIssuer/.well-known/openid-credential-issuer"
+            issuerMetadata = http.get(issuerMetadataUrl).body<IssuerMetadata>()
+        }
+        return issuerMetadata as IMType
     }
 
     fun toJson() = Json.encodeToString(this)

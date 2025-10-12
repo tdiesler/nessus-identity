@@ -1,6 +1,5 @@
 package io.nessus.identity.service
 
-import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.GrantDetails
 import io.kotest.common.runBlocking
 import io.kotest.matchers.collections.shouldHaveSize
@@ -8,6 +7,9 @@ import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
+import io.nessus.identity.types.CredentialObject
+import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.IssuerMetadataDraft11
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -43,25 +45,17 @@ class WalletServiceTest : AbstractServiceTest() {
           }
         }            
         """.trimIndent()
-
-        val credOffer = CredentialOffer.fromJSONString(credOfferJson) as CredentialOffer.Draft11
-
-        credOffer.credentials.shouldHaveSize(1)
-        credOffer.grants.shouldHaveSize(1)
-
-        val credential = credOffer.credentials[0].jsonObject
-        credential["format"]?.jsonPrimitive?.content shouldBe "jwt_vc"
-
-        val grant = credOffer.grants["urn:ietf:params:oauth:grant-type:pre-authorized_code"] as GrantDetails
-        grant.preAuthorizedCode.shouldNotBeBlank()
-        grant.userPinRequired shouldBe true
-    }
-
-    @Test
-    fun resolveIssuerMetadata() {
         runBlocking {
-            val metadataUrl = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock"
-            val metadata = OID4VCIUtils.resolveIssuerMetadata(metadataUrl) as IssuerMetadataDraft11
+            val credOffer = CredentialOffer.fromJson(credOfferJson) as CredentialOfferDraft11
+            credOffer.credentials.shouldHaveSize(1)
+            credOffer.grants.shouldNotBeNull()
+
+            val credObj = credOffer.credentials[0] as CredentialObject
+            credObj.format shouldBe "jwt_vc"
+
+            credOffer.grants.preAuthorizedCode?.preAuthorizedCode.shouldNotBeNull()
+
+            val metadata: IssuerMetadataDraft11 = credOffer.resolveIssuerMetadata()
             metadata.credentialsSupported.shouldNotBeNull()
         }
     }

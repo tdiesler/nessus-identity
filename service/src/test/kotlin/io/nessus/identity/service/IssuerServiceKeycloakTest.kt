@@ -15,8 +15,8 @@ import org.junit.jupiter.api.assertThrows
 
 class IssuerServiceKeycloakTest : AbstractServiceTest() {
 
-    lateinit var max: OIDContext
-    lateinit var alice: OIDContext
+    lateinit var max: LoginContext
+    lateinit var alice: LoginContext
 
     lateinit var issuerSvc: IssuerServiceKeycloak
     lateinit var walletSvc: WalletServiceKeycloak
@@ -25,11 +25,11 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     fun setUp() {
         kotlinx.coroutines.runBlocking {
             // Create the Issuer's OIDC context (Max is the Issuer)
-            max = OIDContext(login(Max).withDidInfo())
+            max = login(Max).withDidInfo()
             issuerSvc = IssuerService.createKeycloak()
 
             // Create the Holders's OIDC context (Alice is the Holder)
-            alice = OIDContext(login(Alice).withDidInfo())
+            alice = login(Alice).withDidInfo()
             walletSvc = WalletService.createKeycloak()
         }
     }

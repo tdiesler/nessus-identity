@@ -121,9 +121,8 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
                         }
                     }
                 }) {
-                    val ctx = OIDContext(holderCtx)
                     val offerId = call.parameters["offerId"] ?: error("No offerId")
-                    handleCredentialOfferAccept(call, ctx, offerId)
+                    handleCredentialOfferAccept(call, holderCtx, offerId)
                 }
 
                 put("/wallets/{walletId}/credential-offer", {
@@ -205,7 +204,7 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
         call.respond(credOfferId)
     }
 
-    private suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: OIDContext, offerId: String) {
+    private suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: LoginContext, offerId: String) {
         val credOffer = walletSvc.getCredentialOffer(offerId) ?: error("No credential_offer for: $offerId")
 
         val redirectUri = "urn:ietf:wg:oauth:2.0:oob"

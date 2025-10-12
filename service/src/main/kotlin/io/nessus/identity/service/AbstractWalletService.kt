@@ -35,18 +35,4 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
     override fun deleteCredentialOffer(offerId: String): COType? {
         return credOfferRegistry.remove(offerId)
     }
-
-    @Suppress("UNCHECKED_CAST")
-    suspend fun <IMType: IssuerMetadata> resolveIssuerMetadata(ctx: OIDContext, credOffer: CredentialOffer): IMType {
-        val metadata = ctx.getAttachment(ISSUER_METADATA_ATTACHMENT_KEY) ?: let {
-            val metadata = when (credOffer) {
-                is CredentialOfferDraft11 -> credOffer.resolveIssuerMetadata() as IssuerMetadataDraft11
-                is CredentialOfferDraft17 -> credOffer.resolveIssuerMetadata() as IssuerMetadataDraft17
-            }
-            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
-            log.info { "Issuer Metadata: ${metadata.toJson()}" }
-            metadata
-        }
-        return metadata as IMType
-    }
 }

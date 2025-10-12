@@ -15,6 +15,7 @@ import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft11
+import io.nessus.identity.types.IssuerMetadataDraft11
 import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
 
@@ -41,6 +42,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
         walletSvc.addCredentialOffer(credOffer)
+        val issuerMetadata = issuerCtx.issuerMetadata
 
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
@@ -51,7 +53,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
             .withClientState(holderCtx.walletId)
             .withCodeChallengeMethod("S256")
             .withCodeVerifier(codeVerifier)
-            .withIssuerMetadata(issuerCtx.issuerMetadata)
+            .withIssuerMetadata(issuerMetadata)
             .withRedirectUri(redirectUri)
             .buildFrom(credOffer)
 

@@ -6,6 +6,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldEndWith
 import io.nessus.identity.flow.CredentialIssuanceEbsi32
+import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
@@ -77,11 +78,15 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             val ctype = "CTWalletSameAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types)
+            val issuerMetadata = issuerSvc.getIssuerMetadata(max)
+            max.issuerMetadata = issuerMetadata
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
             val flow = CredentialIssuanceEbsi32(alice, max)
             val credRes = flow.credentialFromOfferInTime(credOffer)
+            alice.issuerMetadata = issuerMetadata
+            alice.credentialOffer = credOffer
 
             // Holder validates the received Credential
             //
@@ -127,11 +132,15 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             val ctype = "CTWalletSameAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types)
+            val issuerMetadata = issuerSvc.getIssuerMetadata(max)
+            max.issuerMetadata = issuerMetadata
 
             // Holder gets a deferred Credential from an Issuer based on a CredentialOffer
             //
             val flow = CredentialIssuanceEbsi32(alice, max)
             val deferredCredRes = flow.credentialFromOfferDeferred(credOffer)
+            alice.issuerMetadata = issuerMetadata
+            alice.credentialOffer = credOffer
 
             // Holder requests the deferred Credential using the AcceptanceToken
             //
@@ -179,11 +188,15 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             val ctype = "CTWalletSamePreAuthorisedInTime"
             val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types, "$userPin")
+            val issuerMetadata = issuerSvc.getIssuerMetadata(max)
+            max.issuerMetadata = issuerMetadata
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
             val flow = CredentialIssuanceEbsi32(alice, max)
             val credRes = flow.credentialFromOfferPreAuthorized(credOffer, "$userPin")
+            alice.issuerMetadata = issuerMetadata
+            alice.credentialOffer = credOffer
 
             // Holder validates the received Credential
             //
@@ -229,11 +242,15 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             val ctype = "CTWalletSamePreAuthorisedDeferred"
             val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, sub, types, "$userPin")
+            val issuerMetadata = issuerSvc.getIssuerMetadata(max)
+            max.issuerMetadata = issuerMetadata
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
             val flow = CredentialIssuanceEbsi32(alice, max)
             val deferredCredRes = flow.credentialFromOfferPreAuthorizedDeferred(credOffer, "$userPin")
+            alice.issuerMetadata = issuerMetadata
+            alice.credentialOffer = credOffer
 
             // Pre-Authorized Holder requests the deferred Credential using the AcceptanceToken
             //

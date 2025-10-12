@@ -60,7 +60,7 @@ class WalletHandler(val holder: User) {
     }
 
     suspend fun handleWalletCredentialOfferAccept(call: RoutingCall, offerId: String) {
-        val ctx = OIDContext(findOrCreateLoginContext(call, holder))
+        val ctx = findOrCreateLoginContext(call, holder)
         val credOffer = walletSvc.getCredentialOffer(offerId) ?: error("No credential_offer for: $offerId")
 
         val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
