@@ -16,6 +16,7 @@ import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferDraft17
@@ -37,9 +38,7 @@ import kotlin.random.Random
 
 class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
 
-    // [TODO #282] Derive Keycloak clientId from CredentialOffer
-    // https://github.com/tdiesler/nessus-identity/issues/282
-    val clientId = "oid4vci-client"
+    val clientId = ConfigProvider.requireIssuerConfig().clientId
 
     /**
      * Holder builds the AuthorizationRequest from a CredentialOffer
@@ -109,7 +108,6 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
             is VCDataSdV11Jwt -> {
                 vcJwt.vct ?: error("No vct")
             }
-            else -> error("Unsupported VCDataJwt type: ${vcJwt::class.java.name}")
         }
 
         // Add Credential to WaltId storage
