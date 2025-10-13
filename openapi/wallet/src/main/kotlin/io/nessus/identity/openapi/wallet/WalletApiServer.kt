@@ -23,6 +23,7 @@ import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.PlaywrightAuthCallbackHandler
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.getVersionInfo
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
@@ -198,7 +199,7 @@ class WalletApiServer(val host: String = "0.0.0.0", val port: Int = 8001) {
 
     private suspend fun handleCredentialOfferAdd(call: RoutingCall) {
         val credOffer = call.parameters["credential_offer"]?.let {
-            Json.decodeFromString<CredentialOfferV10>(it)
+            CredentialOfferV10.fromJson(it)
         } ?: error("No credential_offer")
         val credOfferId = walletSvc.addCredentialOffer(credOffer)
         call.respond(credOfferId)

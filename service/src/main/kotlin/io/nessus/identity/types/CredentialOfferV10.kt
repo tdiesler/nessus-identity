@@ -2,6 +2,9 @@ package io.nessus.identity.types
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /*
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
@@ -16,7 +19,14 @@ data class CredentialOfferV10(
 
     @SerialName("grants")
     override val grants: Grants? = null
-) : CredentialOffer()
+) : CredentialOffer() {
+
+    companion object {
+        val jsonInst = Json { ignoreUnknownKeys = true}
+        fun fromJson(json: String) = jsonInst.decodeFromString<CredentialOfferV10>(json)
+        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<CredentialOfferV10>(json)
+    }
+}
 
 @Serializable
 data class Grants(

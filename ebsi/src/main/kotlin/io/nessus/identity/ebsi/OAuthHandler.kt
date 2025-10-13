@@ -2,7 +2,6 @@ package io.nessus.identity.ebsi
 
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.requests.AuthorizationRequest
-import id.walt.oid4vc.requests.TokenRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -23,6 +22,7 @@ import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.types.TokenRequestV10
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.Json
 
@@ -252,15 +252,15 @@ object OAuthHandler {
         log.info { "Token Request: ${call.request.uri}" }
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val tokenReq = TokenRequest.fromHttpParameters(postParams)
+        val tokenReq = TokenRequestV10.fromHttpParameters(postParams)
         val tokenResponse = when (tokenReq) {
-            is TokenRequest.AuthorizationCode -> {
+            is TokenRequestV10.AuthorizationCode -> {
                 val ctx = OIDCContextRegistry.assert(dstId)
                 val authSvc = AuthServiceEbsi32.create(ctx)
                 authSvc.handleTokenRequestAuthCode(tokenReq)
             }
 
-            is TokenRequest.PreAuthorizedCode -> {
+            is TokenRequestV10.PreAuthorizedCode -> {
                 val ctx = OIDContext(requireLoginContext(dstId))
                 val authSvc = AuthServiceEbsi32.create(ctx)
                 authSvc.handleTokenRequestPreAuthorized(tokenReq)

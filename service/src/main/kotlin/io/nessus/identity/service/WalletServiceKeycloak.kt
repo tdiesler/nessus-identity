@@ -10,8 +10,6 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.requests.AuthorizationRequest
-import id.walt.oid4vc.requests.TokenRequest
-import id.walt.oid4vc.responses.TokenResponse
 import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -23,14 +21,14 @@ import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.CredentialRequestV10
 import io.nessus.identity.types.CredentialResponseV10
 import io.nessus.identity.types.IssuerMetadataV10
+import io.nessus.identity.types.TokenRequestV10
+import io.nessus.identity.types.TokenResponseV10
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import java.util.*
@@ -181,7 +179,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         return authReq
     }
 
-    private suspend fun sendTokenRequest(authContext: AuthorizationContext): TokenResponse {
+    private suspend fun sendTokenRequest(authContext: AuthorizationContext): TokenResponseV10 {
 
         val authCode = authContext.authCode ?: error("No Auth Code")
         val authReq = authContext.authRequest ?: error("No AuthorizationRequest")
@@ -190,7 +188,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
         val tokenEndpointUrl = metadata.getAuthorizationTokenEndpoint()
 
-        val tokenReq = TokenRequest.AuthorizationCode(
+        val tokenReq = TokenRequestV10.AuthorizationCode(
             clientId = clientId,
             redirectUri = authReq.redirectUri,
             codeVerifier = codeVerifier,
@@ -209,18 +207,19 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
                 }.formUrlEncode()
             )
         }
+        val tokenResJson = res.bodyAsText()
+        log.info { "TokenResponse: $tokenResJson" }
         if (res.status != HttpStatusCode.OK)
-            throw HttpStatusException(res.status, res.bodyAsText())
+            throw HttpStatusException(res.status, tokenResJson)
 
-        val tokenRes = TokenResponse.fromJSONString(res.bodyAsText())
-        log.info { "TokenResponse: ${tokenRes.toJSONString()}" }
+        val tokenRes = TokenResponseV10.fromJson(tokenResJson)
         return tokenRes
     }
 
     private suspend fun sendCredentialRequest(
         ctx: LoginContext,
         credOffer: CredentialOfferV10,
-        tokenRes: TokenResponse
+        tokenRes: TokenResponseV10
     ): CredentialResponseV10 {
 
         val metadata: IssuerMetadataV10 = credOffer.resolveIssuerMetadata()
@@ -265,7 +264,6 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
             proofs = CredentialRequestV10.Proofs(jwt = listOf(proofJwt.serialize()))
         )
 
-        //val credReq = Json.decodeFromString<CredentialRequest>(credReqJson)
         log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
 
         val res = http.post(metadata.credentialEndpoint) {
@@ -276,7 +274,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         if (res.status != HttpStatusCode.OK)
             throw HttpStatusException(res.status, res.bodyAsText())
 
-        val credRes = Json.decodeFromString<CredentialResponseV10>(res.bodyAsText())
+        val credRes = CredentialResponseV10.fromJson(res.bodyAsText())
         return credRes
     }
 }

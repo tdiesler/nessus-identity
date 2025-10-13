@@ -10,8 +10,6 @@ import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.requests.AuthorizationRequest
-import id.walt.oid4vc.requests.TokenRequest
-import id.walt.oid4vc.responses.TokenResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.nessus.identity.config.ConfigProvider
@@ -27,6 +25,8 @@ import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferReco
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.PresentationDefinitionBuilder
+import io.nessus.identity.types.TokenRequestV10
+import io.nessus.identity.types.TokenResponseV10
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -199,9 +199,9 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         return vpTokenRedirectUrl
     }
 
-    suspend fun handleTokenRequestAuthCode(tokenReq: TokenRequest): TokenResponse {
+    suspend fun handleTokenRequestAuthCode(tokenReq: TokenRequestV10): TokenResponseV10 {
 
-        val tokReq = tokenReq as TokenRequest.AuthorizationCode
+        val tokReq = tokenReq as TokenRequestV10.AuthorizationCode
         val grantType = tokReq.grantType
         val codeVerifier = tokReq.codeVerifier
         val redirectUri = tokReq.redirectUri
@@ -218,15 +218,15 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         return tokenRes
     }
 
-    suspend fun handleTokenRequestPreAuthorized(tokenReq: TokenRequest): TokenResponse {
+    suspend fun handleTokenRequestPreAuthorized(tokenReq: TokenRequestV10): TokenResponseV10 {
 
         if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY))
             ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerSvc.getIssuerMetadata(ctx))
 
         var subId = tokenReq.clientId
-        val preAuthTokenRequest = tokenReq as TokenRequest.PreAuthorizedCode
+        val preAuthTokenRequest = tokenReq as TokenRequestV10.PreAuthorizedCode
         val preAuthCode = preAuthTokenRequest.preAuthorizedCode
-        val userPin = preAuthTokenRequest.userPIN
+        val userPin = preAuthTokenRequest.userPin
 
         // In the EBSI Issuer Conformance Test, the preAuthCode is a known Credential type
         // and the clientId associated with the TokenRequest is undefined
@@ -322,7 +322,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
     // Private ---------------------------------------------------------------------------------------------------------
 
-    private suspend fun buildTokenResponse(): TokenResponse {
+    private suspend fun buildTokenResponse(): TokenResponseV10 {
         val keyJwk = ctx.didInfo.publicKeyJwk()
         val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
 
@@ -362,11 +362,11 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
             }            
         """.trimIndent()
 
-        val tokenResponse = TokenResponse.fromJSONString(tokenRespJson).also {
+        log.info { "Token Response: $tokenRespJson" }
+        val tokenRes = TokenResponseV10.fromJson(tokenRespJson).also {
             ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
         }
-        log.info { "Token Response: ${Json.encodeToString(tokenResponse)}" }
-        return tokenResponse
+        return tokenRes
     }
 
     private fun buildAuthEndpointMetadata(): JsonObject {
