@@ -9,10 +9,9 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.console.SessionsStore.findOrCreateLoginContext
 import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.getVersionInfo
-import io.nessus.identity.types.CredentialOfferDraft17
+import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.User
@@ -47,7 +46,7 @@ class WalletHandler(val holder: User) {
 
     suspend fun handleWalletCredentialOffers(call: RoutingCall) {
         val ctx = findOrCreateLoginContext(call, holder)
-        val credOffers: Map<String, CredentialOfferDraft17> = walletSvc.getCredentialOffers()
+        val credOffers: Map<String, CredentialOfferV10> = walletSvc.getCredentialOffers()
         val credOfferData = credOffers.map { (k, v) ->
             listOf(k.encodeURLPath(), v.credentialIssuer, v.credentialConfigurationIds.first())
         }.toList()

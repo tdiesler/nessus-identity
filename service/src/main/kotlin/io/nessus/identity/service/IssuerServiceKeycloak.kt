@@ -11,9 +11,9 @@ import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.types.AuthorizationCodeGrant
-import io.nessus.identity.types.CredentialOfferDraft17
+import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.Grants
-import io.nessus.identity.types.IssuerMetadataDraft17
+import io.nessus.identity.types.IssuerMetadataV10
 import io.nessus.identity.types.PreAuthorizedCodeGrant
 import io.nessus.identity.waltid.authenticationId
 import org.keycloak.admin.client.KeycloakBuilder
@@ -30,7 +30,7 @@ import java.util.*
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
 class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
-    : AbstractIssuerService<IssuerMetadataDraft17, CredentialOfferDraft17>("${issuerCfg.baseUrl}/realms/${issuerCfg.realm}") {
+    : AbstractIssuerService<IssuerMetadataV10, CredentialOfferV10>("${issuerCfg.baseUrl}/realms/${issuerCfg.realm}") {
 
     val issuerBaseUrl = issuerCfg.baseUrl
 
@@ -39,7 +39,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
         subjectId: String,
         types: List<String>,
         userPin: String?
-    ): CredentialOfferDraft17 {
+    ): CredentialOfferV10 {
 
         val metadata = getIssuerMetadata()
         val issuerUri = metadata.credentialIssuer
@@ -70,7 +70,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
         val issuerStateJwt = SignedJWT(header, issuerStateClaims).signWithKey(ctx, kid)
 
         // Build CredentialOffer
-        val credOffer = CredentialOfferDraft17(
+        val credOffer = CredentialOfferV10(
             credentialIssuer = issuerUri,
             credentialConfigurationIds = types,
             grants = if (userPin != null) {
@@ -95,10 +95,10 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
         return credOffer
     }
 
-    override suspend fun getIssuerMetadata(): IssuerMetadataDraft17 {
+    override suspend fun getIssuerMetadata(): IssuerMetadataV10 {
         val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
         log.info { "IssuerMetadataUrl: $metadataUrl" }
-        return http.get(metadataUrl).body<IssuerMetadataDraft17>()
+        return http.get(metadataUrl).body<IssuerMetadataV10>()
     }
 
     fun getRealmUsers(): List<UserRepresentation> {

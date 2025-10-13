@@ -2,8 +2,8 @@ package io.nessus.identity.service
 
 import id.walt.oid4vc.requests.AuthorizationRequest
 import io.nessus.identity.extend.getQueryParameters
-import io.nessus.identity.types.CredentialOfferDraft17
-import io.nessus.identity.types.IssuerMetadataDraft17
+import io.nessus.identity.types.CredentialOfferV10
+import io.nessus.identity.types.IssuerMetadataV10
 import java.net.URI
 
 // AuthorizationContext ===============================================================================================
@@ -13,8 +13,8 @@ class AuthorizationContext(ctx: LoginContext) : LoginContext(ctx.getAttachments(
     var authCode: String? = null
     var authRequest: AuthorizationRequest? = null
     var codeVerifier: String? = null
-    var credOffer: CredentialOfferDraft17? = null
-    var metadata: IssuerMetadataDraft17? = null
+    var credOffer: CredentialOfferV10? = null
+    var metadata: IssuerMetadataV10? = null
 
     val authEndpointUrl get() = metadata!!.getAuthorizationAuthEndpoint()
 
@@ -38,12 +38,12 @@ class AuthorizationContext(ctx: LoginContext) : LoginContext(ctx.getAttachments(
         return this
     }
 
-    fun withCredentialOffer(credOffer: CredentialOfferDraft17): AuthorizationContext {
+    fun withCredentialOffer(credOffer: CredentialOfferV10): AuthorizationContext {
         this.credOffer = credOffer
         return this
     }
 
-    fun withIssuerMetadata(metadata: IssuerMetadataDraft17): AuthorizationContext {
+    fun withIssuerMetadata(metadata: IssuerMetadataV10): AuthorizationContext {
         this.metadata = metadata
         return this
     }

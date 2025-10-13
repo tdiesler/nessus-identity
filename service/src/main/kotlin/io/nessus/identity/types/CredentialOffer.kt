@@ -55,7 +55,7 @@ object CredentialOfferSerializer : JsonContentPolymorphicSerializer<CredentialOf
         val jsonObj = element.jsonObject
         return when {
             jsonObj.containsKey("credentials") -> CredentialOfferDraft11.serializer()
-            jsonObj.containsKey("credential_configuration_ids") -> CredentialOfferDraft17.serializer()
+            jsonObj.containsKey("credential_configuration_ids") -> CredentialOfferV10.serializer()
             else -> throw SerializationException("Unknown CredentialEntry type: $element")
         }
     }

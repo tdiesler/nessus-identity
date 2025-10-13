@@ -19,8 +19,10 @@ import io.ktor.http.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.types.AuthorizationRequestBuilder
-import io.nessus.identity.types.CredentialOfferDraft17
-import io.nessus.identity.types.IssuerMetadataDraft17
+import io.nessus.identity.types.CredentialOfferV10
+import io.nessus.identity.types.CredentialRequestV10
+import io.nessus.identity.types.CredentialResponseV10
+import io.nessus.identity.types.IssuerMetadataV10
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
@@ -36,7 +38,7 @@ import kotlin.random.Random
 
 // WalletServiceKeycloak =======================================================================================================================================
 
-class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
+class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
     val clientId = ConfigProvider.requireIssuerConfig().clientId
 
@@ -46,22 +48,19 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
     suspend fun authorizationContextFromOffer(
         ctx: LoginContext,
         redirectUri: String,
-        credOffer: CredentialOfferDraft17,
+        credOffer: CredentialOfferV10,
     ): AuthorizationContext {
 
         // Resolve the Issuer's metadata from the CredentialOffer
-        val metadata = credOffer.resolveIssuerMetadata() as IssuerMetadataDraft17
+        val metadata = credOffer.resolveIssuerMetadata() as IssuerMetadataV10
 
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
 
         val authReq = buildAuthorizationRequest(redirectUri, credOffer, codeVerifier)
 
-        val authContext = AuthorizationContext(ctx).
-            withIssuerMetadata(metadata).
-            withCredentialOffer(credOffer).
-            withCodeVerifier(codeVerifier).
-            withAuthorizationRequest(authReq)
+        val authContext = AuthorizationContext(ctx).withIssuerMetadata(metadata).withCredentialOffer(credOffer).withCodeVerifier(codeVerifier)
+            .withAuthorizationRequest(authReq)
 
         return authContext
     }
@@ -82,17 +81,16 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
         // Holder sends a CredentialRequest
         //
         val credRes = sendCredentialRequest(OIDContext(authContext), credOffer, tokenRes)
-        log.info { "CredentialResponse: $credRes" }
+        log.info { "CredentialResponse: ${Json.encodeToString(credRes)}" }
 
         credOffer.credentialConfigurationIds.first()
 
         // Extract the VerifiableCredential from the CredentialResponse
         //
-        val credJwt = credRes.getValue("credentials").jsonArray
-            .map { it.jsonObject }
-            .map { it.getValue("credential").jsonPrimitive.content }
-            .map { SignedJWT.parse(it) }
-            .first()
+        val credJwt = credRes.credentials
+            ?.map { it.credential }
+            ?.map { SignedJWT.parse(it) }
+            ?.first() as SignedJWT
 
         log.info { "CredentialJwt Header: ${credJwt.header}" }
         log.info { "CredentialJwt Claims: ${credJwt.jwtClaimsSet}" }
@@ -100,11 +98,12 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
         val vcJwt = Json.decodeFromString<VCDataJwt>("${credJwt.payload}")
         log.info { "Credential: ${vcJwt.toJson()}" }
 
-        val ctype = when(vcJwt) {
+        val ctype = when (vcJwt) {
             is VCDataV11Jwt -> {
                 if (vcJwt.vc.type.size != 1) error("Multiple types not supported")
                 vcJwt.vc.type.first()
             }
+
             is VCDataSdV11Jwt -> {
                 vcJwt.vct ?: error("No vct")
             }
@@ -165,7 +164,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
 
     private suspend fun buildAuthorizationRequest(
         redirectUri: String,
-        credOffer: CredentialOfferDraft17,
+        credOffer: CredentialOfferV10,
         codeVerifier: String? = null
     ): AuthorizationRequest {
 
@@ -220,11 +219,11 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
 
     private suspend fun sendCredentialRequest(
         ctx: LoginContext,
-        credOffer: CredentialOfferDraft17,
+        credOffer: CredentialOfferV10,
         tokenRes: TokenResponse
-    ): JsonObject {
+    ): CredentialResponseV10 {
 
-        val metadata: IssuerMetadataDraft17 = credOffer.resolveIssuerMetadata()
+        val metadata: IssuerMetadataV10 = credOffer.resolveIssuerMetadata()
 
         val ctypes = credOffer.credentialConfigurationIds
         if (ctypes.size != 1) throw IllegalArgumentException("Multiple types not supported: $ctypes")
@@ -261,29 +260,23 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferDraft17>() {
         log.info { "ProofHeader: ${proofJwt.header}" }
         log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
 
-        // [TODO #267] CredentialRequest + CredentialResponse type for Draft17
-        // https://github.com/tdiesler/nessus-identity/issues/267
-        val credReqObj = Json.decodeFromString<JsonObject>(
-            """{
-          "credential_configuration_id": "$ctype",
-          "proofs": {
-            "jwt": [ "${proofJwt.serialize()}" ]
-            }
-          }"""
+        val credReq = CredentialRequestV10(
+            credentialConfigurationId = ctype,
+            proofs = CredentialRequestV10.Proofs(jwt = listOf(proofJwt.serialize()))
         )
 
         //val credReq = Json.decodeFromString<CredentialRequest>(credReqJson)
-        log.info { "CredentialRequest: $credReqObj" }
+        log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
 
         val res = http.post(metadata.credentialEndpoint) {
             header(HttpHeaders.Authorization, "Bearer ${tokenRes.accessToken}")
             contentType(ContentType.Application.Json)
-            setBody(credReqObj)
+            setBody(credReq)
         }
         if (res.status != HttpStatusCode.OK)
             throw HttpStatusException(res.status, res.bodyAsText())
 
-        val credRes = Json.decodeFromString<JsonObject>(res.bodyAsText())
+        val credRes = Json.decodeFromString<CredentialResponseV10>(res.bodyAsText())
         return credRes
     }
 }

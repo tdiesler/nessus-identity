@@ -7,7 +7,7 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.http
 import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.CredentialOfferDraft17
+import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.waltid.handleResponse
 import kotlinx.serialization.json.JsonObject
 
@@ -22,11 +22,11 @@ class WalletApiClient() : WalletApi {
         baseUrl = walletApi.baseUrl
     }
 
-    override suspend fun getCredentialOffers(ctx: LoginContext): Map<String, CredentialOfferDraft17> {
+    override suspend fun getCredentialOffers(ctx: LoginContext): Map<String, CredentialOfferV10> {
         val res = http.get("$baseUrl/wallets/${ctx.walletId}/credential-offers") {
             contentType(Application.Json)
         }
-        return handleResponse<Map<String, CredentialOfferDraft17>>(res)
+        return handleResponse<Map<String, CredentialOfferV10>>(res)
     }
 
     override suspend fun addCredentialOffer(ctx: LoginContext, offer: CredentialOffer): String {

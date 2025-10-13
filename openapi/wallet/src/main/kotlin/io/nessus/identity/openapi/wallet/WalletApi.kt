@@ -2,7 +2,7 @@ package io.nessus.identity.openapi.wallet
 
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.CredentialOfferDraft17
+import io.nessus.identity.types.CredentialOfferV10
 import kotlinx.serialization.json.JsonObject
 
 // WalletApi ==========================================================================================================
@@ -37,7 +37,7 @@ interface WalletApi {
      */
     suspend fun getCredentialOffers(
         ctx: LoginContext
-    ): Map<String, CredentialOfferDraft17>
+    ): Map<String, CredentialOfferV10>
 
     /**
      * Delete a CredentialOffer from the Wallet.

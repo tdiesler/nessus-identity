@@ -28,7 +28,7 @@ abstract class IssuerMetadata {
         if (!::authMetadata.isInitialized) {
             val authServerUrl = when(this) {
                 is IssuerMetadataDraft11 -> authorizationServer!!
-                is IssuerMetadataDraft17 -> authorizationServers!!.first()
+                is IssuerMetadataV10 -> authorizationServers!!.first()
                 else -> throw IllegalStateException("Unsupported IssuerMetadata type")
             }
             runBlocking {
@@ -62,7 +62,7 @@ object IssuerMetadataSerializer : JsonContentPolymorphicSerializer<IssuerMetadat
         val jsonObj = element.jsonObject
         return when {
             jsonObj.containsKey("credentials_supported") -> IssuerMetadataDraft11.serializer()
-            jsonObj.containsKey("credential_configurations_supported") -> IssuerMetadataDraft17.serializer()
+            jsonObj.containsKey("credential_configurations_supported") -> IssuerMetadataV10.serializer()
             else -> throw SerializationException("Unknown CredentialEntry type: $element")
         }
     }

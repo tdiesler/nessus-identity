@@ -12,7 +12,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
 */
 @Serializable
-data class IssuerMetadataDraft17(
+data class IssuerMetadataV10(
     @SerialName("credential_issuer")
     override val credentialIssuer: String,
 
@@ -42,8 +42,8 @@ data class IssuerMetadataDraft17(
 ) : IssuerMetadata() {
     companion object {
         val jsonInst = Json { ignoreUnknownKeys = true}
-        fun fromJson(json: String) = jsonInst.decodeFromString<IssuerMetadataDraft17>(json)
-        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<IssuerMetadataDraft17>(json)
+        fun fromJson(json: String) = jsonInst.decodeFromString<IssuerMetadataV10>(json)
+        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<IssuerMetadataV10>(json)
     }
 
     override val supportedTypes

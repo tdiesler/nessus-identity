@@ -6,7 +6,7 @@ import io.ktor.server.routing.*
 import io.nessus.identity.console.SessionsStore.findOrCreateLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.getVersionInfo
-import io.nessus.identity.types.CredentialOfferDraft17
+import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.waltid.User
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -61,12 +61,12 @@ class IssuerHandler(val issuer: User) {
         )
     }
 
-    suspend fun handleIssuerCredentialOffer(call: RoutingCall, ctype: String): CredentialOfferDraft17? {
+    suspend fun handleIssuerCredentialOffer(call: RoutingCall, ctype: String): CredentialOfferV10? {
         val ctx = findOrCreateLoginContext(call, issuer)
         val model = issuerModel().also {
             it.put("ctype", ctype)
         }
-        var credOffer: CredentialOfferDraft17? = null
+        var credOffer: CredentialOfferV10? = null
         val subjectId = call.request.queryParameters["subjectId"]
         if (subjectId != null) {
             credOffer = issuerSvc.createCredentialOffer(ctx, subjectId, listOf(ctype))

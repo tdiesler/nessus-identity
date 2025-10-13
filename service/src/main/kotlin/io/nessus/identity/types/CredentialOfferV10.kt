@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
 */
 @Serializable
-data class CredentialOfferDraft17(
+data class CredentialOfferV10(
     @SerialName("credential_issuer")
     override val credentialIssuer: String,
 
