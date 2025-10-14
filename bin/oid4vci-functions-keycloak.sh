@@ -22,8 +22,7 @@ kc_create_realm() {
   local realm="$1"
   local client_id="$2"
   local credential_id="$3"
-  local credential_format="$4"
-  local force="$5"
+  local force="$4"
 
   # Check if realm already exists
   #
@@ -80,12 +79,24 @@ kc_create_realm() {
     -s 'config.algorithm=["ES256"]'
 
   # Get the ACTIVE ES256 kid
-  local es256KeyId
-  es256KeyId=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[] | select(.algorithm=="ES256" and .status=="ACTIVE" and .use=="SIG") | .kid')
+  es256KeyId=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[] | select(.algorithm=="ES256" and .status=="ACTIVE") | .kid')
   echo "ES256 key id: ${es256KeyId}"
 
   curr_algos=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
   echo "Current key algorithms: ${curr_algos[*]}"
+
+  # Fetch the realm’s public JWKS
+  jwks_json=$(curl -s "${AUTH_SERVER_URL}/realms/${realm}/protocol/openid-connect/certs" | jq -r --arg kid "$es256KeyId" '.keys[] | select(.kid==$kid)')
+  echo "Realm JWK: $jwks_json"
+
+  # Filter JWKS by kid
+  x=$(echo "$jwks_json" | jq -r '.x')
+  y=$(echo "$jwks_json" | jq -r '.y')
+
+  # Get the Issuer's DID
+  #
+  issuer_did=$(jbang "${SCRIPT_DIR}/Es256ToDidKey.java" "$x" "$y")
+  echo "Issuer Did: ${issuer_did}"
 
   # Configure oid4vci realm attributes
   #
@@ -142,9 +153,9 @@ EOF
       "include.in.token.scope": "true",
       "vc.include_in_metadata": "true",
 
-      "vc.issuer_did": "${AUTH_SERVER_URL}/realms/${realm}",
+      "vc.issuer_did": "${issuer_did}",
 
-      "vc.format": "${credential_format}",
+      "vc.format": "jwt_vc",
       "vc.credential_contexts": "${credential_id}",
       "vc.credential_configuration_id": "${credential_id}",
       "vc.supported_credential_types": "${credential_id}",
@@ -214,7 +225,7 @@ EOF
     "attributes": {
       "include.in.token.scope": "true",
       "vc.include_in_metadata": "true",
-      "vc.issuer_did": "${AUTH_SERVER_URL}/realms/${realm}",
+      "vc.issuer_did": "${issuer_did}",
       "vc.format": "dc+sd-jwt",
       "vc.credential_contexts": "oid4vc_natural_person",
       "vc.credential_configuration_id": "oid4vc_natural_person",

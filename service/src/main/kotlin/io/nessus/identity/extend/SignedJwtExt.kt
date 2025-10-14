@@ -6,7 +6,7 @@ import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.service.FlattenedJws
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.DidInfo
-import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -20,7 +20,7 @@ fun SignedJWT.createFlattenedJws(): FlattenedJws {
 
 suspend fun SignedJWT.signWithKey(ctx: LoginContext, kid: String): SignedJWT {
     val signingInput = Json.encodeToString(this.createFlattenedJws())
-    val signedEncoded = widWalletSvc.signWithKey(ctx, kid, signingInput)
+    val signedEncoded = widWalletService.signWithKey(ctx, kid, signingInput)
     return SignedJWT.parse(signedEncoded)
 }
 

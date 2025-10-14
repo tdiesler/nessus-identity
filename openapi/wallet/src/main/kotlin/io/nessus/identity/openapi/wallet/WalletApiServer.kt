@@ -23,7 +23,6 @@ import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.PlaywrightAuthCallbackHandler
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.getVersionInfo
-import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max

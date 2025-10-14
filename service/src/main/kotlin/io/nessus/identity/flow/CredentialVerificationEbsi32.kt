@@ -14,7 +14,7 @@ import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.VCDataV11Jwt
-import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlin.random.Random
 
 class CredentialVerificationEbsi32(val holderCtx: OIDContext, val verifierCtx: OIDContext) {
@@ -30,7 +30,7 @@ class CredentialVerificationEbsi32(val holderCtx: OIDContext, val verifierCtx: O
         
         // Holder queries it's Wallet to find the requested Credential
         //
-        val vcFound = widWalletSvc.findCredentialsByType(holderCtx, ctype)
+        val vcFound = widWalletService.findCredentialsByType(holderCtx, ctype)
         if (vcFound.isEmpty())
             throw IllegalStateException("$ctype not found")
 

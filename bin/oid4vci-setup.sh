@@ -16,7 +16,7 @@ case "$TARGET" in
     echo "Doing development setup..."
     export KUBE_CONTEXT="rancher-desktop"
     export AUTH_SERVER_URL="https://oauth.localtest.me"
-    export AUTH_REDIRECT_URI="https://localhost:9000/wallet/oauth/callback"
+    export AUTH_REDIRECT_URI="http://localhost:9000/wallet/oauth/callback"
     export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
   stage)
@@ -73,11 +73,10 @@ kc_admin_login "${adminUser}" "${adminPass}"
 #
 realm="oid4vci"
 client_id="oid4vci-client"
-credential_format="jwt_vc"
 credential_id="oid4vc_identity_credential"
 redirect_uri="urn:ietf:wg:oauth:2.0:oob"
 
-kc_create_realm "${realm}" "${client_id}" "${credential_id}" "${credential_format}" ${forceRecreate}
+kc_create_realm "${realm}" "${client_id}" "${credential_id}" ${forceRecreate}
 
 ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
 #

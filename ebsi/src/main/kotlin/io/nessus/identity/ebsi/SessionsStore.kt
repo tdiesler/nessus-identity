@@ -9,7 +9,7 @@ import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
-import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 
 object SessionsStore {
 
@@ -51,13 +51,13 @@ object SessionsStore {
         if (ctx == null) {
             val cfg = ConfigProvider.requireEbsiConfig()
             val loginParams = LoginParams(LoginType.EMAIL, cfg.userEmail!!, cfg.userPassword!!)
-            ctx = widWalletSvc.loginWithWallet(loginParams)
+            ctx = widWalletService.loginWithWallet(loginParams)
             val subjectId = LoginContext.getTargetId(ctx.walletId, "")
             sessions[subjectId] = ctx
         }
 
         if (ctx.maybeDidInfo == null) {
-            val didInfo = widWalletSvc.findDidByPrefix(ctx, "did:key")
+            val didInfo = widWalletService.findDidByPrefix(ctx, "did:key")
                 ?: throw IllegalStateException("Cannot find required did in wallet")
             ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, didInfo)
         }

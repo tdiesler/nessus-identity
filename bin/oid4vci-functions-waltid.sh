@@ -102,7 +102,6 @@ setup_waltid_user() {
     return 1
   fi
 
-
   jq -n \
     --arg role "${role}" \
     --arg name "${name}" \

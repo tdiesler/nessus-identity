@@ -16,7 +16,7 @@ import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.User
-import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -44,7 +44,7 @@ open class AbstractConformanceTest {
 
     fun login(user: User): LoginContext {
         val ctx = sessions[user.email] ?: runBlocking {
-            widWalletSvc.login(user.toLoginParams()).also {
+            widWalletService.login(user.toLoginParams()).also {
                 sessions[user.email] = it
             }
         }
@@ -53,11 +53,11 @@ open class AbstractConformanceTest {
 
     suspend fun loginWithWallet(user: User): LoginContext {
         val ctx = login(user).also {
-            val wi = widWalletSvc.listWallets(it).first()
+            val wi = widWalletService.listWallets(it).first()
             it.putAttachment(WALLET_INFO_ATTACHMENT_KEY, wi)
         }
         if (ctx.maybeDidInfo == null) {
-            widWalletSvc.findDidByPrefix(ctx, "did:key")?.also {
+            widWalletService.findDidByPrefix(ctx, "did:key")?.also {
                 ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
             }
         }
@@ -69,18 +69,18 @@ open class AbstractConformanceTest {
             val apiEx = ex as? APIException ?: throw ex
             val msg = apiEx.message as String
             if (apiEx.code == 401 && msg.contains("Unknown user")) {
-                widWalletSvc.registerUser(user.toRegisterUserParams())
+                widWalletService.registerUser(user.toRegisterUserParams())
                 loginWithWallet(user)
             } else {
                 throw ex
             }
         }
         if (ctx.maybeDidInfo == null) {
-            var didInfo = widWalletSvc.findDidByPrefix(ctx, "did:key")
+            var didInfo = widWalletService.findDidByPrefix(ctx, "did:key")
             if (didInfo == null) {
-                val key = widWalletSvc.findKeyByType(ctx, KeyType.SECP256R1)
-                    ?: widWalletSvc.createKey(ctx, KeyType.SECP256R1)
-                didInfo = widWalletSvc.createDidKey(ctx, "", key.id)
+                val key = widWalletService.findKeyByType(ctx, KeyType.SECP256R1)
+                    ?: widWalletService.createKey(ctx, KeyType.SECP256R1)
+                didInfo = widWalletService.createDidKey(ctx, "", key.id)
             }
             ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, didInfo)
         }

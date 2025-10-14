@@ -12,7 +12,7 @@ import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
-import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.coroutines.runBlocking
 
 object LoginHandler {
@@ -31,8 +31,8 @@ object LoginHandler {
             return call.respond(HttpStatusCode.BadRequest, "Missing email or password")
 
         runBlocking {
-            val ctx = widWalletSvc.loginWithWallet(LoginParams(LoginType.EMAIL, email, password))
-            widWalletSvc.findDidByPrefix(ctx, "did:key")?.also {
+            val ctx = widWalletService.loginWithWallet(LoginParams(LoginType.EMAIL, email, password))
+            widWalletService.findDidByPrefix(ctx, "did:key")?.also {
                 ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
             }
             val wid = ctx.walletId

@@ -40,7 +40,7 @@ import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.TokenRequestV10
 import io.nessus.identity.types.TokenResponseV10
 import io.nessus.identity.types.VCDataV11Jwt
-import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletSvc
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -66,7 +66,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         // Verify that we can unmarshall the credential
         Json.decodeFromString<VCDataV11Jwt>("${credJwt.payload}")
 
-        widWalletSvc.addCredential(walletId, format, credJwt)
+        widWalletService.addCredential(walletId, format, credJwt)
     }
 
     suspend fun createCredentialRequest(
@@ -211,7 +211,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         val vcArray = vpObj["verifiableCredential"] as MutableList<String>
 
         val descriptorMappings = mutableListOf<DescriptorMapping>()
-        val matchingCredentials = widWalletSvc.findCredentialsByPresentationDefinition(ctx, vpdef).toMap()
+        val matchingCredentials = widWalletService.findCredentialsByPresentationDefinition(ctx, vpdef).toMap()
         val matchingCredentialsByInputDescriptorId = matchingCredentials.entries.associate { (ind, wc) -> ind.id to wc }
 
         for (ind in vpdef.inputDescriptors) {

@@ -1,21 +1,16 @@
 package io.nessus.identity.service
 
-import com.nimbusds.jose.JOSEObjectType
-import com.nimbusds.jose.JWSAlgorithm
-import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jwt.JWTClaimsSet
-import com.nimbusds.jwt.SignedJWT
+import com.nimbusds.jwt.PlainJWT
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.nessus.identity.config.IssuerConfig
-import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataV10
 import io.nessus.identity.types.PreAuthorizedCodeGrant
-import io.nessus.identity.waltid.authenticationId
 import org.keycloak.admin.client.KeycloakBuilder
 import org.keycloak.representations.idm.UserRepresentation
 import java.net.URI
@@ -52,12 +47,6 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
         // Build issuer state jwt
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5min
-        val kid = ctx.didInfo.authenticationId() // The Issuer's DID
-
-        val header = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType.JWT)
-            .keyID(kid)
-            .build()
 
         val issuerStateClaims = JWTClaimsSet.Builder()
             .subject(subjectId)
@@ -67,18 +56,20 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
             .claim("credential_types", types)
             .build()
 
-        val issuerStateJwt = SignedJWT(header, issuerStateClaims).signWithKey(ctx, kid)
+        // Unsigned JWT
+        val issuerStateJwt = PlainJWT(issuerStateClaims)
+        val issuerState = issuerStateJwt.serialize()
 
         // Build CredentialOffer
         val credOffer = CredentialOfferV10(
             credentialIssuer = issuerUri,
             credentialConfigurationIds = types,
             grants = if (userPin != null) {
-                val preAuthCode = issuerStateJwt.serialize()
+                val preAuthCode = issuerState
                 Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
             } else {
                 val clientId = issuerCfg.clientId
-                val issuerState = issuerStateJwt.serialize()
+                val issuerState = issuerState
                 Grants(authorizationCode = AuthorizationCodeGrant(issuerState, clientId = clientId))
             }
         )
