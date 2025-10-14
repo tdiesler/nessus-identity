@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.nessus.identity</groupId>
         <artifactId>nessus-identity-openapi</artifactId>
-        <version>25.3.0</version>
+        <version>25.4.0-SNAPSHOT</version>
     </parent>
 
     <name>Nessus Identity :: OpenAPI :: Wallet</name>
