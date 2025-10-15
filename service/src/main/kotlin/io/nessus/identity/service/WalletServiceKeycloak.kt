@@ -10,8 +10,6 @@ import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.CredentialFormat
-import id.walt.oid4vc.requests.AuthorizationRequest
-import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -81,57 +79,15 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         return vcJwt
     }
 
-    suspend fun getCredentials(
-        ctx: LoginContext,
-    ): Map<String, VCDataJwt> {
-        val resMap = widWalletService.findCredentials(ctx) { true }.associate { wc ->
-            val jwt = SignedJWT.parse(wc.document)
-            val vcJwt = Json.decodeFromString<VCDataJwt>("${jwt.payload}")
-            wc.id to vcJwt
-        }
-        return resMap
-    }
-
-    suspend fun getCredential(
-        ctx: LoginContext,
-        vcId: String
-    ): VCDataJwt? {
-        val res = widWalletService.findCredentialsById(ctx, vcId)?.let {
-            val jwt = SignedJWT.parse(it.document)
-            Json.decodeFromString<VCDataJwt>("${jwt.payload}")
-        }
-        return res
-    }
-
-    suspend fun deleteCredential(
-        ctx: LoginContext,
-        vcId: String
-    ): VCDataJwt? {
-        val res = widWalletService.deleteCredential(ctx, vcId)?.let {
-            val jwt = SignedJWT.parse(it.document)
-            Json.decodeFromString<VCDataJwt>("${jwt.payload}")
-        }
-        return res
-    }
-
-    suspend fun deleteCredentials(
-        ctx: LoginContext,
-        predicate: (WalletCredential) -> Boolean
-    ) {
-        widWalletService.listCredentials(ctx)
-            .filter { wc -> predicate(wc) }
-            .forEach { wc -> widWalletService.deleteCredential(ctx, wc.id) }
-    }
-
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
     private suspend fun buildAuthorizationRequest(
         redirectUri: String,
         credOffer: CredentialOfferV10,
         codeVerifier: String? = null
-    ): AuthorizationRequest {
+    ): AuthorizationRequestV10 {
 
-        val builder = AuthorizationRequestBuilder()
+        val builder = AuthorizationRequestV10Builder()
             .withRedirectUri(redirectUri)
             .withClientId(clientId)
 
@@ -146,10 +102,10 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
     private suspend fun sendTokenRequest(ctx: AuthorizationContext): TokenResponseV10 {
 
+        val authReq = ctx.authRequest
+        val metadata = ctx.metadata
         val authCode = ctx.authCode ?: error("No Auth Code")
-        val authReq = ctx.authRequest ?: error("No AuthorizationRequest")
         val codeVerifier = ctx.codeVerifier ?: error("No Code Verifier")
-        val metadata = ctx.metadata ?: error("No IssuerMetadata")
 
         val tokenEndpointUrl = metadata.getAuthorizationTokenEndpoint()
 

@@ -6,7 +6,7 @@ import io.kotest.matchers.string.shouldEndWith
 import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.Test
 
-class AuthServiceTest : AbstractServiceTest() {
+class AuthServiceEbsi32Test : AbstractServiceTest() {
 
     @Test
     fun authMetadata() {

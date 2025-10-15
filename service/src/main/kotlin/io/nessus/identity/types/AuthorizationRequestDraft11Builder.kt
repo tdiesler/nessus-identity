@@ -11,7 +11,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.security.MessageDigest
 
-class AuthorizationRequestBuilder {
+class AuthorizationRequestDraft11Builder {
 
     val log = KotlinLogging.logger {}
 
@@ -31,39 +31,39 @@ class AuthorizationRequestBuilder {
 
     var codeChallenge: String? = null
 
-    fun withClientId(id: String): AuthorizationRequestBuilder {
+    fun withClientId(id: String): AuthorizationRequestDraft11Builder {
         this.clientId = id
         return this
     }
 
-    fun withClientState(state: String): AuthorizationRequestBuilder {
+    fun withClientState(state: String): AuthorizationRequestDraft11Builder {
         this.clientState = state
         return this
     }
 
-    fun withCodeChallengeMethod(method: String): AuthorizationRequestBuilder {
+    fun withCodeChallengeMethod(method: String): AuthorizationRequestDraft11Builder {
         if (method != "S256")
             throw IllegalStateException("Unsupported code challenge method: $method")
         this.codeChallengeMethod = method
         return this
     }
 
-    fun withCodeVerifier(codeVerifier: String): AuthorizationRequestBuilder {
+    fun withCodeVerifier(codeVerifier: String): AuthorizationRequestDraft11Builder {
         this.codeVerifier = codeVerifier
         return this
     }
 
-    fun withIssuerMetadata(metadata: IssuerMetadata): AuthorizationRequestBuilder {
+    fun withIssuerMetadata(metadata: IssuerMetadata): AuthorizationRequestDraft11Builder {
         this.metadata = metadata
         return this
     }
 
-    fun withPresentationDefinition(vpDef: PresentationDefinition): AuthorizationRequestBuilder {
+    fun withPresentationDefinition(vpDef: PresentationDefinition): AuthorizationRequestDraft11Builder {
         this.presentationDefinition = vpDef
         return this
     }
 
-    fun withRedirectUri(uri: String): AuthorizationRequestBuilder {
+    fun withRedirectUri(uri: String): AuthorizationRequestDraft11Builder {
         this.redirectUri = uri
         return this
     }

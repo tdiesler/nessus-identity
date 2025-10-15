@@ -17,9 +17,6 @@ import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.VCDataJwt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.jetbrains.exposed.v1.jdbc.Database
 import javax.sql.DataSource
 import kotlin.time.Clock
@@ -122,8 +119,8 @@ class WaltIDWalletService {
     }
 
     suspend fun listCredentials(ctx: LoginContext): List<WalletCredential> {
-        val res = api.credentials(ctx)
-        return res.toList()
+        val res = findCredentials(ctx) { true }
+        return res
     }
 
     suspend fun findCredentials(ctx: LoginContext, predicate: suspend (WalletCredential) -> Boolean): List<WalletCredential> {

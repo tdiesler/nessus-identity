@@ -10,7 +10,7 @@ import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.VCDataV11Jwt
@@ -40,7 +40,7 @@ class CredentialVerificationEbsi32(val holderCtx: OIDContext, val verifierCtx: O
         val codeVerifier = Base64URL.encode(rndBytes).toString()
 
         val redirectUri = "$authEndpointUri/${holderCtx.targetId}"
-        val authRequest = AuthorizationRequestBuilder()
+        val authRequest = AuthorizationRequestDraft11Builder()
             .withClientId(holderCtx.did)
             .withClientState(holderCtx.walletId)
             .withCodeChallengeMethod("S256")

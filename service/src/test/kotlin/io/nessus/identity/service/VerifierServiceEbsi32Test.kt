@@ -7,7 +7,7 @@ import io.nessus.identity.flow.CredentialIssuanceEbsi32
 import io.nessus.identity.flow.CredentialVerificationEbsi32
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
-import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.CredentialStatus
@@ -64,7 +64,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
             // The Holder sends an AuthorizationRequest to the Verifier
             //
             val redirectUri = "$authEndpointUri/${alice.targetId}"
-            val authRequest = AuthorizationRequestBuilder()
+            val authRequest = AuthorizationRequestDraft11Builder()
                 .withClientId(alice.did)
                 .withRedirectUri(redirectUri)
                 .build()

@@ -1,24 +1,19 @@
 package io.nessus.identity.service
 
-import id.walt.oid4vc.data.GrantDetails
 import io.kotest.common.runBlocking
 import io.kotest.matchers.collections.shouldHaveSize
-import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldNotBeBlank
 import io.nessus.identity.types.CredentialObject
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.IssuerMetadataDraft11
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 
-class WalletServiceTest : AbstractServiceTest() {
+class WalletServiceEbsi32Test : AbstractServiceTest() {
 
     @Test
-    fun decodeCredentialOffer() {
+    fun decodeCredentialOfferDraft11() {
         val credOfferJson = """
         {
           "credential_issuer": "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock",

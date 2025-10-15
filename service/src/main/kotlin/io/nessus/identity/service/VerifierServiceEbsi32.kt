@@ -11,7 +11,7 @@ class VerifierServiceEbsi32 : VerifierService {
 
     val log = KotlinLogging.logger {}
 
-    override fun validateVerifiableCredential(vc: VCDataV11, vcp: CredentialParameters?) {
+    fun validateVerifiableCredential(vc: VCDataV11, vcp: CredentialParameters? = null) {
 
         val id = vc.id ?: throw IllegalArgumentException("No credential id: $vc")
 

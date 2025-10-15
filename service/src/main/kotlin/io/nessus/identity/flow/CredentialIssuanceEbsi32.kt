@@ -13,9 +13,8 @@ import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOfferDraft11
-import io.nessus.identity.types.IssuerMetadataDraft11
 import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
 
@@ -48,7 +47,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
         val codeVerifier = Base64URL.encode(rndBytes).toString()
 
         val redirectUri = "$authEndpointUri/${holderCtx.targetId}"
-        val authRequest = AuthorizationRequestBuilder()
+        val authRequest = AuthorizationRequestDraft11Builder()
             .withClientId(holderCtx.did)
             .withClientState(holderCtx.walletId)
             .withCodeChallengeMethod("S256")
@@ -111,7 +110,7 @@ class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDCont
         val codeVerifier = Base64URL.encode(rndBytes).toString()
 
         val redirectUri = "$authEndpointUri/${holderCtx.targetId}"
-        val authRequest = AuthorizationRequestBuilder()
+        val authRequest = AuthorizationRequestDraft11Builder()
             .withClientId(holderCtx.did)
             .withClientState(holderCtx.walletId)
             .withCodeChallengeMethod("S256")

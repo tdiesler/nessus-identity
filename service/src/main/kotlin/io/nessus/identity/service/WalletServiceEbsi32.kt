@@ -33,7 +33,7 @@ import io.nessus.identity.service.AttachmentKeys.PRESENTATION_SUBMISSION_ATTACHM
 import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
 import io.nessus.identity.service.CredentialOfferRegistry.assertCredentialOfferRecord
-import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.IssuerMetadataDraft11
@@ -332,7 +332,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
             val rndBytes = Random.nextBytes(32)
             val codeVerifier = Base64URL.encode(rndBytes).toString()
             val redirectUri = "$authEndpointUri/${ctx.targetId}"
-            val authRequest = AuthorizationRequestBuilder()
+            val authRequest = AuthorizationRequestDraft11Builder()
                 .withClientId(ctx.did)
                 .withClientState(ctx.walletId)
                 .withCodeChallengeMethod("S256")

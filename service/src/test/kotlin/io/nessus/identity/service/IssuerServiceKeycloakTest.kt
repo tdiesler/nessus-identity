@@ -71,35 +71,6 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     }
 
     @Test
-    fun testIssueCredentialInTime() {
-        /*
-            Authorization Code Flow
-            https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-code-flow
-        */
-        runBlocking {
-
-            val ctype = "oid4vc_identity_credential"
-
-            // Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
-            // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
-            val credOffer = issuerSvc.createCredentialOffer(max, alice.did, listOf(ctype))
-
-            val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
-            val authContext = walletSvc.authorizationContextFromOffer(alice, redirectUri, credOffer)
-
-            val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-            val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
-
-            val vcJwt = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode)) as VCDataV11Jwt
-            vcJwt.vc.type shouldBeEqual credOffer.credentialConfigurationIds
-
-            val subject = vcJwt.vc.credentialSubject
-            subject.claims.getValue("email").jsonPrimitive.content shouldBeEqual Alice.email
-            //subject.id!! shouldBeEqual alice.did
-        }
-    }
-
-    @Test
     fun testGetRealmUsers() {
 
         val realmUsers = issuerSvc.getRealmUsers()

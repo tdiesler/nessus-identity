@@ -2,12 +2,15 @@ package io.nessus.identity.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.waltid.User
+import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Paths
 
 abstract class AbstractServiceTest {
 
     val log = KotlinLogging.logger {}
+
+    val jsonPretty = Json { prettyPrint = true }
 
     companion object {
         val sessions = mutableMapOf<String, LoginContext>()

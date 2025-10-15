@@ -93,15 +93,16 @@ class WalletHandler(val holder: User) {
             did.length > 32 -> "${did.substring(0, 20)}...${did.substring(did.length - 12)}"
             else -> did
         }
-        val credentialList = walletSvc.getCredentials(ctx).map { (vcId, vcJwt) ->
+
+        val credentialList = walletSvc.findCredentials(ctx) { true }.map { vcJwt ->
             when (vcJwt) {
                 is VCDataV11Jwt -> {
                     val vc = vcJwt.vc
-                    listOf(vcId.encodeURLPath(), abbreviatedDid(vc.issuer.id), "${vc.type}")
+                    listOf(vcJwt.vcId.encodeURLPath(), abbreviatedDid(vc.issuer.id), "${vc.type}")
                 }
 
                 is VCDataSdV11Jwt -> {
-                    listOf(vcId.encodeURLPath(), abbreviatedDid(vcJwt.iss ?: "unknown"), vcJwt.vct ?: "unknown")
+                    listOf(vcJwt.vcId.encodeURLPath(), abbreviatedDid(vcJwt.iss ?: "unknown"), vcJwt.vct ?: "unknown")
                 }
             }
         }
@@ -115,7 +116,7 @@ class WalletHandler(val holder: User) {
 
     suspend fun handleWalletCredentialDetails(call: RoutingCall, vcId: String) {
         val ctx = findOrCreateLoginContext(call, holder)
-        val credObj = walletSvc.getCredential(ctx, vcId) ?: error("No credential for: $vcId")
+        val credObj = walletSvc.getCredentialById(ctx, vcId) ?: error("No credential for: $vcId")
         val prettyJson = jsonPretty.encodeToString(credObj)
         val model = walletModel(ctx).also {
             it.put("credObj", prettyJson)

@@ -1,7 +1,11 @@
 package io.nessus.identity.service
 
+import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
+import kotlinx.serialization.json.Json
 import kotlin.uuid.Uuid
 
 abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<COType> {
@@ -28,5 +32,69 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
 
     override fun deleteCredentialOffer(offerId: String): COType? {
         return credOfferRegistry.remove(offerId)
+    }
+
+    override suspend fun findCredential(
+        ctx: LoginContext,
+        predicate: (VCDataJwt) -> Boolean
+    ): VCDataJwt? {
+        val res = widWalletService.listCredentials(ctx)
+            .asSequence()
+            .map {
+                val jwt = SignedJWT.parse(it.document)
+                Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+            }
+            .filter { predicate(it) }
+            .firstOrNull()
+        return res
+    }
+
+    override suspend fun findCredentials(
+        ctx: LoginContext,
+        predicate: (VCDataJwt) -> Boolean
+    ): List<VCDataJwt> {
+        val res = widWalletService.listCredentials(ctx).map { wc ->
+            val jwt = SignedJWT.parse(wc.document)
+            Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+        }
+        return res
+    }
+
+    override suspend fun getCredentialById(
+        ctx: LoginContext,
+        vcId: String
+    ): VCDataJwt? {
+        return findCredential(ctx) { it.vcId == vcId }
+    }
+
+    override suspend fun getCredentialByType(
+        ctx: LoginContext,
+        ctype: String
+    ): VCDataJwt? {
+        return findCredential(ctx) { it.containsType(ctype) }
+    }
+
+    override suspend fun deleteCredential(
+        ctx: LoginContext,
+        vcId: String
+    ): VCDataJwt? {
+        val res = widWalletService.deleteCredential(ctx, vcId)?.let {
+            val jwt = SignedJWT.parse(it.document)
+            Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+        }
+        return res
+    }
+
+    override suspend fun deleteCredentials(
+        ctx: LoginContext,
+        predicate: (VCDataJwt) -> Boolean
+    ) {
+        widWalletService.listCredentials(ctx)
+            .map { wc ->
+                val jwt = SignedJWT.parse(wc.document)
+                Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+            }
+            .filter { vc -> predicate(vc) }
+            .forEach { vc -> widWalletService.deleteCredential(ctx, vc.vcId) }
     }
 }
