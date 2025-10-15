@@ -11,8 +11,6 @@ ebsiPortalHost: "ebsi.nessustech.io"
 # Services
 #
 oauthApiHost: "oauth.nessustech.io"
-issuerApiHost: "issuer-api.nessustech.io"
-walletApiHost: "wallet-api.nessustech.io"
 
 # WaltId Services
 #
@@ -38,6 +36,14 @@ deployments:
     version: 26.4
     pullPolicy: Always
 
+  # Nessus Services
+  #
+  console:
+    imagePrefix: "registry.vps6c.eu.ebsi:30443/"
+    image: "nessusio/console"
+    version: latest
+    pullPolicy: Always
+
   # WaltId Services
   #
   waltid_wallet_api:
@@ -51,13 +57,5 @@ deployments:
     pullPolicy: Always
   waltid_dev_wallet:
     image: "waltid/waltid-dev-wallet"
-    version: latest
-    pullPolicy: Always
-
-  # Nessus Services
-  #
-  console:
-    imagePrefix: "registry.vps6c.eu.ebsi:30443/"
-    image: "nessusio/console"
     version: latest
     pullPolicy: Always

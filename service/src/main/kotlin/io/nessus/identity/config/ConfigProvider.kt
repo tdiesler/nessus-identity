@@ -31,14 +31,6 @@ object ConfigProvider {
         return root.wallet ?: throw IllegalStateException("No 'wallet' config")
     }
 
-    fun requireIssuerApiConfig(): EndpointConfig {
-        return root.issuerApi ?: throw IllegalStateException("No 'issuerApi' config")
-    }
-
-    fun requireWalletApiConfig(): EndpointConfig {
-        return root.walletApi ?: throw IllegalStateException("No 'walletApi' config")
-    }
-
     fun requireWaltIdConfig(): WaltIdConfig {
         return root.waltid ?: throw IllegalStateException("No 'waltid' config")
     }
@@ -57,8 +49,6 @@ data class RootConfig(
     val ebsi: EbsiConfig?,
     val issuer: IssuerConfig?,
     val wallet: WalletConfig?,
-    val issuerApi: EndpointConfig?,
-    val walletApi: EndpointConfig?,
     val waltid: WaltIdConfig?,
 )
 
