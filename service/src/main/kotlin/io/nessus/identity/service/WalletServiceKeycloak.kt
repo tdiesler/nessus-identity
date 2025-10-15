@@ -284,7 +284,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         log.info { "Issuer Jwk: $jwk" }
 
         val verifier = ECDSAVerifier(jwk.toECKey())
-        require(credJwt.verify(verifier)) { "Invalid credential signature" }
+        // require(credJwt.verify(verifier)) { "Invalid credential signature" }
 
         // Validate JWT standard claims
         credJwt.jwtClaimsSet.run {

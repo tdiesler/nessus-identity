@@ -96,14 +96,13 @@ class IssuerHandler(val issuer: User) {
 }
 
 data class SubjectOption(
+    val id: String,
     val name: String,
     val email: String,
-    val did: String,
 ) {
     companion object {
         fun fromUserRepresentation(it: UserRepresentation): SubjectOption {
-            val did = it.attributes?.get("did")?.firstOrNull() ?: error("No Did")
-            return SubjectOption("${it.firstName} ${it.lastName}", it.email, did)
+            return SubjectOption(it.id,"${it.firstName} ${it.lastName}", it.email)
         }
     }
 }

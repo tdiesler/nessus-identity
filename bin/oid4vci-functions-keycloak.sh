@@ -95,7 +95,7 @@ kc_create_realm() {
 
   # Get the Issuer's DID
   #
-  issuer_did=$(jbang "${SCRIPT_DIR}/Es256ToDidKey.java" "$x" "$y")
+  issuer_did=$(jbang "${SCRIPT_DIR}/es256pub_to_didkey.java" "$x" "$y")
   echo "Issuer Did: ${issuer_did}"
 
   # Configure oid4vci realm attributes
@@ -114,33 +114,6 @@ EOF
   ## Show realm  attributes
   #
   ${KCADM} get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
-
-  ## Apply the profile to the realm
-  #
-  # shellcheck disable=SC2016
-  did_attr='{
-    "name": "did",
-    "displayName": "${email}",
-    "multivalued": false,
-    "permissions": { "view": ["admin"], "edit": ["admin"] },
-    "required": { "roles": [ "user" ] },
-    "validations": {
-      "pattern": {
-        "pattern": "^did:.*$",
-        "error-message": "invalidDid"
-      }
-    }
-  }'
-  users_profile=$(${KCADM} get "realms/${realm}/users/profile" 2>/dev/null)
-  # echo "Current users profile ..." && echo "${users_profile}" | jq .
-
-  users_profile=$(echo "${users_profile}" | jq \
-      --argjson did_attr "${did_attr}" \
-      '.attributes = ((.attributes // []) + [$did_attr] | unique_by(.name))')
-  # echo "Updated users profile ..." && echo "${users_profile}" | jq .
-
-  echo "Updating users profile ..."
-  echo "$users_profile" | ${KCADM} update "realms/${realm}/users/profile" -f -
 
   # Configure oid4vci client scopes
   #
@@ -195,16 +168,6 @@ EOF
         "config": {
           "claim.name": "email",
           "userAttribute": "email",
-          "vc.mandatory": "false"
-        }
-      },
-      {
-        "name": "did",
-        "protocol": "oid4vc",
-        "protocolMapper": "oid4vc-user-attribute-mapper",
-        "config": {
-          "claim.name": "id",
-          "userAttribute": "did",
           "vc.mandatory": "false"
         }
       }

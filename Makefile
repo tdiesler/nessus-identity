@@ -50,11 +50,11 @@ nessus-images: package
 			docker push $(IMAGE_REGISTRY)nessusio/ebsi-portal:$(IMAGE_TAG); \
 		fi
 
-wallet-api:
+waltid-wallet-api:
 	@cd ../waltid-identity && ./gradlew -x jvmTest publishToMavenLocal
 
 # Build WaltID images (only needed for unreleased PRs)
-waltid-images: wallet-api
+waltid-images: waltid-wallet-api
 	@cd ../waltid-identity && \
 		./gradlew :waltid-services:waltid-wallet-api:jibDockerBuild $(JIB_PLATFORM_OPTS)
 	@if [ $(TARGET) == "stage" ]; then \

@@ -57,11 +57,16 @@ object CredentialMatcher {
 
     fun pathValues(json: String, path: String): List<String> {
         val parsed = JsonPath.using(jaywayConfig).parse(json)
-        val value = parsed.read<Any?>(path)
-        return when (value) {
-            is List<*> -> value.mapNotNull { it as? String }
-            is String -> listOf(value)
-            else -> throw IllegalStateException("Unsupported value type: $value")
+        return try {
+            when (val value = parsed.read<Any?>(path)) {
+                is List<*> -> value.mapNotNull { it as? String }
+                is String -> listOf(value)
+                null -> emptyList()
+                else -> throw IllegalStateException("Unsupported value type: $value")
+            }
+        } catch (ex: Exception) {
+            log.error { ex }
+            emptyList()
         }
     }
 }

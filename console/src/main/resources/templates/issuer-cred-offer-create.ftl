@@ -27,7 +27,7 @@
                     <label for="subjectId" class="bx--label">Subject Id</label>
                     <select name="subjectId" id="subjectId" class="bx--select" required>
                         <#list subjects as subj>
-                            <option value="${subj.did}">
+                            <option value="${subj.id}">
                                 ${subj.name} - ${subj.email}
                             </option>
                         </#list>
