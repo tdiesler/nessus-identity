@@ -89,14 +89,19 @@ class WalletHandler(val holder: User) {
 
     suspend fun handleWalletCredentials(call: RoutingCall) {
         val ctx = findOrCreateLoginContext(call, holder)
+        fun abbreviatedDid(did: String) = when {
+            did.length > 32 -> "${did.substring(0, 20)}...${did.substring(did.length - 12)}"
+            else -> did
+        }
         val credentialList = walletSvc.getCredentials(ctx).map { (vcId, vcJwt) ->
-            when(vcJwt) {
+            when (vcJwt) {
                 is VCDataV11Jwt -> {
                     val vc = vcJwt.vc
-                    listOf(vcId.encodeURLPath(), vc.issuer.id, "${vc.type}")
+                    listOf(vcId.encodeURLPath(), abbreviatedDid(vc.issuer.id), "${vc.type}")
                 }
+
                 is VCDataSdV11Jwt -> {
-                    listOf(vcId.encodeURLPath(), vcJwt.iss ?: "unknown", vcJwt.vct ?: "unknown")
+                    listOf(vcId.encodeURLPath(), abbreviatedDid(vcJwt.iss ?: "unknown"), vcJwt.vct ?: "unknown")
                 }
             }
         }
@@ -122,7 +127,7 @@ class WalletHandler(val holder: User) {
 
     suspend fun handleWalletCredentialDelete(call: RoutingCall, vcId: String) {
         val ctx = findOrCreateLoginContext(call, holder)
-        when(vcId) {
+        when (vcId) {
             "__all__" -> walletSvc.deleteCredentials(ctx) { true }
             else -> walletSvc.deleteCredential(ctx, vcId)
         }
