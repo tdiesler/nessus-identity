@@ -21,6 +21,7 @@
                         <td>${v[1]}</td>
                         <td>${v[2]}</td>
                         <td>
+                            <a href="/wallet/credential-offer/${v[0]}/view">view</a>
                             <a href="/wallet/credential-offer/${v[0]}/accept">accept</a>
                             <a href="/wallet/credential-offer/${v[0]}/delete">delete</a>
                         </td>

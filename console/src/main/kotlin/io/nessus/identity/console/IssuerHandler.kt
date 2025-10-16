@@ -72,7 +72,7 @@ class IssuerHandler(val issuer: User) {
             credOffer = issuerSvc.createCredentialOffer(ctx, subjectId, listOf(ctype))
             val prettyJson = jsonPretty.encodeToString(credOffer)
             model.put("subjectId", subjectId)
-            model.put("credentialOffer", prettyJson)
+            model.put("credOffer", prettyJson)
         } else {
             model.put("subjects", issuerSvc.getRealmUsers().map { it ->
                 SubjectOption.fromUserRepresentation(it)
@@ -90,7 +90,7 @@ class IssuerHandler(val issuer: User) {
             it.put("credentialConfigurationIds", supported.keys)
         }
         call.respond(
-            FreeMarkerContent("issuer-cred-offers.ftl", model)
+            FreeMarkerContent("issuer-cred-offer-list.ftl", model)
         )
     }
 }

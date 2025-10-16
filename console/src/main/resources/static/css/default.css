@@ -12,6 +12,13 @@ textarea {
   font-family:monospace
 }
 
+textarea.half-height {
+  width:60%;
+  height:40%;
+  margin-top:10px;
+  font-family:monospace
+}
+
 .disabled-link {
   color: #8d8d8d !important;   /* Carbon Gray 50 */
   cursor: not-allowed;

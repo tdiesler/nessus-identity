@@ -121,7 +121,7 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                     walletHandler.handleWalletHome(call)
                 }
                 get("/wallet/oauth/callback") {
-                    walletHandler.handleOAuthCallback(call)
+                    walletHandler.handleWalletOAuthCallback(call)
                 }
                 get("/wallet/credential-offers") {
                     walletHandler.handleWalletCredentialOffers(call)
@@ -136,6 +136,10 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 get("/wallet/credential-offer/{offerId}/delete") {
                     val offerId = call.parameters["offerId"] ?: error("No offerId")
                     walletHandler.handleWalletCredentialOfferDelete(call, offerId)
+                }
+                get("/wallet/credential-offer/{offerId}/view") {
+                    val offerId = call.parameters["offerId"] ?: error("No offerId")
+                    walletHandler.handleWalletCredentialOfferView(call, offerId)
                 }
                 get("/wallet/credentials") {
                     walletHandler.handleWalletCredentials(call)

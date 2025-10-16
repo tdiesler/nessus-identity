@@ -1,5 +1,6 @@
 package io.nessus.identity.console
 
+import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.server.freemarker.*
@@ -12,6 +13,7 @@ import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialOfferV10
+import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.User
@@ -44,6 +46,15 @@ class WalletHandler(val holder: User) {
         )
     }
 
+    suspend fun handleWalletOAuthCallback(call: RoutingCall) {
+        call.parameters["code"]?.also {
+            authContext.withAuthCode(it)
+            log.info { "AuthCode: $it" }
+        } ?: error("No code")
+        val vcJwt = walletSvc.credentialFromOfferInTime(authContext)
+        call.respondRedirect("/wallet/credential/${vcJwt.vcId}")
+    }
+
     suspend fun handleWalletCredentialOffers(call: RoutingCall) {
         val ctx = findOrCreateLoginContext(call, holder)
         val credOffers: Map<String, CredentialOfferV10> = walletSvc.getCredentialOffers()
@@ -54,7 +65,7 @@ class WalletHandler(val holder: User) {
             it.put("credentialOffers", credOfferData)
         }
         call.respond(
-            FreeMarkerContent("wallet-cred-offers.ftl", model)
+            FreeMarkerContent("wallet-cred-offer-list.ftl", model)
         )
     }
 
@@ -69,15 +80,6 @@ class WalletHandler(val holder: User) {
         call.respondRedirect("$authRequestUrl")
     }
 
-    suspend fun handleOAuthCallback(call: RoutingCall) {
-        call.parameters["code"]?.also {
-            authContext.withAuthCode(it)
-            log.info { "AuthCode: $it" }
-        } ?: error("No code")
-        val vcJwt = walletSvc.credentialFromOfferInTime(authContext)
-        call.respondRedirect("/wallet/credential/${vcJwt.vcId}")
-    }
-
     suspend fun handleWalletCredentialOfferAdd(call: RoutingCall) {
         call.respondRedirect("/wallet/credential-offers")
     }
@@ -87,6 +89,19 @@ class WalletHandler(val holder: User) {
         call.respondRedirect("/wallet/credential-offers")
     }
 
+    suspend fun handleWalletCredentialOfferView(call: RoutingCall, offerId: String) {
+        val ctx = findOrCreateLoginContext(call, holder)
+        val credOffer = walletSvc.getCredentialOffer(offerId)
+        val prettyJson = jsonPretty.encodeToString(credOffer)
+        val model = walletModel(ctx).also {
+            it.put("credOffer", prettyJson)
+            it.put("credOfferId", offerId)
+        }
+        call.respond(
+            FreeMarkerContent("wallet-cred-offer.ftl", model)
+        )
+    }
+
     suspend fun handleWalletCredentials(call: RoutingCall) {
         val ctx = findOrCreateLoginContext(call, holder)
         fun abbreviatedDid(did: String) = when {
@@ -94,13 +109,14 @@ class WalletHandler(val holder: User) {
             else -> did
         }
 
-        val credentialList = walletSvc.findCredentials(ctx) { true }.map { vcJwt ->
+        val credentialList = walletSvc.findCredentials(ctx) { true }.map { wc ->
+            val jwt = SignedJWT.parse(wc.document)
+            val vcJwt = Json.decodeFromString<VCDataJwt>("${jwt.payload}")
             when (vcJwt) {
                 is VCDataV11Jwt -> {
                     val vc = vcJwt.vc
                     listOf(vcJwt.vcId.encodeURLPath(), abbreviatedDid(vc.issuer.id), "${vc.type}")
                 }
-
                 is VCDataSdV11Jwt -> {
                     listOf(vcJwt.vcId.encodeURLPath(), abbreviatedDid(vcJwt.iss ?: "unknown"), vcJwt.vct ?: "unknown")
                 }
@@ -110,7 +126,7 @@ class WalletHandler(val holder: User) {
             it.put("credentialList", credentialList)
         }
         call.respond(
-            FreeMarkerContent("wallet-credentials.ftl", model)
+            FreeMarkerContent("wallet-cred-list.ftl", model)
         )
     }
 
@@ -122,7 +138,7 @@ class WalletHandler(val holder: User) {
             it.put("credObj", prettyJson)
         }
         call.respond(
-            FreeMarkerContent("wallet-cred-details.ftl", model)
+            FreeMarkerContent("wallet-cred.ftl", model)
         )
     }
 

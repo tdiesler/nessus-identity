@@ -3,6 +3,7 @@ package io.nessus.identity.service
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.JWSObject
 import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
@@ -202,7 +203,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         return credRes
     }
 
-    suspend private fun validateAndStoreCredential(
+    private suspend fun validateAndStoreCredential(
         ctx: AuthorizationContext,
         credRes: CredentialResponseV10
     ): VCDataJwt {
@@ -229,6 +230,8 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
                 vcJwt.vct ?: error("No vct")
             }
         }
+        val credConfig = ctx.metadata.credentialConfigurationsSupported[ctype] ?: error("No credential_configurations_supported for: $ctype")
+        val format = CredentialFormat.fromValue(credConfig.format) as CredentialFormat
 
         // Resolve issuer DID
         val issuerDid = credJwt.jwtClaimsSet.issuer
@@ -239,22 +242,30 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         val jwk = JWK.parse("${key.exportJWKObject()}")
         log.info { "Issuer Jwk: $jwk" }
 
-        val verifier = ECDSAVerifier(jwk.toECKey())
-        // require(credJwt.verify(verifier)) { "Invalid credential signature" }
+        val ecdsaVerifier = ECDSAVerifier(jwk.toECKey())
+        when (vcJwt) {
+            is VCDataV11Jwt -> {
+                check(credJwt.verify(ecdsaVerifier)) { "Invalid credential signature" }
+            }
+            is VCDataSdV11Jwt -> {
+                val combined = "${credJwt.serialize()}"
+                val jwsCompact = combined.substringBefore('~')  // keep only JWS
+                val jwsObj = JWSObject.parse(jwsCompact)
+                check(jwsObj.verify(ecdsaVerifier)) { "Invalid credential signature" }
+            }
+        }
 
         // Validate JWT standard claims
         credJwt.jwtClaimsSet.run {
             val now = Date()
-            require(notBeforeTime == null || !now.before(notBeforeTime)) { "Credential not yet valid" }
-            require(expirationTime == null || !now.after(expirationTime)) { "Credential expired" }
-            require(issuer == issuerDid) { "Issuer mismatch" }
+            check(notBeforeTime == null || !now.before(notBeforeTime)) { "Credential not yet valid" }
+            check(expirationTime == null || !now.after(expirationTime)) { "Credential expired" }
+            check(issuer == issuerDid) { "Issuer mismatch" }
         }
 
         // Add Credential to WaltId storage
         //
         val walletId = ctx.walletId
-        val formatStr = ctx.metadata?.credentialConfigurationsSupported[ctype]?.format ?: error("No format for: $ctype")
-        val format = CredentialFormat.fromValue(formatStr) as CredentialFormat
         widWalletService.addCredential(walletId, format, credJwt)
 
         return vcJwt

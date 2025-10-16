@@ -8,10 +8,10 @@
     <div class="content">
         <h1>OID4VC Issuer</h1>
 
-        <#if credentialOffer??>
+        <#if credOffer??>
             <!-- Show textarea with the CredentialOffer -->
             <h5>Generated Credential Offer</h5>
-            <textarea id="credentialOfferBox" readonly>${credentialOffer?html}</textarea>
+            <textarea class="half-height" readonly>${credOffer?html}</textarea>
 
             <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
                 <p>
