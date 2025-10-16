@@ -4,15 +4,12 @@ import com.nimbusds.jwt.SignedJWT
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import id.walt.oid4vc.data.CredentialFormat
-import id.walt.oid4vc.data.dif.InputDescriptor
-import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.webwallet.db.models.WalletCredential
 import id.walt.webwallet.service.credentials.CredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
-import io.nessus.identity.service.CredentialMatcher
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.VCDataJwt
 import kotlinx.serialization.json.Json
@@ -145,23 +142,6 @@ class WaltIDWalletService {
         val res = findCredentialsById(ctx, vcId)
         api.deleteCredential(ctx, vcId)
         return res
-    }
-
-    /**
-     * For every InputDescriptor iterate over all WalletCredentials and match all constraints.
-     */
-    suspend fun findCredentialsByPresentationDefinition(ctx: LoginContext, vpdef: PresentationDefinition): List<Pair<InputDescriptor, WalletCredential>> {
-        val foundCredentials = mutableListOf<Pair<InputDescriptor, WalletCredential>>()
-        val walletCredentials = listCredentials(ctx)
-        for (wc in walletCredentials) {
-            for (ind in vpdef.inputDescriptors) {
-                if (CredentialMatcher.matchCredential(wc, ind)) {
-                    foundCredentials.add(Pair(ind, wc))
-                    break
-                }
-            }
-        }
-        return foundCredentials
     }
 
     // Keys ------------------------------------------------------------------------------------------------------------

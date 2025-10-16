@@ -1,14 +1,7 @@
 package io.nessus.identity.service
 
 import io.kotest.common.runBlocking
-import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.equals.shouldBeEqual
-import io.kotest.matchers.nulls.shouldNotBeNull
-import io.kotest.matchers.shouldBe
-import io.nessus.identity.types.CredentialObject
-import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.CredentialOfferDraft11
-import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
@@ -55,7 +48,7 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
             val credOffer = issuerSvc.createCredentialOffer(max,alice.did, listOf(ctype))
 
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
-            val authContext = walletSvc.authorizationContextFromOffer(alice, redirectUri, credOffer)
+            val authContext = walletSvc.authContextForCredential(alice, redirectUri, credOffer)
 
             val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
             val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)

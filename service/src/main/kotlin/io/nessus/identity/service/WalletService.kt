@@ -16,9 +16,9 @@ interface WalletService<COType: CredentialOffer> {
 
     fun deleteCredentialOffer(offerId: String): COType?
 
-    suspend fun findCredentials(ctx: LoginContext, predicate: (VCDataJwt) -> Boolean): List<VCDataJwt>
+    suspend fun findCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): List<WalletCredential>
 
-    suspend fun findCredential(ctx: LoginContext, predicate: (VCDataJwt) -> Boolean): VCDataJwt?
+    suspend fun findCredential(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): WalletCredential?
 
     suspend fun getCredentialById(ctx: LoginContext, vcId: String): VCDataJwt?
 
@@ -26,7 +26,7 @@ interface WalletService<COType: CredentialOffer> {
 
     suspend fun deleteCredential(ctx: LoginContext, vcId: String): VCDataJwt?
 
-    suspend fun deleteCredentials(ctx: LoginContext, predicate: (VCDataJwt) -> Boolean)
+    suspend fun deleteCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean)
 
     companion object {
         fun createEbsi(): WalletServiceEbsi32 {

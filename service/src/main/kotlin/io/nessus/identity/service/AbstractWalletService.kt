@@ -1,6 +1,7 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
+import id.walt.webwallet.db.models.WalletCredential
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.VCDataJwt
@@ -36,14 +37,10 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
 
     override suspend fun findCredential(
         ctx: LoginContext,
-        predicate: (VCDataJwt) -> Boolean
-    ): VCDataJwt? {
+        predicate: (WalletCredential) -> Boolean
+    ): WalletCredential? {
         val res = widWalletService.listCredentials(ctx)
             .asSequence()
-            .map {
-                val jwt = SignedJWT.parse(it.document)
-                Json.decodeFromString<VCDataJwt>("${jwt.payload}")
-            }
             .filter { predicate(it) }
             .firstOrNull()
         return res
@@ -51,12 +48,9 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
 
     override suspend fun findCredentials(
         ctx: LoginContext,
-        predicate: (VCDataJwt) -> Boolean
-    ): List<VCDataJwt> {
-        val res = widWalletService.listCredentials(ctx).map { wc ->
-            val jwt = SignedJWT.parse(wc.document)
-            Json.decodeFromString<VCDataJwt>("${jwt.payload}")
-        }
+        predicate: (WalletCredential) -> Boolean
+    ): List<WalletCredential> {
+        val res = widWalletService.findCredentials(ctx, predicate)
         return res
     }
 
@@ -64,14 +58,28 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
         ctx: LoginContext,
         vcId: String
     ): VCDataJwt? {
-        return findCredential(ctx) { it.vcId == vcId }
+        val res = widWalletService.findCredentials(ctx) { it.id == vcId }
+            .asSequence()
+            .map {
+                val jwt = SignedJWT.parse(it.document)
+                Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+            }.firstOrNull()
+        return res
     }
 
     override suspend fun getCredentialByType(
         ctx: LoginContext,
         ctype: String
     ): VCDataJwt? {
-        return findCredential(ctx) { it.containsType(ctype) }
+        val res = widWalletService.findCredentials(ctx) { true }
+            .asSequence()
+            .map {
+                val jwt = SignedJWT.parse(it.document)
+                Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+            }
+            .filter { it.containsType(ctype) }
+            .firstOrNull()
+        return res
     }
 
     override suspend fun deleteCredential(
@@ -87,14 +95,9 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
 
     override suspend fun deleteCredentials(
         ctx: LoginContext,
-        predicate: (VCDataJwt) -> Boolean
+        predicate: (WalletCredential) -> Boolean
     ) {
-        widWalletService.listCredentials(ctx)
-            .map { wc ->
-                val jwt = SignedJWT.parse(wc.document)
-                Json.decodeFromString<VCDataJwt>("${jwt.payload}")
-            }
-            .filter { vc -> predicate(vc) }
-            .forEach { vc -> widWalletService.deleteCredential(ctx, vc.vcId) }
+        widWalletService.findCredentials(ctx) { predicate(it) }
+            .forEach { wc -> widWalletService.deleteCredential(ctx, wc.id) }
     }
 }

@@ -1,12 +1,23 @@
 package io.nessus.identity.types
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -47,7 +58,7 @@ data class AuthorizationRequestV10(
     val clientMetadata: JsonObject? = null,
 
     @SerialName("dcql_query")
-    val dcqlQuery: JsonObject? = null,
+    val dcqlQuery: DCQLQuery? = null,
 
     @SerialName("request_uri_method")
     val requestUriMethod: String? = null,
@@ -61,7 +72,7 @@ data class AuthorizationRequestV10(
 
     fun toHttpParameters(): String {
         val sb = StringBuilder()
-        sb.append("&client_id=${clientId}")
+        sb.append("client_id=${clientId}")
         sb.append("&redirect_uri=${redirectUri}")
         sb.append("&response_type=$responseType")
         scope?.also {
@@ -70,6 +81,10 @@ data class AuthorizationRequestV10(
         authorizationDetails?.also {
             val json = Json.encodeToString(it)
             sb.append("&authorization_details=${urlEncode(json)}")
+        }
+        dcqlQuery?.also {
+            val json = Json.encodeToString(it)
+            sb.append("&dcql_query=${urlEncode(json)}")
         }
         codeChallenge?.also {
             sb.append("&code_challenge=${urlEncode(it)}")
@@ -113,3 +128,63 @@ data class AuthorizationRequestV10(
     )
 }
 
+// DCQLQuery ===================================================================================================================================================
+
+/**
+ * A Credential Query is an object representing a request for a presentation of one or more matching Credentials.
+ * https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-credential-query
+ */
+@Serializable
+data class DCQLQuery(
+    val credentials: List<CredentialQuery>,
+    @SerialName("credential_sets")
+    val credentialSets: List<CredentialSet>? = null,
+) {
+    fun toJson() = Json.encodeToString(this)
+    fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
+
+    companion object {
+        val jsonInst = Json { ignoreUnknownKeys = true }
+        fun fromJson(json: String): DCQLQuery = jsonInst.decodeFromString(json)
+        fun fromJson(json: JsonObject): DCQLQuery = jsonInst.decodeFromJsonElement(json)
+    }
+}
+
+@Serializable
+data class CredentialSet(
+    val options: List<List<String>>,
+    val required: Boolean? = null,
+)
+
+@Serializable
+data class CredentialQuery(
+    val id: String,
+    val format: String,
+    val multiple: Boolean? = null,
+    val meta: QueryMeta,
+    @SerialName("trusted_authorities")
+    val trustedAuthorities: List<TrustedAuthority>? = null,
+    @SerialName("require_cryptographic_holder_binding")
+    val requireCryptographicHolderBinding: Boolean? = null,
+    val claims: List<QueryClaim>? = null,
+    @SerialName("claim_sets")
+    val claimSets: List<List<String>>? = null,
+)
+
+@Serializable
+data class QueryClaim(
+    val path: List<String>,
+    val values: List<JsonElement>,
+)
+
+@Serializable
+data class QueryMeta(
+    @SerialName("vct_values")
+    val vctValues: List<String>,
+)
+
+@Serializable
+data class TrustedAuthority(
+    val type: String,
+    val values: List<String>,
+)

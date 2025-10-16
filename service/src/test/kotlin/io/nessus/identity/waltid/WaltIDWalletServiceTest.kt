@@ -54,18 +54,6 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
         }
     }
 
-    @Test
-    fun findCredentials() {
-
-        val json = loadResourceAsString("presentation-definition.json")
-        val vpdef = Json.Default.decodeFromString<PresentationDefinition>(json)
-
-        runBlocking {
-            val ctx = login(Max).withWalletInfo()
-            widWalletService.findCredentialsByPresentationDefinition(ctx, vpdef)
-        }
-    }
-
     // Keys ------------------------------------------------------------------------------------------------------------
 
     @Test

@@ -1,14 +1,47 @@
 package io.nessus.identity.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.nessus.identity.types.CredentialParameters
-import io.nessus.identity.types.VCDataV11
-import kotlin.time.Clock
+import io.nessus.identity.types.AuthorizationRequestV10
+import io.nessus.identity.types.AuthorizationRequestV10Builder
+import io.nessus.identity.types.DCQLQuery
 
 // VerifierService =====================================================================================================
 
-class VerifierServiceKeycloak : VerifierService {
+class VerifierServiceKeycloak : AbstractVerifierService() {
 
-    val log = KotlinLogging.logger {}
+    /**
+     * Verifier builds the AuthorizationRequest from an AuthorizationRequest
+     */
+    fun authContextForPresentation(
+        ctx: LoginContext,
+        clientId: String,
+        redirectUri: String,
+        dcql: DCQLQuery,
+    ): AuthorizationContext {
 
+        val authReq = buildAuthorizationRequest(clientId, redirectUri, dcql)
+
+        val authContext = AuthorizationContext(ctx)
+            .withAuthorizationRequest(authReq)
+
+        return authContext
+    }
+
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+
+    private fun buildAuthorizationRequest(
+        clientId: String,
+        redirectUri: String,
+        dcql: DCQLQuery,
+    ): AuthorizationRequestV10 {
+
+        val builder = AuthorizationRequestV10Builder()
+            .withClientId(clientId)
+            .withDCQLAssertion(dcql)
+            .withRedirectUri(redirectUri)
+            .withResponseType("vp_token")
+
+        val authReq = builder.build()
+        return authReq
+    }
 }

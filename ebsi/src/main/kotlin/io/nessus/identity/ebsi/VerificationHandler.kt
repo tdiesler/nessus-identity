@@ -53,13 +53,13 @@ object VerificationHandler {
         var validationError: Throwable? = null
         log.info { "VPToken VerifiableCredentials" }
         vcArray?.map { it.jsonPrimitive.content }?.forEach { vcEncoded ->
-            val vcJwt = SignedJWT.parse(vcEncoded)
+            val jwt = SignedJWT.parse(vcEncoded)
             log.info { "VC Encoded: $vcEncoded" }
-            log.info { "   Header: ${vcJwt.header}" }
-            log.info { "   Claims: ${vcJwt.jwtClaimsSet}" }
+            log.info { "   Header: ${jwt.header}" }
+            log.info { "   Claims: ${jwt.jwtClaimsSet}" }
             runCatching {
-                val w3Cred = VCDataV11Jwt.fromEncoded(vcEncoded).vc
-                verifierSvc.validateVerifiableCredential(w3Cred)
+                val vpcJwt = VCDataV11Jwt.fromEncoded(vcEncoded)
+                verifierSvc.validateVerifiableCredential(vpcJwt)
             }.onFailure {
                 validationError = it
                 urlBuilder.apply {

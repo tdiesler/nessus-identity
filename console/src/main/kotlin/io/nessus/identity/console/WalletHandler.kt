@@ -63,7 +63,7 @@ class WalletHandler(val holder: User) {
         val credOffer = walletSvc.getCredentialOffer(offerId) ?: error("No credential_offer for: $offerId")
 
         val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
-        authContext = walletSvc.authorizationContextFromOffer(ctx, redirectUri, credOffer)
+        authContext = walletSvc.authContextForCredential(ctx, redirectUri, credOffer)
         val authRequestUrl = authContext.authRequestUrl
         log.info { "AuthRequestUrl: $authRequestUrl" }
         call.respondRedirect("$authRequestUrl")

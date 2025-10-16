@@ -1,10 +1,12 @@
 package io.nessus.identity.types
 
 import com.nimbusds.jose.util.Base64URL
-import id.walt.crypto.utils.JsonUtils.toJsonElement
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.AuthorizationRequestV10.AuthorizationDetail
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import java.security.MessageDigest
 
 class AuthorizationRequestV10Builder {
@@ -17,6 +19,7 @@ class AuthorizationRequestV10Builder {
 
     private var clientState: String? = null
     private var codeChallengeMethod: String? = null
+    private var dcqlQuery: DCQLQuery? = null
     private var metadata: IssuerMetadata? = null
     private var responseType = "code"
 
@@ -27,13 +30,13 @@ class AuthorizationRequestV10Builder {
 
     var codeChallenge: String? = null
 
-    fun withClientId(id: String): AuthorizationRequestV10Builder {
-        this.clientId = id
+    fun withClientId(clientId: String): AuthorizationRequestV10Builder {
+        this.clientId = clientId
         return this
     }
 
-    fun withClientState(state: String): AuthorizationRequestV10Builder {
-        this.clientState = state
+    fun withClientState(clientState: String): AuthorizationRequestV10Builder {
+        this.clientState = clientState
         return this
     }
 
@@ -49,18 +52,23 @@ class AuthorizationRequestV10Builder {
         return this
     }
 
+    fun withDCQLAssertion(dcql: DCQLQuery): AuthorizationRequestV10Builder {
+        this.dcqlQuery = dcql
+        return this
+    }
+
     fun withIssuerMetadata(metadata: IssuerMetadata): AuthorizationRequestV10Builder {
         this.metadata = metadata
         return this
     }
 
-    fun withRedirectUri(uri: String): AuthorizationRequestV10Builder {
-        this.redirectUri = uri
+    fun withRedirectUri(redirectUri: String): AuthorizationRequestV10Builder {
+        this.redirectUri = redirectUri
         return this
     }
 
-    fun withResponseType(type: String): AuthorizationRequestV10Builder {
-        this.responseType = type
+    fun withResponseType(responseType: String): AuthorizationRequestV10Builder {
+        this.responseType = responseType
         return this
     }
 
@@ -91,10 +99,6 @@ class AuthorizationRequestV10Builder {
 
     private fun buildInternal(): AuthorizationRequestV10 {
 
-        // The Holder starts by requesting access for the desired credential from the Issuer's Authorisation Server.
-        // The client_metadata.authorization_endpoint is used for the redirect location associated with the vp_token and id_token.
-        // If client_metadata fails to provide the required information, the default configuration (openid://) will be used instead.
-
         if (codeChallengeMethod != null) {
             val sha256 = MessageDigest.getInstance("SHA-256")
             val codeVerifierHash = sha256.digest(codeVerifier.toByteArray())
@@ -107,12 +111,13 @@ class AuthorizationRequestV10Builder {
             state = clientState,
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
-            authorizationDetails = authDetails,
+            dcqlQuery = dcqlQuery,
+            authorizationDetails = authDetails.ifEmpty { null },
             redirectUri = redirectUri,
             responseType = responseType,
         )
 
-        log.info { "AuthorizationRequest: ${authReq.toJsonElement()}" }
+        log.info { "AuthorizationRequest: ${authReq.toJson()}" }
         return authReq
     }
 }

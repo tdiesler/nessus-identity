@@ -83,12 +83,12 @@ class CredentialVerificationEbsi32(val holderCtx: OIDContext, val verifierCtx: O
         // Verifier validates the Credential
         //
         val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
-        val w3Cred = VCDataV11Jwt.fromEncoded(vpCred).vc
+        val vpcJwt = VCDataV11Jwt.fromEncoded(vpCred)
 
         val vcp = CredentialParameters()
             .withSubject(holderCtx.did)
             .withTypes(listOf(ctype))
 
-        verifierSvc.validateVerifiableCredential(w3Cred, vcp)
+        verifierSvc.validateVerifiableCredential(vpcJwt, vcp)
     }
 }

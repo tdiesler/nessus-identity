@@ -14,8 +14,9 @@ import io.nessus.identity.types.PreAuthorizedCodeGrant
 import org.keycloak.admin.client.KeycloakBuilder
 import org.keycloak.representations.idm.UserRepresentation
 import java.net.URI
-import java.time.Instant
-import java.util.*
+import java.util.Date
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 
 // KeycloakIssuerService =======================================================================================================================================
 
@@ -24,8 +25,8 @@ import java.util.*
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
-    : AbstractIssuerService<IssuerMetadataV10, CredentialOfferV10>("${issuerCfg.baseUrl}/realms/${issuerCfg.realm}") {
+class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) :
+    AbstractIssuerService<IssuerMetadataV10, CredentialOfferV10>("${issuerCfg.baseUrl}/realms/${issuerCfg.realm}") {
 
     val issuerBaseUrl = issuerCfg.baseUrl
 
@@ -45,14 +46,14 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig)
         }
 
         // Build issuer state jwt
-        val iat = Instant.now()
-        val exp = iat.plusSeconds(300) // 5min
+        val iat = Clock.System.now()
+        val exp = iat + 5.minutes // 5min
 
         val issuerStateClaims = JWTClaimsSet.Builder()
             .subject(subjectId)
             .issuer(issuerUrl)
-            .issueTime(Date.from(iat))
-            .expirationTime(Date.from(exp))
+            .issueTime(Date(iat.toEpochMilliseconds()))
+            .expirationTime(Date(exp.toEpochMilliseconds()))
             .claim("credential_types", types)
             .build()
 

@@ -34,7 +34,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
     /**
      * Holder builds the AuthorizationRequest from a CredentialOffer
      */
-    suspend fun authorizationContextFromOffer(
+    suspend fun authContextForCredential(
         ctx: LoginContext,
         redirectUri: String,
         credOffer: CredentialOfferV10,

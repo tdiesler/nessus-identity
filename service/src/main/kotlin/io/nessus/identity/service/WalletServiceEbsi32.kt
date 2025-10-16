@@ -10,11 +10,14 @@ import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.dif.DescriptorMapping
+import id.walt.oid4vc.data.dif.InputDescriptor
+import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import id.walt.w3c.utils.VCFormat
+import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
@@ -211,7 +214,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         val vcArray = vpObj["verifiableCredential"] as MutableList<String>
 
         val descriptorMappings = mutableListOf<DescriptorMapping>()
-        val matchingCredentials = widWalletService.findCredentialsByPresentationDefinition(ctx, vpdef).toMap()
+        val matchingCredentials = findCredentialsByPresentationDefinition(ctx, vpdef).toMap()
         val matchingCredentialsByInputDescriptorId = matchingCredentials.entries.associate { (ind, wc) -> ind.id to wc }
 
         for (ind in vpdef.inputDescriptors) {
@@ -306,6 +309,24 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         // https://github.com/tdiesler/nessus-identity/issues/247
         log.info { "TokenRequest: $tokenRequest" }
         return tokenRequest
+    }
+
+    /**
+     * For every InputDescriptor iterate over all WalletCredentials and match all constraints.
+     */
+    suspend fun findCredentialsByPresentationDefinition(ctx: LoginContext, vpdef: PresentationDefinition): List<Pair<InputDescriptor, WalletCredential>> {
+        val foundCredentials = mutableListOf<Pair<InputDescriptor, WalletCredential>>()
+        val walletCredentials = widWalletService.listCredentials(ctx)
+        val credMatcher = CredentialMatcherDraft11()
+        for (wc in walletCredentials) {
+            for (ind in vpdef.inputDescriptors) {
+                if (credMatcher.matchCredential(wc, ind)) {
+                    foundCredentials.add(Pair(ind, wc))
+                    break
+                }
+            }
+        }
+        return foundCredentials
     }
 
     suspend fun getCredentialOfferFromUri(offerUri: String): CredentialOfferDraft11 {
@@ -636,4 +657,5 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
+
 }
