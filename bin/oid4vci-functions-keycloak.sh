@@ -175,31 +175,39 @@ EOF
   }
 EOF
 
+  # Patch preinstalled oid4vc_natural_person
   #
-  local natural_person_scope_id
   natural_person_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r '.[] | select(.name=="oid4vc_natural_person") | .id')
 
   if [ -n "${natural_person_scope_id}" ]; then
     echo "Patch preinstalled oid4vc_natural_person client scope: ${natural_person_scope_id}"
-  ${KCADM} update "realms/${realm}/client-scopes/${natural_person_scope_id}" -f - <<EOF
-  {
-    "name": "oid4vc_natural_person",
-    "protocol": "oid4vc",
-    "attributes": {
-      "include.in.token.scope": "true",
-      "vc.include_in_metadata": "true",
-      "vc.issuer_did": "${issuer_did}",
-      "vc.format": "dc+sd-jwt",
-      "vc.credential_contexts": "oid4vc_natural_person",
-      "vc.credential_configuration_id": "oid4vc_natural_person",
-      "vc.supported_credential_types": "oid4vc_natural_person",
-      "vc.verifiable_credential_type": "oid4vc_natural_person",
-      "vc.cryptographic_binding_methods_supported": "jwk",
-      "vc.proof_signing_alg_values_supported": "ES256",
-      "vc.expiry_in_seconds": "31536000",
-      "vc.signing_key_id": "${es256KeyId}"
+
+    # Remove the illegal oid4vc-subject-id-mapper
+    # Keycloak issues oid4vc_natural_person with invalid id value
+    # https://github.com/tdiesler/nessus-identity/issues/301
+    mapper_id=$(${KCADM} get "realms/${realm}/client-scopes/${natural_person_scope_id}/protocol-mappers/models" 2>/dev/null | jq -r '.[] | select(.protocolMapper=="oid4vc-subject-id-mapper") | .id')
+    echo "Delete protocolMapper=oid4vc-subject-id-mapper with id: ${mapper_id}"
+    ${KCADM} delete "realms/${realm}/client-scopes/${natural_person_scope_id}/protocol-mappers/models/${mapper_id}"
+
+    ${KCADM} update "realms/${realm}/client-scopes/${natural_person_scope_id}" -f - <<EOF
+    {
+      "name": "oid4vc_natural_person",
+      "protocol": "oid4vc",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "vc.include_in_metadata": "true",
+        "vc.issuer_did": "${issuer_did}",
+        "vc.format": "dc+sd-jwt",
+        "vc.credential_contexts": "oid4vc_natural_person",
+        "vc.credential_configuration_id": "oid4vc_natural_person",
+        "vc.supported_credential_types": "oid4vc_natural_person",
+        "vc.verifiable_credential_type": "oid4vc_natural_person",
+        "vc.cryptographic_binding_methods_supported": "jwk",
+        "vc.proof_signing_alg_values_supported": "ES256",
+        "vc.expiry_in_seconds": "31536000",
+        "vc.signing_key_id": "${es256KeyId}"
+      }
     }
-  }
 EOF
   fi
 

@@ -26,7 +26,11 @@ sealed class VCDataJwt {
     companion object {
         fun fromEncoded(encoded: String): VCDataJwt {
             val vcJwt = SignedJWT.parse(encoded)
-            return Json.decodeFromString<VCDataJwt>("${vcJwt.payload}")
+            val decJwt = Json.decodeFromString<VCDataJwt>("${vcJwt.payload}")
+            if (decJwt is VCDataSdV11Jwt) {
+                decJwt.decodeDisclosures(encoded)
+            }
+            return decJwt
         }
     }
 }

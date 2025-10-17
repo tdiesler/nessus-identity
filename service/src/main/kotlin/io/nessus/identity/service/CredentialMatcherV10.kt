@@ -5,9 +5,11 @@ import id.walt.webwallet.db.models.WalletCredential
 import io.nessus.identity.types.CredentialQuery
 import io.nessus.identity.types.QueryClaim
 import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.types.VCDataSdV11Jwt
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 class CredentialMatcherV10 : CredentialMatcher() {
 
@@ -20,7 +22,6 @@ class CredentialMatcherV10 : CredentialMatcher() {
 
             val vcObj = wc.parsedDocument as JsonObject
             val ctx = JsonPath.parse(vcObj)
-            log.debug { "Matching: $vcObj" }
 
             val vcJwt = VCDataJwt.fromEncoded(wc.document)
             val matchFormat = cq.format == wc.format.value
@@ -30,15 +31,22 @@ class CredentialMatcherV10 : CredentialMatcher() {
                 // [TODO #316] Add support for dcql_query.credential.claim_sets matching
                 // https://github.com/tdiesler/nessus-identity/issues/316
 
-                val claimsMatched = cq.claims?.all {
-                    runCatching {
-                        require(it.path.size == 1) { "Invalid path in: $it" }
-                        val was = ctx.read<JsonElement>("$.credentialSubject.${it.path[0]}")
-                        matchValue(it, was)
-                    }.getOrElse {
-                        log.error(it) { "Claim match error" }
-                        false
+                val claimsMatched = cq.claims?.all { cl ->
+                    require(cl.path.size == 1) { "Invalid path in: $cl" }
+                    val claimName = cl.path[0]
+                    val was: JsonElement? = when (vcJwt) {
+                        is VCDataSdV11Jwt -> vcJwt.disclosures.find {
+                            it.claim == claimName }?.let { JsonPrimitive(it.value) }
+                        else -> runCatching {
+                            ctx.read<JsonElement>("$.credentialSubject.$claimName")
+                        }.getOrElse { ex ->
+                            log.error(ex) { "Error processing: $vcObj" }
+                            null
+                        }
                     }
+
+                    matchValue(cl, was)
+
                 } ?: true // No claim matching constraints
 
                 if (claimsMatched)
@@ -49,10 +57,11 @@ class CredentialMatcherV10 : CredentialMatcher() {
         return null
     }
 
-    private fun matchValue(cond: QueryClaim, was: JsonElement): Boolean {
-        val exp = cond.values
-        val wasArr = JsonArray(listOf(was))
-        val res = exp.isEmpty() || exp == wasArr
-        return res
+    private fun matchValue(cond: QueryClaim, was: JsonElement?): Boolean {
+        return was?.let {
+            val exp = cond.values
+            val wasArr = JsonArray(listOf(was))
+            exp.isEmpty() || exp == wasArr
+        } ?: false
     }
 }

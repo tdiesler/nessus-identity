@@ -6,6 +6,7 @@ import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.dif.DescriptorMapping
 import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.w3c.utils.VCFormat
@@ -117,11 +118,13 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
         val vcArray = mutableListOf<WalletCredential>()
         val descriptorMappings = mutableListOf<DescriptorMapping>()
         val queryIds = mutableListOf<String>()
-        findCredentialsByDCQLQuery(ctx, dcql).forEach { (wc, queryId) ->
+        findMatchingCredentials(ctx, dcql).forEach { (wc, queryId) ->
             val n = vcArray.size
             queryIds.add(queryId)
             val dm = DescriptorMapping(
-                format = VCFormat.valueOf(wc.format.value),
+                // [TODO #1276] Cannot parse WalletCredential document for sd_jwt_dc
+                // https://github.com/walt-id/waltid-identity/issues/1276
+                format = if(wc.format == CredentialFormat.sd_jwt_dc) VCFormat.sd_jwt_vc else VCFormat.valueOf(wc.format.value),
                 path = "$.vp.verifiableCredential[$n]",
             )
             descriptorMappings.add(dm)
@@ -141,7 +144,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
         return SubmissionBundle(vcArray, vpSubmission)
     }
 
-    private suspend fun findCredentialsByDCQLQuery(
+    private suspend fun findMatchingCredentials(
         ctx: LoginContext,
         dcql: DCQLQuery
     ): List<Pair<WalletCredential, String>> {

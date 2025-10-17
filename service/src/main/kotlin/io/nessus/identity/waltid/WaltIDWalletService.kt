@@ -97,6 +97,7 @@ class WaltIDWalletService {
         val document = credJwt.serialize()
 
         val vcId = vcJwt.vcId
+
         val walletCredential = WalletCredential(
             id = vcId,
             format = format,

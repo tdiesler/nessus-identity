@@ -3,6 +3,8 @@ package io.nessus.identity.service
 import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.DCQLQuery
+import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
@@ -41,7 +43,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
     }
 
     @Test
-    fun verifyByCredentialType() {
+    fun requestCredentialPresentation() {
         val ctype = "oid4vc_identity_credential"
         runBlocking {
 
@@ -66,7 +68,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                       "id": "queryId",
                       "format": "jwt_vc",
                       "meta": {
-                        "vct_values": [ "oid4vc_identity_credential" ]
+                        "vct_values": [ "$ctype" ]
                       },
                       "claims": [
                           {"path": ["email"], "values": ["alice@email.com"]}
@@ -96,6 +98,68 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 .withTypes(listOf(ctype))
 
             verifierSvc.validateVerifiableCredential(vpcJwt, vcp)
+        }
+    }
+
+    @Test
+    fun requestCredentialPresentationSD() {
+        val ctype = "oid4vc_natural_person"
+        runBlocking {
+
+            // Create the Identity Credential on demand
+            val vcJwt = walletSvc.getCredentialByType(alice, ctype)
+            if (vcJwt == null) {
+                val credOffer = issuerSvc.createCredentialOffer(max, alice.did, listOf(ctype))
+                val authContext = walletSvc.authContextForCredential(alice, "urn:ietf:wg:oauth:2.0:oob", credOffer)
+                val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
+                val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
+                walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
+            }
+
+            val authContext = verifierSvc.authContextForPresentation(
+                ctx = bob,
+                clientId = "oid4vcp",
+                redirectUri = "urn:ietf:wg:oauth:2.0:oob",
+                dcql = DCQLQuery.fromJson("""
+                {
+                  "credentials": [
+                    {
+                      "id": "queryId",
+                      "format": "dc+sd-jwt",
+                      "meta": {
+                        "vct_values": [ "$ctype" ]
+                      },
+                      "claims": [
+                          {"path": ["email"], "values": ["alice@email.com"]}
+                      ]
+                    }
+                  ]
+                }                    
+                """.trimIndent())
+            )
+            log.info { authContext.authRequest.toHttpParameters() }
+
+            val authRes = walletAuthSvc.authenticate(alice,authContext.authRequest)
+            val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
+
+            // Verifier validates the VPToken
+            //
+            val vpHolder = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.holder").first()
+            if (vpHolder != alice.did) error("Unexpected holder id: $vpHolder")
+
+            // Verifier validates the Credential
+            //
+            val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
+            val vpcJwt = VCDataJwt.fromEncoded(vpCred)
+
+            val vcp = CredentialParameters()
+                .withSubject(alice.did)
+                .withTypes(listOf(ctype))
+
+            // [TODO #318] Consolidate presented credential verification in verifier
+            // https://github.com/tdiesler/nessus-identity/issues/318
+            if (vpcJwt is VCDataV11Jwt)
+                verifierSvc.validateVerifiableCredential(vpcJwt, vcp)
         }
     }
 }

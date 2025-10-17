@@ -25,6 +25,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import java.util.*
 import kotlin.random.Random
+import kotlin.uuid.Uuid
 
 // WalletServiceKeycloak =======================================================================================================================================
 
@@ -223,8 +224,9 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
         val ctype = when (vcJwt) {
             is VCDataV11Jwt -> {
-                if (vcJwt.vc.type.size != 1) error("Multiple types not supported")
-                vcJwt.vc.type.first()
+                vcJwt.vc.type.first {
+                    !listOf("VerifiableAttestation", "VerifiableCredential").contains(it)
+                }
             }
             is VCDataSdV11Jwt -> {
                 vcJwt.vct ?: error("No vct")
