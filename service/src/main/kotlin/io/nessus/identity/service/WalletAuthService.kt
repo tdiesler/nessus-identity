@@ -1,14 +1,33 @@
 package io.nessus.identity.service
 
+import com.nimbusds.jose.JOSEObjectType
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.util.JSONObjectUtils
+import com.nimbusds.jwt.JWTClaimsSet
+import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.dif.DescriptorMapping
+import id.walt.oid4vc.data.dif.PresentationSubmission
+import id.walt.w3c.utils.VCFormat
 import id.walt.webwallet.db.models.WalletCredential
+import io.github.oshai.kotlinlogging.KotlinLogging
+import io.nessus.identity.extend.signWithKey
+import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.types.AuthorizationRequestV10
 import io.nessus.identity.types.AuthorizationResponseV10
-import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.types.DCQLQuery
+import io.nessus.identity.waltid.authenticationId
+import kotlinx.serialization.json.Json
+import java.util.*
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
+import kotlin.uuid.Uuid
 
 // WalletService =======================================================================================================
 
-interface WalletAuthService {
+class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
+
+    val log = KotlinLogging.logger {}
 
     /**
      * The Authorization Request parameter contains a DCQL query that describes the requirements of the Credential(s) that the Verifier is requesting to be presented.
@@ -21,6 +40,126 @@ interface WalletAuthService {
      *
      * https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#section-3
      */
-    suspend fun authenticate(ctx: LoginContext, authReq: AuthorizationRequestV10): AuthorizationResponseV10
+    suspend fun authenticate(
+        ctx: LoginContext,
+        authReq: AuthorizationRequestV10
+    ): AuthorizationResponseV10 {
 
+        log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(authReq)}" }
+
+        val clientId = authReq.clientId
+        val nonce = authReq.nonce
+        val state = authReq.state
+
+        val dcql = authReq.dcqlQuery ?: error("No dcql_query in: $authReq")
+        log.info { "VPToken DCQLQuery: ${dcql.toJson()}" }
+
+        // Build the list of Credentials and associated PresentationSubmission
+        //
+        val (vcArray, vpSubmission) = buildPresentationSubmission(ctx, dcql)
+
+        // Build the VPToken JWT
+        //
+        val jti = "${Uuid.random()}"
+        val iat = Clock.System.now()
+        val exp = iat + 5.minutes // 5 mins expiry
+
+        val kid = ctx.didInfo.authenticationId()
+        val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType.JWT)
+            .keyID(kid)
+            .build()
+
+        // Parse VPToken template with Jose to a MutableMap
+        //
+        val vpJson = """{
+            "@context": [ "https://www.w3.org/2018/credentials/v1" ],
+            "id": "$jti",
+            "type": [ "VerifiablePresentation" ],
+            "holder": "${ctx.did}",
+            "verifiableCredential": ${vcArray.map { "\"${it.document}\"" }}
+        }"""
+        val vpObj = JSONObjectUtils.parse(vpJson)
+
+        val claimsBuilder = JWTClaimsSet.Builder()
+            .jwtID(jti)
+            .issuer(ctx.did)
+            .subject(ctx.did)
+            .audience(clientId)
+            .issueTime(Date(iat.toEpochMilliseconds()))
+            .notBeforeTime(Date(iat.toEpochMilliseconds()))
+            .expirationTime(Date(exp.toEpochMilliseconds()))
+            .claim("vp", vpObj)
+
+        nonce?.also { claimsBuilder.claim("nonce", it) }
+        state?.also { claimsBuilder.claim("state", it) }
+        val vpTokenClaims = claimsBuilder.build()
+
+        val vpTokenJwt = SignedJWT(vpTokenHeader, vpTokenClaims).signWithKey(ctx, kid)
+        log.info { "VPToken Header: ${vpTokenJwt.header}" }
+        log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
+
+        val vpToken = vpTokenJwt.serialize()
+        log.info { "VPToken: $vpToken" }
+        log.info { "VPSubmission: ${vpSubmission.toJSON()}" }
+
+        vpTokenJwt.verifyJwtSignature("VPToken", ctx.didInfo)
+
+        return AuthorizationResponseV10(vpToken, vpSubmission)
+    }
+
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+
+    private suspend fun buildPresentationSubmission(
+        ctx: LoginContext,
+        dcql: DCQLQuery,
+    ): SubmissionBundle {
+        val vcArray = mutableListOf<WalletCredential>()
+        val descriptorMappings = mutableListOf<DescriptorMapping>()
+        val queryIds = mutableListOf<String>()
+        findCredentialsByDCQLQuery(ctx, dcql).forEach { (wc, queryId) ->
+            val n = vcArray.size
+            queryIds.add(queryId)
+            val dm = DescriptorMapping(
+                format = VCFormat.valueOf(wc.format.value),
+                path = "$.vp.verifiableCredential[$n]",
+            )
+            descriptorMappings.add(dm)
+            vcArray.add(wc)
+        }
+
+        // The presentation_submission object **MUST** contain a definition_id property.
+        // The value of this property **MUST** be the id value of a valid Presentation Definition.
+        // https://identity.foundation/presentation-exchange/#presentation-submission
+        //
+        // In the absence of a Presentation Definition
+        val vpSubmission = PresentationSubmission(
+            id = "${Uuid.random()}",
+            definitionId = "dcql:${queryIds.joinToString("-")}",
+            descriptorMap = descriptorMappings
+        )
+        return SubmissionBundle(vcArray, vpSubmission)
+    }
+
+    private suspend fun findCredentialsByDCQLQuery(
+        ctx: LoginContext,
+        dcql: DCQLQuery
+    ): List<Pair<WalletCredential, String>> {
+        val matcher = CredentialMatcherV10()
+        val credentials = walletSvc.findCredentials(ctx) { true } // cache all credentials to avoid multiple API calls
+        val res = dcql.credentials.mapNotNull { cq ->
+            matcher.matchCredential(cq, credentials.asSequence())?.let { wc ->
+                Pair(wc, cq.id)
+            }
+        }.onEach {
+            log.info { "Matched: ${it.first.parsedDocument}" }
+        }
+        return res
+    }
+
+    data class SubmissionBundle(
+        val credentials: List<WalletCredential>,
+        val submission: PresentationSubmission
+    )
 }
+

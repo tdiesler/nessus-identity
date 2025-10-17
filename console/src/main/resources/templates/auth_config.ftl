@@ -2,7 +2,7 @@
 
 <@layout.layout activeTab="issuer">
     <!-- Sidebar -->
-    <#include "fragments/issuer-sidebar.ftl">
+    <#include "fragments/issuer_sidebar.ftl">
 
     <!-- Main content -->
     <div class="content">

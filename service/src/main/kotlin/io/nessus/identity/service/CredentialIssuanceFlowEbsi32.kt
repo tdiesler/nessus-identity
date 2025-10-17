@@ -1,4 +1,4 @@
-package io.nessus.identity.flow
+package io.nessus.identity.service
 
 import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.SignedJWT
@@ -7,18 +7,13 @@ import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthServiceEbsi32
 import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
-import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.OIDContext
-import io.nessus.identity.service.WalletService
-import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOfferDraft11
 import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
 
-class CredentialIssuanceEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDContext) {
+class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OIDContext) {
 
     val authSvc = AuthServiceEbsi32.create(issuerCtx)
     val issuerSvc = IssuerService.createEbsi()

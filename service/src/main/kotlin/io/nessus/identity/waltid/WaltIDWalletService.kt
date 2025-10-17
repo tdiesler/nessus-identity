@@ -133,7 +133,7 @@ class WaltIDWalletService {
     suspend fun findCredentialsByType(ctx: LoginContext, ctype: String): List<WalletCredential> {
         val res = findCredentials(ctx) { wc ->
             val vcJwt = VCDataJwt.fromEncoded(wc.document)
-            vcJwt.containsType(ctype)
+            vcJwt.types.contains(ctype)
         }
         return res
     }

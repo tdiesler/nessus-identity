@@ -7,11 +7,11 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.console.SessionsStore.findOrCreateLoginContext
 import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.WalletService
-import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
@@ -42,7 +42,7 @@ class WalletHandler(val holder: User) {
         val ctx = findOrCreateLoginContext(call, holder)
         val model = walletModel(ctx)
         call.respond(
-            FreeMarkerContent("wallet-home.ftl", model)
+            FreeMarkerContent("wallet_home.ftl", model)
         )
     }
 
@@ -65,7 +65,7 @@ class WalletHandler(val holder: User) {
             it.put("credentialOffers", credOfferData)
         }
         call.respond(
-            FreeMarkerContent("wallet-cred-offer-list.ftl", model)
+            FreeMarkerContent("wallet_cred_offer_list.ftl", model)
         )
     }
 
@@ -98,7 +98,7 @@ class WalletHandler(val holder: User) {
             it.put("credOfferId", offerId)
         }
         call.respond(
-            FreeMarkerContent("wallet-cred-offer.ftl", model)
+            FreeMarkerContent("wallet_cred_offer.ftl", model)
         )
     }
 
@@ -126,7 +126,7 @@ class WalletHandler(val holder: User) {
             it.put("credentialList", credentialList)
         }
         call.respond(
-            FreeMarkerContent("wallet-cred-list.ftl", model)
+            FreeMarkerContent("wallet_cred_list.ftl", model)
         )
     }
 
@@ -138,7 +138,7 @@ class WalletHandler(val holder: User) {
             it.put("credObj", prettyJson)
         }
         call.respond(
-            FreeMarkerContent("wallet-cred.ftl", model)
+            FreeMarkerContent("wallet_cred.ftl", model)
         )
     }
 

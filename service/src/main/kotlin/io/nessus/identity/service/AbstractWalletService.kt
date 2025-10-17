@@ -77,7 +77,7 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
                 val jwt = SignedJWT.parse(it.document)
                 Json.decodeFromString<VCDataJwt>("${jwt.payload}")
             }
-            .filter { it.containsType(ctype) }
+            .filter { it.types.contains(ctype) }
             .firstOrNull()
         return res
     }

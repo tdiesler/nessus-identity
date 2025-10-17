@@ -1,6 +1,5 @@
 package io.nessus.identity.service
 
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.AuthorizationRequestV10
 import io.nessus.identity.types.AuthorizationRequestV10Builder
 import io.nessus.identity.types.DCQLQuery

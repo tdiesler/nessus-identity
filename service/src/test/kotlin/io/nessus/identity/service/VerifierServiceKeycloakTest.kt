@@ -32,7 +32,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = OIDContext(loginOrRegister(Alice).withDidInfo())
             walletSvc = WalletService.createKeycloak()
-            walletAuthSvc = WalletAuthServiceMock(walletSvc)
+            walletAuthSvc = WalletAuthService(walletSvc)
 
             // Create the Verifier's OIDC context (Bob is the Verifier)
             bob = OIDContext(loginOrRegister(Bob).withDidInfo())
@@ -63,7 +63,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 {
                   "credentials": [
                     {
-                      "id": "identity_credential",
+                      "id": "queryId",
                       "format": "jwt_vc",
                       "meta": {
                         "vct_values": [ "oid4vc_identity_credential" ]

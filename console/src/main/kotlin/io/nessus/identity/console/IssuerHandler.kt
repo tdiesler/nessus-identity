@@ -3,9 +3,9 @@ package io.nessus.identity.console
 import io.ktor.server.freemarker.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.console.SessionsStore.findOrCreateLoginContext
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.types.CredentialConfiguration
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.waltid.User
@@ -37,7 +37,7 @@ class IssuerHandler(val issuer: User) {
 
     suspend fun handleIssuerHome(call: RoutingCall) {
         call.respond(
-            FreeMarkerContent("issuer-home.ftl", issuerModel())
+            FreeMarkerContent("issuer_home.ftl", issuerModel())
         )
     }
 
@@ -48,7 +48,7 @@ class IssuerHandler(val issuer: User) {
             it.put("authConfigJson", prettyJson)
         }
         call.respond(
-            FreeMarkerContent("auth-config.ftl", model)
+            FreeMarkerContent("auth_config.ftl", model)
         )
     }
 
@@ -58,7 +58,7 @@ class IssuerHandler(val issuer: User) {
             it.put("issuerConfigJson", prettyJson)
         }
         call.respond(
-            FreeMarkerContent("issuer-config.ftl", model)
+            FreeMarkerContent("issuer_config.ftl", model)
         )
     }
 
@@ -92,7 +92,7 @@ class IssuerHandler(val issuer: User) {
             }.toList())
         }
         call.respond(
-            FreeMarkerContent("issuer-cred-offer-create.ftl", model)
+            FreeMarkerContent("issuer_cred_offer_create.ftl", model)
         )
         return credOffer
     }
@@ -103,7 +103,7 @@ class IssuerHandler(val issuer: User) {
             it.put("credentialConfigurationIds", supported.keys)
         }
         call.respond(
-            FreeMarkerContent("issuer-cred-offer-list.ftl", model)
+            FreeMarkerContent("issuer_cred_offer_list.ftl", model)
         )
     }
 

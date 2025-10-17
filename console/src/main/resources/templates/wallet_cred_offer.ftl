@@ -2,7 +2,7 @@
 
 <@layout.layout activeTab="wallet">
     <!-- Sidebar -->
-    <#include "fragments/wallet-sidebar.ftl">
+    <#include "fragments/wallet_sidebar.ftl">
 
     <!-- Main content -->
     <div class="content">

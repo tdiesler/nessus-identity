@@ -17,9 +17,9 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
+import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.HttpStatusException
-import io.nessus.identity.service.getVersionInfo
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.Max
@@ -109,8 +109,8 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 get("/issuer/credential-offer-list") {
                     issuerHandler.handleIssuerCredentialOfferList(call)
                 }
-                get("/issuer/credential-offer/{ctype}") {
-                    val ctype = call.parameters["ctype"] ?: error("No ctype")
+                get("/issuer/credential-offer") {
+                    val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
                     issuerHandler.handleIssuerCredentialOffer(call, ctype) ?. also {
                         // [TODO #280] Issuer should use the wallet's cred offer endpoint
                         // https://github.com/tdiesler/nessus-identity/issues/280
@@ -160,6 +160,12 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 //
                 get("/verifier") {
                     verifierHandler.handleVerifierHome(call)
+                }
+                get("/verifier/presentation-request") {
+                    verifierHandler.handlePresentationRequestGet(call)
+                }
+                post("/verifier/presentation-request") {
+                    verifierHandler.handlePresentationRequestPost(call)
                 }
             }
         }

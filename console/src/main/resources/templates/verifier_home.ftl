@@ -2,7 +2,7 @@
 
 <@layout.layout activeTab="verifier">
     <!-- Sidebar -->
-    <#include "fragments/verifier-sidebar.ftl">
+    <#include "fragments/verifier_sidebar.ftl">
 
     <!-- Main content -->
     <div class="content" style="flex:1; padding:1rem;">

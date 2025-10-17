@@ -1,6 +1,5 @@
-package io.nessus.identity.service
+package io.nessus.identity.config
 
-import io.nessus.identity.config.ConfigProvider
 import kotlinx.serialization.Serializable
 import java.util.jar.Manifest
 

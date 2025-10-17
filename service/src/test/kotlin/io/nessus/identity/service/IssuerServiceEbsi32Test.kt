@@ -5,7 +5,6 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldEndWith
-import io.nessus.identity.flow.CredentialIssuanceEbsi32
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
@@ -82,7 +81,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val flow = CredentialIssuanceEbsi32(alice, max)
+            val flow = CredentialIssuanceFlowEbsi32(alice, max)
             val credRes = flow.credentialFromOfferInTime(credOffer)
             alice.issuerMetadata = issuerMetadata
             alice.credentialOffer = credOffer
@@ -136,7 +135,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder gets a deferred Credential from an Issuer based on a CredentialOffer
             //
-            val flow = CredentialIssuanceEbsi32(alice, max)
+            val flow = CredentialIssuanceFlowEbsi32(alice, max)
             val deferredCredRes = flow.credentialFromOfferDeferred(credOffer)
             alice.issuerMetadata = issuerMetadata
             alice.credentialOffer = credOffer
@@ -192,7 +191,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val flow = CredentialIssuanceEbsi32(alice, max)
+            val flow = CredentialIssuanceFlowEbsi32(alice, max)
             val credRes = flow.credentialFromOfferPreAuthorized(credOffer, "$userPin")
             alice.issuerMetadata = issuerMetadata
             alice.credentialOffer = credOffer
@@ -246,7 +245,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val flow = CredentialIssuanceEbsi32(alice, max)
+            val flow = CredentialIssuanceFlowEbsi32(alice, max)
             val deferredCredRes = flow.credentialFromOfferPreAuthorizedDeferred(credOffer, "$userPin")
             alice.issuerMetadata = issuerMetadata
             alice.credentialOffer = credOffer

@@ -3,8 +3,6 @@ package io.nessus.identity.service
 import id.walt.oid4vc.responses.CredentialResponse
 import io.kotest.matchers.string.shouldContain
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.flow.CredentialIssuanceEbsi32
-import io.nessus.identity.flow.CredentialVerificationEbsi32
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
@@ -107,13 +105,13 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
             //
-            val issuanceFlow = CredentialIssuanceEbsi32(alice, max)
+            val issuanceFlow = CredentialIssuanceFlowEbsi32(alice, max)
             val credRes = issuanceFlow.credentialFromOfferInTime(credOffer)
             walletSvc.addCredential(alice, credRes)
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
-            val verificationFlow = CredentialVerificationEbsi32(alice, bob)
+            val verificationFlow = CredentialVerificationFlowEbsi32(alice, bob)
             verificationFlow.verifyPresentationByType(ctype)
         }
     }
@@ -156,7 +154,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
-            val verificationFlow = CredentialVerificationEbsi32(alice, bob)
+            val verificationFlow = CredentialVerificationFlowEbsi32(alice, bob)
             runCatching {
                 verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
@@ -205,7 +203,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
-            val verificationFlow = CredentialVerificationEbsi32(alice, bob)
+            val verificationFlow = CredentialVerificationFlowEbsi32(alice, bob)
             runCatching {
                 verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
@@ -259,7 +257,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
             // Holder finds Credential by Type and presents it to the Verifier
             //
-            val verificationFlow = CredentialVerificationEbsi32(alice, bob)
+            val verificationFlow = CredentialVerificationFlowEbsi32(alice, bob)
             runCatching {
                 verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
@@ -276,7 +274,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
     /**
      * This flow allows us to issue (invalid) credentials that the Verifier cannot accept
      *
-     * @See CredentialIssuanceEbsi32.credentialFromOfferPreAuthorized
+     * @See CredentialIssuanceFlowEbsi32.credentialFromOfferPreAuthorized
      */
     private suspend fun issueCredentialFromParameters(
         issuerCtx: OIDContext,

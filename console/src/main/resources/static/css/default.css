@@ -19,6 +19,13 @@ textarea.half-height {
   font-family:monospace
 }
 
+textarea.quarter-height {
+  width:60%;
+  height:20%;
+  margin-top:10px;
+  font-family:monospace
+}
+
 .disabled-link {
   color: #8d8d8d !important;   /* Carbon Gray 50 */
   cursor: not-allowed;
@@ -143,7 +150,7 @@ textarea.half-height {
 .bx--form-item-horizontal {
   display: grid;
   grid-template-columns: 120px 1fr;
-  align-items: center;
+  align-items: left;
   margin-bottom: 0.75rem;
   column-gap: 0.5rem;
 }

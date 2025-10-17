@@ -21,6 +21,7 @@ data class VCDataV11Jwt(
 ): VCDataJwt() {
 
     override val vcId get() = jti ?: vc.id ?: error("No credential id")
+    override val types get() = vc.type
 
     companion object {
         fun fromEncoded(encoded: String): VCDataV11Jwt {

@@ -18,9 +18,9 @@ import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.config.DatabaseConfig
+import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.HttpStatusException
-import io.nessus.identity.service.getVersionInfo
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 

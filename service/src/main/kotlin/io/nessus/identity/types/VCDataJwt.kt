@@ -17,14 +17,7 @@ sealed class VCDataJwt {
     abstract val jti: String?
 
     abstract val vcId: String
-
-    fun containsType(ctype: String): Boolean {
-        val res = when(this) {
-            is VCDataV11Jwt -> vc.type.contains(ctype)
-            is VCDataSdV11Jwt -> ctype == vct
-        }
-        return res
-    }
+    abstract val types: List<String>
 
     fun toJson(): JsonObject {
         return Json.encodeToJsonElement(this).jsonObject

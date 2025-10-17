@@ -2,7 +2,7 @@
 
 <@layout.layout activeTab="issuer">
     <!-- Sidebar -->
-    <#include "fragments/issuer-sidebar.ftl">
+    <#include "fragments/issuer_sidebar.ftl">
 
     <!-- Main content -->
     <div class="content">
@@ -19,7 +19,7 @@
                         <td>${id}</td>
                         <td>
                             <a href="/issuer/credential-config/${id}">view</a>
-                            <a href="/issuer/credential-offer/${id}">send offer</a>
+                            <a href="/issuer/credential-offer?ctype=${id}">send offer</a>
                         </td>
                     </tr>
                 </#list>

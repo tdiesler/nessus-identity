@@ -4,9 +4,6 @@ import com.nimbusds.jose.util.Base64URL
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.AuthorizationRequestV10.AuthorizationDetail
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import java.security.MessageDigest
 
 class AuthorizationRequestV10Builder {
