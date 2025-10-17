@@ -102,16 +102,19 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 get("/issuer/issuer-config") {
                     issuerHandler.handleIssuerConfig(call)
                 }
-                get("/issuer/credential-offer") {
-                    val ctype = call.request.queryParameters["ctype"]
-                    if (ctype != null) {
-                        issuerHandler.handleIssuerCredentialOffer(call, ctype) ?. also {
-                            // [TODO #280] Issuer should use the wallet's cred offer endpoint
-                            // https://github.com/tdiesler/nessus-identity/issues/280
-                            walletHandler.walletSvc.addCredentialOffer(it)
-                        }
-                    } else {
-                        issuerHandler.handleIssuerCredentialOfferList(call)
+                get("/issuer/credential-config/{ctype}") {
+                    val ctype = call.parameters["ctype"] ?: error("No ctype")
+                    issuerHandler.handleIssuerCredentialConfig(call, ctype)
+                }
+                get("/issuer/credential-offer-list") {
+                    issuerHandler.handleIssuerCredentialOfferList(call)
+                }
+                get("/issuer/credential-offer/{ctype}") {
+                    val ctype = call.parameters["ctype"] ?: error("No ctype")
+                    issuerHandler.handleIssuerCredentialOffer(call, ctype) ?. also {
+                        // [TODO #280] Issuer should use the wallet's cred offer endpoint
+                        // https://github.com/tdiesler/nessus-identity/issues/280
+                        walletHandler.walletSvc.addCredentialOffer(it)
                     }
                 }
 

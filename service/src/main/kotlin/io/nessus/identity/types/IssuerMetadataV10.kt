@@ -7,6 +7,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 
 /*
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
@@ -96,9 +98,10 @@ data class CredentialConfigurationDraft17(
     @SerialName("claims")
     val claims: List<ClaimDescription>? = null,
 
-    // captures non-standard fields like id, vct, credential_definition
-    val extras: Map<String, JsonElement>? = null
-): CredentialConfiguration()
+): CredentialConfiguration() {
+    override fun toJson() = Json.encodeToString(this)
+    override fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
+}
 
 @Serializable
 data class ProofTypeMetadata(

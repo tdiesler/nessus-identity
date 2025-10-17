@@ -41,18 +41,18 @@
             <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
                 <p>
                     Issuance of a Verifiable credential starts with the Issuer making a Credential Offer. Then there is some
-                    back-channel communication between the Issuer and the wallet from the potential Holder. Hence, the Holder
-                    receives the offer somehow for example in form of a Json file, a QR code or some link that the Issuer provides.
+                    back-channel communication between the Issuer and the Holder's Wallet. The Holder hence
+                    receives the Credential Offer e.g. in form of a Json file, a QR code or some link that the Issuer provides.
                 </p>
                 <p>
-                    Only because the Holder receives an Offer does not mean that she has to trust it. In contrary, it is the
-                    resposibility of the Holder to verify that the Offer comes from a known Issuer and is of a known type.
-                    The <a href="https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer" target="_blank">core spec</a>
-                    has no provision for individual claim key/value pairs, nor it it required to be signed by the Issuer.
+                    Only because the Holder receives an Credential Offer does not mean that she has to trust it. In contrary, it is the
+                    resposibility of the Holder to verify that the Credential Offer comes from a known Issuer and is of a known type.
+                    The <a href="https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer" target="_blank">OID4VCI Spec</a>
+                    has no provision for individual claim key/value pairs, nor is the Credential Offer required to be signed by the Issuer.
                 </p>
                 <p>
-                    If all is well, the Holder can accept the Offer, authenticate with the Issuer and request a Verifiable Credential that
-                    corresponds to the Offer.
+                    If all is well, the Holder can accept the Credential Offer, authenticate with the Issuer and request a Credential that
+                    corresponds to the Credential Offer. Then Holder than needs to validate Credential i.e. verify its content and signature.
                 </p>
             </div>
         </#if>

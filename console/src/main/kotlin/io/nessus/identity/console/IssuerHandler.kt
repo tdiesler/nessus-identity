@@ -6,6 +6,7 @@ import io.ktor.server.routing.*
 import io.nessus.identity.console.SessionsStore.findOrCreateLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.getVersionInfo
+import io.nessus.identity.types.CredentialConfiguration
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.waltid.User
 import kotlinx.coroutines.runBlocking
@@ -61,6 +62,18 @@ class IssuerHandler(val issuer: User) {
         )
     }
 
+    suspend fun handleIssuerCredentialConfig(call: RoutingCall, ctype: String) {
+        val credConfig = issuerMetadata.credentialConfigurationsSupported[ctype] as CredentialConfiguration
+        val prettyJson = jsonPretty.encodeToString(credConfig.toJsonObj())
+        val model = issuerModel().also {
+            it.put("ctype", ctype)
+            it.put("credConfigJson", prettyJson)
+        }
+        call.respond(
+            FreeMarkerContent("issuer_cred_config.ftl", model)
+        )
+    }
+
     suspend fun handleIssuerCredentialOffer(call: RoutingCall, ctype: String): CredentialOfferV10? {
         val ctx = findOrCreateLoginContext(call, issuer)
         val model = issuerModel().also {
@@ -93,6 +106,7 @@ class IssuerHandler(val issuer: User) {
             FreeMarkerContent("issuer-cred-offer-list.ftl", model)
         )
     }
+
 }
 
 data class SubjectOption(

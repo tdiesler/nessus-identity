@@ -15,17 +15,28 @@
                 This is the Wallets's main content area.
             </p>
             <p>
-                On the left we see links to Wallet admin tasks like managing keys and dids for a given wallet. This functionality
+                On the left we have links to wallet admin tasks like managing Keys and DIDs for a given Wallet. This functionality
                 can all be delegated to the <a href="https://waltid-wallet-api.localtest.me" target="_blank">WaltId API</a>
-                of the <a href="https://waltid-wallet-dev.localtest.me" target="_blank">Dev Wallet</a> and is currently
+                or to the <a href="https://waltid-wallet-dev.localtest.me" target="_blank">Dev Wallet</a> and is currently
                 not (yet) supported in this console.
             </p>
             <p>
-                Then we also have access to the Credential Offers that the Wallet already knows about. Note, that this is currently not.
+                We also have access to Credential Offers that the Wallet already knows about. Note, that this is currently not
                 delegated tho the WaltId API because it has no notion of EBSI compliant Credential Offers.
             </p>
             <p>
-                Finally, we see the list of Verifiable Credentials that the Wallet already holds.
+                Finally, we see the list of Credentials that the Wallet already holds.
+            </p>
+            <p>
+                Wallet functionality is defined by
+                <ul class="bx--list--unordered bx--list">
+                    <li class="bx--list__item">
+                        <a href="https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html" target="_blank">OpenID for Verifiable Credential Issuance</a>
+                    </li>
+                    <li class="bx--list__item">
+                        <a href="https://openid.net/specs/openid-4-verifiable-presentations-1_0.html" target="_blank">OpenID for Verifiable Presentations</a>
+                    </li>
+                </ul>
             </p>
         </div>
     </div>

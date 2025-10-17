@@ -23,4 +23,8 @@ class VerifierHandler(val verifier: User) {
         call.respond(
             FreeMarkerContent("verifier-home.ftl", model)
         )
-    }}
+    }
+
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+
+}

@@ -71,4 +71,6 @@ object IssuerMetadataSerializer : JsonContentPolymorphicSerializer<IssuerMetadat
 abstract class CredentialConfiguration {
     abstract val format: String
     abstract val cryptographicBindingMethodsSupported: List<String>?
+    abstract fun toJson(): String
+    abstract fun toJsonObj(): JsonObject
 }

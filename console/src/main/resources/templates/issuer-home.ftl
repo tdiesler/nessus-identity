@@ -13,11 +13,20 @@
                 This is the Issuer's main content area.
             </p>
             <p>
-                On the left we see links to Keycloak itself and to its respected well-known metadata
-                for OIDC and OIDC4VCI.
+                On the left we have links to
+                <a href="https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci" target="_blank">Keycloak</a>
+                and to its respected well-known metadata for OIDC and OID4VCI.
             </p>
             <p>
-                We can then access the list of supported credential configurations that the Issuer can offer to registered Users.
+                The Issuer can make Credentials Offers from the list of Credential Configurations Supported to registered Users.
+            </p>
+            <p>
+                In future versions of this Console we will be able to manage Credential Configurations and onboard new Users with respective
+                properties that can then find their way into issued Credentials.
+            </p>
+            <p>
+                Issuer functionality is defined by
+                <a href="https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html" target="_blank">OpenID for Verifiable Credential Issuance</a>.
             </p>
         </div>
     </div>
