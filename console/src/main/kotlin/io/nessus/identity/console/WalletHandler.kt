@@ -18,6 +18,10 @@ import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 class WalletHandler(val holder: User) {
 
@@ -62,7 +66,7 @@ class WalletHandler(val holder: User) {
             listOf(k.encodeURLPath(), v.credentialIssuer, v.credentialConfigurationIds.first())
         }.toList()
         val model = walletModel(ctx).also {
-            it.put("credentialOffers", credOfferData)
+            it["credentialOffers"] = credOfferData
         }
         call.respond(
             FreeMarkerContent("wallet_cred_offer_list.ftl", model)
@@ -94,8 +98,8 @@ class WalletHandler(val holder: User) {
         val credOffer = walletSvc.getCredentialOffer(offerId)
         val prettyJson = jsonPretty.encodeToString(credOffer)
         val model = walletModel(ctx).also {
-            it.put("credOffer", prettyJson)
-            it.put("credOfferId", offerId)
+            it["credOffer"] = prettyJson
+            it["credOfferId"] = offerId
         }
         call.respond(
             FreeMarkerContent("wallet_cred_offer.ftl", model)
@@ -105,25 +109,25 @@ class WalletHandler(val holder: User) {
     suspend fun handleWalletCredentials(call: RoutingCall) {
         val ctx = findOrCreateLoginContext(call, holder)
         fun abbreviatedDid(did: String) = when {
-            did.length > 32 -> "${did.substring(0, 20)}...${did.substring(did.length - 12)}"
+            did.length > 32 -> "${did.take(20)}...${did.substring(did.length - 12)}"
             else -> did
         }
 
         val credentialList = walletSvc.findCredentials(ctx) { true }.map { wc ->
-            val jwt = SignedJWT.parse(wc.document)
-            val vcJwt = Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+            val vcJwt = VCDataJwt.fromEncoded(wc.document)
             when (vcJwt) {
                 is VCDataV11Jwt -> {
                     val vc = vcJwt.vc
                     listOf(vcJwt.vcId.encodeURLPath(), abbreviatedDid(vc.issuer.id), "${vc.type}")
                 }
+
                 is VCDataSdV11Jwt -> {
                     listOf(vcJwt.vcId.encodeURLPath(), abbreviatedDid(vcJwt.iss ?: "unknown"), vcJwt.vct ?: "unknown")
                 }
             }
         }
         val model = walletModel(ctx).also {
-            it.put("credentialList", credentialList)
+            it["credentialList"] = credentialList
         }
         call.respond(
             FreeMarkerContent("wallet_cred_list.ftl", model)
@@ -132,10 +136,18 @@ class WalletHandler(val holder: User) {
 
     suspend fun handleWalletCredentialDetails(call: RoutingCall, vcId: String) {
         val ctx = findOrCreateLoginContext(call, holder)
-        val credObj = walletSvc.getCredentialById(ctx, vcId) ?: error("No credential for: $vcId")
-        val prettyJson = jsonPretty.encodeToString(credObj)
+        val vcJwt = walletSvc.getCredentialById(ctx, vcId) ?: error("No credential for: $vcId")
+        val jsonObj = when (vcJwt) {
+            is VCDataV11Jwt -> vcJwt.toJson()
+            is VCDataSdV11Jwt -> buildJsonObject {
+                vcJwt.toJson().forEach { (k, v) -> put(k, v) }
+                put("jti", JsonPrimitive(vcJwt.vcId))
+                put("disclosures", Json.decodeFromString(Json.encodeToString(vcJwt.disclosures)))
+            }
+        }
+        val prettyJson = jsonPretty.encodeToString(jsonObj)
         val model = walletModel(ctx).also {
-            it.put("credObj", prettyJson)
+            it["credObj"] = prettyJson
         }
         call.respond(
             FreeMarkerContent("wallet_cred.ftl", model)

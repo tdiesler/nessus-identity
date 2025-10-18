@@ -61,8 +61,7 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
         val res = widWalletService.findCredentials(ctx) { it.id == vcId }
             .asSequence()
             .map {
-                val jwt = SignedJWT.parse(it.document)
-                Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+                VCDataJwt.fromEncoded(it.document)
             }.firstOrNull()
         return res
     }
@@ -74,8 +73,7 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
         val res = widWalletService.findCredentials(ctx) { true }
             .asSequence()
             .map {
-                val jwt = SignedJWT.parse(it.document)
-                Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+                VCDataJwt.fromEncoded(it.document)
             }
             .filter { it.types.contains(ctype) }
             .firstOrNull()
@@ -87,8 +85,7 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
         vcId: String
     ): VCDataJwt? {
         val res = widWalletService.deleteCredential(ctx, vcId)?.let {
-            val jwt = SignedJWT.parse(it.document)
-            Json.decodeFromString<VCDataJwt>("${jwt.payload}")
+            VCDataJwt.fromEncoded(it.document)
         }
         return res
     }

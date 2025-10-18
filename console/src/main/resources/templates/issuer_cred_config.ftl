@@ -10,5 +10,8 @@
 
         <h5>Credential Configuration for ${ctype}</h5>
         <textarea readonly>${credConfigJson?html}</textarea>
+        <div>
+            <a href="/issuer/credential-offer?ctype=${ctype}">send offer</a>
+        </div>
     </div>
 </@layout.layout>

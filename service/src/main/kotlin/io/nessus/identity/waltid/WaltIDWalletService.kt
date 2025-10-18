@@ -90,11 +90,11 @@ class WaltIDWalletService {
 
     // Credentials -----------------------------------------------------------------------------------------------------
 
-    fun addCredential(walletId: String, format: CredentialFormat, credJwt: SignedJWT): String {
+    fun addCredential(walletId: String, format: CredentialFormat, sigJwt: SignedJWT): String {
 
-        val vcJwt = Json.decodeFromString<VCDataJwt>("${credJwt.payload}")
+        val vcJwt = VCDataJwt.fromEncoded("${sigJwt.serialize()}")
         val walletUid = Uuid.parse(walletId)
-        val document = credJwt.serialize()
+        val document = sigJwt.serialize()
 
         val vcId = vcJwt.vcId
 

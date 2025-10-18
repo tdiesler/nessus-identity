@@ -25,7 +25,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import java.util.*
 import kotlin.random.Random
-import kotlin.uuid.Uuid
 
 // WalletServiceKeycloak =======================================================================================================================================
 
@@ -211,15 +210,15 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
         // Extract the VerifiableCredentials from the CredentialResponse
         //
-        val credJwts = credRes.credentials?.map { SignedJWT.parse(it.credential) }.orEmpty()
-        if (credJwts.isEmpty()) error("No credential in response")
-        if (credJwts.size > 1) error("Multiple credentials not supported")
+        val sigJwts = credRes.credentials?.map { SignedJWT.parse(it.credential) }.orEmpty()
+        if (sigJwts.isEmpty()) error("No credential in response")
+        if (sigJwts.size > 1) error("Multiple credentials not supported")
 
-        val credJwt = credJwts[0]
-        log.info { "CredentialJwt Header: ${credJwt.header}" }
-        log.info { "CredentialJwt Claims: ${credJwt.jwtClaimsSet}" }
+        val sigJwt = sigJwts[0]
+        log.info { "CredentialJwt Header: ${sigJwt.header}" }
+        log.info { "CredentialJwt Claims: ${sigJwt.jwtClaimsSet}" }
 
-        val vcJwt = Json.decodeFromString<VCDataJwt>("${credJwt.payload}")
+        val vcJwt = VCDataJwt.fromEncoded("${sigJwt.serialize()}")
         log.info { "Credential: ${vcJwt.toJson()}" }
 
         val ctype = when (vcJwt) {
@@ -236,7 +235,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         val format = CredentialFormat.fromValue(credConfig.format) as CredentialFormat
 
         // Resolve issuer DID
-        val issuerDid = credJwt.jwtClaimsSet.issuer
+        val issuerDid = sigJwt.jwtClaimsSet.issuer
         log.info { "Issuer Did: $issuerDid" }
 
         // Resolve DID Document locally
@@ -247,10 +246,10 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         val ecdsaVerifier = ECDSAVerifier(jwk.toECKey())
         when (vcJwt) {
             is VCDataV11Jwt -> {
-                check(credJwt.verify(ecdsaVerifier)) { "Invalid credential signature" }
+                check(sigJwt.verify(ecdsaVerifier)) { "Invalid credential signature" }
             }
             is VCDataSdV11Jwt -> {
-                val combined = "${credJwt.serialize()}"
+                val combined = "${sigJwt.serialize()}"
                 val jwsCompact = combined.substringBefore('~')  // keep only JWS
                 val jwsObj = JWSObject.parse(jwsCompact)
                 check(jwsObj.verify(ecdsaVerifier)) { "Invalid credential signature" }
@@ -258,7 +257,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         }
 
         // Validate JWT standard claims
-        credJwt.jwtClaimsSet.run {
+        sigJwt.jwtClaimsSet.run {
             val now = Date()
             check(notBeforeTime == null || !now.before(notBeforeTime)) { "Credential not yet valid" }
             check(expirationTime == null || !now.after(expirationTime)) { "Credential expired" }
@@ -268,7 +267,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         // Add Credential to WaltId storage
         //
         val walletId = ctx.walletId
-        widWalletService.addCredential(walletId, format, credJwt)
+        widWalletService.addCredential(walletId, format, sigJwt)
 
         return vcJwt
     }

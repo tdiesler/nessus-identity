@@ -35,8 +35,10 @@ class CredentialMatcherV10 : CredentialMatcher() {
                     require(cl.path.size == 1) { "Invalid path in: $cl" }
                     val claimName = cl.path[0]
                     val was: JsonElement? = when (vcJwt) {
-                        is VCDataSdV11Jwt -> vcJwt.disclosures.find {
-                            it.claim == claimName }?.let { JsonPrimitive(it.value) }
+                        is VCDataSdV11Jwt -> vcJwt.disclosures?.find {
+                            it.claim == claimName
+                        }?.let { JsonPrimitive(it.value) }
+
                         else -> runCatching {
                             ctx.read<JsonElement>("$.credentialSubject.$claimName")
                         }.getOrElse { ex ->
@@ -45,7 +47,7 @@ class CredentialMatcherV10 : CredentialMatcher() {
                         }
                     }
 
-                    matchValue(cl, was)
+                    was?.let { matchValue(cl, was) } ?: false
 
                 } ?: true // No claim matching constraints
 
@@ -57,11 +59,9 @@ class CredentialMatcherV10 : CredentialMatcher() {
         return null
     }
 
-    private fun matchValue(cond: QueryClaim, was: JsonElement?): Boolean {
-        return was?.let {
-            val exp = cond.values
-            val wasArr = JsonArray(listOf(was))
-            exp.isEmpty() || exp == wasArr
-        } ?: false
+    private fun matchValue(cond: QueryClaim, was: JsonElement): Boolean {
+        val exp = cond.values
+        val wasArr = JsonArray(listOf(was))
+        return exp.isEmpty() || exp == wasArr
     }
 }

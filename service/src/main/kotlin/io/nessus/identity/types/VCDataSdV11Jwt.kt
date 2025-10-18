@@ -1,18 +1,21 @@
 package io.nessus.identity.types
 
+import io.ktor.util.toLowerCasePreservingASCIIRules
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.*
+import java.util.Locale
+import java.util.Locale.getDefault
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 @Serializable
 data class VCDataSdV11Jwt(
     @SerialName("_sd")
-    val sdDigests: List<String>? = null,
+    val sdDigests: List<String>,
 
     @SerialName("_sd_alg")
     val sdAlgorithm: String? = null,
@@ -27,21 +30,23 @@ data class VCDataSdV11Jwt(
     override val jti: String? = null,           // Token ID
     val id: String? = null,                     // Credential ID
     val cnf: Confirmation? = null,              // Proof of key possession
-): VCDataJwt() {
+) : VCDataJwt() {
 
     override val types get() = vct?.let { listOf(vct) } ?: listOf()
 
-    // [TODO #301] Keycloak issues oid4vc_natural_person with invalid id value
-    // https://github.com/tdiesler/nessus-identity/issues/301
-    override val vcId get() = jti ?: id ?: run { "DUMMY-${Uuid.random()}" }
+    override val vcId
+        get() = jti ?: run {
+            // Generate an id value as a function of all digests
+            sdDigests.map { it.replace(Regex("[_-]"), "").lowercase().take(4) }
+                .chunked(2).joinToString("-") { it.joinToString("") }
+        }
 
-    @Transient
-    val disclosures = mutableListOf<Disclosure>()
+    var disclosures: List<Disclosure>? = null
 
     fun decodeDisclosures(encoded: String): List<Disclosure> {
         val decoder = Base64.getUrlDecoder()
         val encodedParts = encoded.substringAfter("~").split("~")
-        val res = encodedParts
+        disclosures = encodedParts
             .filter { it.isNotBlank() }
             .map { part ->
                 val arr = Json.decodeFromString<JsonArray>(decoder.decode(part).decodeToString())
@@ -51,8 +56,7 @@ data class VCDataSdV11Jwt(
                     value = arr[2].jsonPrimitive.content
                 )
             }
-        disclosures.addAll(res)
-        return res
+        return disclosures!!
     }
 
     @Serializable
