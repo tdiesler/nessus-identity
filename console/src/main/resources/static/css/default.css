@@ -12,16 +12,23 @@ textarea {
   font-family:monospace
 }
 
-textarea.half-height {
+textarea.height4 {
   width:60%;
   height:40%;
   margin-top:10px;
   font-family:monospace
 }
 
-textarea.quarter-height {
+textarea.height2 {
   width:60%;
   height:20%;
+  margin-top:10px;
+  font-family:monospace
+}
+
+textarea.height1 {
+  width:60%;
+  height:10%;
   margin-top:10px;
   font-family:monospace
 }

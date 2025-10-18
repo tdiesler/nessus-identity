@@ -14,11 +14,18 @@ import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletAuthService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.DCQLQuery
+import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class VerifierHandler(val verifier: User) {
 
@@ -51,10 +58,14 @@ class VerifierHandler(val verifier: User) {
         val model = verifierModel()
         model["subjects"] = issuerSvc.getRealmUsers().map { SubjectOption.fromUserRepresentation(it) }.toList()
         model["vctValues"] = issuerSvc.getIssuerMetadata().credentialConfigurationsSupported.keys
-        model["claimsJson"] = jsonPretty.encodeToString(Json.decodeFromString<JsonArray>("""
+        model["claimsJson"] = jsonPretty.encodeToString(
+            Json.decodeFromString<JsonArray>(
+                """
           [
             { "path": ["email"], "values": ["alice@email.com"]}
-          ]"""))
+          ]"""
+            )
+        )
         call.respond(
             FreeMarkerContent("verifier_presentation_request.ftl", model)
         )
@@ -72,7 +83,8 @@ class VerifierHandler(val verifier: User) {
             ctx = findOrCreateLoginContext(call, verifier),
             clientId = "oid4vcp",
             redirectUri = "urn:ietf:wg:oauth:2.0:oob",
-            dcql = DCQLQuery.fromJson("""
+            dcql = DCQLQuery.fromJson(
+                """
                 {
                   "credentials": [
                     {
@@ -84,19 +96,31 @@ class VerifierHandler(val verifier: User) {
                       "claims": $claims
                     }
                   ]
-                }"""))
+                }"""
+            )
+        )
         log.info { authContext.authRequest.toHttpParameters() }
 
-        val holderCtx = when(subjectId) {
+        val holderCtx = when (subjectId) {
             Alice.email -> LoginContext.login(Alice).withWalletInfo()
             else -> error("Other users than Alice not (yet) supported")
         }
 
-        val authRes = walletAuthSvc.authenticate(holderCtx,authContext.authRequest)
+        val authRes = walletAuthSvc.authenticate(holderCtx, authContext.authRequest)
         val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
-        model["vpTokenHeader"] = jsonPretty.encodeToString(Json.decodeFromString<JsonElement>("${vpTokenJwt.header}"))
-        model["vpTokenClaims"] = jsonPretty.encodeToString(Json.decodeFromString<JsonElement>("${vpTokenJwt.jwtClaimsSet}"))
+        val headerObj = Json.decodeFromString<JsonObject>("${vpTokenJwt.header}")
+        val claimsObj = Json.decodeFromString<JsonObject>("${vpTokenJwt.jwtClaimsSet}")
+
+        model["vpTokenHeader"] = jsonPretty.encodeToString(headerObj)
+        model["vpTokenClaims"] = jsonPretty.encodeToString(claimsObj)
         model["submissionJson"] = jsonPretty.encodeToString(authRes.presentationSubmission.toJSON())
+
+        val vpObj = claimsObj.getValue("vp").jsonObject
+        val credsArr = vpObj.getValue("verifiableCredential").jsonArray
+        val verifiableCredentials = credsArr.map {
+            VCDataJwt.fromEncoded(it.jsonPrimitive.content).toJson()
+        }
+        model["verifiableCredentials"] = jsonPretty.encodeToString(verifiableCredentials)
 
         call.respond(
             FreeMarkerContent("verifier_presentation_details.ftl", model)

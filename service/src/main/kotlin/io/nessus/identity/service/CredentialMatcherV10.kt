@@ -16,7 +16,7 @@ class CredentialMatcherV10 : CredentialMatcher() {
     /**
      * Returns any WalletCredential that matches a given CredentialQuery
      */
-    fun matchCredential(cq: CredentialQuery, supplier: Sequence<WalletCredential>): WalletCredential? {
+    fun matchCredential(cq: CredentialQuery, supplier: Sequence<WalletCredential>): Pair<WalletCredential, List<QueryClaim>?>? {
 
         for (wc in supplier) {
 
@@ -35,16 +35,19 @@ class CredentialMatcherV10 : CredentialMatcher() {
                     require(cl.path.size == 1) { "Invalid path in: $cl" }
                     val claimName = cl.path[0]
                     val was: JsonElement? = when (vcJwt) {
-                        is VCDataSdV11Jwt -> vcJwt.disclosures?.find {
-                            it.claim == claimName
-                        }?.let { JsonPrimitive(it.value) }
 
-                        else -> runCatching {
-                            ctx.read<JsonElement>("$.credentialSubject.$claimName")
-                        }.getOrElse { ex ->
-                            log.error(ex) { "Error processing: $vcObj" }
-                            null
-                        }
+                        is VCDataSdV11Jwt -> vcJwt.disclosures
+                            .find {
+                                it.claim == claimName
+                            }?.let { JsonPrimitive(it.value) }
+
+                        else ->
+                            runCatching {
+                                ctx.read<JsonElement>("$.credentialSubject.$claimName")
+                            }.getOrElse { ex ->
+                                log.error(ex) { "Error processing: $vcObj" }
+                                null
+                            }
                     }
 
                     was?.let { matchValue(cl, was) } ?: false
@@ -52,7 +55,7 @@ class CredentialMatcherV10 : CredentialMatcher() {
                 } ?: true // No claim matching constraints
 
                 if (claimsMatched)
-                    return wc
+                    return Pair(wc, cq.claims)
             }
         }
 

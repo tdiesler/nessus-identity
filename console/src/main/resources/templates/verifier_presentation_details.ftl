@@ -9,13 +9,15 @@
         <h1>OID4VC Verifier</h1>
 
         <h5>VP Token Header</h5>
-        <textarea class="quarter-height" readonly>${vpTokenHeader?html}</textarea>
+        <textarea class="height1" readonly>${vpTokenHeader?html}</textarea>
 
         <h5>VP Token Claims</h5>
-        <textarea class="half-height" readonly>${vpTokenClaims?html}</textarea>
+        <textarea class="height4" readonly>${vpTokenClaims?html}</textarea>
+
+        <h5>Presentation Credentials</h5>
+        <textarea class="height4" readonly>${verifiableCredentials?html}</textarea>
 
         <h5>Presentation Submission</h5>
-        <textarea class="half-height" readonly>${submissionJson?html}</textarea>
-
+        <textarea class="height2" readonly>${submissionJson?html}</textarea>
     </div>
 </@layout.layout>

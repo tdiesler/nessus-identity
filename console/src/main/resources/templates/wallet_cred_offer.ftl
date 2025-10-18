@@ -11,7 +11,7 @@
         <h5>Available Credential Offer</h5>
 
         <!-- Show textarea with the CredentialOffer -->
-        <textarea class="half-height" readonly>${credOffer?html}</textarea>
+        <textarea class="height4" readonly>${credOffer?html}</textarea>
 
         <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
             <a href="/wallet/credential-offer/${credOfferId}/accept">accept</a>

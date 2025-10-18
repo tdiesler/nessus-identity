@@ -1,14 +1,22 @@
 package io.nessus.identity.types
 
+import id.walt.webwallet.db.models.WalletCredentials.disclosures
 import io.ktor.util.toLowerCasePreservingASCIIRules
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
+import org.jetbrains.exposed.v1.jdbc.SchemaUtils.drop
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.util.*
 import java.util.Locale
 import java.util.Locale.getDefault
+import kotlin.text.Charsets.UTF_8
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
@@ -41,13 +49,25 @@ data class VCDataSdV11Jwt(
                 .chunked(2).joinToString("-") { it.joinToString("") }
         }
 
-    var disclosures: List<Disclosure>? = null
+    val disclosures= mutableListOf<Disclosure>()
+
+    fun disclosureToDigests(): List<Pair<Disclosure, String>> = run {
+        return disclosures.map {
+            val json = Json // default config; used only to quote strings
+            val s = json.encodeToString(String.serializer(), it.salt)
+            val c = json.encodeToString(String.serializer(), it.claim)
+            val v = json.encodeToString(String.serializer(), it.value)
+            val payload = "[${s}, ${c}, ${v}]".toByteArray(UTF_8)   // note the spaces after commas
+            val digest =  Base64.getUrlEncoder().withoutPadding().encodeToString(payload)
+            Pair(it, digest)
+        }
+    }
 
     fun decodeDisclosures(encoded: String): List<Disclosure> {
         val decoder = Base64.getUrlDecoder()
-        val encodedParts = encoded.substringAfter("~").split("~")
-        disclosures = encodedParts
-            .filter { it.isNotBlank() }
+        val encodedParts = encoded.split("~")
+            .drop(1).filter { it.isNotBlank() }
+        disclosures.addAll(encodedParts
             .map { part ->
                 val arr = Json.decodeFromString<JsonArray>(decoder.decode(part).decodeToString())
                 Disclosure(
@@ -55,8 +75,9 @@ data class VCDataSdV11Jwt(
                     claim = arr[1].jsonPrimitive.content,
                     value = arr[2].jsonPrimitive.content
                 )
-            }
-        return disclosures!!
+            })
+        require(encodedParts == disclosureToDigests().map { it.second })
+        return disclosures
     }
 
     @Serializable

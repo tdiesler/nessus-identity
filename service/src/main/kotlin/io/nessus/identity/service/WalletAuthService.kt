@@ -17,6 +17,10 @@ import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.types.AuthorizationRequestV10
 import io.nessus.identity.types.AuthorizationResponseV10
 import io.nessus.identity.types.DCQLQuery
+import io.nessus.identity.types.QueryClaim
+import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.types.VCDataSdV11Jwt
+import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.Json
 import java.util.*
@@ -57,7 +61,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
 
         // Build the list of Credentials and associated PresentationSubmission
         //
-        val (vcArray, vpSubmission) = buildPresentationSubmission(ctx, dcql)
+        val (vcJwts, vpSubmission) = buildPresentationSubmission(ctx, dcql)
 
         // Build the VPToken JWT
         //
@@ -78,7 +82,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
             "id": "$jti",
             "type": [ "VerifiablePresentation" ],
             "holder": "${ctx.did}",
-            "verifiableCredential": ${vcArray.map { "\"${it.document}\"" }}
+            "verifiableCredential": ${vcJwts.map { "\"${it.serialize()}\"" }}
         }"""
         val vpObj = JSONObjectUtils.parse(vpJson)
 
@@ -115,10 +119,10 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
         ctx: LoginContext,
         dcql: DCQLQuery,
     ): SubmissionBundle {
-        val vcArray = mutableListOf<WalletCredential>()
+        val vcArray = mutableListOf<SignedJWT>()
         val descriptorMappings = mutableListOf<DescriptorMapping>()
         val queryIds = mutableListOf<String>()
-        findMatchingCredentials(ctx, dcql).forEach { (wc, queryId) ->
+        findMatchingCredentials(ctx, dcql).forEach { (wc, queryId, claims) ->
             val n = vcArray.size
             queryIds.add(queryId)
             val dm = DescriptorMapping(
@@ -127,8 +131,26 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
                 format = if(wc.format == CredentialFormat.sd_jwt_dc) VCFormat.sd_jwt_vc else VCFormat.valueOf(wc.format.value),
                 path = "$.vp.verifiableCredential[$n]",
             )
+            val vcJwt = VCDataJwt.fromEncoded(wc.document)
+            val sigJwt = when(vcJwt) {
+                is VCDataV11Jwt -> SignedJWT.parse(wc.document)
+                is VCDataSdV11Jwt -> {
+                    if (claims == null || claims.isEmpty()) {
+                        SignedJWT.parse(wc.document)
+                    } else {
+                        val parts = mutableListOf(wc.document.substringBefore("~"))
+                        val claimMap = vcJwt.disclosureToDigests().associate { (disc, digest) -> disc.claim to digest }
+                        val digests = claims.map { cl ->
+                            require(cl.path.size == 1) { "Invalid path in: $cl" }
+                            claimMap[cl.path[0]] ?: error("No digest for: $cl")
+                        }
+                        parts.addAll(digests)
+                        SignedJWT.parse(parts.joinToString("~"))
+                    }
+                }
+            }
             descriptorMappings.add(dm)
-            vcArray.add(wc)
+            vcArray.add(sigJwt)
         }
 
         // The presentation_submission object **MUST** contain a definition_id property.
@@ -147,12 +169,12 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
     private suspend fun findMatchingCredentials(
         ctx: LoginContext,
         dcql: DCQLQuery
-    ): List<Pair<WalletCredential, String>> {
+    ): List<Triple<WalletCredential, String, List<QueryClaim>?>> {
         val matcher = CredentialMatcherV10()
         val credentials = walletSvc.findCredentials(ctx) { true } // cache all credentials to avoid multiple API calls
         val res = dcql.credentials.mapNotNull { cq ->
-            matcher.matchCredential(cq, credentials.asSequence())?.let { wc ->
-                Pair(wc, cq.id)
+            matcher.matchCredential(cq, credentials.asSequence())?.let { (wc, claims) ->
+                Triple(wc, cq.id, claims)
             }
         }.onEach {
             log.info { "Matched: ${it.first.parsedDocument}" }
@@ -161,7 +183,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
     }
 
     data class SubmissionBundle(
-        val credentials: List<WalletCredential>,
+        val credentials: List<SignedJWT>,
         val submission: PresentationSubmission
     )
 }
