@@ -1,12 +1,12 @@
 <#import "layout.ftl" as layout>
 
-<@layout.layout activeTab="wallet">
+<@layout.layout activeTab="holder">
     <!-- Sidebar -->
-    <#include "fragments/wallet_sidebar.ftl">
+    <#include "fragments/holder_sidebar.ftl">
 
     <!-- Main content -->
     <div class="content">
-        <h1>OID4VC Wallet</h1>
+        <h1>OID4VC Holder</h1>
         <h4>${holderName}</h4>
         <h5>Available Credential Offers</h5>
 

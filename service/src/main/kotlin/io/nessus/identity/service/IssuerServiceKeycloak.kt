@@ -12,7 +12,9 @@ import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataV10
 import io.nessus.identity.types.PreAuthorizedCodeGrant
 import org.keycloak.OAuth2Constants
+import org.keycloak.admin.client.Keycloak
 import org.keycloak.admin.client.KeycloakBuilder
+import org.keycloak.representations.idm.CredentialRepresentation
 import org.keycloak.representations.idm.UserRepresentation
 import java.net.URI
 import java.util.*
@@ -88,35 +90,70 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) :
         return credOffer
     }
 
+    fun getCredentialUsers(): List<UserRepresentation> {
+        val realm = issuerCfg.realm
+        keycloakConnect(realm).use {
+            val usersResource = it.realm(realm).users()
+            val realmUsers = usersResource.list()
+            return realmUsers
+        }
+    }
+
+    fun createCredentialUser(firstName: String, lastName: String, email: String, username: String, password: String): String {
+        val realm = issuerCfg.realm
+        val user = UserRepresentation().apply {
+            this.username = username
+            this.email = email
+            this.firstName = firstName
+            this.lastName = lastName
+            isEnabled = true
+            isEmailVerified = true
+        }
+        keycloakConnect(realm).use { keycloak ->
+            val users = keycloak.realm(realm).users()
+            val res = users.create(user)
+            if (res.status != 201) {
+                error("Failed to create user: ${res.statusInfo.reasonPhrase}")
+            }
+            val userId = res.location.path.substringAfterLast('/')
+            log.info { "Created user with ID: $userId" }
+
+            val credential = CredentialRepresentation().apply {
+                type = CredentialRepresentation.PASSWORD
+                value = password
+                isTemporary = false
+            }
+            users.get(userId).resetPassword(credential)
+
+            return userId
+        }
+    }
+
+    fun deleteCredentialUser(userId: String) {
+        val realm = issuerCfg.realm
+        keycloakConnect(realm).use {
+            it.realm(realm).users().delete(userId)
+        }
+    }
+
     override suspend fun getIssuerMetadata(): IssuerMetadataV10 {
         val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
         log.info { "IssuerMetadataUrl: $metadataUrl" }
         return http.get(metadataUrl).body<IssuerMetadataV10>()
     }
 
-    fun getRealmUsers(): List<UserRepresentation> {
+    // Private ---------------------------------------------------------------------------------------------------------
 
-        val realm = issuerCfg.realm
-        val keycloak = KeycloakBuilder.builder()
+    private fun keycloakConnect(realm: String): Keycloak {
+        val kc = KeycloakBuilder.builder()
             .serverUrl(issuerBaseUrl)
             .clientId(issuerCfg.serviceId)
             .clientSecret(issuerCfg.serviceSecret)
             .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
             .realm(realm)
             .build()
-
         log.info { "Connected to Keycloak realm: $realm" }
-
-        // Fetch all users (paginated)
-        val realmResource = keycloak.realm(realm)
-        val usersResource = realmResource.users()
-
-        val realmUsers = usersResource.list()
-        keycloak.close()
-
-        return realmUsers
+        return kc
     }
-
-    // Private ---------------------------------------------------------------------------------------------------------
 
 }

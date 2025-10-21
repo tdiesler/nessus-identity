@@ -106,8 +106,8 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                     val ctype = call.parameters["ctype"] ?: error("No ctype")
                     issuerHandler.handleIssuerCredentialConfig(call, ctype)
                 }
-                get("/issuer/credential-offer-list") {
-                    issuerHandler.handleIssuerCredentialOfferList(call)
+                get("/issuer/credential-offers") {
+                    issuerHandler.handleIssuerCredentialOffers(call)
                 }
                 get("/issuer/credential-offer") {
                     val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
@@ -116,6 +116,19 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                         // https://github.com/tdiesler/nessus-identity/issues/280
                         walletHandler.walletSvc.addCredentialOffer(it)
                     }
+                }
+                get("/issuer/credential-users") {
+                    issuerHandler.handleIssuerCredentialUsers(call)
+                }
+                get("/issuer/credential-user-create") {
+                    issuerHandler.handleIssuerCredentialUserCreateGet(call)
+                }
+                post("/issuer/credential-user-create") {
+                    issuerHandler.handleIssuerCredentialUserCreatePost(call)
+                }
+                get("/issuer/credential-user-delete/{userId}") {
+                    val userId = call.parameters["userId"] ?: error("No userId")
+                    issuerHandler.handleIssuerCredentialUserDelete(call, userId)
                 }
 
                 // Wallet ---------------------------------------------------------------------------------

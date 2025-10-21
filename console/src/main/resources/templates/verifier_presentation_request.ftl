@@ -38,7 +38,7 @@
                 style="height:200px;font-family:monospace;width:100%;">${claimsJson?html}</textarea>
             </div>
 
-            <!-- Submit button aligned with controls -->
+            <!-- Submit button -->
             <div class="bx--form-item-horizontal">
                 <div></div>
                 <button type="submit" class="bx--btn bx--btn--primary"

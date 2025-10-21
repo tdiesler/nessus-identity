@@ -4,10 +4,10 @@
         <#include "fragments/head.ftl">
         <body class="app-body">
 
-            <!-- Role tabs row (Issuer | Wallet | Verifier) -->
+            <!-- Role tabs row (Issuer | Holder | Verifier) -->
             <header class="app-header">
                 <a href="/issuer" class="<#if activeTab == 'issuer'>active</#if>">Issuer</a>
-                <a href="/wallet" class="<#if activeTab == 'wallet'>active</#if>">Wallet</a>
+                <a href="/wallet" class="<#if activeTab == 'holder'>active</#if>">Holder</a>
                 <a href="/verifier" class="<#if activeTab == 'verifier'>active</#if>">Verifier</a>
             </header>
 

@@ -70,7 +70,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     @Test
     fun testGetRealmUsers() {
 
-        val realmUsers = issuerSvc.getRealmUsers()
+        val realmUsers = issuerSvc.getCredentialUsers()
         realmUsers.forEach { usr ->
             val did = usr.attributes?.get("did")?.firstOrNull()
             log.info { "id=${usr.id}, name=${usr.firstName} ${usr.lastName}, username=${usr.username}, email=${usr.email}, did=$did" }

@@ -15,14 +15,11 @@ import io.nessus.identity.service.WalletAuthService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.VCDataJwt
-import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -56,7 +53,7 @@ class VerifierHandler(val verifier: User) {
 
     suspend fun handlePresentationRequestGet(call: RoutingCall) {
         val model = verifierModel()
-        model["subjects"] = issuerSvc.getRealmUsers().map { SubjectOption.fromUserRepresentation(it) }.toList()
+        model["subjects"] = issuerSvc.getCredentialUsers().map { SubjectOption.fromUserRepresentation(it) }.toList()
         model["vctValues"] = issuerSvc.getIssuerMetadata().credentialConfigurationsSupported.keys
         model["claimsJson"] = jsonPretty.encodeToString(
             Json.decodeFromString<JsonArray>(

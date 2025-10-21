@@ -1,6 +1,7 @@
 package io.nessus.identity.console
 
 import io.ktor.server.freemarker.*
+import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.config.getVersionInfo
@@ -87,7 +88,7 @@ class IssuerHandler(val issuer: User) {
             model.put("subjectId", subjectId)
             model.put("credOffer", prettyJson)
         } else {
-            model.put("subjects", issuerSvc.getRealmUsers().map { it ->
+            model.put("subjects", issuerSvc.getCredentialUsers().map { it ->
                 SubjectOption.fromUserRepresentation(it)
             }.toList())
         }
@@ -97,16 +98,48 @@ class IssuerHandler(val issuer: User) {
         return credOffer
     }
 
-    suspend fun handleIssuerCredentialOfferList(call: RoutingCall) {
+    suspend fun handleIssuerCredentialOffers(call: RoutingCall) {
         val supported = issuerMetadata.credentialConfigurationsSupported
         val model = issuerModel().also {
             it.put("credentialConfigurationIds", supported.keys)
         }
         call.respond(
-            FreeMarkerContent("issuer_cred_offer_list.ftl", model)
+            FreeMarkerContent("issuer_cred_offers.ftl", model)
         )
     }
 
+    suspend fun handleIssuerCredentialUsers(call: RoutingCall) {
+        val users = issuerSvc.getCredentialUsers().map { SubjectOption.fromUserRepresentation(it) }
+        val model = issuerModel().also {
+            it.put("credentialUsers", users)
+        }
+        call.respond(
+            FreeMarkerContent("issuer_cred_users.ftl", model)
+        )
+    }
+
+    suspend fun handleIssuerCredentialUserCreateGet(call: RoutingCall) {
+        val model = issuerModel()
+        call.respond(
+            FreeMarkerContent("issuer_cred_user_create.ftl", model)
+        )
+    }
+
+    suspend fun handleIssuerCredentialUserCreatePost(call: RoutingCall) {
+        val params = call.receiveParameters()
+        val firstName = params["firstName"] ?: error("No firstName")
+        val lastName = params["lastName"] ?: error("No lastName")
+        val email = params["email"] ?: error("No email")
+        val username = params["username"] ?: error("No username")
+        val password = params["password"] ?: error("No password")
+        issuerSvc.createCredentialUser(firstName, lastName, email, username, password)
+        call.respondRedirect("/issuer/credential-users")
+    }
+
+    suspend fun handleIssuerCredentialUserDelete(call: RoutingCall, userId: String) {
+        issuerSvc.deleteCredentialUser(userId)
+        call.respondRedirect("/issuer/credential-users")
+    }
 }
 
 data class SubjectOption(

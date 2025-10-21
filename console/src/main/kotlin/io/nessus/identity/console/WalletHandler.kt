@@ -1,6 +1,5 @@
 package io.nessus.identity.console
 
-import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.server.freemarker.*
@@ -18,8 +17,6 @@ import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
@@ -46,7 +43,7 @@ class WalletHandler(val holder: User) {
         val ctx = findOrCreateLoginContext(call, holder)
         val model = walletModel(ctx)
         call.respond(
-            FreeMarkerContent("wallet_home.ftl", model)
+            FreeMarkerContent("holder_home.ftl", model)
         )
     }
 
@@ -69,7 +66,7 @@ class WalletHandler(val holder: User) {
             it["credentialOffers"] = credOfferData
         }
         call.respond(
-            FreeMarkerContent("wallet_cred_offer_list.ftl", model)
+            FreeMarkerContent("holder_cred_offer_list.ftl", model)
         )
     }
 
@@ -102,7 +99,7 @@ class WalletHandler(val holder: User) {
             it["credOfferId"] = offerId
         }
         call.respond(
-            FreeMarkerContent("wallet_cred_offer.ftl", model)
+            FreeMarkerContent("holder_cred_offer.ftl", model)
         )
     }
 
@@ -130,7 +127,7 @@ class WalletHandler(val holder: User) {
             it["credentialList"] = credentialList
         }
         call.respond(
-            FreeMarkerContent("wallet_cred_list.ftl", model)
+            FreeMarkerContent("holder_creds.ftl", model)
         )
     }
 
@@ -150,7 +147,7 @@ class WalletHandler(val holder: User) {
             it["credObj"] = prettyJson
         }
         call.respond(
-            FreeMarkerContent("wallet_cred.ftl", model)
+            FreeMarkerContent("holder_cred.ftl", model)
         )
     }
 
