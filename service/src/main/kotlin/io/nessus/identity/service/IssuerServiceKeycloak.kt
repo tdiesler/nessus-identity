@@ -11,6 +11,7 @@ import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataV10
 import io.nessus.identity.types.PreAuthorizedCodeGrant
+import org.keycloak.OAuth2Constants
 import org.keycloak.admin.client.KeycloakBuilder
 import org.keycloak.representations.idm.UserRepresentation
 import java.net.URI
@@ -98,10 +99,10 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) :
         val realm = issuerCfg.realm
         val keycloak = KeycloakBuilder.builder()
             .serverUrl(issuerBaseUrl)
-            .username(issuerCfg.adminUsername)
-            .password(issuerCfg.adminPassword)
-            .clientId("admin-cli")
-            .realm("master")
+            .clientId(issuerCfg.serviceId)
+            .clientSecret(issuerCfg.serviceSecret)
+            .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
+            .realm(realm)
             .build()
 
         log.info { "Connected to Keycloak realm: $realm" }

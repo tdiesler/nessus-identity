@@ -19,7 +19,12 @@ make images
 Create Postgres username/password secret
 
 ```
-KEYCLAOK_PASSWORD="admin"
+KEYCLOAK_ADMIN_USERNAME="admin"
+KEYCLOAK_ADMIN_PASSWORD="admin"
+
+OID4VCI_SERVICE_ID="oid4vci-service"
+OID4VCI_SERVICE_SECRET="changeme"
+
 POSTGRES_PASSWORD="changeme"
 
 kubectl delete secret postgres-secret --ignore-not-found=true
@@ -33,8 +38,10 @@ Create Keycloak admin/password secret
 ```
 kubectl delete secret keycloak-secret --ignore-not-found=true
 kubectl create secret generic keycloak-secret \
-  --from-literal=ADMIN_USERNAME=admin \
-  --from-literal=ADMIN_PASSWORD=${KEYCLAOK_PASSWORD}
+  --from-literal=ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME} \
+  --from-literal=ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD} \
+  --from-literal=OID4VCI_SERVICE_ID=${OID4VCI_SERVICE_ID} \
+  --from-literal=OID4VCI_SERVICE_SECRET=${OID4VCI_SERVICE_SECRET}
 ```
 
 Create and install TLS edge certificate

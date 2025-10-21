@@ -11,18 +11,32 @@ fi
 # Log in as Keycloak Admin
 #
 kc_admin_login() {
+  local realm="master"
   local adminUser="$1"
   local adminPass="$2"
 
-  ${KCADM} config credentials --server "${AUTH_SERVER_URL}" --realm master \
-      --user "${adminUser}" --password "${adminPass}"
+  ${KCADM} config credentials --server "${AUTH_SERVER_URL}" \
+      --realm "${realm}" \
+      --user "${adminUser}" \
+      --password "${adminPass}"
+}
+
+# Log in as Keycloak Admin
+#
+kc_oid4vci_login() {
+  local realm="$1"
+  local oid4vciUser="$2"
+  local oid4vciPass="$3"
+
+  ${KCADM} config credentials --server "${AUTH_SERVER_URL}" \
+    --realm "${realm}" \
+    --client "${oid4vciUser}" \
+    --secret "${oid4vciPass}"
 }
 
 kc_create_realm() {
   local realm="$1"
-  local client_id="$2"
-  local credential_id="$3"
-  local force="$4"
+  local force="$2"
 
   # Check if realm already exists
   #
@@ -115,9 +129,64 @@ EOF
   #
   ${KCADM} get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
 
+  echo
+  echo "Realm setup complete"
+}
+
+kc_create_oid4vci_service_client() {
+  local realm="$1"
+  local client_id="$2"
+  local client_secret="$3"
+  local force="$4"
+
+  echo "Create OID4VC Service client: ${client_id} ..."
+  ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
+  {
+    "clientId": "${client_id}",
+    "name": "OID4VC Service Client",
+    "enabled": true,
+    "protocol": "openid-connect",
+    "publicClient": false,
+    "serviceAccountsEnabled": true,
+    "directAccessGrantsEnabled": false,
+    "authorizationServicesEnabled": false,
+    "standardFlowEnabled": false,
+    "secret": "${client_secret}",
+    "attributes": {
+      "oid4vci.enabled": "false"
+    }
+  }
+EOF
+
+  # Assign realm-management roles to the service account
+  ${KCADM} add-roles -r "${realm}" \
+    --uusername "service-account-${client_id}" \
+    --cclientid realm-management \
+    --rolename manage-clients 2>/dev/null
+  ${KCADM} add-roles -r "${realm}" \
+    --uusername "service-account-${client_id}" \
+    --cclientid realm-management \
+    --rolename view-clients 2>/dev/null
+  ${KCADM} add-roles -r "${realm}" \
+    --uusername "service-account-${client_id}" \
+    --cclientid realm-management \
+    --rolename manage-users 2>/dev/null
+  ${KCADM} add-roles -r "${realm}" \
+    --uusername "service-account-${client_id}" \
+    --cclientid realm-management \
+    --rolename view-users 2>/dev/null
+
+  echo "List assigned client roles for verification ..."
+  ${KCADM} get-roles -r "${realm}" --uusername "service-account-${client_id}" --cclientid realm-management
+}
+
+kc_create_oid4vc_identity_credential() {
+  local realm="$1"
+  local credential_id="$2"
+
   # Configure oid4vci client scopes
   #
-  echo "Create client scopes ..."
+  echo "Create Credential config for: ${credential_id}"
   ${KCADM} create "realms/${realm}/client-scopes" -f - <<EOF
   {
     "name": "${credential_id}",
@@ -175,33 +244,46 @@ EOF
   }
 EOF
 
+  local client_scope_id
+  client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_id}\") | .id")
+  echo "Client Scope Id for ${credential_id}: ${client_scope_id}"
+
+  # ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
+}
+
+kc_patch_oid4vc_natural_person() {
+  local realm="$1"
+
+  local credential_id="oid4vc_natural_person"
+
   # Patch preinstalled oid4vc_natural_person
   #
-  natural_person_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r '.[] | select(.name=="oid4vc_natural_person") | .id')
+  local client_scope_id
+  client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_id}\") | .id")
 
-  if [ -n "${natural_person_scope_id}" ]; then
-    echo "Patch preinstalled oid4vc_natural_person client scope: ${natural_person_scope_id}"
+  if [ -n "${client_scope_id}" ]; then
+    echo "Patch preinstalled ${credential_id} client scope: ${client_scope_id}"
 
     # Remove the illegal oid4vc-subject-id-mapper
-    # Keycloak issues oid4vc_natural_person with invalid id value
+    # [TODO #301] Keycloak issues oid4vc_natural_person with invalid id value
     # https://github.com/tdiesler/nessus-identity/issues/301
-    mapper_id=$(${KCADM} get "realms/${realm}/client-scopes/${natural_person_scope_id}/protocol-mappers/models" 2>/dev/null | jq -r '.[] | select(.protocolMapper=="oid4vc-subject-id-mapper") | .id')
-    echo "Delete protocolMapper=oid4vc-subject-id-mapper with id: ${mapper_id}"
-    ${KCADM} delete "realms/${realm}/client-scopes/${natural_person_scope_id}/protocol-mappers/models/${mapper_id}"
+    protocol_mapper_id=$(${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}/protocol-mappers/models" 2>/dev/null | jq -r '.[] | select(.protocolMapper=="oid4vc-subject-id-mapper") | .id')
+    echo "Delete protocolMapper=oid4vc-subject-id-mapper with id: ${protocol_mapper_id}"
+    ${KCADM} delete "realms/${realm}/client-scopes/${client_scope_id}/protocol-mappers/models/${protocol_mapper_id}"
 
-    ${KCADM} update "realms/${realm}/client-scopes/${natural_person_scope_id}" -f - <<EOF
+    ${KCADM} update "realms/${realm}/client-scopes/${client_scope_id}" -f - <<EOF
     {
-      "name": "oid4vc_natural_person",
+      "name": "${credential_id}",
       "protocol": "oid4vc",
       "attributes": {
         "include.in.token.scope": "true",
         "vc.include_in_metadata": "true",
         "vc.issuer_did": "${issuer_did}",
         "vc.format": "dc+sd-jwt",
-        "vc.credential_contexts": "oid4vc_natural_person",
-        "vc.credential_configuration_id": "oid4vc_natural_person",
-        "vc.supported_credential_types": "oid4vc_natural_person",
-        "vc.verifiable_credential_type": "oid4vc_natural_person",
+        "vc.credential_contexts": "${credential_id}",
+        "vc.credential_configuration_id": "${credential_id}",
+        "vc.supported_credential_types": "${credential_id}",
+        "vc.verifiable_credential_type": "${credential_id}",
         "vc.cryptographic_binding_methods_supported": "jwk",
         "vc.proof_signing_alg_values_supported": "ES256",
         "vc.expiry_in_seconds": "31536000",
@@ -211,12 +293,20 @@ EOF
 EOF
   fi
 
-  # Create a client for credential issuance
-  #
-  echo "Create OIDC client: ${client_id} ..."
+  # ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
+}
+
+kc_create_oid4vci_client() {
+  local realm="$1"
+  local client_id="$2"
+  local credential_id="$3"
+  local force="$4"
+
+  echo "Create OID4VCI Issuance client: ${client_id} ..."
   ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
   {
     "clientId": "${client_id}",
+    "name": "OID4VC Issuance Client",
     "enabled": true,
     "protocol": "openid-connect",
     "publicClient": true,
@@ -224,6 +314,7 @@ EOF
     "directAccessGrantsEnabled": false,
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": ["oid4vc_natural_person", "${credential_id}"],
+    "baseUrl": "${AUTH_SERVER_URL}/realms/${realm}/.well-known/openid-credential-issuer",
     "attributes": {
       "client.introspection.response.allow.jwt.claim.enabled": "false",
       "post.logout.redirect.uris": "${AUTH_SERVER_URL}",
@@ -235,15 +326,11 @@ EOF
 
   # Inspect the Issuer's metadata
   # https://oauth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer
-  local metadataUrl metadata
   metadataUrl="${AUTH_SERVER_URL}/realms/${realm}/.well-known/openid-credential-issuer"
   echo "Inspect ${metadataUrl} ..."
 
   metadata=$(curl -s "${metadataUrl}")
   echo "${metadata}" | jq -r '.credential_configurations_supported | keys[]'
-
-  echo
-  echo "OID4VCI setup complete"
 }
 
 kc_create_user() {
@@ -284,9 +371,9 @@ kc_authorization_request() {
   local realm="$1"
   local client_id="$2"
   local credential_id="$3"
-  local redirect_uri="$4"
 
   local response_type="code"
+  local redirect_uri="urn:ietf:wg:oauth:2.0:oob"
 
   # PKCE
   code_verifier=$(openssl rand -base64 96 | tr -d '+/=' | tr -d '\n' | cut -c -128)

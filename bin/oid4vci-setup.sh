@@ -41,11 +41,11 @@ source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
 
 ## Parse args
 #
-forceRecreate="false"
+force="false"
 for arg in "$@"; do
   case $arg in
     --force)
-      forceRecreate="true"
+      force="true"
       shift
       ;;
     *)
@@ -66,17 +66,36 @@ setup_waltid_user "verifier" "${VERIFIER[0]}" "${VERIFIER[1]}" "${VERIFIER[2]}" 
 kubecmd="kubectl --context ${KUBE_CONTEXT}"
 adminUser=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.ADMIN_USERNAME}' | base64 -d)
 adminPass=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d)
+oid4vciUser=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.OID4VCI_SERVICE_ID}' | base64 -d)
+oid4vciPass=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.OID4VCI_SERVICE_SECRET}' | base64 -d)
 
-kc_admin_login "${adminUser}" "${adminPass}"
-
-## Setup the Keycloak OID4VCI Realm ------------------------------------------------------------------------------------
+## Setup Keycloak OID4VCI Realm ----------------------------------------------------------------------------------------
 #
 realm="oid4vci"
 client_id="oid4vci-client"
 credential_id="oid4vc_identity_credential"
-redirect_uri="urn:ietf:wg:oauth:2.0:oob"
 
-kc_create_realm "${realm}" "${client_id}" "${credential_id}" ${forceRecreate}
+kc_admin_login "${adminUser}" "${adminPass}"
+
+kc_create_realm "${realm}" "${force}"
+
+## Setup Keycloak OID4VCI Service Client -------------------------------------------------------------------------------
+#
+kc_create_oid4vci_service_client "${realm}" "${oid4vciUser}" "${oid4vciPass}" "${force}"
+
+kc_oid4vci_login "${realm}" "${oid4vciUser}" "${oid4vciPass}"
+
+## Setup OID4VCI Identity Credential -----------------------------------------------------------------------------------
+#
+kc_create_oid4vc_identity_credential "${realm}" "${credential_id}"
+
+# [TODO #301] Keycloak issues oid4vc_natural_person with invalid id value
+# https://github.com/tdiesler/nessus-identity/issues/301
+kc_patch_oid4vc_natural_person "${realm}"
+
+## Setup Keycloak OID4VCI Issuance Client ------------------------------------------------------------------------------
+#
+kc_create_oid4vci_client "${realm}" "${client_id}" "${credential_id}" "${force}"
 
 ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
 #
@@ -84,7 +103,9 @@ kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}"
 
 # Fetch a Credential - Authorization Flow ------------------------------------------------------------------------------
 #
-kc_authorization_request "${realm}" "${client_id}" "${credential_id}" "${redirect_uri}"
+credential_id="oid4vc_natural_person"
+
+kc_authorization_request "${realm}" "${client_id}" "${credential_id}"
 
 kc_token_request "${realm}" "${client_id}" "${credential_id}"
 
