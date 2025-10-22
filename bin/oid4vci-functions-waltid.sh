@@ -49,25 +49,13 @@ load_or_generate_key() {
   echo ".secret/${keyFile}"
 }
 
-setup_waltid_issuer() {
-  local name="$1" email="$2" password="$3"
-  setup_waltid_user "issuer" "${name}" "${email}" "${password}"
-}
-
-setup_waltid_holder() {
-  local name="$1" email="$2" password="$3"
-  setup_waltid_user "holder" "${name}" "${email}" "${password}"
-}
-
-setup_waltid_verifier() {
-  local name="$1" email="$2" password="$3"
-  setup_waltid_user "verifier" "${name}" "${email}" "${password}"
-}
-
 ## Register/Login role, create key and did:key (on demand)
 #
-setup_waltid_user() {
-  local role="$1" name="$2" email="$3" password="$4"
+wallet_create_user() {
+  local role="$1"
+  local name="$2"
+  local email="$3"
+  local password="$4"
 
   # Create/Login Issuer in WaltId Wallet API
   #

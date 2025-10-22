@@ -92,7 +92,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
         return credOffer
     }
 
-    fun getCredentialUsers(): List<UserRepresentation> {
+    fun getUsers(): List<UserRepresentation> {
         val realm = issuerCfg.realm
         keycloakConnect(realm).use {
             val usersResource = it.realm(realm).users()
@@ -101,7 +101,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
         }
     }
 
-    fun createCredentialUser(firstName: String, lastName: String, email: String, username: String, password: String): String {
+    fun createUser(firstName: String, lastName: String, email: String, username: String, password: String): UserRepresentation {
         val realm = issuerCfg.realm
         val user = UserRepresentation().apply {
             this.username = username
@@ -125,13 +125,15 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
                 value = password
                 isTemporary = false
             }
-            users.get(userId).resetPassword(credential)
 
-            return userId
+            val user = users.get(userId)
+            user.resetPassword(credential)
+
+            return user.toRepresentation()
         }
     }
 
-    fun deleteCredentialUser(userId: String) {
+    fun deleteUser(userId: String) {
         val realm = issuerCfg.realm
         keycloakConnect(realm).use {
             it.realm(realm).users().delete(userId)

@@ -118,25 +118,25 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 }
                 get("/issuer/credential-offer") {
                     val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
-                    issuerHandler.handleIssuerCredentialOffer(call, ctype) ?. also {
+                    issuerHandler.handleCredentialOfferSend(call, ctype) ?. also {
                         // [TODO #280] Issuer should use the wallet's cred offer endpoint
                         // https://github.com/tdiesler/nessus-identity/issues/280
                         val holderContext = requireLoginContext(call)
                         walletHandler.walletSvc.addCredentialOffer(holderContext, it)
                     }
                 }
-                get("/issuer/credential-users") {
-                    issuerHandler.showCredentialUsers(call)
+                get("/issuer/users") {
+                    issuerHandler.showUsers(call)
                 }
-                get("/issuer/credential-user-create") {
-                    issuerHandler.showCredentialUserCreatePage(call)
+                get("/issuer/user-create") {
+                    issuerHandler.showCreateUserPage(call)
                 }
-                post("/issuer/credential-user-create") {
-                    issuerHandler.handleIssuerCredentialUserCreate(call)
+                post("/issuer/user-create") {
+                    issuerHandler.handleUserCreate(call)
                 }
-                get("/issuer/credential-user-delete/{userId}") {
+                get("/issuer/user-delete/{userId}") {
                     val userId = call.parameters["userId"] ?: error("No userId")
-                    issuerHandler.handleIssuerCredentialUserDelete(call, userId)
+                    issuerHandler.handleUserDelete(call, userId)
                 }
 
                 // Wallet ---------------------------------------------------------------------------------
@@ -145,25 +145,25 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                     walletHandler.walletHomePage(call)
                 }
                 get("/wallet/oauth/callback") {
-                    walletHandler.handleWalletOAuthCallback(call)
+                    walletHandler.walletOAuthCallback(call)
                 }
                 get("/wallet/credential-offers") {
                     walletHandler.showCredentialOffers(call)
                 }
                 get("/wallet/credential-offer/{offerId}/accept") {
                     val offerId = call.parameters["offerId"] ?: error("No offerId")
-                    walletHandler.handleWalletCredentialOfferAccept(call, offerId)
+                    walletHandler.handleCredentialOfferAccept(call, offerId)
                 }
                 put("/wallet/credential-offer") {
-                    walletHandler.handleWalletCredentialOfferAdd(call)
+                    walletHandler.handleCredentialOfferAdd(call)
                 }
                 get("/wallet/credential-offer/{offerId}/delete") {
                     val offerId = call.parameters["offerId"] ?: error("No offerId")
-                    walletHandler.handleWalletCredentialOfferDelete(call, offerId)
+                    walletHandler.handleCredentialOfferDelete(call, offerId)
                 }
                 get("/wallet/credential-offer/{offerId}/view") {
                     val offerId = call.parameters["offerId"] ?: error("No offerId")
-                    walletHandler.showCredentialOffer(call, offerId)
+                    walletHandler.showCredentialOfferDetails(call, offerId)
                 }
                 get("/wallet/credentials") {
                     walletHandler.showCredentials(call)
@@ -174,7 +174,7 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 }
                 get("/wallet/credential/{vcId}/delete") {
                     val vcId = call.parameters["vcId"] ?: error("No vcId")
-                    walletHandler.handleWalletCredentialDelete(call, vcId)
+                    walletHandler.handleCredentialDelete(call, vcId)
                 }
 
                 // Verifier -------------------------------------------------------------------------------

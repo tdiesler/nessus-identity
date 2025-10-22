@@ -41,9 +41,14 @@ source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
 
 ## Parse args
 #
+bare="false"
 force="false"
 for arg in "$@"; do
   case $arg in
+    --bare)
+      bare="true"
+      shift
+      ;;
     --force)
       force="true"
       shift
@@ -55,11 +60,10 @@ for arg in "$@"; do
   esac
 done
 
-## Setup WaltId Users --------------------------------------------------------------------------------------------------
+## Setup EBSI Test Users -----------------------------------------------------------------------------------------------
 #
-setup_waltid_user "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[2]}" || exit 1
-setup_waltid_user "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}" || exit 1
-setup_waltid_user "verifier" "${VERIFIER[0]}" "${VERIFIER[1]}" "${VERIFIER[2]}" || exit 1
+wallet_create_user "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[2]}" || exit 1
+wallet_create_user "verifier" "${VERIFIER[0]}" "${VERIFIER[1]}" "${VERIFIER[2]}" || exit 1
 
 ## Keycloak admin login ------------------------------------------------------------------------------------------------
 #
@@ -97,16 +101,22 @@ kc_patch_oid4vc_natural_person "${realm}"
 #
 kc_create_oid4vci_client "${realm}" "${client_id}" "${credential_id}" "${force}"
 
-## Setup Alice as Holder -----------------------------------------------------------------------------------------------
+## Continue Setup with Alice as Holder
 #
-kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}"
+if [[ ${bare} == "false" ]]; then
 
-# Fetch a Credential - Authorization Flow ------------------------------------------------------------------------------
-#
+  ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
+  #
+  kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}"
+  wallet_create_user "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}" || exit 1
 
-# credential_id="oid4vc_natural_person"
-kc_authorization_request "${realm}" "${client_id}" "${credential_id}"
+  # Fetch a Credential - Authorization Flow ------------------------------------------------------------------------------
+  #
+  # credential_id="oid4vc_natural_person"
+  kc_authorization_request "${realm}" "${client_id}" "${credential_id}"
 
-kc_token_request "${realm}" "${client_id}" "${credential_id}"
+  kc_token_request "${realm}" "${client_id}" "${credential_id}"
 
-kc_credential_request "${realm}" "${credential_id}"
+  kc_credential_request "${realm}" "${credential_id}"
+fi
+

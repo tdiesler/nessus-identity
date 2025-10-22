@@ -60,7 +60,7 @@ class WalletHandler() {
         call.respondRedirect("/")
     }
 
-    suspend fun handleWalletOAuthCallback(call: RoutingCall) {
+    suspend fun walletOAuthCallback(call: RoutingCall) {
         call.parameters["code"]?.also {
             authContext.withAuthCode(it)
             log.info { "AuthCode: $it" }
@@ -69,7 +69,7 @@ class WalletHandler() {
         call.respondRedirect("/wallet/credential/${vcJwt.vcId}")
     }
 
-    suspend fun handleWalletCredentialOfferAccept(call: RoutingCall, offerId: String) {
+    suspend fun handleCredentialOfferAccept(call: RoutingCall, offerId: String) {
         val loginContext = requireLoginContext(call)
         val credOffer = walletSvc.getCredentialOffer(loginContext, offerId) ?: error("No credential_offer for: $offerId")
 
@@ -80,17 +80,17 @@ class WalletHandler() {
         call.respondRedirect("$authRequestUrl")
     }
 
-    suspend fun handleWalletCredentialOfferAdd(call: RoutingCall) {
+    suspend fun handleCredentialOfferAdd(call: RoutingCall) {
         call.respondRedirect("/wallet/credential-offers")
     }
 
-    suspend fun handleWalletCredentialOfferDelete(call: RoutingCall, offerId: String) {
+    suspend fun handleCredentialOfferDelete(call: RoutingCall, offerId: String) {
         val loginContext = requireLoginContext(call)
         walletSvc.deleteCredentialOffer(loginContext, offerId)
         call.respondRedirect("/wallet/credential-offers")
     }
 
-    suspend fun handleWalletCredentialDelete(call: RoutingCall, vcId: String) {
+    suspend fun handleCredentialDelete(call: RoutingCall, vcId: String) {
         val loginContext = requireLoginContext(call)
         when (vcId) {
             "__all__" -> walletSvc.deleteCredentials(loginContext) { true }
@@ -99,7 +99,7 @@ class WalletHandler() {
         call.respondRedirect("/wallet/credentials")
     }
 
-    suspend fun showCredentialOffer(call: RoutingCall, offerId: String) {
+    suspend fun showCredentialOfferDetails(call: RoutingCall, offerId: String) {
         val loginContext = requireLoginContext(call)
         val credOffer = walletSvc.getCredentialOffer(loginContext, offerId)
         val prettyJson = jsonPretty.encodeToString(credOffer)

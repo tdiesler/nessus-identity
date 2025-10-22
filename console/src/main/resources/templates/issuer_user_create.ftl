@@ -10,26 +10,16 @@
 
         <h5>Credential User Create</h5>
 
-        <form action="/issuer/credential-user-create" method="post" style="max-width:640px;">
-            <!-- FirstName -->
+        <form action="/issuer/user-create" method="post" style="max-width:640px;">
+            <!-- Name -->
             <div class="bx--form-item-horizontal">
-                <label for="firstName" class="bx--label">FirstName</label>
-                <input name="firstName" id="firstName" class="bx--input" value="Alice" required/>
-            </div>
-            <!-- LastName -->
-            <div class="bx--form-item-horizontal">
-                <label for="lastName" class="bx--label">LastName</label>
-                <input name="lastName" id="lastName" class="bx--input" value="Wonderland" required/>
+                <label for="name" class="bx--label">FirstName</label>
+                <input name="name" id="name" class="bx--input" value="Alice Wonderland" required/>
             </div>
             <!-- Email -->
             <div class="bx--form-item-horizontal">
                 <label for="email" class="bx--label">Email</label>
                 <input name="email" id="email" class="bx--input" value="alice@email.com" required/>
-            </div>
-            <!-- Username -->
-            <div class="bx--form-item-horizontal">
-                <label for="username" class="bx--label">Username</label>
-                <input name="username" id="username" class="bx--input" value="alice" required/>
             </div>
             <!-- Password -->
             <div class="bx--form-item-horizontal">

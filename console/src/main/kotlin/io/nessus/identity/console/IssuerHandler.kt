@@ -1,5 +1,6 @@
 package io.nessus.identity.console
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -7,6 +8,9 @@ import io.ktor.server.routing.*
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.types.CredentialConfiguration
 import io.nessus.identity.types.CredentialOfferV10
+import io.nessus.identity.waltid.LoginType
+import io.nessus.identity.waltid.RegisterUserParams
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.keycloak.representations.idm.UserRepresentation
@@ -14,11 +18,12 @@ import org.keycloak.representations.idm.UserRepresentation
 
 class IssuerHandler() {
 
+    val log = KotlinLogging.logger {}
+
     val jsonPretty = Json { prettyPrint = true }
 
-    val issuerMetadata get() = runBlocking { issuerSvc.getIssuerMetadata() }
-
     val issuerSvc = IssuerService.createKeycloak()
+    val issuerMetadata get() = runBlocking { issuerSvc.getIssuerMetadata() }
 
     fun issuerModel(call: RoutingCall): BaseModel {
         val authServerUrl = issuerMetadata.authorizationServers?.first() ?: error("No AuthorizationServer")
@@ -71,7 +76,7 @@ class IssuerHandler() {
         )
     }
 
-    suspend fun handleIssuerCredentialOffer(call: RoutingCall, ctype: String): CredentialOfferV10? {
+    suspend fun handleCredentialOfferSend(call: RoutingCall, ctype: String): CredentialOfferV10? {
         val model = issuerModel(call).also {
             it["ctype"] = ctype
         }
@@ -83,7 +88,7 @@ class IssuerHandler() {
             model.put("subjectId", subjectId)
             model.put("credOffer", prettyJson)
         } else {
-            model.put("subjects", issuerSvc.getCredentialUsers().map { it ->
+            model.put("subjects", issuerSvc.getUsers().map { it ->
                 SubjectOption.fromUserRepresentation(it)
             }.toList())
         }
@@ -103,37 +108,53 @@ class IssuerHandler() {
         )
     }
 
-    suspend fun showCredentialUsers(call: RoutingCall) {
-        val users = issuerSvc.getCredentialUsers().map { SubjectOption.fromUserRepresentation(it) }
+    suspend fun showUsers(call: RoutingCall) {
+        val users = issuerSvc.getUsers().map { SubjectOption.fromUserRepresentation(it) }
         val model = issuerModel(call).also {
             it["credentialUsers"] = users
         }
         call.respond(
-            FreeMarkerContent("issuer_cred_users.ftl", model)
+            FreeMarkerContent("issuer_users.ftl", model)
         )
     }
 
-    suspend fun showCredentialUserCreatePage(call: RoutingCall) {
+    suspend fun showCreateUserPage(call: RoutingCall) {
         val model = issuerModel(call)
         call.respond(
-            FreeMarkerContent("issuer_cred_user_create.ftl", model)
+            FreeMarkerContent("issuer_user_create.ftl", model)
         )
     }
 
-    suspend fun handleIssuerCredentialUserCreate(call: RoutingCall) {
+    suspend fun handleUserCreate(call: RoutingCall) {
         val params = call.receiveParameters()
-        val firstName = params["firstName"] ?: error("No firstName")
-        val lastName = params["lastName"] ?: error("No lastName")
+        val name = params["name"] ?: error("No name")
+        val nameParts = name.split(" ")
+        require(nameParts.size == 2) { "Expected first and last name" }
+        val (firstName, lastName) = Pair(nameParts[0], nameParts[1])
         val email = params["email"] ?: error("No email")
-        val username = params["username"] ?: error("No username")
+        val username = firstName.lowercase()
         val password = params["password"] ?: error("No password")
-        issuerSvc.createCredentialUser(firstName, lastName, email, username, password)
-        call.respondRedirect("/issuer/credential-users")
+
+        // Register in WaltId (immutable henceforth)
+        val userParams = RegisterUserParams(LoginType.EMAIL, name, email, password)
+        runCatching {
+            widWalletService.registerUser(userParams)
+        }.onFailure { ex ->
+            if (ex.message?.contains("account with email $email already exists") == true ) {
+                log.error(ex) { }
+            } else {
+                throw ex
+            }
+        }
+
+        // Create in Keycloak (mutable henceforth)
+        issuerSvc.createUser(firstName, lastName, email, username, password)
+        call.respondRedirect("/issuer/users")
     }
 
-    suspend fun handleIssuerCredentialUserDelete(call: RoutingCall, userId: String) {
-        issuerSvc.deleteCredentialUser(userId)
-        call.respondRedirect("/issuer/credential-users")
+    suspend fun handleUserDelete(call: RoutingCall, userId: String) {
+        issuerSvc.deleteUser(userId)
+        call.respondRedirect("/issuer/users")
     }
 }
 

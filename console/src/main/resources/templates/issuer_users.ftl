@@ -19,7 +19,7 @@
                         <td>${usr.name}</td>
                         <td>${usr.email}</td>
                         <td>
-                            <a href="/issuer/credential-user-delete/${usr.id}">delete</a>
+                            <a href="/issuer/user-delete/${usr.id}">delete</a>
                         </td>
                     </tr>
                 </#list>
@@ -27,7 +27,7 @@
         </table>
 
         <div style="margin-top: 10px;">
-            <a href="/issuer/credential-user-create">create user</a>
+            <a href="/issuer/user-create">create user</a>
         <div>
     </div>
 </@layout.layout>
