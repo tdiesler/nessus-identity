@@ -11,26 +11,25 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
 
     val log = KotlinLogging.logger {}
 
-    protected val credOfferRegistry = mutableMapOf<String, COType>()
-
     override fun addCredentialOffer(ctx: LoginContext, credOffer: COType): String {
-        val credOfferId = "${Uuid.random()}"
-        credOfferRegistry[credOfferId] = credOffer
+        val credOfferId = ctx.addCredentialOffer(credOffer)
         log.info { "Added CredentialOffer: $credOfferId => ${credOffer.toJson()}" }
         return credOfferId
     }
 
     @Suppress("UNCHECKED_CAST")
     override fun getCredentialOffers(ctx: LoginContext): Map<String, COType> {
-        return credOfferRegistry.toMap()
+        return ctx.getCredentialOffers().mapValues { (_, v) -> v as COType }
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun getCredentialOffer(ctx: LoginContext, offerId: String): COType? {
-        return credOfferRegistry[offerId]
+        return ctx.getCredentialOffer(offerId) as? COType
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun deleteCredentialOffer(ctx: LoginContext, offerId: String): COType? {
-        return credOfferRegistry.remove(offerId)
+        return ctx.deleteCredentialOffer(offerId) as? COType
     }
 
     override suspend fun findCredential(
