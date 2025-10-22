@@ -1,12 +1,11 @@
 package io.nessus.identity.service
 
 import io.nessus.identity.config.ConfigProvider
-import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadata
 
 // IssuerService =======================================================================================================
 
-interface IssuerService<IMType : IssuerMetadata, COType : CredentialOffer> {
+interface IssuerService<IMType : IssuerMetadata> {
 
     /**
      * Get the Issuer's metadata Url
@@ -17,16 +16,6 @@ interface IssuerService<IMType : IssuerMetadata, COType : CredentialOffer> {
      * Get the IssuerMetadata
      */
     suspend fun getIssuerMetadata(): IMType
-
-    /**
-     * Creates a CredentialOffer for the given subject and credential types
-     */
-    suspend fun createCredentialOffer(
-        ctx: LoginContext,
-        subjectId: String,
-        types: List<String>,
-        userPin: String? = null
-    ): COType
 
     companion object {
         fun createEbsi(): IssuerServiceEbsi32 {

@@ -30,14 +30,16 @@ import kotlin.uuid.Uuid
 
 // DefaultIssuerService ================================================================================================
 
-class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String)
-    : AbstractIssuerService<IssuerMetadataDraft11, CredentialOfferDraft11>(issuerUrl) {
+class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String) : AbstractIssuerService<IssuerMetadataDraft11>(issuerUrl) {
 
-    override suspend fun createCredentialOffer(
+    /**
+     * Creates a CredentialOffer for the given subject and credential types
+     */
+    suspend fun createCredentialOffer(
         ctx: LoginContext,
         subjectId: String,
         types: List<String>,
-        userPin: String?
+        userPin: String? = null
     ): CredentialOfferDraft11 {
 
         val metadata = getIssuerMetadata(ctx)

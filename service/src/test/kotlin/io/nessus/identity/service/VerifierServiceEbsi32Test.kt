@@ -290,7 +290,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
         // The Holder received a CredentialOffer
         //
-        walletSvc.addCredentialOffer(credOffer)
+        walletSvc.addCredentialOffer(alice, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //

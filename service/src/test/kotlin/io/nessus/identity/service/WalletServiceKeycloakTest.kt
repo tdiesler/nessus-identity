@@ -6,14 +6,12 @@ import io.kotest.matchers.equals.shouldBeEqual
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.Alice
-import io.nessus.identity.waltid.Max
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class WalletServiceKeycloakTest : AbstractServiceTest() {
 
-    lateinit var max: LoginContext
     lateinit var alice: LoginContext
 
     lateinit var issuerSvc: IssuerServiceKeycloak
@@ -22,8 +20,6 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
     @BeforeEach
     fun setUp() {
         kotlinx.coroutines.runBlocking {
-            // Create the Issuer's OIDC context (Max is the Issuer)
-            max = login(Max).withDidInfo()
             issuerSvc = IssuerService.createKeycloak()
 
             // Create the Holders's OIDC context (Alice is the Holder)
@@ -47,7 +43,7 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
 
             // [TODO #280] Issuer should use the wallet's offer endpoint
             // https://github.com/tdiesler/nessus-identity/issues/280
-            val credOffer = issuerSvc.createCredentialOffer(max,alice.did, listOf(ctype))
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
             credOffer.credentialConfigurationIds shouldContain ctype
 
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
@@ -56,7 +52,10 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
             val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
             val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
 
-            val vcJwt = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode)) as VCDataV11Jwt
+            // After successful authorization, we also inject the WaltId LoginContext
+            authContext.withAuthCode(authCode).withLoginContext(alice)
+
+            val vcJwt = walletSvc.credentialFromOfferInTime(authContext) as VCDataV11Jwt
             vcJwt.types shouldBeEqual credOffer.credentialConfigurationIds
 
             val subject = vcJwt.vc.credentialSubject
@@ -83,7 +82,7 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
 
             // [TODO #280] Issuer should use the wallet's offer endpoint
             // https://github.com/tdiesler/nessus-identity/issues/280
-            val credOffer = issuerSvc.createCredentialOffer(max,alice.did, listOf(ctype))
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
             credOffer.credentialConfigurationIds shouldContain ctype
 
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
@@ -92,7 +91,10 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
             val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
             val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
 
-            val vcJwt = walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode)) as VCDataSdV11Jwt
+            // After successful authorization, we also inject the WaltId LoginContext
+            authContext.withAuthCode(authCode).withLoginContext(alice)
+
+            val vcJwt = walletSvc.credentialFromOfferInTime(authContext) as VCDataSdV11Jwt
             vcJwt.types shouldBeEqual credOffer.credentialConfigurationIds
         }
     }

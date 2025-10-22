@@ -14,7 +14,6 @@ import id.walt.webwallet.db.models.WalletCredential
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.types.AuthorizationRequestV10
 import io.nessus.identity.types.AuthorizationResponseV10
 import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.QueryClaim
@@ -45,11 +44,10 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
      *
      * https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#section-3
      */
-    suspend fun authenticate(
-        ctx: LoginContext,
-        authReq: AuthorizationRequestV10
-    ): AuthorizationResponseV10 {
+    suspend fun authenticate(authContext: AuthorizationContext): AuthorizationResponseV10 {
 
+        val authReq = authContext.authRequest
+        val loginContext = authContext.loginContext
         log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(authReq)}" }
 
         val clientId = authReq.clientId
@@ -61,7 +59,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
 
         // Build the list of Credentials and associated PresentationSubmission
         //
-        val (vcJwts, vpSubmission) = buildPresentationSubmission(ctx, dcql)
+        val (vcJwts, vpSubmission) = buildPresentationSubmission(loginContext, dcql)
 
         // Build the VPToken JWT
         //
@@ -69,7 +67,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
         val iat = Clock.System.now()
         val exp = iat + 5.minutes // 5 mins expiry
 
-        val kid = ctx.didInfo.authenticationId()
+        val kid = loginContext.didInfo.authenticationId()
         val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType.JWT)
             .keyID(kid)
@@ -81,15 +79,15 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
             "@context": [ "https://www.w3.org/2018/credentials/v1" ],
             "id": "$jti",
             "type": [ "VerifiablePresentation" ],
-            "holder": "${ctx.did}",
+            "holder": "${loginContext.did}",
             "verifiableCredential": ${vcJwts.map { "\"${it.serialize()}\"" }}
         }"""
         val vpObj = JSONObjectUtils.parse(vpJson)
 
         val claimsBuilder = JWTClaimsSet.Builder()
             .jwtID(jti)
-            .issuer(ctx.did)
-            .subject(ctx.did)
+            .issuer(loginContext.did)
+            .subject(loginContext.did)
             .audience(clientId)
             .issueTime(Date(iat.toEpochMilliseconds()))
             .notBeforeTime(Date(iat.toEpochMilliseconds()))
@@ -100,7 +98,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
         state?.also { claimsBuilder.claim("state", it) }
         val vpTokenClaims = claimsBuilder.build()
 
-        val vpTokenJwt = SignedJWT(vpTokenHeader, vpTokenClaims).signWithKey(ctx, kid)
+        val vpTokenJwt = SignedJWT(vpTokenHeader, vpTokenClaims).signWithKey(loginContext, kid)
         log.info { "VPToken Header: ${vpTokenJwt.header}" }
         log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
 
@@ -108,7 +106,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
         log.info { "VPToken: $vpToken" }
         log.info { "VPSubmission: ${vpSubmission.toJSON()}" }
 
-        vpTokenJwt.verifyJwtSignature("VPToken", ctx.didInfo)
+        vpTokenJwt.verifyJwtSignature("VPToken", loginContext.didInfo)
 
         return AuthorizationResponseV10(vpToken, vpSubmission)
     }

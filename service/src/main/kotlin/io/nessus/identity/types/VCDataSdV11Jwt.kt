@@ -1,24 +1,14 @@
 package io.nessus.identity.types
 
-import id.walt.webwallet.db.models.WalletCredentials.disclosures
-import io.ktor.util.toLowerCasePreservingASCIIRules
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
-import org.jetbrains.exposed.v1.jdbc.SchemaUtils.drop
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.util.*
-import java.util.Locale
-import java.util.Locale.getDefault
 import kotlin.text.Charsets.UTF_8
 import kotlin.time.Instant
-import kotlin.uuid.Uuid
 
 @Serializable
 data class VCDataSdV11Jwt(

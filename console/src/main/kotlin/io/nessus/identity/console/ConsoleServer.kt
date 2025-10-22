@@ -18,11 +18,9 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.config.getVersionInfo
+import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.HttpStatusException
-import io.nessus.identity.waltid.Alice
-import io.nessus.identity.waltid.Bob
-import io.nessus.identity.waltid.Max
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 
@@ -30,9 +28,9 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
 
     val log = KotlinLogging.logger {}
 
-    val issuerHandler = IssuerHandler(Max)
-    val walletHandler = WalletHandler(Alice)
-    val verifierHandler = VerifierHandler(Bob)
+    val issuerHandler = IssuerHandler()
+    val walletHandler = WalletHandler()
+    val verifierHandler = VerifierHandler()
 
     val versionInfo = getVersionInfo()
 
@@ -90,41 +88,51 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 get("/") {
                     call.respondRedirect("/issuer")
                 }
+                get("/login") {
+                    walletHandler.showLoginPage(call)
+                }
+                post("/login") {
+                    walletHandler.handleLogin(call)
+                }
+                get("/logout") {
+                    walletHandler.handleLogout(call)
+                }
 
                 // Issuer ---------------------------------------------------------------------------------
                 //
                 get("/issuer") {
-                    issuerHandler.handleIssuerHome(call)
+                    issuerHandler.issuerHomePage(call)
                 }
                 get("/issuer/auth-config") {
-                    issuerHandler.handleIssuerAuthConfig(call)
+                    issuerHandler.showAuthConfig(call)
                 }
                 get("/issuer/issuer-config") {
-                    issuerHandler.handleIssuerConfig(call)
+                    issuerHandler.showIssuerConfig(call)
                 }
                 get("/issuer/credential-config/{ctype}") {
                     val ctype = call.parameters["ctype"] ?: error("No ctype")
-                    issuerHandler.handleIssuerCredentialConfig(call, ctype)
+                    issuerHandler.showCredentialConfigForType(call, ctype)
                 }
                 get("/issuer/credential-offers") {
-                    issuerHandler.handleIssuerCredentialOffers(call)
+                    issuerHandler.showCredentialOffers(call)
                 }
                 get("/issuer/credential-offer") {
                     val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
                     issuerHandler.handleIssuerCredentialOffer(call, ctype) ?. also {
                         // [TODO #280] Issuer should use the wallet's cred offer endpoint
                         // https://github.com/tdiesler/nessus-identity/issues/280
-                        walletHandler.walletSvc.addCredentialOffer(it)
+                        val holderContext = requireLoginContext(call)
+                        walletHandler.walletSvc.addCredentialOffer(holderContext, it)
                     }
                 }
                 get("/issuer/credential-users") {
-                    issuerHandler.handleIssuerCredentialUsers(call)
+                    issuerHandler.showCredentialUsers(call)
                 }
                 get("/issuer/credential-user-create") {
-                    issuerHandler.handleIssuerCredentialUserCreateGet(call)
+                    issuerHandler.showCredentialUserCreatePage(call)
                 }
                 post("/issuer/credential-user-create") {
-                    issuerHandler.handleIssuerCredentialUserCreatePost(call)
+                    issuerHandler.handleIssuerCredentialUserCreate(call)
                 }
                 get("/issuer/credential-user-delete/{userId}") {
                     val userId = call.parameters["userId"] ?: error("No userId")
@@ -134,13 +142,13 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 // Wallet ---------------------------------------------------------------------------------
                 //
                 get("/wallet") {
-                    walletHandler.handleWalletHome(call)
+                    walletHandler.walletHomePage(call)
                 }
                 get("/wallet/oauth/callback") {
                     walletHandler.handleWalletOAuthCallback(call)
                 }
                 get("/wallet/credential-offers") {
-                    walletHandler.handleWalletCredentialOffers(call)
+                    walletHandler.showCredentialOffers(call)
                 }
                 get("/wallet/credential-offer/{offerId}/accept") {
                     val offerId = call.parameters["offerId"] ?: error("No offerId")
@@ -155,14 +163,14 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 }
                 get("/wallet/credential-offer/{offerId}/view") {
                     val offerId = call.parameters["offerId"] ?: error("No offerId")
-                    walletHandler.handleWalletCredentialOfferView(call, offerId)
+                    walletHandler.showCredentialOffer(call, offerId)
                 }
                 get("/wallet/credentials") {
-                    walletHandler.handleWalletCredentials(call)
+                    walletHandler.showCredentials(call)
                 }
                 get("/wallet/credential/{vcId}") {
                     val vcId = call.parameters["vcId"] ?: error("No vcId")
-                    walletHandler.handleWalletCredentialDetails(call, vcId)
+                    walletHandler.showCredentialDetails(call, vcId)
                 }
                 get("/wallet/credential/{vcId}/delete") {
                     val vcId = call.parameters["vcId"] ?: error("No vcId")
@@ -172,13 +180,13 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 // Verifier -------------------------------------------------------------------------------
                 //
                 get("/verifier") {
-                    verifierHandler.handleVerifierHome(call)
+                    verifierHandler.verifierHomePage(call)
                 }
                 get("/verifier/presentation-request") {
-                    verifierHandler.handlePresentationRequestGet(call)
+                    verifierHandler.showPresentationRequestPage(call)
                 }
                 post("/verifier/presentation-request") {
-                    verifierHandler.handlePresentationRequestPost(call)
+                    verifierHandler.handlePresentationRequest(call)
                 }
             }
         }

@@ -8,13 +8,13 @@ import io.nessus.identity.types.VCDataJwt
 
 interface WalletService<COType: CredentialOffer> {
 
-    fun addCredentialOffer(credOffer: COType): String
+    fun addCredentialOffer(ctx: LoginContext, credOffer: COType): String
 
-    fun getCredentialOffers(): Map<String, COType>
+    fun getCredentialOffers(ctx: LoginContext): Map<String, COType>
 
-    fun getCredentialOffer(offerId: String): COType?
+    fun getCredentialOffer(ctx: LoginContext, offerId: String): COType?
 
-    fun deleteCredentialOffer(offerId: String): COType?
+    fun deleteCredentialOffer(ctx: LoginContext, offerId: String): COType?
 
     suspend fun findCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): List<WalletCredential>
 

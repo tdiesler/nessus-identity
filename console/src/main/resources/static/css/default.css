@@ -1,5 +1,6 @@
 
 /* === Customizations === */
+
 h5 {
   margin-top: 0.8rem;
   margin-bottom: 0.4rem;
@@ -54,17 +55,27 @@ textarea.height1 {
   background: #e0e0e0; /* same gray as sidebar */
   padding: 0.5rem 1rem;
   display: flex;
-  gap: 1rem;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .app-header a {
   color: #161616;
   text-decoration: none;
+  font-size: 1rem;
 }
 
-.app-header a.active {
+.app-header a.active-role {
   font-weight: 600;
   border-bottom: 2px solid #0f62fe; /* Carbon blue highlight */
+}
+
+.auth-links a {
+  margin-left: 0.5rem;
+}
+
+.role-links a {
+  margin-left: 0.5rem;
 }
 
 /* === Sidebar + content container === */
@@ -180,4 +191,13 @@ textarea.height1 {
 .bx--doc-text p {
   margin-top: 1rem;
   color: #6f6f6f;   /* same as Carbon label text color in light theme */
+}
+
+/* === State and utility styles === */
+
+a.inactive {
+  color: #b0b0b0;
+  pointer-events: none;
+  cursor: default;
+  text-decoration: none;
 }

@@ -5,6 +5,7 @@ import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.KeyType
+import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.User
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import java.security.MessageDigest
@@ -14,6 +15,7 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
     val maybeWalletInfo get() = getAttachment(WALLET_INFO_ATTACHMENT_KEY)
     val maybeDidInfo get() = getAttachment(DID_INFO_ATTACHMENT_KEY)
 
+    val hasAuthToken get() = hasAttachment(AUTH_TOKEN_ATTACHMENT_KEY)
     val hasWalletInfo get() = hasAttachment(WALLET_INFO_ATTACHMENT_KEY)
     val hasDidInfo get() = hasAttachment(DID_INFO_ATTACHMENT_KEY)
 
@@ -28,7 +30,11 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
     companion object {
 
         suspend fun login(user: User): LoginContext {
-            val ctx = widWalletService.login(user.toLoginParams())
+            return login(user.toLoginParams())
+        }
+
+        suspend fun login(params: LoginParams): LoginContext {
+            val ctx = widWalletService.login(params)
             return ctx
         }
 

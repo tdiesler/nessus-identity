@@ -1,7 +1,6 @@
 package io.nessus.identity.types
 
 import com.nimbusds.jwt.SignedJWT
-import id.walt.webwallet.db.models.WalletCredentials.disclosures
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

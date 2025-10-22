@@ -1,12 +1,10 @@
 package io.nessus.identity.service
 
-import com.nimbusds.jwt.SignedJWT
 import id.walt.webwallet.db.models.WalletCredential
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
-import kotlinx.serialization.json.Json
 import kotlin.uuid.Uuid
 
 abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<COType> {
@@ -15,7 +13,7 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
 
     protected val credOfferRegistry = mutableMapOf<String, COType>()
 
-    override fun addCredentialOffer(credOffer: COType): String {
+    override fun addCredentialOffer(ctx: LoginContext, credOffer: COType): String {
         val credOfferId = "${Uuid.random()}"
         credOfferRegistry[credOfferId] = credOffer
         log.info { "Added CredentialOffer: $credOfferId => ${credOffer.toJson()}" }
@@ -23,15 +21,15 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun getCredentialOffers(): Map<String, COType> {
+    override fun getCredentialOffers(ctx: LoginContext): Map<String, COType> {
         return credOfferRegistry.toMap()
     }
 
-    override fun getCredentialOffer(offerId: String): COType? {
+    override fun getCredentialOffer(ctx: LoginContext, offerId: String): COType? {
         return credOfferRegistry[offerId]
     }
 
-    override fun deleteCredentialOffer(offerId: String): COType? {
+    override fun deleteCredentialOffer(ctx: LoginContext, offerId: String): COType? {
         return credOfferRegistry.remove(offerId)
     }
 

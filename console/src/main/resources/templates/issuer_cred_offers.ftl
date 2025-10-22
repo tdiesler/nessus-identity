@@ -19,7 +19,11 @@
                         <td>${id}</td>
                         <td>
                             <a href="/issuer/credential-config/${id}">view</a>
-                            <a href="/issuer/credential-offer?ctype=${id}">send offer</a>
+                            <#if auth.hasAuthToken>
+                                <a href="/issuer/credential-offer?ctype=${id}">send offer</a>
+                            <#else>
+                                <a class="inactive">send offer</a>
+                            </#if>
                         </td>
                     </tr>
                 </#list>

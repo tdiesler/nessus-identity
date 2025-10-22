@@ -4,7 +4,6 @@ import io.kotest.common.runBlocking
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldEndWith
 import io.nessus.identity.waltid.Alice
-import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -12,7 +11,6 @@ import org.junit.jupiter.api.assertThrows
 
 class IssuerServiceKeycloakTest : AbstractServiceTest() {
 
-    lateinit var max: LoginContext
     lateinit var alice: LoginContext
 
     lateinit var issuerSvc: IssuerServiceKeycloak
@@ -21,8 +19,6 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     @BeforeEach
     fun setUp() {
         kotlinx.coroutines.runBlocking {
-            // Create the Issuer's OIDC context (Max is the Issuer)
-            max = login(Max).withDidInfo()
             issuerSvc = IssuerService.createKeycloak()
 
             // Create the Holders's OIDC context (Alice is the Holder)
@@ -59,10 +55,10 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
         */
         runBlocking {
 
-            issuerSvc.createCredentialOffer(max, alice.did, listOf("oid4vc_identity_credential"))
+            issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_identity_credential"))
 
             assertThrows<IllegalArgumentException> {
-                issuerSvc.createCredentialOffer(max, alice.did, listOf("oid4vc_unknown"))
+                issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_unknown"))
             }
         }
     }

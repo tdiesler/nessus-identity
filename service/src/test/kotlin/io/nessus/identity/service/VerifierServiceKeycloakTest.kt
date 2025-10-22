@@ -4,20 +4,15 @@ import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.VCDataJwt
-import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.Alice
-import io.nessus.identity.waltid.Bob
-import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class VerifierServiceKeycloakTest : AbstractServiceTest() {
 
-    lateinit var max: LoginContext
     lateinit var alice: OIDContext
-    lateinit var bob: OIDContext
 
     lateinit var issuerSvc: IssuerServiceKeycloak
     lateinit var walletSvc: WalletServiceKeycloak
@@ -27,18 +22,13 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
     @BeforeEach
     fun setUp() {
         runBlocking {
-            // Create the Issuer's OIDC context (Max is the Issuer)
-            max = login(Max).withDidInfo()
             issuerSvc = IssuerService.createKeycloak()
+            verifierSvc = VerifierService.createKeycloak()
 
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = OIDContext(loginOrRegister(Alice).withDidInfo())
             walletSvc = WalletService.createKeycloak()
             walletAuthSvc = WalletAuthService(walletSvc)
-
-            // Create the Verifier's OIDC context (Bob is the Verifier)
-            bob = OIDContext(loginOrRegister(Bob).withDidInfo())
-            verifierSvc = VerifierService.createKeycloak()
         }
     }
 
@@ -50,7 +40,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Identity Credential on demand
             val vcJwt = walletSvc.getCredentialByType(alice, ctype)
             if (vcJwt == null) {
-                val credOffer = issuerSvc.createCredentialOffer(max, alice.did, listOf(ctype))
+                val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
                 val authContext = walletSvc.authContextForCredential(alice, "urn:ietf:wg:oauth:2.0:oob", credOffer)
                 val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
                 val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
@@ -58,7 +48,6 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             }
 
             val authContext = verifierSvc.authContextForPresentation(
-                ctx = bob,
                 clientId = "oid4vcp",
                 redirectUri = "urn:ietf:wg:oauth:2.0:oob",
                 dcql = DCQLQuery.fromJson("""
@@ -77,10 +66,11 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                   ]
                 }                    
                 """.trimIndent())
-            )
+            ).withLoginContext(alice)
+
             log.info { authContext.authRequest.toHttpParameters() }
 
-            val authRes = walletAuthSvc.authenticate(alice,authContext.authRequest)
+            val authRes = walletAuthSvc.authenticate(authContext)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
 
             // Verifier validates the VPToken
@@ -109,7 +99,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Identity Credential on demand
             val vcJwt = walletSvc.getCredentialByType(alice, ctype)
             if (vcJwt == null) {
-                val credOffer = issuerSvc.createCredentialOffer(max, alice.did, listOf(ctype))
+                val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
                 val authContext = walletSvc.authContextForCredential(alice, "urn:ietf:wg:oauth:2.0:oob", credOffer)
                 val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
                 val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
@@ -117,7 +107,6 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             }
 
             val authContext = verifierSvc.authContextForPresentation(
-                ctx = bob,
                 clientId = "oid4vcp",
                 redirectUri = "urn:ietf:wg:oauth:2.0:oob",
                 dcql = DCQLQuery.fromJson("""
@@ -136,10 +125,11 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                   ]
                 }                    
                 """.trimIndent())
-            )
+            ).withLoginContext(alice)
+
             log.info { authContext.authRequest.toHttpParameters() }
 
-            val authRes = walletAuthSvc.authenticate(alice,authContext.authRequest)
+            val authRes = walletAuthSvc.authenticate(authContext)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
 
             // Verifier validates the VPToken

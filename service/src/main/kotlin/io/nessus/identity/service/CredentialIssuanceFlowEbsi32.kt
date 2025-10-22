@@ -35,7 +35,7 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
-        walletSvc.addCredentialOffer(credOffer)
+        walletSvc.addCredentialOffer(holderCtx, credOffer)
         val issuerMetadata = issuerCtx.issuerMetadata
 
         val rndBytes = Random.nextBytes(32)
@@ -99,7 +99,7 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
 
         // The Holder received a CredentialOffer and sends an AuthorizationRequest to the Issuer
         //
-        walletSvc.addCredentialOffer(credOffer)
+        walletSvc.addCredentialOffer(holderCtx, credOffer)
 
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
@@ -163,7 +163,7 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
 
         // The Holder received a CredentialOffer
         //
-        walletSvc.addCredentialOffer(credOffer)
+        walletSvc.addCredentialOffer(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //
@@ -199,7 +199,7 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
 
         // The Holder received a CredentialOffer
         //
-        walletSvc.addCredentialOffer(credOffer)
+        walletSvc.addCredentialOffer(holderCtx, credOffer)
 
         // Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
         //

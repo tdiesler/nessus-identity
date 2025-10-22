@@ -1,39 +1,50 @@
 package io.nessus.identity.console
 
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.waltid.User
+import io.nessus.identity.waltid.LoginParams
 
 object SessionsStore {
 
-    val log = KotlinLogging.logger {}
-
     // Registry that allows us to restore a LoginContext from subjectId
-    private val sessions = mutableMapOf<String, LoginContext>()
+    private val sessionStore = mutableMapOf<String, LoginContext>()
 
-    suspend fun findOrCreateLoginContext(call: RoutingCall, user: User): LoginContext {
-        var ctx = getCookieDataFromSession(call)?.let {
+    fun requireLoginContext(call: RoutingCall): LoginContext {
+        val ctx = findLoginContext(call) ?: error("No LoginContext")
+        return ctx
+    }
+
+    suspend fun newLoginContext(call: RoutingCall, params: LoginParams): LoginContext {
+        val ctx = LoginContext.login(params).withWalletInfo()
+        val wid = ctx.walletId
+        val did = ctx.maybeDidInfo?.did
+        setCookieDataInSession(call, CookieData(wid, did))
+        sessionStore[ctx.targetId] = ctx
+        return ctx
+    }
+
+    fun findLoginContext(call: RoutingCall): LoginContext? {
+        val cookie = getCookieDataFromSession(call)
+        val ctx = cookie?.let {
             findLoginContext(it.wid, it.did ?: "")
-        }
-        if (ctx == null || ctx.walletInfo.name != user.name) {
-            ctx = LoginContext.login(user).withWalletInfo()
-            val wid = ctx.walletId
-            val did = ctx.maybeDidInfo?.did
-            setCookieDataInSession(call, CookieData(wid, did))
-            sessions[ctx.targetId] = ctx
         }
         return ctx
     }
 
-    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
-
     fun findLoginContext(wid: String, did: String): LoginContext? {
         val targetId = LoginContext.getTargetId(wid, did)
-        return sessions[targetId]
+        return sessionStore[targetId]
     }
+
+    fun logout(call: RoutingCall) {
+        findLoginContext(call)?.also { ctx ->
+            call.sessions.clear(CookieData.NAME)
+        }
+    }
+
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
     private fun getCookieDataFromSession(call: RoutingCall): CookieData? {
         val dat = call.sessions.get(CookieData.NAME)

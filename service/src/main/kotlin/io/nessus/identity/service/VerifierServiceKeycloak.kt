@@ -12,7 +12,6 @@ class VerifierServiceKeycloak : AbstractVerifierService() {
      * Verifier builds the AuthorizationRequest from an AuthorizationRequest
      */
     fun authContextForPresentation(
-        ctx: LoginContext,
         clientId: String,
         redirectUri: String,
         dcql: DCQLQuery,
@@ -20,7 +19,7 @@ class VerifierServiceKeycloak : AbstractVerifierService() {
 
         val authReq = buildAuthorizationRequest(clientId, redirectUri, dcql)
 
-        val authContext = AuthorizationContext(ctx)
+        val authContext = AuthorizationContext()
             .withAuthorizationRequest(authReq)
 
         return authContext
