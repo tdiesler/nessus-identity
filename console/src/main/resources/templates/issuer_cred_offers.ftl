@@ -1,4 +1,4 @@
-<#import "layout.ftl" as layout>
+<#import "fragments/layout.ftl" as layout>
 
 <@layout.layout activeTab="issuer">
     <!-- Sidebar -->
@@ -19,10 +19,10 @@
                         <td>${id}</td>
                         <td>
                             <a href="/issuer/credential-config/${id}">view</a>
-                            <#if auth.hasAuthToken>
+                            <#if holderAuth.hasAuthToken>
                                 <a href="/issuer/credential-offer?ctype=${id}">send offer</a>
                             <#else>
-                                <a class="inactive">send offer</a>
+                                <a class="inactive">send</a>
                             </#if>
                         </td>
                     </tr>

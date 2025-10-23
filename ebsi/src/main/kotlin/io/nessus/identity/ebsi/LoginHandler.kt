@@ -6,10 +6,11 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
+import io.nessus.identity.ebsi.SessionsStore.cookieName
 import io.nessus.identity.ebsi.SessionsStore.getLoginContextFromSession
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
-import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
@@ -31,7 +32,8 @@ object LoginHandler {
             return call.respond(HttpStatusCode.BadRequest, "Missing email or password")
 
         runBlocking {
-            val ctx = widWalletService.loginWithWallet(LoginParams(LoginType.EMAIL, email, password))
+            val loginParams = LoginParams(LoginType.EMAIL, email, password)
+            val ctx = widWalletService.authLoginWithWallet(loginParams).withUserRole(UserRole.Holder)
             widWalletService.findDidByPrefix(ctx, "did:key")?.also {
                 ctx.putAttachment(DID_INFO_ATTACHMENT_KEY, it)
             }
@@ -51,7 +53,7 @@ object LoginHandler {
             SessionsStore.removeLoginContext(ctx.targetId)
             ctx.close()
         }
-        call.sessions.clear(CookieData.NAME)
+        call.sessions.clear(cookieName(UserRole.Holder))
         call.respondRedirect("/")
     }
 }

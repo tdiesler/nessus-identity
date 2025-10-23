@@ -5,11 +5,12 @@ import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
-import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
+import kotlinx.serialization.Serializable
 
 object SessionsStore {
 
@@ -17,6 +18,8 @@ object SessionsStore {
 
     // Registry that allows us to restore a LoginContext from subjectId
     private val sessions = mutableMapOf<String, LoginContext>()
+
+    fun cookieName(role: UserRole) = "${role.name}Cookie"
 
     fun findLoginContext(subjectId: String): LoginContext? {
         return sessions[subjectId]
@@ -51,7 +54,7 @@ object SessionsStore {
         if (ctx == null) {
             val cfg = ConfigProvider.requireEbsiConfig()
             val loginParams = LoginParams(LoginType.EMAIL, cfg.userEmail!!, cfg.userPassword!!)
-            ctx = widWalletService.loginWithWallet(loginParams)
+            ctx = widWalletService.authLoginWithWallet(loginParams)
             val subjectId = LoginContext.getTargetId(ctx.walletId, "")
             sessions[subjectId] = ctx
         }
@@ -68,12 +71,19 @@ object SessionsStore {
     // Session Data ----------------------------------------------------------------------------------------------------
 
     fun getCookieDataFromSession(call: RoutingCall): CookieData? {
-        val dat = call.sessions.get(CookieData.NAME)
+        val dat = call.sessions.get(cookieName(UserRole.Holder))
         return dat as? CookieData
     }
 
     fun setCookieDataInSession(call: RoutingCall, dat: CookieData) {
-        call.sessions.set(CookieData.NAME, dat)
+        call.sessions.set(cookieName(UserRole.Holder), dat)
     }
-
 }
+
+@Serializable
+data class CookieData(val wid: String, var did: String? = null) {
+    companion object {
+        const val NAME = "CookieData"
+    }
+}
+

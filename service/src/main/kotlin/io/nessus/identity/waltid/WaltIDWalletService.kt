@@ -11,6 +11,7 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -45,11 +46,7 @@ class WaltIDWalletService {
 
     // Authentication --------------------------------------------------------------------------------------------------
 
-    suspend fun registerUser(params: RegisterUserParams): String {
-        return api.authRegister(params.toAuthRegisterRequest()).trim()
-    }
-
-    suspend fun login(params: LoginParams): LoginContext {
+    suspend fun authLogin(params: LoginParams): LoginContext {
         val res = api.authLogin(params.toAuthLoginRequest())
         val ctx = LoginContext().also {
             it.putAttachment(AUTH_TOKEN_ATTACHMENT_KEY, res.token)
@@ -57,16 +54,24 @@ class WaltIDWalletService {
         return ctx
     }
 
-    suspend fun loginWithWallet(params: LoginParams): LoginContext {
-        val ctx = login(params).also {
+    suspend fun authLoginWithWallet(params: LoginParams): LoginContext {
+        val ctx = authLogin(params).also {
             val wi = listWallets(it).first()
             it.putAttachment(WALLET_INFO_ATTACHMENT_KEY, wi)
         }
         return ctx
     }
 
-    suspend fun logout(): Boolean {
+    suspend fun authLogout(): Boolean {
         return api.authLogout()
+    }
+
+    suspend fun authRegister(params: RegisterUserParams): String {
+        return api.authRegister(params.toAuthRegisterRequest()).trim()
+    }
+
+    suspend fun authUserInfo(token: String): UserInfo? {
+        return api.authUserInfo(token)
     }
 
     // Account ---------------------------------------------------------------------------------------------------------

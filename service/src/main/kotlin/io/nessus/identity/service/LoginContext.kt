@@ -2,8 +2,10 @@ package io.nessus.identity.service
 
 import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
+import io.nessus.identity.service.AttachmentKeys.USER_ROLE_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.LoginParams
@@ -24,6 +26,7 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
     val authToken get() = assertAttachment(AUTH_TOKEN_ATTACHMENT_KEY)
     val walletInfo get() = assertAttachment(WALLET_INFO_ATTACHMENT_KEY)
     val didInfo get() = assertAttachment(DID_INFO_ATTACHMENT_KEY)
+    val userRole get() = assertAttachment(USER_ROLE_ATTACHMENT_KEY)
 
     val did get() = didInfo.did
     val walletId get() = walletInfo.id
@@ -58,16 +61,16 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
         }
 
         suspend fun login(params: LoginParams): LoginContext {
-            val ctx = widWalletService.login(params)
+            val ctx = widWalletService.authLogin(params)
             return ctx
         }
 
         suspend fun loginOrRegister(user: User): LoginContext {
-            val ctx = runCatching { widWalletService.login(user.toLoginParams()) }.getOrElse { ex ->
+            val ctx = runCatching { widWalletService.authLogin(user.toLoginParams()) }.getOrElse { ex ->
                 val apiEx = ex as? APIException ?: throw ex
                 val msg = apiEx.message as String
                 if (apiEx.code == 401 && msg.contains("Unknown user")) {
-                    widWalletService.registerUser(user.toRegisterUserParams())
+                    widWalletService.authRegister(user.toRegisterUserParams())
                     login(user)
                 } else {
                     throw ex
@@ -109,6 +112,11 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
                 }
             }
         }
+        return this
+    }
+
+    fun withUserRole(role: UserRole): LoginContext {
+        putAttachment(USER_ROLE_ATTACHMENT_KEY, role)
         return this
     }
 

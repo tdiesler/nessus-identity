@@ -1,4 +1,4 @@
-<#import "layout.ftl" as layout>
+<#import "fragments/layout.ftl" as layout>
 
 <@layout.layout activeTab="holder">
     <!-- Sidebar -->
@@ -7,9 +7,12 @@
     <!-- Main content -->
     <div class="content" style="flex:1; padding:1rem;">
         <h1>OID4VC Holder</h1>
-        <h4>${holderName}</h4>
 
-        Subject DID: <input type="text" class="bx--text-input" value="${holderDid}" style="width: 400px;" readonly autofocus/>
+        <#if holderAuth.hasAuthToken>
+            <h4>${holderName}</h4>
+            Subject DID: <input type="text" class="bx--text-input" value="${holderDid}" style="width: 400px;" readonly autofocus/>
+        </#if>
+
         <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
             <p>
                 This is the Holder's main content area.

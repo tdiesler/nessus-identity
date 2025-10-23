@@ -34,13 +34,6 @@ textarea.height1 {
   font-family:monospace
 }
 
-.disabled-link {
-  color: #8d8d8d !important;   /* Carbon Gray 50 */
-  cursor: not-allowed;
-  text-decoration: none;
-  pointer-events: none;        /* makes it unclickable */
-}
-
 /* === Base app layout === */
 .app-body {
   margin: 0;
@@ -196,8 +189,8 @@ textarea.height1 {
 /* === State and utility styles === */
 
 a.inactive {
-  color: #b0b0b0;
-  pointer-events: none;
-  cursor: default;
+  color: #8d8d8d !important;   /* Carbon Gray 50 */
+  cursor: not-allowed;
   text-decoration: none;
+  pointer-events: none;        /* makes it unclickable */
 }

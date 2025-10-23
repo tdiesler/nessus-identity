@@ -1,4 +1,4 @@
-<#import "layout.ftl" as layout>
+<#import "fragments/layout.ftl" as layout>
 
 <@layout.layout activeTab="issuer">
     <!-- Sidebar -->
@@ -21,17 +21,13 @@
         <#else>
             <h5>Create a credential offer</h5>
             <form action="/issuer/credential-offer" method="get" style="max-width: 400px;">
+                <hidden name="subjectId" value="${subInfo.id}"/>
                 <div class="bx--form-item-horizontal">
+                    <label for="subjectId" class="bx--label">Subject</label>
+                    <input type="text" name="subjectId" class="bx--text-input" value="${subInfo.name} - ${subInfo.email}" readonly/>
+
                     <label for="ctype" class="bx--label">Credential Type</label>
                     <input type="text" name="ctype" class="bx--text-input" value="${ctype}" readonly/>
-                    <label for="subjectId" class="bx--label">Subject Id</label>
-                    <select name="subjectId" id="subjectId" class="bx--select" required>
-                        <#list subjects as subj>
-                            <option value="${subj.id}">
-                                ${subj.name} - ${subj.email}
-                            </option>
-                        </#list>
-                    </select>
                 </div>
                 <div class="bx--form-item" style="margin-top: 1rem;">
                     <button type="submit" class="bx--btn bx--btn--primary">Send Offer</button>

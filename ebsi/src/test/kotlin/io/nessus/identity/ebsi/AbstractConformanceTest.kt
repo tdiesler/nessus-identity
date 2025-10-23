@@ -13,6 +13,7 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.User
@@ -44,9 +45,9 @@ open class AbstractConformanceTest {
 
     fun login(user: User): LoginContext {
         val ctx = sessions[user.email] ?: runBlocking {
-            widWalletService.login(user.toLoginParams()).also {
-                sessions[user.email] = it
-            }
+            widWalletService.authLogin(user.toLoginParams())
+                .withUserRole(UserRole.Holder)
+                .also { sessions[user.email] = it }
         }
         return ctx
     }
@@ -69,7 +70,7 @@ open class AbstractConformanceTest {
             val apiEx = ex as? APIException ?: throw ex
             val msg = apiEx.message as String
             if (apiEx.code == 401 && msg.contains("Unknown user")) {
-                widWalletService.registerUser(user.toRegisterUserParams())
+                widWalletService.authRegister(user.toRegisterUserParams())
                 loginWithWallet(user)
             } else {
                 throw ex

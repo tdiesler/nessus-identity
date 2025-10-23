@@ -7,15 +7,18 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.console.SessionsStore.findLoginContext
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.CredentialOfferV10
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
+import io.nessus.identity.waltid.User
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -31,10 +34,10 @@ class WalletHandler() {
     lateinit var authContext: AuthorizationContext
 
     fun walletModel(call: RoutingCall): BaseModel {
-        val model = BaseModel(call)
-        if (model.auth.hasAuthToken) {
-            model["holderName"] = model.auth.walletInfo.name
-            model["holderDid"] = model.auth.didInfo.did
+        val model = BaseModel().withRoleAuth(call, UserRole.Holder)
+        findLoginContext(call, UserRole.Holder)?.also {
+            model["holderName"] = it.walletInfo.name
+            model["holderDid"] = it.didInfo.did
         }
         return model
     }
@@ -46,18 +49,25 @@ class WalletHandler() {
         )
     }
 
-    suspend fun handleLogin(call: RoutingCall) {
+    suspend fun walletLoginPage(call: RoutingCall) {
+        val model = walletModel(call)
+        call.respond(
+            FreeMarkerContent("holder_login.ftl", model)
+        )
+    }
+
+    suspend fun handleWalletLogin(call: RoutingCall) {
         val params = call.receiveParameters()
         val email = params["email"] ?: error("No email")
         val password = params["password"] ?: error("No password")
-        val login = LoginParams(LoginType.EMAIL, email, password)
-        SessionsStore.newLoginContext(call, login)
+        val loginParams = LoginParams(LoginType.EMAIL, email, password)
+        SessionsStore.newLoginContext(call, UserRole.Holder, loginParams)
         call.respondRedirect("/wallet")
     }
 
-    suspend fun handleLogout(call: RoutingCall) {
-        SessionsStore.logout(call)
-        call.respondRedirect("/")
+    suspend fun handleWalletLogout(call: RoutingCall) {
+        SessionsStore.logout(call, UserRole.Holder)
+        call.respondRedirect("/wallet")
     }
 
     suspend fun walletOAuthCallback(call: RoutingCall) {
@@ -70,7 +80,7 @@ class WalletHandler() {
     }
 
     suspend fun handleCredentialOfferAccept(call: RoutingCall, offerId: String) {
-        val loginContext = requireLoginContext(call)
+        val loginContext = requireLoginContext(call, UserRole.Holder)
         val credOffer = walletSvc.getCredentialOffer(loginContext, offerId) ?: error("No credential_offer for: $offerId")
 
         val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
@@ -85,13 +95,13 @@ class WalletHandler() {
     }
 
     suspend fun handleCredentialOfferDelete(call: RoutingCall, offerId: String) {
-        val loginContext = requireLoginContext(call)
+        val loginContext = requireLoginContext(call, UserRole.Holder)
         walletSvc.deleteCredentialOffer(loginContext, offerId)
         call.respondRedirect("/wallet/credential-offers")
     }
 
     suspend fun handleCredentialDelete(call: RoutingCall, vcId: String) {
-        val loginContext = requireLoginContext(call)
+        val loginContext = requireLoginContext(call, UserRole.Holder)
         when (vcId) {
             "__all__" -> walletSvc.deleteCredentials(loginContext) { true }
             else -> walletSvc.deleteCredential(loginContext, vcId)
@@ -100,7 +110,10 @@ class WalletHandler() {
     }
 
     suspend fun showCredentialOfferDetails(call: RoutingCall, offerId: String) {
-        val loginContext = requireLoginContext(call)
+
+        val loginContext = findLoginContext(call, UserRole.Holder)
+            ?: return walletHomePage(call)
+
         val credOffer = walletSvc.getCredentialOffer(loginContext, offerId)
         val prettyJson = jsonPretty.encodeToString(credOffer)
         val model = walletModel(call).also {
@@ -113,7 +126,10 @@ class WalletHandler() {
     }
 
     suspend fun showCredentialOffers(call: RoutingCall) {
-        val loginContext = requireLoginContext(call)
+
+        val loginContext = findLoginContext(call, UserRole.Holder)
+            ?: return walletHomePage(call)
+
         val credOffers: Map<String, CredentialOfferV10> = walletSvc.getCredentialOffers(loginContext)
         val credOfferData = credOffers.map { (k, v) ->
             listOf(k.encodeURLPath(), v.credentialIssuer, v.credentialConfigurationIds.first())
@@ -127,7 +143,10 @@ class WalletHandler() {
     }
 
     suspend fun showCredentials(call: RoutingCall) {
-        val loginContext = requireLoginContext(call)
+
+        val loginContext = findLoginContext(call, UserRole.Holder)
+            ?: return walletHomePage(call)
+
         fun abbreviatedDid(did: String) = when {
             did.length > 32 -> "${did.take(20)}...${did.substring(did.length - 12)}"
             else -> did
@@ -155,7 +174,10 @@ class WalletHandler() {
     }
 
     suspend fun showCredentialDetails(call: RoutingCall, vcId: String) {
-        val loginContext = requireLoginContext(call)
+
+        val loginContext = findLoginContext(call, UserRole.Holder)
+            ?: return walletHomePage(call)
+
         val vcJwt = walletSvc.getCredentialById(loginContext, vcId) ?: error("No credential for: $vcId")
         val jsonObj = when (vcJwt) {
             is VCDataV11Jwt -> vcJwt.toJson()
@@ -171,13 +193,6 @@ class WalletHandler() {
         }
         call.respond(
             FreeMarkerContent("holder_cred.ftl", model)
-        )
-    }
-
-    suspend fun showLoginPage(call: RoutingCall) {
-        val model = walletModel(call)
-        call.respond(
-            FreeMarkerContent("login_page.ftl", model)
         )
     }
 

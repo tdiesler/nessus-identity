@@ -1,18 +1,21 @@
 package io.nessus.identity.waltid
 
 import id.walt.webwallet.db.models.WalletCredential
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.http.HttpHeaders.Authorization
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.http
+import io.nessus.identity.types.TimeInstantSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.time.Instant
 
 class APIException(val id: String, val code: Int, val status: String, message: String) : RuntimeException(message) {
 
@@ -54,6 +57,8 @@ suspend inline fun <reified T> handleResponse(res: HttpResponse): T {
 
 class WaltIDApiClient(val baseUrl: String) {
 
+    val log = KotlinLogging.logger {}
+
     // Authentication --------------------------------------------------------------------------------------------------
 
     suspend fun authLogin(req: LoginRequest): LoginResponse {
@@ -79,6 +84,22 @@ class WaltIDApiClient(val baseUrl: String) {
             setBody(req)
         }
         return handleResponse<String>(res)
+    }
+
+    suspend fun authUserInfo(authToken: String): UserInfo? {
+        val res = http.get("$baseUrl/wallet-api/auth/user-info") {
+            contentType(ContentType.Application.Json)
+            headers {
+                append(Authorization, "Bearer $authToken")
+            }
+        }
+        runCatching {
+            val userInfo = handleResponse<UserInfo>(res)
+            return userInfo
+        }.onFailure { th ->
+            log.error(th){ }
+        }
+        return null
     }
 
     // Account ---------------------------------------------------------------------------------------------------------
@@ -228,6 +249,15 @@ data class RegisterUserRequest(
     val name: String,
     val email: String,
     val password: String
+)
+
+@Serializable
+data class UserInfo(
+    val id: String,
+    val name: String,
+    val email: String,
+    @Serializable(with = TimeInstantSerializer::class)
+    val createdOn: Instant
 )
 
 // Account ---------------------------------------------------------------------------------------------------------

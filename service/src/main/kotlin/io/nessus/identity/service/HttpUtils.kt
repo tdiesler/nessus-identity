@@ -5,6 +5,7 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import io.nessus.identity.types.UserRole
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.net.URI
@@ -25,13 +26,6 @@ fun urlQueryToMap(url: String): Map<String, String> {
     return URI(url).rawQuery?.split("&")?.associate { p ->
         p.split("=", limit = 2).let { (k, v) -> k to URLDecoder.decode(v, "UTF-8") }
     } ?: mapOf()
-}
-
-@Serializable
-data class CookieData(val wid: String, var did: String? = null) {
-    companion object {
-        const val NAME = "CookieData"
-    }
 }
 
 class HttpStatusException(val status: HttpStatusCode, override val message: String) : RuntimeException(message) {

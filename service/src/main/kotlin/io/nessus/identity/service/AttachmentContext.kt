@@ -5,6 +5,7 @@ import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.oid4vc.requests.AuthorizationRequest
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.IssuerMetadataDraft11
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.DidInfo
 import io.nessus.identity.waltid.WalletInfo
 import java.util.concurrent.ConcurrentHashMap
@@ -16,6 +17,7 @@ object AttachmentKeys {
     val AUTH_TOKEN_ATTACHMENT_KEY = attachmentKey<String>("AUTH_TOKEN")
     val WALLET_INFO_ATTACHMENT_KEY = attachmentKey<WalletInfo>()
     val DID_INFO_ATTACHMENT_KEY = attachmentKey<DidInfo>()
+    val USER_ROLE_ATTACHMENT_KEY = attachmentKey<UserRole>()
 
     // OIDCContext
     //

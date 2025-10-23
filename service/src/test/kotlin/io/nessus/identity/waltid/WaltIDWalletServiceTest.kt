@@ -25,9 +25,12 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
     @Test
     fun userLogin() {
         runBlocking {
-            val ctx = widWalletService.login(Max.toLoginParams())
+            val ctx = widWalletService.authLogin(Max.toLoginParams())
             ctx.authToken.shouldNotBeBlank()
             ctx.maybeWalletInfo.shouldBeNull()
+
+            val userInfo = widWalletService.authUserInfo(ctx.authToken)
+            log.info { Json.encodeToString(userInfo) }
         }
     }
 
@@ -132,7 +135,7 @@ class WaltIDWalletServiceTest : AbstractServiceTest() {
     @Test
     fun userLogout() {
         runBlocking {
-            widWalletService.logout()
+            widWalletService.authLogout()
         }
     }
 }

@@ -1,4 +1,4 @@
-<#import "layout.ftl" as layout>
+<#import "fragments/layout.ftl" as layout>
 
 <@layout.layout activeTab="verifier">
     <!-- Sidebar -->
@@ -11,34 +11,22 @@
         <h5>Request Credential Presentation</h5>
 
         <form action="/verifier/presentation-request" method="post" style="max-width:640px;">
-            <!-- Subject -->
+            <hidden name="subjectId" value="${subInfo.id}"/>
             <div class="bx--form-item-horizontal">
                 <label for="subjectId" class="bx--label">Subject</label>
-                <select name="subjectId" id="subjectId" class="bx--select" required>
-                    <#list subjects as subj>
-                        <option value="${subj.email}">${subj.name} - ${subj.email}</option>
-                    </#list>
-                </select>
-            </div>
+                <input type="text" name="subjectId" class="bx--text-input" value="${subInfo.name} - ${subInfo.email}" readonly/>
 
-            <!-- Credential type -->
-            <div class="bx--form-item-horizontal">
                 <label for="ctype" class="bx--label">Credential Type</label>
                 <select name="ctype" id="ctype" class="bx--select">
                     <#list vctValues as vct>
                         <option value="${vct}">${vct}</option>
                     </#list>
                 </select>
-            </div>
 
-            <!-- DCQL claims -->
-            <div class="bx--form-item-horizontal">
                 <label for="claims" class="bx--label">DCQL Claims</label>
                 <textarea name="claims" id="claims" class="bx--textarea"
-                style="height:200px;font-family:monospace;width:100%;">${claimsJson?html}</textarea>
+                    style="height:200px;font-family:monospace;width:100%;">${claimsJson?html}</textarea>
             </div>
-
-            <!-- Submit button -->
             <div class="bx--form-item-horizontal">
                 <div></div>
                 <button type="submit" class="bx--btn bx--btn--primary"

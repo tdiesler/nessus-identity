@@ -5,9 +5,13 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.nessus.identity.console.SessionsStore.findLoginContext
+import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
+import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.CredentialConfiguration
 import io.nessus.identity.types.CredentialOfferV10
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.LoginType
 import io.nessus.identity.waltid.RegisterUserParams
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
@@ -29,11 +33,14 @@ class IssuerHandler() {
         val authServerUrl = issuerMetadata.authorizationServers?.first() ?: error("No AuthorizationServer")
         val authConfigUrl = "$authServerUrl/.well-known/openid-configuration"
         val issuerConfigUrl = issuerSvc.getIssuerMetadataUrl()
-        return BaseModel(call).also {
-            it["issuerUrl"] = issuerSvc.issuerBaseUrl
-            it["issuerConfigUrl"] = issuerConfigUrl
-            it["authConfigUrl"] = authConfigUrl
-        }
+        val model = BaseModel()
+            .withRoleAuth(call, UserRole.Holder)
+            .also {
+                it["issuerUrl"] = issuerSvc.issuerBaseUrl
+                it["issuerConfigUrl"] = issuerConfigUrl
+                it["authConfigUrl"] = authConfigUrl
+            }
+        return model
     }
 
     suspend fun issuerHomePage(call: RoutingCall) {
@@ -77,6 +84,9 @@ class IssuerHandler() {
     }
 
     suspend fun handleCredentialOfferSend(call: RoutingCall, ctype: String): CredentialOfferV10? {
+
+        val holderContext = requireLoginContext(call, UserRole.Holder)
+
         val model = issuerModel(call).also {
             it["ctype"] = ctype
         }
@@ -85,12 +95,11 @@ class IssuerHandler() {
         if (subjectId != null) {
             credOffer = issuerSvc.createCredentialOffer(subjectId, listOf(ctype))
             val prettyJson = jsonPretty.encodeToString(credOffer)
-            model.put("subjectId", subjectId)
-            model.put("credOffer", prettyJson)
+            model["subjectId"] = subjectId
+            model["credOffer"] = prettyJson
         } else {
-            model.put("subjects", issuerSvc.getUsers().map { it ->
-                SubjectOption.fromUserRepresentation(it)
-            }.toList())
+            val userInfo = widWalletService.authUserInfo(holderContext.authToken) ?: error("No UserInfo")
+            model["subInfo"] =userInfo
         }
         call.respond(
             FreeMarkerContent("issuer_cred_offer_create.ftl", model)
@@ -138,7 +147,7 @@ class IssuerHandler() {
         // Register in WaltId (immutable henceforth)
         val userParams = RegisterUserParams(LoginType.EMAIL, name, email, password)
         runCatching {
-            widWalletService.registerUser(userParams)
+            widWalletService.authRegister(userParams)
         }.onFailure { ex ->
             if (ex.message?.contains("account with email $email already exists") == true ) {
                 log.error(ex) { }

@@ -18,9 +18,10 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.config.getVersionInfo
+import io.nessus.identity.console.SessionsStore.cookieName
 import io.nessus.identity.console.SessionsStore.requireLoginContext
-import io.nessus.identity.service.CookieData
 import io.nessus.identity.service.HttpStatusException
+import io.nessus.identity.types.UserRole
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 
@@ -65,7 +66,15 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 templateLoader = ClassTemplateLoader(classLoader, "templates")
             }
             install(Sessions) {
-                cookie<CookieData>(CookieData.NAME) {
+                cookie<IssuerCookie>(cookieName(UserRole.Issuer)) {
+                    cookie.path = "/"
+                    cookie.maxAgeInSeconds = 3600
+                }
+                cookie<HolderCookie>(cookieName(UserRole.Holder)) {
+                    cookie.path = "/"
+                    cookie.maxAgeInSeconds = 3600
+                }
+                cookie<VerifierCookie>(cookieName(UserRole.Verifier)) {
                     cookie.path = "/"
                     cookie.maxAgeInSeconds = 3600
                 }
@@ -88,15 +97,6 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 get("/") {
                     call.respondRedirect("/issuer")
                 }
-                get("/login") {
-                    walletHandler.showLoginPage(call)
-                }
-                post("/login") {
-                    walletHandler.handleLogin(call)
-                }
-                get("/logout") {
-                    walletHandler.handleLogout(call)
-                }
 
                 // Issuer ---------------------------------------------------------------------------------
                 //
@@ -118,10 +118,10 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 }
                 get("/issuer/credential-offer") {
                     val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
-                    issuerHandler.handleCredentialOfferSend(call, ctype) ?. also {
+                    issuerHandler.handleCredentialOfferSend(call, ctype)?.also {
                         // [TODO #280] Issuer should use the wallet's cred offer endpoint
                         // https://github.com/tdiesler/nessus-identity/issues/280
-                        val holderContext = requireLoginContext(call)
+                        val holderContext = requireLoginContext(call, UserRole.Holder)
                         walletHandler.walletSvc.addCredentialOffer(holderContext, it)
                     }
                 }
@@ -144,6 +144,16 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 get("/wallet") {
                     walletHandler.walletHomePage(call)
                 }
+                get("/wallet/login") {
+                    walletHandler.walletLoginPage(call)
+                }
+                post("/wallet/login") {
+                    walletHandler.handleWalletLogin(call)
+                }
+                get("/wallet/logout") {
+                    walletHandler.handleWalletLogout(call)
+                }
+
                 get("/wallet/oauth/callback") {
                     walletHandler.walletOAuthCallback(call)
                 }
@@ -181,6 +191,15 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 //
                 get("/verifier") {
                     verifierHandler.verifierHomePage(call)
+                }
+                get("/verifier/login") {
+                    verifierHandler.verifierLoginPage(call)
+                }
+                post("/verifier/login") {
+                    verifierHandler.handleVerifierLogin(call)
+                }
+                get("/verifier/logout") {
+                    verifierHandler.handleVerifierLogout(call)
                 }
                 get("/verifier/presentation-request") {
                     verifierHandler.showPresentationRequestPage(call)

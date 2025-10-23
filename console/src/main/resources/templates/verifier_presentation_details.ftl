@@ -1,4 +1,4 @@
-<#import "layout.ftl" as layout>
+<#import "fragments/layout.ftl" as layout>
 
 <@layout.layout activeTab="verifier">
     <!-- Sidebar -->

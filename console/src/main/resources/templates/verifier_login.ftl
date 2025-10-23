@@ -1,18 +1,18 @@
-<#import "layout.ftl" as layout>
+<#import "fragments/layout.ftl" as layout>
 
-<@layout.layout activeTab="none">
+<@layout.layout activeTab="verifier">
     <!-- Sidebar -->
-    <#include "fragments/empty_sidebar.ftl">
+    <#include "fragments/verifier_sidebar.ftl">
 
     <!-- Main content -->
     <div class="content">
-        <h1>OID4VC Issuer</h1>
+        <h1>OID4VC Verifier</h1>
 
-        <form action="/login" method="post" style="max-width:640px;">
+        <form action="/verifier/login" method="post" style="max-width:640px;">
             <!-- Email -->
             <div class="bx--form-item-horizontal">
                 <label for="email" class="bx--label">Email</label>
-                <input name="email" id="email" class="bx--input" value="alice@email.com" required/>
+                <input name="email" id="email" class="bx--input" value="bob@email.com" required/>
             </div>
             <!-- Password -->
             <div class="bx--form-item-horizontal">
@@ -28,5 +28,11 @@
                 </button>
             </div>
         </form>
+
+        <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
+            <p>
+                Authenticate the Verifier.
+            </p>
+        </div>
     </div>
 </@layout.layout>

@@ -51,7 +51,7 @@ nessus-images: package
 		fi
 
 waltid-install:
-	@cd ../waltid-identity && ./gradlew -x jvmTest publishToMavenLocal
+	@cd ../waltid-identity && ./gradlew -x jvmTest clean publishToMavenLocal
 
 # Build WaltID images (only needed for unreleased PRs)
 waltid-images: waltid-install

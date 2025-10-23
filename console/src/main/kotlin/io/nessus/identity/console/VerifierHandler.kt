@@ -6,12 +6,19 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.nessus.identity.console.SessionsStore.findLoginContext
+import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
+import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletAuthService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.DCQLQuery
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.waltid.LoginParams
+import io.nessus.identity.waltid.LoginType
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -31,7 +38,10 @@ class VerifierHandler() {
     val walletAuthSvc = WalletAuthService(walletSvc)
 
     fun verifierModel(call: RoutingCall): BaseModel {
-        return BaseModel(call)
+        val model = BaseModel()
+            .withRoleAuth(call, UserRole.Holder)
+            .withRoleAuth(call, UserRole.Verifier)
+        return model
     }
 
     suspend fun verifierHomePage(call: RoutingCall) {
@@ -41,11 +51,31 @@ class VerifierHandler() {
         )
     }
 
-    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+    suspend fun verifierLoginPage(call: RoutingCall) {
+        val model = verifierModel(call)
+        call.respond(
+            FreeMarkerContent("verifier_login.ftl", model)
+        )
+    }
+
+    suspend fun handleVerifierLogin(call: RoutingCall) {
+        val params = call.receiveParameters()
+        val email = params["email"] ?: error("No email")
+        val password = params["password"] ?: error("No password")
+        val loginParams = LoginParams(LoginType.EMAIL, email, password)
+        SessionsStore.newLoginContext(call, UserRole.Verifier, loginParams)
+        call.respondRedirect("/verifier")
+    }
+
+    suspend fun handleVerifierLogout(call: RoutingCall) {
+        SessionsStore.logout(call, UserRole.Verifier)
+        call.respondRedirect("/verifier")
+    }
 
     suspend fun showPresentationRequestPage(call: RoutingCall) {
         val model = verifierModel(call)
-        model["subjects"] = issuerSvc.getUsers().map { SubjectOption.fromUserRepresentation(it) }.toList()
+        val holderContext = model["holderAuth"] as LoginContext
+        model["subInfo"] = widWalletService.authUserInfo(holderContext.authToken) ?: error("No UserInfo")
         model["vctValues"] = issuerSvc.getIssuerMetadata().credentialConfigurationsSupported.keys
         model["claimsJson"] = jsonPretty.encodeToString(
             Json.decodeFromString<JsonArray>(
@@ -61,6 +91,10 @@ class VerifierHandler() {
     }
 
     suspend fun handlePresentationRequest(call: RoutingCall) {
+
+        requireLoginContext(call, UserRole.Verifier)
+        val holderContext = requireLoginContext(call, UserRole.Holder)
+
         val model = verifierModel(call)
         val params = call.receiveParameters()
         val subjectId = params["subjectId"] ?: error("No subjectId")
@@ -87,7 +121,7 @@ class VerifierHandler() {
                   ]
                 }"""
             )
-        ).withLoginContext(model.auth)
+        ).withLoginContext(holderContext)
 
         log.info { authContext.authRequest.toHttpParameters() }
 
@@ -111,4 +145,6 @@ class VerifierHandler() {
             FreeMarkerContent("verifier_presentation_details.ftl", model)
         )
     }
+
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 }

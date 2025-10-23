@@ -5,7 +5,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
-import kotlin.uuid.Uuid
 
 abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<COType> {
 

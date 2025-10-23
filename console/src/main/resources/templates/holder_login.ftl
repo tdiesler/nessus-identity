@@ -1,21 +1,14 @@
 <#import "fragments/layout.ftl" as layout>
 
-<@layout.layout activeTab="issuer">
+<@layout.layout activeTab="holder">
     <!-- Sidebar -->
-    <#include "fragments/issuer_sidebar.ftl">
+    <#include "fragments/holder_sidebar.ftl">
 
     <!-- Main content -->
     <div class="content">
-        <h1>OID4VC Issuer</h1>
+        <h1>OID4VC Holder</h1>
 
-        <h5>Credential User Create</h5>
-
-        <form action="/issuer/user-create" method="post" style="max-width:640px;">
-            <!-- Name -->
-            <div class="bx--form-item-horizontal">
-                <label for="name" class="bx--label">FirstName</label>
-                <input name="name" id="name" class="bx--input" value="Alice Wonderland" required/>
-            </div>
+        <form action="/wallet/login" method="post" style="max-width:640px;">
             <!-- Email -->
             <div class="bx--form-item-horizontal">
                 <label for="email" class="bx--label">Email</label>
@@ -31,9 +24,16 @@
                 <div></div>
                 <button type="submit" class="bx--btn bx--btn--primary"
                 style="width:auto; padding:0.5rem 1rem; justify-self:start;">
-                    Create
+                    Login
                 </button>
             </div>
         </form>
+
+        <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
+            <p>
+                Authenticate the Holder and authorize Wallet access.
+            </p>
+        </div>
     </div>
+
 </@layout.layout>
