@@ -7,8 +7,7 @@ import id.walt.oid4vc.data.OpenIDClientMetadata
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.oid4vc.requests.AuthorizationRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.*
 import java.security.MessageDigest
 
 class AuthorizationRequestDraft11Builder {

@@ -22,7 +22,7 @@ import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.ebsi.SessionsStore.cookieName
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.types.UserRole
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 
 class EBSIPortal {

@@ -3,10 +3,7 @@ package io.nessus.identity.types
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.equals.shouldBeEqual
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import kotlin.test.Test
 import kotlin.test.assertNull
 

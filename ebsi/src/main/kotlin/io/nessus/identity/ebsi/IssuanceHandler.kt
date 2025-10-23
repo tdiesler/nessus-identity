@@ -12,7 +12,7 @@ import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.urlQueryToMap
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 
 object IssuanceHandler {
 

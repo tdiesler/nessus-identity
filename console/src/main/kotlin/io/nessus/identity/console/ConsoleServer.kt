@@ -22,7 +22,7 @@ import io.nessus.identity.console.SessionsStore.cookieName
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.types.UserRole
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 
 class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
@@ -121,8 +121,8 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                     issuerHandler.handleCredentialOfferSend(call, ctype)?.also {
                         // [TODO #280] Issuer should use the wallet's cred offer endpoint
                         // https://github.com/tdiesler/nessus-identity/issues/280
-                        val holderContext = requireLoginContext(call, UserRole.Holder)
-                        walletHandler.walletSvc.addCredentialOffer(holderContext, it)
+                        val ctx = requireLoginContext(call, UserRole.Holder)
+                        walletHandler.walletSvc.addCredentialOffer(ctx, it)
                     }
                 }
                 get("/issuer/users") {

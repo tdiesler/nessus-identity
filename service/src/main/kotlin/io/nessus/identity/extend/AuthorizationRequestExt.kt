@@ -1,7 +1,7 @@
 package io.nessus.identity.extend
 
 import id.walt.oid4vc.requests.AuthorizationRequest
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 

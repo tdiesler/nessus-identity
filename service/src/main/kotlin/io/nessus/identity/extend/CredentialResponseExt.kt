@@ -3,7 +3,7 @@ package io.nessus.identity.extend
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.responses.CredentialResponse
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.*
 
 fun CredentialResponse.toSignedJWT(): SignedJWT {
     if (format == CredentialFormat.jwt_vc) {

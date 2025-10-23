@@ -28,10 +28,7 @@ import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.TokenRequestV10
 import io.nessus.identity.types.TokenResponseV10
 import io.nessus.identity.waltid.publicKeyJwk
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import java.time.Instant
 import java.util.*
 import kotlin.uuid.Uuid
@@ -257,7 +254,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
             throw IllegalStateException("Invalid UserPin")
 
         val credOffer = credOfferRecord.credOffer as CredentialOfferDraft11
-        val types = credOffer.getTypes()
+        val types = credOffer.credentialConfigurationIds
         val authRequest = AuthorizationRequest(
             clientId = subId ?: throw IllegalStateException("No subId"), authorizationDetails = listOf(
                 AuthorizationDetails(

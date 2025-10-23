@@ -10,11 +10,13 @@ interface WalletService<COType: CredentialOffer> {
 
     fun addCredentialOffer(ctx: LoginContext, credOffer: COType): String
 
-    fun getCredentialOffers(ctx: LoginContext): Map<String, COType>
+    fun getCredentialOffers(ctx: LoginContext): Map<String, CredentialOffer>
 
     fun getCredentialOffer(ctx: LoginContext, offerId: String): COType?
 
     fun deleteCredentialOffer(ctx: LoginContext, offerId: String): COType?
+
+    fun deleteCredentialOffers(ctx: LoginContext, predicate: (CredentialOffer) -> Boolean)
 
     suspend fun findCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): List<WalletCredential>
 

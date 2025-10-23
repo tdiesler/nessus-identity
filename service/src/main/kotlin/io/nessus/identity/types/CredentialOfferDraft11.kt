@@ -4,13 +4,7 @@ import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonContentPolymorphicSerializer
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.*
 
 /*
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-11.html#name-credential-offer-endpoint
@@ -26,10 +20,10 @@ data class CredentialOfferDraft11(
     override val grants: Grants? = null
 ) : CredentialOffer() {
 
-    fun getTypes(): List<String> {
-        return when (val entry = credentials.first()) {
+    override val credentialConfigurationIds get() = run {
+        when (val entry = credentials.first()) {
             is CredentialObject -> entry.types
-            is CredentialReference -> listOf(entry.reference)
+            is CredentialReference -> listOf("unknown")
         }
     }
 

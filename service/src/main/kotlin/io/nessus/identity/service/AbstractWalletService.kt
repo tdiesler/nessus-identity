@@ -11,24 +11,29 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
     val log = KotlinLogging.logger {}
 
     override fun addCredentialOffer(ctx: LoginContext, credOffer: COType): String {
-        val credOfferId = ctx.addCredentialOffer(credOffer)
-        log.info { "Added CredentialOffer: $credOfferId => ${credOffer.toJson()}" }
-        return credOfferId
+        val offerId = widWalletService.addCredentialOffer(ctx, credOffer)
+        return offerId
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun getCredentialOffers(ctx: LoginContext): Map<String, COType> {
-        return ctx.getCredentialOffers().mapValues { (_, v) -> v as COType }
+    override fun getCredentialOffers(ctx: LoginContext): Map<String, CredentialOffer> {
+        return widWalletService.getCredentialOffers(ctx)
     }
 
     @Suppress("UNCHECKED_CAST")
     override fun getCredentialOffer(ctx: LoginContext, offerId: String): COType? {
-        return ctx.getCredentialOffer(offerId) as? COType
+        return widWalletService.getCredentialOffer(ctx, offerId) as? COType
     }
 
     @Suppress("UNCHECKED_CAST")
     override fun deleteCredentialOffer(ctx: LoginContext, offerId: String): COType? {
-        return ctx.deleteCredentialOffer(offerId) as? COType
+        return widWalletService.deleteCredentialOffer(ctx, offerId) as? COType
+    }
+
+    override fun deleteCredentialOffers(ctx: LoginContext, predicate: (CredentialOffer) -> Boolean) {
+        getCredentialOffers(ctx)
+            .filter { (_, v) -> predicate(v) }
+            .forEach { (k, _) -> widWalletService.deleteCredentialOffer(ctx, k) }
     }
 
     override suspend fun findCredential(

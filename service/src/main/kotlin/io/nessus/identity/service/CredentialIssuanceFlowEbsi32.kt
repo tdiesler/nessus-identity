@@ -78,7 +78,7 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val types = credOffer.getTypes()
+        val types = credOffer.credentialConfigurationIds
         val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential
@@ -141,7 +141,7 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val types = credOffer.getTypes()
+        val types = credOffer.credentialConfigurationIds
         val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
@@ -175,7 +175,7 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val types = credOffer.getTypes()
+        val types = credOffer.credentialConfigurationIds
         val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential
@@ -211,7 +211,7 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
 
         // Holder sends the CredentialRequest using the AccessToken
         //
-        val types = credOffer.getTypes()
+        val types = credOffer.credentialConfigurationIds
         val credReq = walletSvc.createCredentialRequest(holderCtx, types, accessTokenRes)
 
         // Issuer sends the requested Credential

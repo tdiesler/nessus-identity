@@ -5,10 +5,8 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.nessus.identity.console.SessionsStore.findLoginContext
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.CredentialConfiguration
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.UserRole
@@ -16,7 +14,7 @@ import io.nessus.identity.waltid.LoginType
 import io.nessus.identity.waltid.RegisterUserParams
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import org.keycloak.representations.idm.UserRepresentation
 
 

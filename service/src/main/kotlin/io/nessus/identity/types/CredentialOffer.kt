@@ -6,19 +6,18 @@ import io.nessus.identity.service.http
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonContentPolymorphicSerializer
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.*
 
 @Serializable(with = CredentialOfferSerializer::class)
 sealed class CredentialOffer {
 
+    abstract val credentialConfigurationIds: List<String>
     abstract val credentialIssuer: String
     abstract val grants: Grants?
+
+    val filteredConfigurationIds get() = credentialConfigurationIds
+        .filter { it != "VerifiableAttestation" }
+        .filter { it != "VerifiableCredential" }
 
     @Transient
     private lateinit var issuerMetadata: IssuerMetadata

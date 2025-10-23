@@ -7,8 +7,7 @@ import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.oid4vc.data.dif.VCFormatDefinition
 import id.walt.oid4vc.util.ShortIdUtils
 import id.walt.w3c.utils.VCFormat
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.*
 import kotlin.uuid.Uuid
 
 class PresentationDefinitionBuilder() {

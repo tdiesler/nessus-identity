@@ -24,7 +24,7 @@ import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.TokenRequestV10
 import io.nessus.identity.waltid.publicKeyJwk
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 
 // Handle OIDC for VC/VP Requests ======================================================================================
 //

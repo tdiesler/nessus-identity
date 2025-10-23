@@ -110,6 +110,10 @@
         </dependency>
         <dependency>
             <groupId>org.jetbrains.exposed</groupId>
+            <artifactId>exposed-java-time</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.exposed</groupId>
             <artifactId>exposed-jdbc</artifactId>
         </dependency>
         <dependency>
@@ -129,11 +133,6 @@
         <dependency>
             <groupId>org.jetbrains.exposed</groupId>
             <artifactId>exposed-dao</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.exposed</groupId>
-            <artifactId>exposed-java-time</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>

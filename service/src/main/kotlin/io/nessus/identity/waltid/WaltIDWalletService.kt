@@ -5,43 +5,73 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.webwallet.db.models.WalletCredential
+import id.walt.webwallet.db.models.Wallets
 import id.walt.webwallet.service.credentials.CredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.types.UserRole
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.VCDataJwt
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
+import io.nessus.identity.waltid.CredentialOfferTable.deleteCredentialOffer
+import io.nessus.identity.waltid.CredentialOfferTable.insertCredentialOffer
+import io.nessus.identity.waltid.CredentialOfferTable.selectCredentialOffer
+import io.nessus.identity.waltid.CredentialOfferTable.selectCredentialOffers
+import kotlinx.serialization.json.*
+import org.jetbrains.exposed.v1.core.ReferenceOption
+import org.jetbrains.exposed.v1.core.dao.id.UUIDTable
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.javatime.timestamp
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insertAndGetId
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.util.*
 import javax.sql.DataSource
 import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
+import kotlin.time.toKotlinInstant
 import kotlin.uuid.Uuid
 
 class WaltIDWalletService {
 
-    val log = KotlinLogging.logger {}
     val api: WaltIDApiClient
-
-    val dataSource: Lazy<DataSource> = lazy {
-        val cfg = ConfigProvider.requireDatabaseConfig()
-        log.info { "Database: ${cfg.jdbcUrl}" }
-        HikariDataSource(HikariConfig().apply {
-            jdbcUrl = cfg.jdbcUrl
-            username = cfg.username
-            password = cfg.password
-            driverClassName = "org.postgresql.Driver"
-            transactionIsolation = "TRANSACTION_SERIALIZABLE"
-            maximumPoolSize = 10
-            isAutoCommit = false
-        })
-    }
 
     constructor(apiUrl: String) {
         log.info { "WalletService: $apiUrl" }
         api = WaltIDApiClient(apiUrl)
+    }
+
+    companion object {
+        val log = KotlinLogging.logger {}
+
+        private val dataSource: Lazy<DataSource> = lazy {
+            val cfg = ConfigProvider.requireDatabaseConfig()
+            log.info { "Database: ${cfg.jdbcUrl}" }
+            HikariDataSource(HikariConfig().apply {
+                jdbcUrl = cfg.jdbcUrl
+                username = cfg.username
+                password = cfg.password
+                driverClassName = "org.postgresql.Driver"
+                transactionIsolation = "TRANSACTION_SERIALIZABLE"
+                maximumPoolSize = 10
+                isAutoCommit = false
+            })
+        }
+
+        private fun <T> withConnection(runThis: () -> T): T {
+            if (!dataSource.isInitialized()) {
+                Database.connect(dataSource.value)
+                transaction {
+                    SchemaUtils.create(CredentialOfferTable)
+                }
+            }
+            return runThis()
+        }
     }
 
     // Authentication --------------------------------------------------------------------------------------------------
@@ -126,7 +156,10 @@ class WaltIDWalletService {
         return res
     }
 
-    suspend fun findCredentials(ctx: LoginContext, predicate: suspend (WalletCredential) -> Boolean): List<WalletCredential> {
+    suspend fun findCredentials(
+        ctx: LoginContext,
+        predicate: suspend (WalletCredential) -> Boolean
+    ): List<WalletCredential> {
         val res = api.credentials(ctx).filter { predicate(it) }
         return res.toList()
     }
@@ -147,6 +180,42 @@ class WaltIDWalletService {
     suspend fun deleteCredential(ctx: LoginContext, vcId: String): WalletCredential? {
         val res = findCredentialsById(ctx, vcId)
         api.deleteCredential(ctx, vcId)
+        return res
+    }
+
+    // CredentialOffer -------------------------------------------------------------------------------------------------
+
+    fun addCredentialOffer(ctx: LoginContext, credOffer: CredentialOffer): String {
+        log.info { "Adding CredentialOffer: ${credOffer.toJson()}" }
+        val offerId = withConnection {
+            val offerData = CredentialOfferData.fromCredentialOffer(ctx.walletId, credOffer)
+            insertCredentialOffer(offerData)
+        }
+        return offerId
+    }
+
+    fun getCredentialOffers(ctx: LoginContext): Map<String, CredentialOffer> {
+        val res = withConnection {
+            selectCredentialOffers(ctx.walletId).associate { co ->
+                "${co.offerId}" to co.toCredentialOffer()
+            }.toMap()
+        }
+        return res
+    }
+
+    fun getCredentialOffer(ctx: LoginContext, offerId: String): CredentialOffer? {
+        val res = withConnection {
+            selectCredentialOffer(ctx.walletId, offerId)?.toCredentialOffer()
+        }
+        return res
+    }
+
+    fun deleteCredentialOffer(ctx: LoginContext, offerId: String): CredentialOffer? {
+        val res = withConnection {
+            val wasOffer = selectCredentialOffer(ctx.walletId, offerId)?.toCredentialOffer()
+            val delCount = deleteCredentialOffer(ctx.walletId, offerId)
+            if (delCount == 1) wasOffer else null
+        }
         return res
     }
 
@@ -179,7 +248,7 @@ class WaltIDWalletService {
 
     suspend fun createKey(ctx: LoginContext, keyType: KeyType): Key {
         val kid = api.keysGenerate(ctx, keyType)
-        return findKeyById(ctx,kid)!!
+        return findKeyById(ctx, kid)!!
     }
 
     suspend fun signWithDid(ctx: LoginContext, did: String, message: String): String {
@@ -202,7 +271,7 @@ class WaltIDWalletService {
         return findDid(ctx) { d -> d.did.startsWith(prefix) }
     }
 
-    suspend fun getDefaultDid(ctx: LoginContext, ): DidInfo {
+    suspend fun getDefaultDid(ctx: LoginContext): DidInfo {
         return findDid(ctx) { d -> d.default }
             ?: throw IllegalStateException("No default did for: $ctx.walletId")
     }
@@ -226,10 +295,90 @@ class WaltIDWalletService {
 
     // Private ---------------------------------------------------------------------------------------------------------
 
-    private fun withConnection(block: () -> Unit) {
-        if (!dataSource.isInitialized()) {
-            Database.Companion.connect(dataSource.value)
+}
+
+object CredentialOfferTable : UUIDTable("credential_offers") {
+    val walletId = reference("wallet", Wallets, onDelete = ReferenceOption.CASCADE)
+    val document = text("document")
+    val addedOn = timestamp("added_on")
+
+    fun insertCredentialOffer(offerData: CredentialOfferData): String {
+        val offerId = transaction {
+            CredentialOfferTable.insertAndGetId {
+                it[CredentialOfferTable.walletId] = offerData.walletId
+                it[CredentialOfferTable.document] = offerData.document
+                it[CredentialOfferTable.addedOn] = offerData.addedOn.toJavaInstant()
+            }
+        }.value
+        return "$offerId"
+    }
+
+    fun selectCredentialOffers(walletId: String): List<CredentialOfferData> {
+        val res = transaction {
+            selectAll().where {
+                CredentialOfferTable.walletId eq UUID.fromString(walletId)
+            }.map {
+                CredentialOfferData(
+                    walletId = it[CredentialOfferTable.walletId].value,
+                    offerId = it[CredentialOfferTable.id].value,
+                    document = it[document],
+                    addedOn = it[addedOn].toKotlinInstant()
+                )
+            }
         }
-        block()
+        return res
+    }
+
+    fun selectCredentialOffer(walletId: String, offerId: String): CredentialOfferData? {
+        val res = transaction {
+            selectAll().where {
+                CredentialOfferTable.walletId eq UUID.fromString(walletId)
+                CredentialOfferTable.id eq UUID.fromString(offerId)
+            }.map {
+                CredentialOfferData(
+                    walletId = it[CredentialOfferTable.walletId].value,
+                    offerId = it[CredentialOfferTable.id].value,
+                    document = it[document],
+                    addedOn = it[addedOn].toKotlinInstant()
+                )
+            }.firstOrNull()
+        }
+        return res
+    }
+
+    fun deleteCredentialOffer(walletId: String, offerId: String): Int {
+        return transaction {
+            CredentialOfferTable.deleteWhere {
+                CredentialOfferTable.walletId eq UUID.fromString(walletId)
+                CredentialOfferTable.id eq UUID.fromString(offerId)
+            }
+        }
+    }
+}
+
+data class CredentialOfferData(
+    val walletId: UUID,
+    val offerId: UUID,
+    val document: String,
+    val addedOn: Instant
+) {
+
+    companion object {
+        fun fromCredentialOffer(walletId: String, credOffer: CredentialOffer): CredentialOfferData {
+            val offerId = "${Uuid.random()}"
+            val addedOn = Clock.System.now()
+            val jsonBytes = credOffer.toJson().toByteArray()
+            val encoded = String(Base64.getUrlEncoder().encode(jsonBytes))
+            return CredentialOfferData(
+                walletId = UUID.fromString(walletId),
+                offerId = UUID.fromString(offerId),
+                document = encoded,
+                addedOn = addedOn)
+        }
+    }
+
+    fun toCredentialOffer(): CredentialOffer {
+        val decoded = String(Base64.getUrlDecoder().decode(document))
+        return CredentialOffer.fromJson(decoded)
     }
 }

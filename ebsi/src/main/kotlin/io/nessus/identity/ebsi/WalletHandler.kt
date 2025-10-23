@@ -66,7 +66,7 @@ object WalletHandler {
         // Init with the default UserPin for EBSI Credential types
         if (credOffer.getPreAuthorizedCodeGrant() != null) {
             val authCode = credOffer.getPreAuthorizedCodeGrant()?.preAuthorizedCode as String
-            val ebsiType = credOffer.getTypes().firstOrNull { isEBSIPreAuthorizedType(it) }
+            val ebsiType = credOffer.filteredConfigurationIds.firstOrNull { isEBSIPreAuthorizedType(it) }
             if (ebsiType != null) {
                 val cor = getCredentialOfferRecord(ebsiType)
                 var userPin = cor?.userPin

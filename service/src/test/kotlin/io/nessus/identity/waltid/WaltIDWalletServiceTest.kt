@@ -12,10 +12,7 @@ import io.kotest.matchers.string.shouldNotBeBlank
 import io.nessus.identity.service.AbstractServiceTest
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.*
 import org.junit.jupiter.api.Test
 
 class WaltIDWalletServiceTest : AbstractServiceTest() {

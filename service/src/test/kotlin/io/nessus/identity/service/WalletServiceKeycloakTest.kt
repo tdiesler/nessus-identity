@@ -6,7 +6,7 @@ import io.kotest.matchers.equals.shouldBeEqual
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.Alice
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -44,7 +44,7 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
             // [TODO #280] Issuer should use the wallet's offer endpoint
             // https://github.com/tdiesler/nessus-identity/issues/280
             val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
-            credOffer.credentialConfigurationIds shouldContain ctype
+            credOffer.filteredConfigurationIds shouldContain ctype
 
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
             val authContext = walletSvc.authContextForCredential(alice, redirectUri, credOffer)
@@ -83,7 +83,7 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
             // [TODO #280] Issuer should use the wallet's offer endpoint
             // https://github.com/tdiesler/nessus-identity/issues/280
             val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
-            credOffer.credentialConfigurationIds shouldContain ctype
+            credOffer.filteredConfigurationIds shouldContain ctype
 
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
             val authContext = walletSvc.authContextForCredential(alice, redirectUri, credOffer)

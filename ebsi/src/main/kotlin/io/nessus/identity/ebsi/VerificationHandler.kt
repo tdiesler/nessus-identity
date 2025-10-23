@@ -9,9 +9,7 @@ import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.VCDataV11Jwt
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import java.util.*
 import kotlin.uuid.Uuid
 

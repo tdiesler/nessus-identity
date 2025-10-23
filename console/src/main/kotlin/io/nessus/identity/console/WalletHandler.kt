@@ -11,17 +11,13 @@ import io.nessus.identity.console.SessionsStore.findLoginContext
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.WalletService
-import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
-import io.nessus.identity.waltid.User
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.*
 
 class WalletHandler() {
 
@@ -80,11 +76,11 @@ class WalletHandler() {
     }
 
     suspend fun handleCredentialOfferAccept(call: RoutingCall, offerId: String) {
-        val loginContext = requireLoginContext(call, UserRole.Holder)
-        val credOffer = walletSvc.getCredentialOffer(loginContext, offerId) ?: error("No credential_offer for: $offerId")
+        val ctx = requireLoginContext(call, UserRole.Holder)
+        val credOffer = walletSvc.getCredentialOffer(ctx, offerId) ?: error("No credential_offer for: $offerId")
 
         val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
-        authContext = walletSvc.authContextForCredential(loginContext, redirectUri, credOffer)
+        authContext = walletSvc.authContextForCredential(ctx, redirectUri, credOffer)
         val authRequestUrl = authContext.authRequestUrl
         log.info { "AuthRequestUrl: $authRequestUrl" }
         call.respondRedirect("$authRequestUrl")
@@ -95,16 +91,19 @@ class WalletHandler() {
     }
 
     suspend fun handleCredentialOfferDelete(call: RoutingCall, offerId: String) {
-        val loginContext = requireLoginContext(call, UserRole.Holder)
-        walletSvc.deleteCredentialOffer(loginContext, offerId)
+        val ctx = requireLoginContext(call, UserRole.Holder)
+        when (offerId) {
+            "__all__" -> walletSvc.deleteCredentialOffers(ctx) { true }
+            else -> walletSvc.deleteCredentialOffer(ctx, offerId)
+        }
         call.respondRedirect("/wallet/credential-offers")
     }
 
     suspend fun handleCredentialDelete(call: RoutingCall, vcId: String) {
-        val loginContext = requireLoginContext(call, UserRole.Holder)
+        val ctx = requireLoginContext(call, UserRole.Holder)
         when (vcId) {
-            "__all__" -> walletSvc.deleteCredentials(loginContext) { true }
-            else -> walletSvc.deleteCredential(loginContext, vcId)
+            "__all__" -> walletSvc.deleteCredentials(ctx) { true }
+            else -> walletSvc.deleteCredential(ctx, vcId)
         }
         call.respondRedirect("/wallet/credentials")
     }
@@ -130,15 +129,14 @@ class WalletHandler() {
         val loginContext = findLoginContext(call, UserRole.Holder)
             ?: return walletHomePage(call)
 
-        val credOffers: Map<String, CredentialOfferV10> = walletSvc.getCredentialOffers(loginContext)
-        val credOfferData = credOffers.map { (k, v) ->
-            listOf(k.encodeURLPath(), v.credentialIssuer, v.credentialConfigurationIds.first())
+        val credOfferData = walletSvc.getCredentialOffers(loginContext)
+            .map { (k, v) -> listOf(k.encodeURLPath(), v.credentialIssuer, v.filteredConfigurationIds.first())
         }.toList()
         val model = walletModel(call).also {
             it["credentialOffers"] = credOfferData
         }
         call.respond(
-            FreeMarkerContent("holder_cred_offer_list.ftl", model)
+            FreeMarkerContent("holder_cred_offers.ftl", model)
         )
     }
 
@@ -166,7 +164,7 @@ class WalletHandler() {
             }
         }
         val model = walletModel(call).also {
-            it["credentialList"] = credentialList
+            it["credentials"] = credentialList
         }
         call.respond(
             FreeMarkerContent("holder_creds.ftl", model)

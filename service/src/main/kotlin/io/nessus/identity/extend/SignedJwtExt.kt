@@ -7,10 +7,7 @@ import io.nessus.identity.service.FlattenedJws
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.waltid.DidInfo
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.*
 
 fun SignedJWT.createFlattenedJws(): FlattenedJws {
     val headerBase64 = this.header.toBase64URL()

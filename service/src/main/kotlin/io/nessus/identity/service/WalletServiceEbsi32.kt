@@ -39,16 +39,12 @@ import io.nessus.identity.service.CredentialOfferRegistry.assertCredentialOfferR
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
-import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.TokenRequestV10
 import io.nessus.identity.types.TokenResponseV10
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import io.nessus.identity.waltid.authenticationId
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.*
 import java.time.Instant
 import java.util.*
 import kotlin.random.Random
@@ -368,7 +364,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
             sendTokenRequestAuthCode(ctx, tokenReq)
         }
 
-        val types = credOffer.getTypes()
+        val types = credOffer.credentialConfigurationIds
         val credReq = createCredentialRequest(ctx, types, accessToken)
         val credRes = sendCredentialRequest(ctx, credReq)
 
@@ -380,7 +376,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         acceptanceToken: String
     ): CredentialResponse {
 
-        val metadata = ctx.issuerMetadata as IssuerMetadataDraft11
+        val metadata = ctx.issuerMetadata
         val deferredCredentialEndpoint = metadata.deferredCredentialEndpoint
             ?: throw IllegalStateException("No credential_endpoint")
 

@@ -10,24 +10,24 @@
         <h4>${holderName}</h4>
         <h5>Available Credentials</h5>
 
-        <#if credentialList?size gt 0>
         <table class="bx--data-table bx--data-table--compact" style="width: auto; table-layout: auto;">
             <thead>
                 <tr><th>Issuer</th><th>Types</th><th>Actions</th></tr>
             </thead>
             <tbody>
-                <#list credentialList as v>
+                <#list credentials as vc>
                     <tr>
-                        <td>${v[1]}</td>
-                        <td>${v[2]}</td>
+                        <td>${vc[1]}</td>
+                        <td>${vc[2]}</td>
                         <td>
-                            <a href="/wallet/credential/${v[0]}">view</a>
-                            <a href="/wallet/credential/${v[0]}/delete">delete</a>
+                            <a href="/wallet/credential/${vc[0]}">view</a>
+                            <a href="/wallet/credential/${vc[0]}/delete">delete</a>
                         </td>
                     </tr>
                 </#list>
             </tbody>
         </table>
+        <#if credentials?size gt 0>
         <div style="margin-top: 1em;">
             <a href="/wallet/credential/__all__/delete">delete all</a>
         </div>

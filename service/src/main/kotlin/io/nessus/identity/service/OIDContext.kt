@@ -8,7 +8,6 @@ import io.nessus.identity.service.AttachmentKeys.CREDENTIAL_OFFER_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.IssuerMetadataDraft11
-import io.nessus.identity.types.UserRole
 
 open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 

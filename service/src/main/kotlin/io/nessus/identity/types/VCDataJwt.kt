@@ -3,12 +3,7 @@ package io.nessus.identity.types
 import com.nimbusds.jwt.SignedJWT
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonContentPolymorphicSerializer
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.*
 
 @Serializable(with = VCDataJwtSerializer::class)
 sealed class VCDataJwt {

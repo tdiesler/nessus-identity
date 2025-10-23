@@ -2,7 +2,7 @@ package io.nessus.identity.types
 
 import com.nimbusds.jwt.SignedJWT
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid

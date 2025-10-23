@@ -3,9 +3,7 @@ package io.nessus.identity.types
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import java.util.*
 import kotlin.text.Charsets.UTF_8
 import kotlin.time.Instant

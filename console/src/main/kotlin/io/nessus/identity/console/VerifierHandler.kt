@@ -6,7 +6,6 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.nessus.identity.console.SessionsStore.findLoginContext
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
@@ -19,12 +18,7 @@ import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 
 class VerifierHandler() {
 

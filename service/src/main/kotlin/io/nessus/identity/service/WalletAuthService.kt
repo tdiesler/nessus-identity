@@ -21,7 +21,7 @@ import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.authenticationId
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import java.util.*
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes

@@ -3,7 +3,7 @@ package io.nessus.identity.types
 import com.nimbusds.jose.util.Base64URL
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.AuthorizationRequestV10.AuthorizationDetail
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import java.security.MessageDigest
 
 class AuthorizationRequestV10Builder {

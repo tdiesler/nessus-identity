@@ -3,8 +3,7 @@ package io.nessus.identity.service
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.dif.InputDescriptor
 import id.walt.webwallet.db.models.WalletCredential
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 
 class CredentialMatcherDraft11 : CredentialMatcher() {
 

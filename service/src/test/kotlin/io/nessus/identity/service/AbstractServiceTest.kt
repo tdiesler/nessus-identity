@@ -2,7 +2,7 @@ package io.nessus.identity.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.waltid.User
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import java.nio.file.Files
 import java.nio.file.Paths
 

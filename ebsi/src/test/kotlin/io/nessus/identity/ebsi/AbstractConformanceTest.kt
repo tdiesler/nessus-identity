@@ -18,11 +18,7 @@ import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.User
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import org.junit.jupiter.api.TestInstance
 
 /**
