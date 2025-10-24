@@ -12,6 +12,8 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.base64UrlDecode
+import io.nessus.identity.service.base64UrlEncode
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.waltid.CredentialOfferTable.deleteCredentialOffer
@@ -368,7 +370,7 @@ data class CredentialOfferData(
             val offerId = "${Uuid.random()}"
             val addedOn = Clock.System.now()
             val jsonBytes = credOffer.toJson().toByteArray()
-            val encoded = String(Base64.getUrlEncoder().encode(jsonBytes))
+            val encoded = base64UrlEncode(jsonBytes)
             return CredentialOfferData(
                 walletId = UUID.fromString(walletId),
                 offerId = UUID.fromString(offerId),
@@ -378,7 +380,7 @@ data class CredentialOfferData(
     }
 
     fun toCredentialOffer(): CredentialOffer {
-        val decoded = String(Base64.getUrlDecoder().decode(document))
+        val decoded = String(base64UrlDecode(document))
         return CredentialOffer.fromJson(decoded)
     }
 }

@@ -22,6 +22,16 @@ data class AuthorizationResponseV10(
         val jsonInst = Json { ignoreUnknownKeys = true}
         fun fromJson(json: String) = jsonInst.decodeFromString<AuthorizationResponseV10>(json)
         fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<AuthorizationResponseV10>(json)
-    }
 
+        fun fromHttpParameters(params: Map<String, String>): AuthorizationResponseV10 {
+            val submissionParam = params["presentation_submission"] ?: error("No presentation_submission")
+            val submission = Json.decodeFromString<PresentationSubmission>(submissionParam)
+            val authRes = AuthorizationResponseV10(
+                vpToken = params["vp_token"] ?: error("No vp_token"),
+                presentationSubmission = submission,
+                state = params["state"],
+            )
+            return authRes
+        }
+    }
 }

@@ -47,7 +47,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
             }
 
-            val authContext = verifierSvc.authContextForPresentation(
+            val authReq = verifierSvc.buildAuthorizationRequestForPresentation(
                 clientId = "oid4vcp",
                 redirectUri = "urn:ietf:wg:oauth:2.0:oob",
                 dcql = DCQLQuery.fromJson("""
@@ -66,11 +66,11 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                   ]
                 }                    
                 """.trimIndent())
-            ).withLoginContext(alice)
+            )
 
-            log.info { authContext.authRequest.toHttpParameters() }
+            log.info { authReq.toHttpParameters() }
 
-            val authRes = walletAuthSvc.authenticate(authContext)
+            val authRes = walletAuthSvc.handleVPTokenRequest(alice, authReq)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
 
             // Verifier validates the VPToken
@@ -106,7 +106,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
             }
 
-            val authContext = verifierSvc.authContextForPresentation(
+            val authReq = verifierSvc.buildAuthorizationRequestForPresentation(
                 clientId = "oid4vcp",
                 redirectUri = "urn:ietf:wg:oauth:2.0:oob",
                 dcql = DCQLQuery.fromJson("""
@@ -125,11 +125,11 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                   ]
                 }                    
                 """.trimIndent())
-            ).withLoginContext(alice)
+            )
 
-            log.info { authContext.authRequest.toHttpParameters() }
+            log.info { authReq.toHttpParameters() }
 
-            val authRes = walletAuthSvc.authenticate(authContext)
+            val authRes = walletAuthSvc.handleVPTokenRequest(alice, authReq)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
 
             // Verifier validates the VPToken

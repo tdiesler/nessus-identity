@@ -5,7 +5,8 @@ import org.bitcoinj.base.Base58;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
-import java.util.Base64;
+
+import static io.nessus.identity.service.HttpUtilsKt.base64UrlDecode;
 
 class DidGeneratorTest {
 
@@ -30,8 +31,8 @@ class DidGeneratorTest {
 
         String[] args = new String[]{"PmikqfM-pLx6ia8O6h4Uj5eEMZHsagDRLu1ZOjS0kgM", "QysPrD0dE7yaPm0SIC4US3U5xb85TrRXs-dTX4DHuew"};
 
-        byte[] x = Base64.getUrlDecoder().decode(args[0]);
-        byte[] y = Base64.getUrlDecoder().decode(args[1]);
+        byte[] x = base64UrlDecode(args[0]);
+        byte[] y = base64UrlDecode(args[1]);
 
         if (x.length != 32 || y.length != 32)
             throw new IllegalArgumentException("x,y must be 32 bytes for P-256");

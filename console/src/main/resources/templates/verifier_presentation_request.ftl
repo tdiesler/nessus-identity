@@ -15,14 +15,12 @@
             <div class="bx--form-item-horizontal">
                 <label for="subjectId" class="bx--label">Subject</label>
                 <input type="text" name="subjectId" class="bx--text-input" value="${subInfo.name} - ${subInfo.email}" readonly/>
-
                 <label for="ctype" class="bx--label">Credential Type</label>
                 <select name="ctype" id="ctype" class="bx--select">
                     <#list vctValues as vct>
                         <option value="${vct}">${vct}</option>
                     </#list>
                 </select>
-
                 <label for="claims" class="bx--label">DCQL Claims</label>
                 <textarea name="claims" id="claims" class="bx--textarea"
                     style="height:200px;font-family:monospace;width:100%;">${claimsJson?html}</textarea>

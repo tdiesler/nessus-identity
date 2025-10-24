@@ -16,14 +16,14 @@ case "$TARGET" in
     echo "Doing development setup..."
     export KUBE_CONTEXT="rancher-desktop"
     export AUTH_SERVER_URL="https://oauth.localtest.me"
-    export AUTH_REDIRECT_URI="http://localhost:9000/wallet/oauth/callback"
+    export AUTH_REDIRECT_URI="http://localhost:9000/wallet/auth/callback"
     export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
   stage)
     echo "Doing staging setup..."
     export KUBE_CONTEXT="ebsi"
     export AUTH_SERVER_URL="https://oauth.nessustech.io"
-    export AUTH_REDIRECT_URI="https://console.nessustech.io/wallet/oauth/callback"
+    export AUTH_REDIRECT_URI="https://console.nessustech.io/wallet/auth/callback"
     export WALLET_API_URL="https://waltid-wallet-api.nessustech.io"
     ;;
   *)

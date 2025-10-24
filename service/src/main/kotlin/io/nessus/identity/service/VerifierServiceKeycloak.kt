@@ -9,37 +9,31 @@ import io.nessus.identity.types.DCQLQuery
 class VerifierServiceKeycloak : AbstractVerifierService() {
 
     /**
-     * Verifier builds the AuthorizationRequest from an AuthorizationRequest
+     * Verifier builds the AuthorizationRequest for Verifiable Presentation
+     * https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-authorization-request
      */
-    fun authContextForPresentation(
+    fun buildAuthorizationRequestForPresentation(
         clientId: String,
-        redirectUri: String,
         dcql: DCQLQuery,
-    ): AuthorizationContext {
-
-        val authReq = buildAuthorizationRequest(clientId, redirectUri, dcql)
-
-        val authContext = AuthorizationContext()
-            .withAuthorizationRequest(authReq)
-
-        return authContext
-    }
-
-    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
-
-    private fun buildAuthorizationRequest(
-        clientId: String,
-        redirectUri: String,
-        dcql: DCQLQuery,
+        redirectUri: String? = null,
+        responseUri: String? = null,
     ): AuthorizationRequestV10 {
 
         val builder = AuthorizationRequestV10Builder()
+            .withResponseType("vp_token")
             .withClientId(clientId)
             .withDCQLAssertion(dcql)
-            .withRedirectUri(redirectUri)
-            .withResponseType("vp_token")
+
+        redirectUri?.also { builder.withRedirectUri(it) }
+        responseUri?.also {
+            builder.withResponseMode("direct_post")
+            builder.withResponseUri(it)
+        }
 
         val authReq = builder.build()
         return authReq
     }
+
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+
 }

@@ -6,12 +6,13 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.nessus.identity.config.ConfigProvider.requireVerifierConfig
+import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.VerifierService
-import io.nessus.identity.service.WalletAuthService
-import io.nessus.identity.service.WalletService
+import io.nessus.identity.types.AuthorizationResponseV10
 import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
@@ -28,8 +29,8 @@ class VerifierHandler() {
 
     val issuerSvc = IssuerService.createKeycloak()
     val verifierSvc = VerifierService.createKeycloak()
-    val walletSvc = WalletService.createKeycloak()
-    val walletAuthSvc = WalletAuthService(walletSvc)
+
+    private var lastAuthorizationResponse: AuthorizationResponseV10? = null
 
     fun verifierModel(call: RoutingCall): BaseModel {
         val model = BaseModel()
@@ -66,40 +67,59 @@ class VerifierHandler() {
         call.respondRedirect("/verifier")
     }
 
-    suspend fun showPresentationRequestPage(call: RoutingCall) {
+    suspend fun handleVerifierCallback(call: RoutingCall) {
+
+        val authRes = lastAuthorizationResponse ?: error("No lastAuthorizationResponse")
+
+        val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
+        val headerObj = Json.decodeFromString<JsonObject>("${vpTokenJwt.header}")
+        val claimsObj = Json.decodeFromString<JsonObject>("${vpTokenJwt.jwtClaimsSet}")
+
         val model = verifierModel(call)
-        val holderContext = model["holderAuth"] as LoginContext
-        model["subInfo"] = widWalletService.authUserInfo(holderContext.authToken) ?: error("No UserInfo")
-        model["vctValues"] = issuerSvc.getIssuerMetadata().credentialConfigurationsSupported.keys
-        model["claimsJson"] = jsonPretty.encodeToString(
-            Json.decodeFromString<JsonArray>(
-                """
-          [
-            { "path": ["email"], "values": ["alice@email.com"]}
-          ]"""
-            )
-        )
+        model["vpTokenHeader"] = jsonPretty.encodeToString(headerObj)
+        model["vpTokenClaims"] = jsonPretty.encodeToString(claimsObj)
+        model["submissionJson"] = jsonPretty.encodeToString(authRes.presentationSubmission.toJSON())
+
+        val vpObj = claimsObj.getValue("vp").jsonObject
+        val credsArr = vpObj.getValue("verifiableCredential").jsonArray
+        val verifiableCredentials = credsArr.map {
+            VCDataJwt.fromEncoded(it.jsonPrimitive.content).toJson()
+        }
+        model["verifiableCredentials"] = jsonPretty.encodeToString(verifiableCredentials)
+
         call.respond(
-            FreeMarkerContent("verifier_presentation_request.ftl", model)
+            FreeMarkerContent("verifier_presentation_details.ftl", model)
         )
+    }
+
+    suspend fun handleVerifierDirectPost(call: RoutingCall) {
+
+        val authResJson = call.receiveText()
+        val authRes = AuthorizationResponseV10.fromJson(authResJson)
+
+        lastAuthorizationResponse = authRes
+
+        // If the Response URI has successfully processed the Authorization Response or Authorization Error Response,
+        // it MUST respond with an HTTP status code of 200 with Content-Type of application/json and a JSON object in the response body.
+
+        val responseUri = requireVerifierConfig().responseUri
+        call.respond(mapOf("redirect_uri" to responseUri))
     }
 
     suspend fun handlePresentationRequest(call: RoutingCall) {
 
         requireLoginContext(call, UserRole.Verifier)
-        val holderContext = requireLoginContext(call, UserRole.Holder)
 
-        val model = verifierModel(call)
         val params = call.receiveParameters()
-        val subjectId = params["subjectId"] ?: error("No subjectId")
         val ctype = params["ctype"] ?: error("No ctype")
         val claims = params["claims"] ?: error("No claims")
         val metadata = issuerSvc.getIssuerMetadata()
         val credConfig = metadata.credentialConfigurationsSupported[ctype]
 
-        val authContext = verifierSvc.authContextForPresentation(
+        val responseUri = requireVerifierConfig().responseUri
+        val authReq = verifierSvc.buildAuthorizationRequestForPresentation(
             clientId = "oid4vcp",
-            redirectUri = "urn:ietf:wg:oauth:2.0:oob",
+            responseUri = responseUri,
             dcql = DCQLQuery.fromJson(
                 """
                 {
@@ -115,28 +135,30 @@ class VerifierHandler() {
                   ]
                 }"""
             )
-        ).withLoginContext(holderContext)
+        )
 
-        log.info { authContext.authRequest.toHttpParameters() }
+        val walletAuthUrl = requireWalletConfig().authUrl
+        val redirectUrl = "$walletAuthUrl?${authReq.toHttpParameters()}"
 
-        val authRes = walletAuthSvc.authenticate(authContext)
-        val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
-        val headerObj = Json.decodeFromString<JsonObject>("${vpTokenJwt.header}")
-        val claimsObj = Json.decodeFromString<JsonObject>("${vpTokenJwt.jwtClaimsSet}")
+        log.info { redirectUrl }
+        call.respondRedirect(redirectUrl)
+    }
 
-        model["vpTokenHeader"] = jsonPretty.encodeToString(headerObj)
-        model["vpTokenClaims"] = jsonPretty.encodeToString(claimsObj)
-        model["submissionJson"] = jsonPretty.encodeToString(authRes.presentationSubmission.toJSON())
-
-        val vpObj = claimsObj.getValue("vp").jsonObject
-        val credsArr = vpObj.getValue("verifiableCredential").jsonArray
-        val verifiableCredentials = credsArr.map {
-            VCDataJwt.fromEncoded(it.jsonPrimitive.content).toJson()
-        }
-        model["verifiableCredentials"] = jsonPretty.encodeToString(verifiableCredentials)
-
+    suspend fun showPresentationRequestPage(call: RoutingCall) {
+        val model = verifierModel(call)
+        val holderContext = model["holderAuth"] as LoginContext
+        model["subInfo"] = widWalletService.authUserInfo(holderContext.authToken) ?: error("No UserInfo")
+        model["vctValues"] = issuerSvc.getIssuerMetadata().credentialConfigurationsSupported.keys
+        model["claimsJson"] = jsonPretty.encodeToString(
+            Json.decodeFromString<JsonArray>(
+                """
+          [
+            { "path": ["email"], "values": ["alice@email.com"]}
+          ]"""
+            )
+        )
         call.respond(
-            FreeMarkerContent("verifier_presentation_details.ftl", model)
+            FreeMarkerContent("verifier_presentation_request.ftl", model)
         )
     }
 

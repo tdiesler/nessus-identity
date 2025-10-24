@@ -41,7 +41,7 @@ spec:
             - name: WALLET__BASE_URL
               value: "https://{{ $.Values.consoleHost }}/wallet"
             - name: WALLET__REDIRECT_URI
-              value: "https://{{ $.Values.consoleHost }}/wallet/oauth/callback"
+              value: "https://{{ $.Values.consoleHost }}/wallet/auth/callback"
             - name: WALTID__WALLETAPI__BASE_URL
               value: "http://waltid-wallet-api:7001"
           ports:

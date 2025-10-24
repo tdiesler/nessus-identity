@@ -1,10 +1,11 @@
 package io.nessus.identity.types
 
+import io.nessus.identity.service.base64UrlDecode
+import io.nessus.identity.service.base64UrlEncode
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.*
-import java.util.*
 import kotlin.text.Charsets.UTF_8
 import kotlin.time.Instant
 
@@ -46,18 +47,17 @@ data class VCDataSdV11Jwt(
             val c = json.encodeToString(String.serializer(), it.claim)
             val v = json.encodeToString(String.serializer(), it.value)
             val payload = "[${s}, ${c}, ${v}]".toByteArray(UTF_8)   // note the spaces after commas
-            val digest =  Base64.getUrlEncoder().withoutPadding().encodeToString(payload)
+            val digest = base64UrlEncode(payload)
             Pair(it, digest)
         }
     }
 
     fun decodeDisclosures(encoded: String): List<Disclosure> {
-        val decoder = Base64.getUrlDecoder()
         val encodedParts = encoded.split("~")
             .drop(1).filter { it.isNotBlank() }
         disclosures.addAll(encodedParts
             .map { part ->
-                val arr = Json.decodeFromString<JsonArray>(decoder.decode(part).decodeToString())
+                val arr = Json.decodeFromString<JsonArray>(String(base64UrlDecode(part)))
                 Disclosure(
                     salt = arr[0].jsonPrimitive.content,
                     claim = arr[1].jsonPrimitive.content,

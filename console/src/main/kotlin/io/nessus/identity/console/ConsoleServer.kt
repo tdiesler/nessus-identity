@@ -17,15 +17,20 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
+import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
+import io.nessus.identity.config.ConsoleConfig
 import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.console.SessionsStore.cookieName
+import io.nessus.identity.console.SessionsStore.newLoginContext
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.types.UserRole
+import io.nessus.identity.waltid.Alice
+import io.nessus.identity.waltid.Bob
 import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 
-class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
+class ConsoleServer(val config: ConsoleConfig) {
 
     val log = KotlinLogging.logger {}
 
@@ -35,10 +40,13 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
 
     val versionInfo = getVersionInfo()
 
+    private var autoLoginComplete = !config.autoLogin
+
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
-            ConsoleServer().create().start(wait = true)
+            val config = requireConsoleConfig()
+            ConsoleServer(config).create().start(wait = true)
         }
     }
 
@@ -101,6 +109,7 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 // Issuer ---------------------------------------------------------------------------------
                 //
                 get("/issuer") {
+                    autoLogin(call)
                     issuerHandler.issuerHomePage(call)
                 }
                 get("/issuer/auth-config") {
@@ -142,6 +151,7 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 // Wallet ---------------------------------------------------------------------------------
                 //
                 get("/wallet") {
+                    autoLogin(call)
                     walletHandler.walletHomePage(call)
                 }
                 get("/wallet/login") {
@@ -154,8 +164,15 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                     walletHandler.handleWalletLogout(call)
                 }
 
-                get("/wallet/oauth/callback") {
-                    walletHandler.walletOAuthCallback(call)
+                get("/wallet/auth") {
+                    walletHandler.handleAuthorization(call)
+                }
+                get("/wallet/auth/callback") {
+                    walletHandler.handleAuthCallback(call)
+                }
+                get("/wallet/auth/flow/{flowStep}") {
+                    val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
+                    walletHandler.handleAuthFlow(call, flowStep)
                 }
                 get("/wallet/credential-offers") {
                     walletHandler.showCredentialOffers(call)
@@ -190,6 +207,7 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 // Verifier -------------------------------------------------------------------------------
                 //
                 get("/verifier") {
+                    autoLogin(call)
                     verifierHandler.verifierHomePage(call)
                 }
                 get("/verifier/login") {
@@ -201,6 +219,13 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 get("/verifier/logout") {
                     verifierHandler.handleVerifierLogout(call)
                 }
+
+                get("/verifier/callback") {
+                    verifierHandler.handleVerifierCallback(call)
+                }
+                post("/verifier/callback") {
+                    verifierHandler.handleVerifierDirectPost(call)
+                }
                 get("/verifier/presentation-request") {
                     verifierHandler.showPresentationRequestPage(call)
                 }
@@ -209,6 +234,16 @@ class ConsoleServer(val host: String = "0.0.0.0", val port: Int = 9000) {
                 }
             }
         }
+        val host = config.host
+        val port = config.port
         return embeddedServer(Netty, host = host, port = port, module = Application::module)
+    }
+
+    private suspend fun autoLogin(call: RoutingCall) {
+        if (config.autoLogin && !autoLoginComplete) {
+            newLoginContext(call, UserRole.Holder, Alice.toLoginParams())
+            newLoginContext(call, UserRole.Verifier, Bob.toLoginParams())
+            autoLoginComplete = true
+        }
     }
 }

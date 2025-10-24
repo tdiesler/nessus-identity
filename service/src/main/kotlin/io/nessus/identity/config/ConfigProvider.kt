@@ -15,48 +15,65 @@ object ConfigProvider {
         .addResourceSource("/application.conf")
         .build().loadConfigOrThrow<RootConfig>()
 
+    fun requireConsoleConfig(): ConsoleConfig {
+        return root.console ?: error("No 'console' config")
+    }
+
     fun requireDatabaseConfig(): DatabaseConfig {
-        return root.database ?: throw IllegalStateException("No 'database' config")
+        return root.database ?: error("No 'database' config")
     }
 
     fun requireEbsiConfig(): EbsiConfig {
-        return root.ebsi ?: throw IllegalStateException("No 'ebsi' config")
+        return root.ebsi ?: error("No 'ebsi' config")
     }
 
     fun requireIssuerConfig(): IssuerConfig {
-        return root.issuer ?: throw IllegalStateException("No 'issuer' config")
+        return root.issuer ?: error("No 'issuer' config")
     }
 
     fun requireWalletConfig(): WalletConfig {
-        return root.wallet ?: throw IllegalStateException("No 'wallet' config")
+        return root.wallet ?: error("No 'wallet' config")
+    }
+
+    fun requireVerifierConfig(): VerifierConfig {
+        return root.verifier ?: error("No 'verifier' config")
     }
 
     fun requireWaltIdConfig(): WaltIdConfig {
-        return root.waltid ?: throw IllegalStateException("No 'waltid' config")
+        return root.waltid ?: error("No 'waltid' config")
     }
 
     fun requireWaltIdWalletApiConfig(): EndpointConfig {
         val waltIdCfg = requireWaltIdConfig()
-        return waltIdCfg.walletApi ?: throw IllegalStateException("No 'waltid.walletApi' config")
+        return waltIdCfg.walletApi ?: error("No 'waltid.walletApi' config")
     }
 }
 
 @Serializable
 data class RootConfig(
     val version: String,
-    val console: EndpointConfig?,
+    val console: ConsoleConfig?,
     val database: DatabaseConfig?,
     val ebsi: EbsiConfig?,
     val issuer: IssuerConfig?,
     val wallet: WalletConfig?,
+    val verifier: VerifierConfig?,
     val waltid: WaltIdConfig?,
 )
 
 @Serializable
-data class EndpointConfig(
+data class ConsoleConfig(
     var host: String = "0.0.0.0",
     val port: Int,
     val baseUrl: String,
+    val autoLogin: Boolean
+)
+
+@Serializable
+data class DatabaseConfig(
+    val jdbcUrl: String,
+    val username: String,
+    val password: String,
 )
 
 @Serializable
@@ -73,10 +90,10 @@ data class EbsiConfig(
 )
 
 @Serializable
-data class DatabaseConfig(
-    val jdbcUrl: String,
-    val username: String,
-    val password: String,
+data class EndpointConfig(
+    var host: String = "0.0.0.0",
+    val port: Int,
+    val baseUrl: String,
 )
 
 @Serializable
@@ -89,8 +106,15 @@ data class IssuerConfig(
 )
 
 @Serializable
+data class VerifierConfig(
+    val baseUrl: String,
+    val responseUri: String,
+)
+
+@Serializable
 data class WalletConfig(
     val baseUrl: String,
+    val authUrl: String,
     val redirectUri: String,
 )
 

@@ -13,8 +13,8 @@ class ConfigProviderTest {
         val database = ConfigProvider.requireDatabaseConfig()
         database.jdbcUrl.shouldNotBeBlank()
 
-        val walletConfig = ConfigProvider.requireWalletConfig()
-        walletConfig.baseUrl shouldBe "http://localhost:9000/wallet"
+        val holderConfig = ConfigProvider.requireWalletConfig()
+        holderConfig.baseUrl shouldBe "http://localhost:9000/wallet"
 
         val issuerConfig = ConfigProvider.requireIssuerConfig()
         issuerConfig.baseUrl shouldBe "https://oauth.localtest.me"

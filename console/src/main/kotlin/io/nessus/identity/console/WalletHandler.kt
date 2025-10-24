@@ -1,6 +1,8 @@
 package io.nessus.identity.console
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
@@ -10,7 +12,11 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.console.SessionsStore.findLoginContext
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.AuthorizationContext
+import io.nessus.identity.service.WalletAuthService
 import io.nessus.identity.service.WalletService
+import io.nessus.identity.service.http
+import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.types.AuthorizationRequestV10
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
@@ -26,8 +32,11 @@ class WalletHandler() {
     val jsonPretty = Json { prettyPrint = true }
 
     val walletSvc = WalletService.createKeycloak()
+    val walletAuthSvc = WalletAuthService(walletSvc)
 
-    lateinit var authContext: AuthorizationContext
+    // [TODO #328] Associate WalletHandler state with LoginContext
+    // https://github.com/tdiesler/nessus-identity/issues/328
+    private val flowState = mutableMapOf<String, Any>()
 
     fun walletModel(call: RoutingCall): BaseModel {
         val model = BaseModel().withRoleAuth(call, UserRole.Holder)
@@ -66,7 +75,16 @@ class WalletHandler() {
         call.respondRedirect("/wallet")
     }
 
-    suspend fun walletOAuthCallback(call: RoutingCall) {
+    suspend fun handleAuthorization(call: RoutingCall) {
+        requireLoginContext(call, UserRole.Holder)
+        when (val responseType = call.parameters["response_type"]) {
+            "vp_token" -> handleAuthVPTokenRequest(call)
+            else -> error("Unexpected response_type: $responseType")
+        }
+    }
+
+    suspend fun handleAuthCallback(call: RoutingCall) {
+        val authContext = flowState.remove("AuthorizationContext") as AuthorizationContext
         call.parameters["code"]?.also {
             authContext.withAuthCode(it)
             log.info { "AuthCode: $it" }
@@ -75,12 +93,20 @@ class WalletHandler() {
         call.respondRedirect("/wallet/credential/${vcJwt.vcId}")
     }
 
+    suspend fun handleAuthFlow(call: RoutingCall, flowStep: String) {
+        when (flowStep) {
+            "vp-token-consent" -> handleAuthVPTokenConsent(call)
+            else -> error("Unknown flow step: $flowStep")
+        }
+    }
+
     suspend fun handleCredentialOfferAccept(call: RoutingCall, offerId: String) {
         val ctx = requireLoginContext(call, UserRole.Holder)
         val credOffer = walletSvc.getCredentialOffer(ctx, offerId) ?: error("No credential_offer for: $offerId")
 
         val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
-        authContext = walletSvc.authContextForCredential(ctx, redirectUri, credOffer)
+        val authContext = walletSvc.authContextForCredential(ctx, redirectUri, credOffer)
+        flowState["AuthorizationContext"] = authContext
         val authRequestUrl = authContext.authRequestUrl
         log.info { "AuthRequestUrl: $authRequestUrl" }
         call.respondRedirect("$authRequestUrl")
@@ -110,10 +136,10 @@ class WalletHandler() {
 
     suspend fun showCredentialOfferDetails(call: RoutingCall, offerId: String) {
 
-        val loginContext = findLoginContext(call, UserRole.Holder)
+        val ctx = findLoginContext(call, UserRole.Holder)
             ?: return walletHomePage(call)
 
-        val credOffer = walletSvc.getCredentialOffer(loginContext, offerId)
+        val credOffer = walletSvc.getCredentialOffer(ctx, offerId)
         val prettyJson = jsonPretty.encodeToString(credOffer)
         val model = walletModel(call).also {
             it["credOffer"] = prettyJson
@@ -126,12 +152,13 @@ class WalletHandler() {
 
     suspend fun showCredentialOffers(call: RoutingCall) {
 
-        val loginContext = findLoginContext(call, UserRole.Holder)
+        val ctx = findLoginContext(call, UserRole.Holder)
             ?: return walletHomePage(call)
 
-        val credOfferData = walletSvc.getCredentialOffers(loginContext)
-            .map { (k, v) -> listOf(k.encodeURLPath(), v.credentialIssuer, v.filteredConfigurationIds.first())
-        }.toList()
+        val credOfferData = walletSvc.getCredentialOffers(ctx)
+            .map { (k, v) ->
+                listOf(k.encodeURLPath(), v.credentialIssuer, v.filteredConfigurationIds.first())
+            }.toList()
         val model = walletModel(call).also {
             it["credentialOffers"] = credOfferData
         }
@@ -142,7 +169,7 @@ class WalletHandler() {
 
     suspend fun showCredentials(call: RoutingCall) {
 
-        val loginContext = findLoginContext(call, UserRole.Holder)
+        val ctx = findLoginContext(call, UserRole.Holder)
             ?: return walletHomePage(call)
 
         fun abbreviatedDid(did: String) = when {
@@ -150,7 +177,7 @@ class WalletHandler() {
             else -> did
         }
 
-        val credentialList = walletSvc.findCredentials(loginContext) { true }.map { wc ->
+        val credentialList = walletSvc.findCredentials(ctx) { true }.map { wc ->
             val vcJwt = VCDataJwt.fromEncoded(wc.document)
             when (vcJwt) {
                 is VCDataV11Jwt -> {
@@ -173,10 +200,10 @@ class WalletHandler() {
 
     suspend fun showCredentialDetails(call: RoutingCall, vcId: String) {
 
-        val loginContext = findLoginContext(call, UserRole.Holder)
+        val ctx = findLoginContext(call, UserRole.Holder)
             ?: return walletHomePage(call)
 
-        val vcJwt = walletSvc.getCredentialById(loginContext, vcId) ?: error("No credential for: $vcId")
+        val vcJwt = walletSvc.getCredentialById(ctx, vcId) ?: error("No credential for: $vcId")
         val jsonObj = when (vcJwt) {
             is VCDataV11Jwt -> vcJwt.toJson()
             is VCDataSdV11Jwt -> buildJsonObject {
@@ -196,4 +223,53 @@ class WalletHandler() {
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
+    private suspend fun handleAuthVPTokenRequest(call: RoutingCall) {
+
+        val httpParams = urlQueryToMap(call.request.uri)
+        val authReq = AuthorizationRequestV10.fromHttpParameters(httpParams)
+        flowState["VPTokenAuthorizationRequest"] = authReq
+
+        call.respondRedirect("/wallet/auth/flow/vp-token-consent?state=ask")
+    }
+
+    private suspend fun handleAuthVPTokenConsent(call: RoutingCall) {
+
+        when (val state = call.parameters["state"]) {
+            "ask" -> run {
+                val authReq = flowState["VPTokenAuthorizationRequest"] as AuthorizationRequestV10
+                val model = walletModel(call).also {
+                    it["dcqlQuery"] = jsonPretty.encodeToString(authReq.dcqlQuery!!.toJsonObj())
+                }
+                call.respond(
+                    FreeMarkerContent("holder_vp_ask.ftl", model)
+                )
+            }
+            "accept" -> run {
+                val ctx = requireLoginContext(call, UserRole.Holder)
+                val authReq = flowState.remove("VPTokenAuthorizationRequest") as AuthorizationRequestV10
+                val authRes = walletAuthSvc.handleVPTokenRequest(ctx, authReq)
+                when (authReq.responseMode) {
+                    "direct_post" -> run {
+                        val res = http.post(authReq.responseUri!!) {
+                            contentType(ContentType.Application.Json)
+                            setBody(Json.encodeToString(authRes))
+                        }
+
+                        val resBody = res.bodyAsText()
+                        if (res.status != HttpStatusCode.OK)
+                            error(resBody)
+
+                        val resObj = Json.decodeFromString<JsonObject>(resBody)
+                        val redirectUri = resObj.getValue("redirect_uri").jsonPrimitive.content
+
+                        call.respondRedirect(redirectUri)
+                    }
+
+                    else -> error("Unsupported response_mode: ${authReq.responseMode}")
+                }
+            }
+            "deny" -> error("VPToken Request denied")
+            else -> error("Undefined flow state: $state")
+        }
+    }
 }

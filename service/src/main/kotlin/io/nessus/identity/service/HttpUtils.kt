@@ -8,6 +8,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
 import java.net.URI
 import java.net.URLDecoder
+import java.util.*
 
 val http = HttpClient {
     install(ContentNegotiation) {
@@ -19,6 +20,10 @@ val http = HttpClient {
         socketTimeoutMillis = 120_000    // inactivity between packets
     }
 }
+
+fun base64UrlDecode(input: String): ByteArray = Base64.getUrlDecoder().decode(input)
+
+fun base64UrlEncode(input: ByteArray): String = Base64.getUrlEncoder().withoutPadding().encodeToString(input)
 
 fun urlQueryToMap(url: String): Map<String, String> {
     return URI(url).rawQuery?.split("&")?.associate { p ->
