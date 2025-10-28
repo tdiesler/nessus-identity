@@ -4,8 +4,8 @@ import com.nimbusds.jwt.SignedJWT
 import id.walt.crypto.utils.JsonUtils.toJsonElement
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
-import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.OIDContext
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.VCDataV11Jwt
@@ -68,7 +68,7 @@ object VerificationHandler {
         }
 
         if (validationError == null) {
-            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, "${Uuid.random()}")
+            ctx.putAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY, "${Uuid.random()}")
             urlBuilder.parameters.append("code", ctx.authCode)
         }
         if (authReq.state != null) {

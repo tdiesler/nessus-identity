@@ -34,8 +34,8 @@ class VerifierHandler() {
 
     fun verifierModel(call: RoutingCall): BaseModel {
         val model = BaseModel()
-            .withRoleAuth(call, UserRole.Holder)
-            .withRoleAuth(call, UserRole.Verifier)
+            .withLoginContext(call, UserRole.Holder)
+            .withLoginContext(call, UserRole.Verifier)
         return model
     }
 
@@ -58,7 +58,7 @@ class VerifierHandler() {
         val email = params["email"] ?: error("No email")
         val password = params["password"] ?: error("No password")
         val loginParams = LoginParams(LoginType.EMAIL, email, password)
-        SessionsStore.newLoginContext(call, UserRole.Verifier, loginParams)
+        SessionsStore.createLoginContext(call, UserRole.Verifier, loginParams)
         call.respondRedirect("/verifier")
     }
 

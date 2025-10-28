@@ -9,6 +9,8 @@ import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.*
+import java.net.URLDecoder
+import kotlin.text.Charsets.UTF_8
 
 object SessionsStore {
 
@@ -17,17 +19,11 @@ object SessionsStore {
 
     fun cookieName(role: UserRole) = "${role.name}Cookie"
 
-    fun requireLoginContext(call: RoutingCall, role: UserRole): LoginContext {
-        val ctx = findLoginContext(call, role) ?: error("No ${role.name} LoginContext")
-        return ctx
-    }
-
-    suspend fun newLoginContext(call: RoutingCall, role: UserRole, params: LoginParams): LoginContext {
+    suspend fun createLoginContext(call: RoutingCall, role: UserRole, params: LoginParams): LoginContext {
         val ctx = LoginContext.login(params).withUserRole(role).withWalletInfo()
         val wid = ctx.walletId
         val did = ctx.maybeDidInfo?.did
         when (role) {
-            UserRole.Issuer -> call.sessions.set(IssuerCookie(wid, did))
             UserRole.Holder -> call.sessions.set(HolderCookie(wid, did))
             UserRole.Verifier -> call.sessions.set(VerifierCookie(wid, did))
         }
@@ -35,31 +31,49 @@ object SessionsStore {
         return ctx
     }
 
-    fun findLoginContext(call: RoutingCall, role: UserRole): LoginContext? {
-        val cookie = getCookieDataFromSession(call, role)
-        val ctx = cookie?.let {
-            findLoginContext(it.wid, it.did ?: "")
-        }
-        if (ctx != null && ctx.userRole != role) error("Expected role '$role', was: ${ctx.userRole}")
+    fun findLoginContext(call: RoutingCall, role: UserRole, targetId: String? = null): LoginContext? {
+        val ctx = getRoleCookieFromSession(call, role)
+            ?.let { LoginContext.getTargetId(it.wid, it.did ?: "") }
+            ?.takeIf { tid -> tid == targetId || targetId == null }
+            ?.let { tid -> sessionStore[tid] }
         return ctx
     }
 
-    fun findLoginContext(wid: String, did: String): LoginContext? {
-        val targetId = LoginContext.getTargetId(wid, did)
-        return sessionStore[targetId]
+    fun logout(call: RoutingCall, role: UserRole) {
+        findLoginContext(call, role)?.also {
+            call.sessions.clear(cookieName(role))
+            sessionStore.remove(it.targetId)
+        }
     }
 
-    fun logout(call: RoutingCall, role: UserRole) {
-        findLoginContext(call, role)?.also { ctx ->
-            call.sessions.clear(cookieName(role))
-        }
+    fun requireLoginContext(call: RoutingCall, role: UserRole, targetId: String? = null): LoginContext {
+        val ctx = findLoginContext(call, role, targetId) ?: error("No ${role.name} LoginContext")
+        return ctx
+    }
+
+    fun findHolderContext(call: RoutingCall, targetId: String): LoginContext? {
+        val ctx = findLoginContext(call, UserRole.Holder, targetId)
+        return ctx
+    }
+
+    fun findVerifierContext(call: RoutingCall, targetId: String): LoginContext? {
+        val ctx = findLoginContext(call, UserRole.Verifier, targetId)
+        return ctx
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    private fun getCookieDataFromSession(call: RoutingCall, role: UserRole): BaseCookie? {
-        val dat = call.sessions.get(cookieName(role))
-        return dat as? BaseCookie
+    private fun getRoleCookieFromSession(call: RoutingCall, role: UserRole): BaseCookie? {
+        val roleCookie = call.request.cookies.rawCookies
+            .filter { (k, _) -> k == cookieName(role) }
+            .map { (_, v) ->
+                val strVal = URLDecoder.decode(v, UTF_8)
+                when (role) {
+                    UserRole.Holder -> Json.decodeFromString<HolderCookie>(strVal)
+                    UserRole.Verifier -> Json.decodeFromString<VerifierCookie>(strVal)
+                }
+            }.firstOrNull()
+        return roleCookie
     }
 }
 
@@ -79,14 +93,6 @@ data class HolderCookie(
 }
 
 @Serializable
-data class IssuerCookie(
-    override val wid: String,
-    override val did: String? = null
-) : BaseCookie() {
-    override val role: UserRole = UserRole.Issuer
-}
-
-@Serializable
 data class VerifierCookie(
     override val wid: String,
     override val did: String? = null
@@ -96,10 +102,9 @@ data class VerifierCookie(
 
 object CookieSerializer : JsonContentPolymorphicSerializer<BaseCookie>(BaseCookie::class) {
     override fun selectDeserializer(element: JsonElement): DeserializationStrategy<BaseCookie> {
-        return when (element.jsonObject["role"]?.jsonPrimitive?.content?.lowercase()) {
-            "issuer" -> IssuerCookie.serializer()
-            "holder" -> HolderCookie.serializer()
-            "verifier" -> VerifierCookie.serializer()
+        return when (element.jsonObject["role"]?.jsonPrimitive?.content) {
+            "Holder" -> HolderCookie.serializer()
+            "Verifier" -> VerifierCookie.serializer()
             else -> throw SerializationException("Unknown role in cookie: $element")
         }
     }

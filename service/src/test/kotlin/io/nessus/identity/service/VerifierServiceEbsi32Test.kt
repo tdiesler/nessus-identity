@@ -3,8 +3,8 @@ package io.nessus.identity.service
 import id.walt.oid4vc.responses.CredentialResponse
 import io.kotest.matchers.string.shouldContain
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.CredentialParameters
@@ -285,8 +285,8 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
     ): CredentialResponse {
 
         val metadata = issuerSvc.getIssuerMetadata(max)
-        issuerCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
-        holderCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
+        issuerCtx.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, metadata)
+        holderCtx.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, metadata)
 
         // The Holder received a CredentialOffer
         //

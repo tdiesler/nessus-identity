@@ -7,11 +7,10 @@ import java.net.URI
 
 // AuthorizationContext ===============================================================================================
 
-class AuthorizationContext() {
+class AuthorizationContext {
 
     lateinit var authRequest: AuthorizationRequestV10
     lateinit var metadata: IssuerMetadataV10
-    lateinit var loginContext: LoginContext
 
     var authCode: String? = null
     var codeVerifier: String? = null
@@ -41,11 +40,6 @@ class AuthorizationContext() {
 
     fun withCredentialOffer(credOffer: CredentialOfferV10): AuthorizationContext {
         this.credOffer = credOffer
-        return this
-    }
-
-    fun withLoginContext(loginContext: LoginContext): AuthorizationContext {
-        this.loginContext = loginContext
         return this
     }
 

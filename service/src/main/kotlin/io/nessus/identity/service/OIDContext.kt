@@ -1,33 +1,30 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.CREDENTIAL_OFFER_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
+import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.dif.PresentationSubmission
+import id.walt.oid4vc.requests.AuthorizationRequest
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.IssuerMetadataDraft11
 
 open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
 
     var credentialOffer: CredentialOfferDraft11
-        get() = assertAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY)
-        set(value) = putAttachment(CREDENTIAL_OFFER_ATTACHMENT_KEY, value)
+        get() = assertAttachment(EBSI32_CREDENTIAL_OFFER_ATTACHMENT_KEY)
+        set(value) = putAttachment(EBSI32_CREDENTIAL_OFFER_ATTACHMENT_KEY, value)
     var issuerMetadata: IssuerMetadataDraft11
-        get() = assertAttachment(ISSUER_METADATA_ATTACHMENT_KEY)
-        set(value) = putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, value)
+        get() = assertAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY)
+        set(value) = putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, value)
 
     // State that is required before access
     //
-    val authCode get() = assertAttachment(AUTH_CODE_ATTACHMENT_KEY)
-    val accessToken get() = assertAttachment(ACCESS_TOKEN_ATTACHMENT_KEY)
-    val authRequest get() = assertAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
+    val authCode get() = assertAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY)
+    val accessToken get() = assertAttachment(EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY)
+    val authRequest get() = assertAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
 
     // State that may optionally be provided
     //
-    val maybeAuthRequest get() = getAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
-    val authRequestCodeVerifier get() = getAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY)
+    val maybeAuthRequest get() = getAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
+    val authRequestCodeVerifier get() = getAttachment(EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY)
 
     // Derived State from other properties
     //
@@ -41,6 +38,17 @@ open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
     override fun close() {
         OIDCContextRegistry.remove(targetId)
         super.close()
+    }
+
+    companion object {
+        val EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY = attachmentKey<SignedJWT>("ACCESS_TOKEN")
+        val EBSI32_AUTH_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE")
+        val EBSI32_AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequest>()
+        val EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE_VERIFIER")
+        val EBSI32_CREDENTIAL_OFFER_ATTACHMENT_KEY = attachmentKey<CredentialOfferDraft11>()
+        val EBSI32_ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<IssuerMetadataDraft11>()
+        val EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY = attachmentKey<PresentationSubmission>()
+        val EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<Any>("RequestUriObject")
     }
 }
 

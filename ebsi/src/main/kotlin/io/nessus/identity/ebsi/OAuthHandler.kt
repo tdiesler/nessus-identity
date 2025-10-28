@@ -11,14 +11,14 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.nessus.identity.ebsi.SessionsStore.requireLoginContext
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32
 import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.OIDCContextRegistry
 import io.nessus.identity.service.OIDContext
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
@@ -179,7 +179,7 @@ object OAuthHandler {
         // [TODO #229] Access to request_uri object not thread safe
         // https://github.com/tdiesler/nessus-identity/issues/229
 
-        var authReq = ctx.assertAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
+        var authReq = ctx.assertAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
 
         val requestUri = reqParams["request_uri"]
         if (requestUri != null) {
@@ -190,7 +190,7 @@ object OAuthHandler {
             urlQueryToMap(requestUri)["request_object"]
                 ?: throw IllegalStateException("No request_object in: $requestUri")
 
-            authReq = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
+            authReq = ctx.assertAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
         }
 
         val walletSvc = WalletService.createEbsi()

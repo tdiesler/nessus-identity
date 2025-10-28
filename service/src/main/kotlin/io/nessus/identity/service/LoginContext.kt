@@ -1,14 +1,13 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.USER_ROLE_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
+import io.nessus.identity.types.AuthorizationRequestV10
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.APIException
+import io.nessus.identity.waltid.DidInfo
 import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.User
+import io.nessus.identity.waltid.WalletInfo
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import java.security.MessageDigest
 
@@ -31,6 +30,13 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
     val targetId get() = getTargetId(walletId, maybeDidInfo?.did ?: "")
 
     companion object {
+
+        val AUTH_CONTEXT_ATTACHMENT_KEY = attachmentKey<AuthorizationContext>()
+        val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestV10>()
+        val AUTH_TOKEN_ATTACHMENT_KEY = attachmentKey<String>("AUTH_TOKEN")
+        val WALLET_INFO_ATTACHMENT_KEY = attachmentKey<WalletInfo>()
+        val DID_INFO_ATTACHMENT_KEY = attachmentKey<DidInfo>()
+        val USER_ROLE_ATTACHMENT_KEY = attachmentKey<UserRole>()
 
         suspend fun login(user: User): LoginContext {
             return login(user.toLoginParams())

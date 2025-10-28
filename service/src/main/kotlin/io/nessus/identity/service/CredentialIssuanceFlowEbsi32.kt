@@ -4,10 +4,10 @@ import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.responses.CredentialResponse
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOfferDraft11
 import kotlinx.coroutines.runBlocking
@@ -21,8 +21,8 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
 
     init {
         val metadata = runBlocking { issuerSvc.getIssuerMetadata(issuerCtx) }
-        issuerCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
-        holderCtx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
+        issuerCtx.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, metadata)
+        holderCtx.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, metadata)
     }
 
     /**
@@ -51,8 +51,8 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
             .withRedirectUri(redirectUri)
             .buildFrom(credOffer)
 
-        holderCtx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
-        holderCtx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
+        holderCtx.putAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+        holderCtx.putAttachment(EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
 
         // The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
         //
@@ -114,8 +114,8 @@ class CredentialIssuanceFlowEbsi32(val holderCtx: OIDContext, val issuerCtx: OID
             .withRedirectUri(redirectUri)
             .buildFrom(credOffer)
 
-        holderCtx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
-        holderCtx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
+        holderCtx.putAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+        holderCtx.putAttachment(EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
 
         // The Issuer's AuthService validates the AuthorizationRequest and requests proof of DID ownership
         //

@@ -20,8 +20,8 @@
                         <td>${vc[1]}</td>
                         <td>${vc[2]}</td>
                         <td>
-                            <a href="/wallet/credential/${vc[0]}">view</a>
-                            <a href="/wallet/credential/${vc[0]}/delete">delete</a>
+                            <a href="/wallet/${targetId}/credential/${vc[0]}">view</a>
+                            <a href="/wallet/${targetId}/credential/${vc[0]}/delete">delete</a>
                         </td>
                     </tr>
                 </#list>
@@ -29,7 +29,7 @@
         </table>
         <#if credentials?size gt 0>
         <div style="margin-top: 1em;">
-            <a href="/wallet/credential/__all__/delete">delete all</a>
+            <a href="/wallet/${targetId}/credential/delete-all">delete all</a>
         </div>
         </#if>
     </div>

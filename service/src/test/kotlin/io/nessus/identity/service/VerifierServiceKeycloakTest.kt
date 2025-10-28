@@ -43,8 +43,10 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
                 val authContext = walletSvc.authContextForCredential(alice, "urn:ietf:wg:oauth:2.0:oob", credOffer)
                 val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-                val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
-                walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
+                callbackHandler.getAuthCode(authContext.authRequestUrl).also {
+                    authContext.withAuthCode(it)
+                }
+                walletSvc.credentialFromOfferInTime(alice)
             }
 
             val authReq = verifierSvc.buildAuthorizationRequestForPresentation(
@@ -102,8 +104,10 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
                 val authContext = walletSvc.authContextForCredential(alice, "urn:ietf:wg:oauth:2.0:oob", credOffer)
                 val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-                val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
-                walletSvc.credentialFromOfferInTime(authContext.withAuthCode(authCode))
+                callbackHandler.getAuthCode(authContext.authRequestUrl).also {
+                    authContext.withAuthCode(it)
+                }
+                walletSvc.credentialFromOfferInTime(alice)
             }
 
             val authReq = verifierSvc.buildAuthorizationRequestForPresentation(

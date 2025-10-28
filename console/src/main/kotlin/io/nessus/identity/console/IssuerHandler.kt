@@ -32,7 +32,7 @@ class IssuerHandler() {
         val authConfigUrl = "$authServerUrl/.well-known/openid-configuration"
         val issuerConfigUrl = issuerSvc.getIssuerMetadataUrl()
         val model = BaseModel()
-            .withRoleAuth(call, UserRole.Holder)
+            .withLoginContext(call, UserRole.Holder)
             .also {
                 it["issuerUrl"] = issuerSvc.issuerBaseUrl
                 it["issuerConfigUrl"] = issuerConfigUrl

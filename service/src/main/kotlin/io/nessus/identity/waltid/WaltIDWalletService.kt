@@ -9,9 +9,9 @@ import id.walt.webwallet.db.models.Wallets
 import id.walt.webwallet.service.credentials.CredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.config.ConfigProvider
-import io.nessus.identity.service.AttachmentKeys.AUTH_TOKEN_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.LoginContext.Companion.AUTH_TOKEN_ATTACHMENT_KEY
+import io.nessus.identity.service.LoginContext.Companion.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.base64UrlDecode
 import io.nessus.identity.service.base64UrlEncode
 import io.nessus.identity.types.CredentialOffer

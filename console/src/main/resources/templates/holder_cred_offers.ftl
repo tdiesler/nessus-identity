@@ -20,9 +20,9 @@
                         <td>${vco[1]}</td>
                         <td>${vco[2]}</td>
                         <td>
-                            <a href="/wallet/credential-offer/${vco[0]}/view">view</a>
-                            <a href="/wallet/credential-offer/${vco[0]}/accept">accept</a>
-                            <a href="/wallet/credential-offer/${vco[0]}/delete">delete</a>
+                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/view">view</a>
+                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/accept">accept</a>
+                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/delete">delete</a>
                         </td>
                     </tr>
                 </#list>
@@ -30,7 +30,7 @@
         </table>
         <#if credentialOffers?size gt 0>
             <div style="margin-top: 1em;">
-                <a href="/wallet/credential-offer/__all__/delete">delete all</a>
+                <a href="/wallet/${targetId}/credential-offer/delete-all">delete all</a>
             </div>
         </#if>
     </div>

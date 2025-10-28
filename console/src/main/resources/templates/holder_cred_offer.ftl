@@ -14,8 +14,8 @@
         <textarea class="height4" readonly>${credOffer?html}</textarea>
 
         <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
-            <a href="/wallet/credential-offer/${credOfferId}/accept">accept</a>
-            <a href="/wallet/credential-offer/${credOfferId}/delete">delete</a>
+            <a href="/wallet/${targetId}/credential-offer/${credOfferId}/accept">accept</a>
+            <a href="/wallet/${targetId}/credential-offer/${credOfferId}/delete">delete</a>
             <p>
                 Here we have the Credential Offer as seen by the Holder.
             </p>

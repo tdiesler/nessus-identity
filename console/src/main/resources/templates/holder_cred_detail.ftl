@@ -9,6 +9,10 @@
         <h1>OID4VC Holder</h1>
         <h4>${holderName}</h4>
         <h5>Credential Details</h5>
-        <textarea readonly>${credObj?html}</textarea>
+        <textarea readonly>${credData?html}</textarea>
+        <div style="margin-top: 1em;">
+            <a href="/wallet/${targetId}/credential/${credId}/delete">delete</a>
+        </div>
     </div>
+
 </@layout.layout>

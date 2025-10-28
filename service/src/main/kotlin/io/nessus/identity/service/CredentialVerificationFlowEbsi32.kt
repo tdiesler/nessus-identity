@@ -1,9 +1,9 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jose.util.Base64URL
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.PresentationDefinitionBuilder
@@ -45,8 +45,8 @@ class CredentialVerificationFlowEbsi32(val holderCtx: OIDContext, val verifierCt
             .withRedirectUri(redirectUri)
             .build()
 
-        holderCtx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
-        holderCtx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
+        holderCtx.putAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+        holderCtx.putAttachment(EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
 
         // The Verifier sends a VPToken Request to the Holder (request of VerifiablePresentation)
         //

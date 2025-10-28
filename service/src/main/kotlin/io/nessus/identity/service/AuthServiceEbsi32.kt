@@ -15,14 +15,14 @@ import io.ktor.http.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialOfferRegistry.hasCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.TokenRequestV10
@@ -172,7 +172,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
         val authorizationServer = ctx.authorizationServer
 
-        val authReq = ctx.assertAttachment(AUTH_REQUEST_ATTACHMENT_KEY)
+        val authReq = ctx.assertAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
         val scopes = authReq.scope.joinToString(" ")
 
         // Is VPTokenRequest payload an AuthorizationRequest?
@@ -217,8 +217,8 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
     suspend fun handleTokenRequestPreAuthorized(tokenReq: TokenRequestV10): TokenResponseV10 {
 
-        if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY))
-            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerSvc.getIssuerMetadata(ctx))
+        if (!ctx.hasAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY))
+            ctx.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, issuerSvc.getIssuerMetadata(ctx))
 
         var subId = tokenReq.clientId
         val preAuthTokenRequest = tokenReq as TokenRequestV10.PreAuthorizedCode
@@ -263,7 +263,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
             )
         )
 
-        ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+        ctx.putAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
 
         val tokenResponse = buildTokenResponse()
         return tokenResponse
@@ -276,9 +276,9 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
         // Attach issuer metadata (on demand)
         //
-        if (!ctx.hasAttachment(ISSUER_METADATA_ATTACHMENT_KEY)) {
+        if (!ctx.hasAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY)) {
             val metadata = issuerSvc.getIssuerMetadata(ctx)
-            ctx.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, metadata)
+            ctx.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, metadata)
         }
 
         // Validate the AuthorizationRequest
@@ -286,7 +286,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         // [TODO #232] Check VC types in authorization_details
         // https://github.com/tdiesler/nessus-identity/issues/232
 
-        ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authReq)
+        ctx.putAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY, authReq)
     }
 
     fun validateIDToken(idTokenJwt: SignedJWT): String {
@@ -299,7 +299,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         // We should be able to use the Holder's public key to do that
 
         val authCode = "${Uuid.random()}"
-        ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, authCode)
+        ctx.putAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY, authCode)
 
         val authReq = ctx.authRequest
         val idTokenRedirect = URLBuilder("${authReq.redirectUri}").apply {
@@ -361,7 +361,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
         log.info { "Token Response: $tokenRespJson" }
         val tokenRes = TokenResponseV10.fromJson(tokenRespJson).also {
-            ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
+            ctx.putAttachment(EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
         }
         return tokenRes
     }

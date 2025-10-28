@@ -4,8 +4,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.config.ConfigProvider
-import io.nessus.identity.service.AttachmentKeys.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.LoginContext.Companion.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType

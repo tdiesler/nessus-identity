@@ -12,9 +12,9 @@ class BaseModel() : HashMap<String, Any>() {
         this["versionInfo"] = versionInfo
     }
 
-    fun withRoleAuth(call: RoutingCall, role: UserRole): BaseModel {
-        val auth = findLoginContext(call, role) ?: LoginContext().withUserRole(role)
-        this["${role.name.lowercase()}Auth"] = auth
+    fun withLoginContext(call: RoutingCall, role: UserRole, targetId: String? = null): BaseModel {
+        val ctx = findLoginContext(call, role, targetId) ?: LoginContext().withUserRole(role)
+        this["${role.name.lowercase()}Auth"] = ctx
         return this
     }
 }

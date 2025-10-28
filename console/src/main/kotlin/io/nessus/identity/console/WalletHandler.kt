@@ -10,8 +10,10 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.console.SessionsStore.findLoginContext
-import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.AuthorizationContext
+import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
+import io.nessus.identity.service.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.WalletAuthService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
@@ -34,15 +36,12 @@ class WalletHandler() {
     val walletSvc = WalletService.createKeycloak()
     val walletAuthSvc = WalletAuthService(walletSvc)
 
-    // [TODO #328] Associate WalletHandler state with LoginContext
-    // https://github.com/tdiesler/nessus-identity/issues/328
-    private val flowState = mutableMapOf<String, Any>()
-
     fun walletModel(call: RoutingCall): BaseModel {
-        val model = BaseModel().withRoleAuth(call, UserRole.Holder)
+        val model = BaseModel().withLoginContext(call, UserRole.Holder)
         findLoginContext(call, UserRole.Holder)?.also {
             model["holderName"] = it.walletInfo.name
             model["holderDid"] = it.didInfo.did
+            model["targetId"] = it.targetId
         }
         return model
     }
@@ -66,7 +65,7 @@ class WalletHandler() {
         val email = params["email"] ?: error("No email")
         val password = params["password"] ?: error("No password")
         val loginParams = LoginParams(LoginType.EMAIL, email, password)
-        SessionsStore.newLoginContext(call, UserRole.Holder, loginParams)
+        SessionsStore.createLoginContext(call, UserRole.Holder, loginParams)
         call.respondRedirect("/wallet")
     }
 
@@ -75,85 +74,31 @@ class WalletHandler() {
         call.respondRedirect("/wallet")
     }
 
-    suspend fun handleAuthorization(call: RoutingCall) {
-        requireLoginContext(call, UserRole.Holder)
+    suspend fun handleAuthorization(call: RoutingCall, ctx: LoginContext) {
         when (val responseType = call.parameters["response_type"]) {
-            "vp_token" -> handleAuthVPTokenRequest(call)
+            "vp_token" -> handleAuthVPTokenRequest(call, ctx)
             else -> error("Unexpected response_type: $responseType")
         }
     }
 
-    suspend fun handleAuthCallback(call: RoutingCall) {
-        val authContext = flowState.remove("AuthorizationContext") as AuthorizationContext
+    suspend fun handleAuthCallback(call: RoutingCall, ctx: LoginContext) {
+        val authContext = ctx.getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) as AuthorizationContext
         call.parameters["code"]?.also {
             authContext.withAuthCode(it)
             log.info { "AuthCode: $it" }
         } ?: error("No code")
-        val vcJwt = walletSvc.credentialFromOfferInTime(authContext)
-        call.respondRedirect("/wallet/credential/${vcJwt.vcId}")
+        val vcJwt = walletSvc.credentialFromOfferInTime(ctx)
+        call.respondRedirect("/wallet/${ctx.targetId}/credential/${vcJwt.vcId}")
     }
 
-    suspend fun handleAuthFlow(call: RoutingCall, flowStep: String) {
+    suspend fun handleAuthFlow(call: RoutingCall, ctx: LoginContext, flowStep: String) {
         when (flowStep) {
-            "vp-token-consent" -> handleAuthVPTokenConsent(call)
+            "vp-token-consent" -> handleAuthVPTokenConsent(call, ctx)
             else -> error("Unknown flow step: $flowStep")
         }
     }
 
-    suspend fun handleCredentialOfferAccept(call: RoutingCall, offerId: String) {
-        val ctx = requireLoginContext(call, UserRole.Holder)
-        val credOffer = walletSvc.getCredentialOffer(ctx, offerId) ?: error("No credential_offer for: $offerId")
-
-        val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
-        val authContext = walletSvc.authContextForCredential(ctx, redirectUri, credOffer)
-        flowState["AuthorizationContext"] = authContext
-        val authRequestUrl = authContext.authRequestUrl
-        log.info { "AuthRequestUrl: $authRequestUrl" }
-        call.respondRedirect("$authRequestUrl")
-    }
-
-    suspend fun handleCredentialOfferAdd(call: RoutingCall) {
-        call.respondRedirect("/wallet/credential-offers")
-    }
-
-    suspend fun handleCredentialOfferDelete(call: RoutingCall, offerId: String) {
-        val ctx = requireLoginContext(call, UserRole.Holder)
-        when (offerId) {
-            "__all__" -> walletSvc.deleteCredentialOffers(ctx) { true }
-            else -> walletSvc.deleteCredentialOffer(ctx, offerId)
-        }
-        call.respondRedirect("/wallet/credential-offers")
-    }
-
-    suspend fun handleCredentialDelete(call: RoutingCall, vcId: String) {
-        val ctx = requireLoginContext(call, UserRole.Holder)
-        when (vcId) {
-            "__all__" -> walletSvc.deleteCredentials(ctx) { true }
-            else -> walletSvc.deleteCredential(ctx, vcId)
-        }
-        call.respondRedirect("/wallet/credentials")
-    }
-
-    suspend fun showCredentialOfferDetails(call: RoutingCall, offerId: String) {
-
-        val ctx = findLoginContext(call, UserRole.Holder)
-            ?: return walletHomePage(call)
-
-        val credOffer = walletSvc.getCredentialOffer(ctx, offerId)
-        val prettyJson = jsonPretty.encodeToString(credOffer)
-        val model = walletModel(call).also {
-            it["credOffer"] = prettyJson
-            it["credOfferId"] = offerId
-        }
-        call.respond(
-            FreeMarkerContent("holder_cred_offer.ftl", model)
-        )
-    }
-
-    suspend fun showCredentialOffers(call: RoutingCall) {
-
-        val ctx = findLoginContext(call, UserRole.Holder)
-            ?: return walletHomePage(call)
+    suspend fun handleCredentialOffers(call: RoutingCall, ctx: LoginContext) {
 
         val credOfferData = walletSvc.getCredentialOffers(ctx)
             .map { (k, v) ->
@@ -167,10 +112,45 @@ class WalletHandler() {
         )
     }
 
-    suspend fun showCredentials(call: RoutingCall) {
+    suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: LoginContext, offerId: String) {
+        val credOffer = walletSvc.getCredentialOffer(ctx, offerId) ?: error("No credential_offer for: $offerId")
 
-        val ctx = findLoginContext(call, UserRole.Holder)
-            ?: return walletHomePage(call)
+        val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
+        val authContext = walletSvc.authContextForCredential(ctx, redirectUri, credOffer)
+        val authRequestUrl = authContext.authRequestUrl
+        log.info { "AuthRequestUrl: $authRequestUrl" }
+        call.respondRedirect("$authRequestUrl")
+    }
+
+    suspend fun handleCredentialOfferAdd(call: RoutingCall, ctx: LoginContext) {
+        // [TODO #280] Issuer should use the wallet's offer endpoint
+        // https://github.com/tdiesler/nessus-identity/issues/280
+        call.respondRedirect("/wallet/${ctx.targetId}/credential-offers")
+    }
+
+    suspend fun handleCredentialOfferDelete(call: RoutingCall, ctx: LoginContext, offerId: String) {
+        walletSvc.deleteCredentialOffer(ctx, offerId)
+        call.respondRedirect("/wallet/${ctx.targetId}/credential-offers")
+    }
+
+    suspend fun handleCredentialOfferDeleteAll(call: RoutingCall, ctx: LoginContext) {
+        walletSvc.deleteCredentialOffers(ctx) { true }
+        call.respondRedirect("/wallet/${ctx.targetId}/credential-offers")
+    }
+
+    suspend fun handleCredentialOfferDetails(call: RoutingCall, ctx: LoginContext, offerId: String) {
+        val credOffer = walletSvc.getCredentialOffer(ctx, offerId)
+        val prettyJson = jsonPretty.encodeToString(credOffer)
+        val model = walletModel(call).also {
+            it["credOffer"] = prettyJson
+            it["credOfferId"] = offerId
+        }
+        call.respond(
+            FreeMarkerContent("holder_cred_offer.ftl", model)
+        )
+    }
+
+    suspend fun handleCredentials(call: RoutingCall, ctx: LoginContext) {
 
         fun abbreviatedDid(did: String) = when {
             did.length > 32 -> "${did.take(20)}...${did.substring(did.length - 12)}"
@@ -194,14 +174,21 @@ class WalletHandler() {
             it["credentials"] = credentialList
         }
         call.respond(
-            FreeMarkerContent("holder_creds.ftl", model)
+            FreeMarkerContent("holder_credentials.ftl", model)
         )
     }
 
-    suspend fun showCredentialDetails(call: RoutingCall, vcId: String) {
+    suspend fun handleCredentialDelete(call: RoutingCall, ctx: LoginContext, vcId: String) {
+        walletSvc.deleteCredential(ctx, vcId)
+        call.respondRedirect("/wallet/${ctx.targetId}/credentials")
+    }
 
-        val ctx = findLoginContext(call, UserRole.Holder)
-            ?: return walletHomePage(call)
+    suspend fun handleCredentialDeleteAll(call: RoutingCall, ctx: LoginContext) {
+        walletSvc.deleteCredentials(ctx) { true }
+        call.respondRedirect("/wallet/${ctx.targetId}/credentials")
+    }
+
+    suspend fun handleCredentialDetails(call: RoutingCall, ctx: LoginContext, vcId: String) {
 
         val vcJwt = walletSvc.getCredentialById(ctx, vcId) ?: error("No credential for: $vcId")
         val jsonObj = when (vcJwt) {
@@ -214,29 +201,30 @@ class WalletHandler() {
         }
         val prettyJson = jsonPretty.encodeToString(jsonObj)
         val model = walletModel(call).also {
-            it["credObj"] = prettyJson
+            it["credId"] = vcJwt.vcId
+            it["credData"] = prettyJson
         }
         call.respond(
-            FreeMarkerContent("holder_cred.ftl", model)
+            FreeMarkerContent("holder_cred_detail.ftl", model)
         )
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    private suspend fun handleAuthVPTokenRequest(call: RoutingCall) {
+    private suspend fun handleAuthVPTokenRequest(call: RoutingCall, ctx: LoginContext) {
 
         val httpParams = urlQueryToMap(call.request.uri)
         val authReq = AuthorizationRequestV10.fromHttpParameters(httpParams)
-        flowState["VPTokenAuthorizationRequest"] = authReq
+        ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authReq)
 
         call.respondRedirect("/wallet/auth/flow/vp-token-consent?state=ask")
     }
 
-    private suspend fun handleAuthVPTokenConsent(call: RoutingCall) {
+    private suspend fun handleAuthVPTokenConsent(call: RoutingCall, ctx: LoginContext) {
 
         when (val state = call.parameters["state"]) {
             "ask" -> run {
-                val authReq = flowState["VPTokenAuthorizationRequest"] as AuthorizationRequestV10
+                val authReq = ctx.getAttachment(AUTH_REQUEST_ATTACHMENT_KEY) as AuthorizationRequestV10
                 val model = walletModel(call).also {
                     it["dcqlQuery"] = jsonPretty.encodeToString(authReq.dcqlQuery!!.toJsonObj())
                 }
@@ -245,8 +233,7 @@ class WalletHandler() {
                 )
             }
             "accept" -> run {
-                val ctx = requireLoginContext(call, UserRole.Holder)
-                val authReq = flowState.remove("VPTokenAuthorizationRequest") as AuthorizationRequestV10
+                val authReq = ctx.removeAttachment(AUTH_REQUEST_ATTACHMENT_KEY) as AuthorizationRequestV10
                 val authRes = walletAuthSvc.handleVPTokenRequest(ctx, authReq)
                 when (authReq.responseMode) {
                     "direct_post" -> run {

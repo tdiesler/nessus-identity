@@ -28,14 +28,14 @@ import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.toSignedJWT
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.service.AttachmentKeys.ACCESS_TOKEN_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.PRESENTATION_SUBMISSION_ATTACHMENT_KEY
-import io.nessus.identity.service.AttachmentKeys.REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthServiceEbsi32.Companion.authEndpointUri
 import io.nessus.identity.service.CredentialOfferRegistry.assertCredentialOfferRecord
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY
+import io.nessus.identity.service.OIDContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -268,7 +268,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
 
         vpTokenJwt.verifyJwtSignature("VPToken", ctx.didInfo)
 
-        ctx.putAttachment(PRESENTATION_SUBMISSION_ATTACHMENT_KEY, vpSubmission)
+        ctx.putAttachment(EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY, vpSubmission)
         return vpTokenJwt
     }
 
@@ -357,8 +357,8 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
                 .withIssuerMetadata(ctx.issuerMetadata)
                 .withRedirectUri(redirectUri)
                 .buildFrom(credOffer)
-            ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
-            ctx.putAttachment(AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
+            ctx.putAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+            ctx.putAttachment(EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
             val authCode = sendAuthorizationRequest(ctx, authRequest)
             val tokenReq = createTokenRequestAuthCode(ctx, authCode)
             sendTokenRequestAuthCode(ctx, tokenReq)
@@ -451,7 +451,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
 
                     // Store the AuthorizationRequest in memory
                     val reqObjectId = "${Uuid.random()}"
-                    ctx.putAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY, authReq)
+                    ctx.putAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY, authReq)
 
                     log.info { "Converting 'request' to 'request_uri'" }
 
@@ -540,7 +540,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         } ?: throw IllegalStateException("Cannot find 'location' in headers")
 
         val authCode = urlQueryToMap(location)["code"]?.also {
-            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, it)
+            ctx.putAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY, it)
         } ?: throw IllegalStateException("No authorization code")
 
         return authCode
@@ -551,8 +551,8 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         vpTokenJwt: SignedJWT
     ): String {
 
-        val reqObject = ctx.assertAttachment(REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
-        val vpSubmission = ctx.assertAttachment(PRESENTATION_SUBMISSION_ATTACHMENT_KEY, true)
+        val reqObject = ctx.assertAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
+        val vpSubmission = ctx.assertAttachment(EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY, true)
 
         val redirectUri = reqObject.redirectUri
             ?: throw IllegalStateException("No redirectUri in: $reqObject")
@@ -584,7 +584,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         } ?: throw IllegalStateException("Cannot find 'location' in headers")
 
         val authCode = urlQueryToMap(location)["code"]?.also {
-            ctx.putAttachment(AUTH_CODE_ATTACHMENT_KEY, it)
+            ctx.putAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY, it)
         } ?: throw IllegalStateException("No authorization code")
 
         return authCode
@@ -616,7 +616,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         val tokenRes = TokenResponseV10.fromJson(tokenResJson)
 
         val accessTokenJwt = SignedJWT.parse(tokenRes.accessToken)
-        ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
+        ctx.putAttachment(EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
 
         return tokenRes
     }
@@ -647,7 +647,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         val tokenRes = TokenResponseV10.fromJson(tokenResJson)
 
         val accessToken = SignedJWT.parse(tokenRes.accessToken)
-        ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessToken)
+        ctx.putAttachment(EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY, accessToken)
 
         return tokenRes
     }

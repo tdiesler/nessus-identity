@@ -53,9 +53,9 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
             val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
 
             // After successful authorization, we also inject the WaltId LoginContext
-            authContext.withAuthCode(authCode).withLoginContext(alice)
+            authContext.withAuthCode(authCode)
 
-            val vcJwt = walletSvc.credentialFromOfferInTime(authContext) as VCDataV11Jwt
+            val vcJwt = walletSvc.credentialFromOfferInTime(alice) as VCDataV11Jwt
             vcJwt.types shouldBeEqual credOffer.credentialConfigurationIds
 
             val subject = vcJwt.vc.credentialSubject
@@ -92,9 +92,9 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
             val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
 
             // After successful authorization, we also inject the WaltId LoginContext
-            authContext.withAuthCode(authCode).withLoginContext(alice)
+            authContext.withAuthCode(authCode)
 
-            val vcJwt = walletSvc.credentialFromOfferInTime(authContext) as VCDataSdV11Jwt
+            val vcJwt = walletSvc.credentialFromOfferInTime(alice) as VCDataSdV11Jwt
             vcJwt.types shouldBeEqual credOffer.credentialConfigurationIds
         }
     }

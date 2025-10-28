@@ -21,9 +21,11 @@ import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
 import io.nessus.identity.config.ConsoleConfig
 import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.console.SessionsStore.cookieName
-import io.nessus.identity.console.SessionsStore.newLoginContext
+import io.nessus.identity.console.SessionsStore.createLoginContext
+import io.nessus.identity.console.SessionsStore.findHolderContext
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.HttpStatusException
+import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
@@ -74,10 +76,6 @@ class ConsoleServer(val config: ConsoleConfig) {
                 templateLoader = ClassTemplateLoader(classLoader, "templates")
             }
             install(Sessions) {
-                cookie<IssuerCookie>(cookieName(UserRole.Issuer)) {
-                    cookie.path = "/"
-                    cookie.maxAgeInSeconds = 3600
-                }
                 cookie<HolderCookie>(cookieName(UserRole.Holder)) {
                     cookie.path = "/"
                     cookie.maxAgeInSeconds = 3600
@@ -154,6 +152,11 @@ class ConsoleServer(val config: ConsoleConfig) {
                     autoLogin(call)
                     walletHandler.walletHomePage(call)
                 }
+                // Issuer Callback to obtain Holder consent for Credential issuance
+                get("/wallet/auth/callback") {
+                    val ctx = requireLoginContext(call, UserRole.Holder)
+                    walletHandler.handleAuthCallback(call, ctx)
+                }
                 get("/wallet/login") {
                     walletHandler.walletLoginPage(call)
                 }
@@ -165,43 +168,68 @@ class ConsoleServer(val config: ConsoleConfig) {
                 }
 
                 get("/wallet/auth") {
-                    walletHandler.handleAuthorization(call)
-                }
-                get("/wallet/auth/callback") {
-                    walletHandler.handleAuthCallback(call)
+                    val ctx = requireLoginContext(call, UserRole.Holder)
+                    walletHandler.handleAuthorization(call, ctx)
                 }
                 get("/wallet/auth/flow/{flowStep}") {
+                    val ctx = requireLoginContext(call, UserRole.Holder)
                     val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
-                    walletHandler.handleAuthFlow(call, flowStep)
+                    walletHandler.handleAuthFlow(call, ctx, flowStep)
                 }
-                get("/wallet/credential-offers") {
-                    walletHandler.showCredentialOffers(call)
+                get("/wallet/{targetId}/credential-offers") {
+                    withHolderContextOrHome(call) { ctx ->
+                        walletHandler.handleCredentialOffers(call, ctx)
+                    }
                 }
-                get("/wallet/credential-offer/{offerId}/accept") {
-                    val offerId = call.parameters["offerId"] ?: error("No offerId")
-                    walletHandler.handleCredentialOfferAccept(call, offerId)
+                put("/wallet/{targetId}/credential-offer") {
+                    withHolderContextOrHome(call) { ctx ->
+                        walletHandler.handleCredentialOfferAdd(call, ctx)
+                    }
                 }
-                put("/wallet/credential-offer") {
-                    walletHandler.handleCredentialOfferAdd(call)
+                get("/wallet/{targetId}/credential-offer/{offerId}/accept") {
+                    withHolderContextOrHome(call) { ctx ->
+                        val offerId = call.parameters["offerId"] ?: error("No offerId")
+                        walletHandler.handleCredentialOfferAccept(call, ctx, offerId)
+                    }
                 }
-                get("/wallet/credential-offer/{offerId}/delete") {
-                    val offerId = call.parameters["offerId"] ?: error("No offerId")
-                    walletHandler.handleCredentialOfferDelete(call, offerId)
+                get("/wallet/{targetId}/credential-offer/{offerId}/delete") {
+                    withHolderContextOrHome(call) { ctx ->
+                        val offerId = call.parameters["offerId"] ?: error("No offerId")
+                        walletHandler.handleCredentialOfferDelete(call, ctx, offerId)
+                    }
                 }
-                get("/wallet/credential-offer/{offerId}/view") {
-                    val offerId = call.parameters["offerId"] ?: error("No offerId")
-                    walletHandler.showCredentialOfferDetails(call, offerId)
+                get("/wallet/{targetId}/credential-offer/delete-all") {
+                    withHolderContextOrHome(call) { ctx ->
+                        walletHandler.handleCredentialOfferDeleteAll(call, ctx)
+                    }
                 }
-                get("/wallet/credentials") {
-                    walletHandler.showCredentials(call)
+                get("/wallet/{targetId}/credential-offer/{offerId}/view") {
+                    withHolderContextOrHome(call) { ctx ->
+                        val offerId = call.parameters["offerId"] ?: error("No offerId")
+                        walletHandler.handleCredentialOfferDetails(call, ctx, offerId)
+                    }
                 }
-                get("/wallet/credential/{vcId}") {
-                    val vcId = call.parameters["vcId"] ?: error("No vcId")
-                    walletHandler.showCredentialDetails(call, vcId)
+                get("/wallet/{targetId}/credentials") {
+                    withHolderContextOrHome(call) { ctx ->
+                        walletHandler.handleCredentials(call, ctx)
+                    }
                 }
-                get("/wallet/credential/{vcId}/delete") {
-                    val vcId = call.parameters["vcId"] ?: error("No vcId")
-                    walletHandler.handleCredentialDelete(call, vcId)
+                get("/wallet/{targetId}/credential/{vcId}") {
+                    withHolderContextOrHome(call) { ctx ->
+                        val vcId = call.parameters["vcId"] ?: error("No vcId")
+                        walletHandler.handleCredentialDetails(call, ctx, vcId)
+                    }
+                }
+                get("/wallet/{targetId}/credential/{vcId}/delete") {
+                    withHolderContextOrHome(call) { ctx ->
+                        val vcId = call.parameters["vcId"] ?: error("No vcId")
+                        walletHandler.handleCredentialDelete(call, ctx, vcId)
+                    }
+                }
+                get("/wallet/{targetId}/credential/delete-all") {
+                    withHolderContextOrHome(call) { ctx ->
+                        walletHandler.handleCredentialDeleteAll(call, ctx)
+                    }
                 }
 
                 // Verifier -------------------------------------------------------------------------------
@@ -234,6 +262,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                 }
             }
         }
+
         val host = config.host
         val port = config.port
         return embeddedServer(Netty, host = host, port = port, module = Application::module)
@@ -241,9 +270,14 @@ class ConsoleServer(val config: ConsoleConfig) {
 
     private suspend fun autoLogin(call: RoutingCall) {
         if (config.autoLogin && !autoLoginComplete) {
-            newLoginContext(call, UserRole.Holder, Alice.toLoginParams())
-            newLoginContext(call, UserRole.Verifier, Bob.toLoginParams())
+            createLoginContext(call, UserRole.Holder, Alice.toLoginParams())
+            createLoginContext(call, UserRole.Verifier, Bob.toLoginParams())
             autoLoginComplete = true
         }
+    }
+
+    private suspend fun withHolderContextOrHome(call: RoutingCall, block: suspend (LoginContext) -> Unit) {
+        findHolderContext(call, call.parameters["targetId"] ?: error("No targetId"))
+            ?.let { ctx -> block(ctx) } ?: walletHandler.walletHomePage(call)
     }
 }
