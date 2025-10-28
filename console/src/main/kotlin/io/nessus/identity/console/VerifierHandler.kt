@@ -11,6 +11,7 @@ import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.LoginContext.Companion.AUTH_RESPONSE_ATTACHMENT_KEY
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.types.AuthorizationResponseV10
 import io.nessus.identity.types.DCQLQuery
@@ -29,8 +30,6 @@ class VerifierHandler() {
 
     val issuerSvc = IssuerService.createKeycloak()
     val verifierSvc = VerifierService.createKeycloak()
-
-    private var lastAuthorizationResponse: AuthorizationResponseV10? = null
 
     fun verifierModel(call: RoutingCall): BaseModel {
         val model = BaseModel()
@@ -67,9 +66,9 @@ class VerifierHandler() {
         call.respondRedirect("/verifier")
     }
 
-    suspend fun handleVerifierCallback(call: RoutingCall) {
+    suspend fun handleVerifierCallback(call: RoutingCall, ctx: LoginContext) {
 
-        val authRes = lastAuthorizationResponse ?: error("No lastAuthorizationResponse")
+        val authRes = ctx.getAttachment(AUTH_RESPONSE_ATTACHMENT_KEY) as AuthorizationResponseV10
 
         val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
         val headerObj = Json.decodeFromString<JsonObject>("${vpTokenJwt.header}")
@@ -94,10 +93,18 @@ class VerifierHandler() {
 
     suspend fun handleVerifierDirectPost(call: RoutingCall) {
 
+        // A direct post will likely not have a session cookie from which we can derive the current verifier session.
+        // Instead, we expect a single Verifier LoginContext that already exists.
+        val verifierContexts = SessionsStore.loginContexts.values
+            .filter { it.userRole == UserRole.Verifier }
+        if (verifierContexts.isEmpty())
+            error("No Verifier LoginContext")
+        if (verifierContexts.size > 1)
+            error("Multiple Verifier LoginContexts")
+
         val authResJson = call.receiveText()
         val authRes = AuthorizationResponseV10.fromJson(authResJson)
-
-        lastAuthorizationResponse = authRes
+        verifierContexts[0].putAttachment(AUTH_RESPONSE_ATTACHMENT_KEY, authRes)
 
         // If the Response URI has successfully processed the Authorization Response or Authorization Error Response,
         // it MUST respond with an HTTP status code of 200 with Content-Type of application/json and a JSON object in the response body.

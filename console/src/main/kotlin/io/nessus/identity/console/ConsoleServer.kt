@@ -22,7 +22,7 @@ import io.nessus.identity.config.ConsoleConfig
 import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.console.SessionsStore.cookieName
 import io.nessus.identity.console.SessionsStore.createLoginContext
-import io.nessus.identity.console.SessionsStore.findHolderContext
+import io.nessus.identity.console.SessionsStore.findLoginContext
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.LoginContext
@@ -249,7 +249,8 @@ class ConsoleServer(val config: ConsoleConfig) {
                 }
 
                 get("/verifier/callback") {
-                    verifierHandler.handleVerifierCallback(call)
+                    val ctx = requireLoginContext(call, UserRole.Verifier)
+                    verifierHandler.handleVerifierCallback(call, ctx)
                 }
                 post("/verifier/callback") {
                     verifierHandler.handleVerifierDirectPost(call)
@@ -277,7 +278,8 @@ class ConsoleServer(val config: ConsoleConfig) {
     }
 
     private suspend fun withHolderContextOrHome(call: RoutingCall, block: suspend (LoginContext) -> Unit) {
-        findHolderContext(call, call.parameters["targetId"] ?: error("No targetId"))
-            ?.let { ctx -> block(ctx) } ?: walletHandler.walletHomePage(call)
+        val targetId = call.parameters["targetId"] ?: error("No targetId")
+        val ctx = findLoginContext(call, UserRole.Holder, targetId)
+        ctx?.let { ctx -> block(ctx) } ?: walletHandler.walletHomePage(call)
     }
 }

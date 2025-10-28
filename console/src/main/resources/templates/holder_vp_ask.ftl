@@ -19,8 +19,8 @@
                 <button type="submit" name="state" value="accept" class="bx--btn bx--btn--primary" style="padding:0.5rem 1rem;">
                     Accept
                 </button>
-                <button type="submit" name="state" value="deny" class="bx--btn bx--btn--primary" style="padding:0.5rem 1rem;">
-                    Deny
+                <button type="submit" name="state" value="reject" class="bx--btn bx--btn--primary" style="padding:0.5rem 1rem;">
+                    Reject
                 </button>
             </div>
         </form>

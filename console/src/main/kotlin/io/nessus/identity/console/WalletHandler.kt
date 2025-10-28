@@ -255,7 +255,7 @@ class WalletHandler() {
                     else -> error("Unsupported response_mode: ${authReq.responseMode}")
                 }
             }
-            "deny" -> error("VPToken Request denied")
+            "reject" -> error("VPToken Request rejected")
             else -> error("Undefined flow state: $state")
         }
     }

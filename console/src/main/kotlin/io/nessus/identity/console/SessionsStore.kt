@@ -15,7 +15,7 @@ import kotlin.text.Charsets.UTF_8
 object SessionsStore {
 
     // Registry that allows us to restore a LoginContext from subjectId
-    private val sessionStore = mutableMapOf<String, LoginContext>()
+    val loginContexts = mutableMapOf<String, LoginContext>()
 
     fun cookieName(role: UserRole) = "${role.name}Cookie"
 
@@ -27,7 +27,7 @@ object SessionsStore {
             UserRole.Holder -> call.sessions.set(HolderCookie(wid, did))
             UserRole.Verifier -> call.sessions.set(VerifierCookie(wid, did))
         }
-        sessionStore[ctx.targetId] = ctx
+        loginContexts[ctx.targetId] = ctx
         return ctx
     }
 
@@ -35,29 +35,19 @@ object SessionsStore {
         val ctx = getRoleCookieFromSession(call, role)
             ?.let { LoginContext.getTargetId(it.wid, it.did ?: "") }
             ?.takeIf { tid -> tid == targetId || targetId == null }
-            ?.let { tid -> sessionStore[tid] }
+            ?.let { tid -> loginContexts[tid] }
         return ctx
     }
 
     fun logout(call: RoutingCall, role: UserRole) {
         findLoginContext(call, role)?.also {
             call.sessions.clear(cookieName(role))
-            sessionStore.remove(it.targetId)
+            loginContexts.remove(it.targetId)
         }
     }
 
     fun requireLoginContext(call: RoutingCall, role: UserRole, targetId: String? = null): LoginContext {
         val ctx = findLoginContext(call, role, targetId) ?: error("No ${role.name} LoginContext")
-        return ctx
-    }
-
-    fun findHolderContext(call: RoutingCall, targetId: String): LoginContext? {
-        val ctx = findLoginContext(call, UserRole.Holder, targetId)
-        return ctx
-    }
-
-    fun findVerifierContext(call: RoutingCall, targetId: String): LoginContext? {
-        val ctx = findLoginContext(call, UserRole.Verifier, targetId)
         return ctx
     }
 
