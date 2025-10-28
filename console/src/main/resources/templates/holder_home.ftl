@@ -34,10 +34,10 @@
                 Holder functionality is defined by
                 <ul class="bx--list--unordered bx--list">
                     <li class="bx--list__item">
-                        <a href="https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html" target="_blank">OpenID for Verifiable Credential Issuance</a>
+                        <a href="https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html" target="_blank">Verifiable Credential Issuance 1.0</a>
                     </li>
                     <li class="bx--list__item">
-                        <a href="https://openid.net/specs/openid-4-verifiable-presentations-1_0.html" target="_blank">OpenID for Verifiable Presentations</a>
+                        <a href="https://openid.net/specs/openid-4-verifiable-presentations-1_0.html" target="_blank">Verifiable Presentations 1.0</a>
                     </li>
                 </ul>
             </p>

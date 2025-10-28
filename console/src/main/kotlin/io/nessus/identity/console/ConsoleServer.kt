@@ -104,6 +104,14 @@ class ConsoleServer(val config: ConsoleConfig) {
                     call.respondRedirect("/issuer")
                 }
 
+                // Docs -----------------------------------------------------------------------------------
+                //
+                get("/docs") {
+                    call.respond(
+                        FreeMarkerContent("docs_home.ftl", BaseModel())
+                    )
+                }
+
                 // Issuer ---------------------------------------------------------------------------------
                 //
                 get("/issuer") {

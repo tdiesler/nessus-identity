@@ -18,7 +18,7 @@
             </p>
             <p>
                 Verifier functionality is defined by
-                <a href="https://openid.net/specs/openid-4-verifiable-presentations-1_0.html" target="_blank">OpenID for Verifiable Presentations</a>.
+                <a href="https://openid.net/specs/openid-4-verifiable-presentations-1_0.html" target="_blank">Verifiable Presentations 1.0</a>.
             </p>
         </div>
     </div>
