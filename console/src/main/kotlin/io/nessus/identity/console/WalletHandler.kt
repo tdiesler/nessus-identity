@@ -19,6 +19,7 @@ import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestV10
+import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
@@ -99,7 +100,6 @@ class WalletHandler() {
     }
 
     suspend fun handleCredentialOffers(call: RoutingCall, ctx: LoginContext) {
-
         val credOfferData = walletSvc.getCredentialOffers(ctx)
             .map { (k, v) ->
                 listOf(k.encodeURLPath(), v.credentialIssuer, v.filteredConfigurationIds.first())
@@ -122,10 +122,23 @@ class WalletHandler() {
         call.respondRedirect("$authRequestUrl")
     }
 
-    suspend fun handleCredentialOfferAdd(call: RoutingCall, ctx: LoginContext) {
-        // [TODO #280] Issuer should use the wallet's offer endpoint
-        // https://github.com/tdiesler/nessus-identity/issues/280
-        call.respondRedirect("/wallet/${ctx.targetId}/credential-offers")
+    suspend fun handleCredentialOfferAdd(call: RoutingCall, targetId: String) {
+
+        // An unsolicited call by the Issuer would likely not have a session cookie from which we can derive the target Holder wallet.
+        // Instead, we expect to find a Holder LoginContext for the given targetId.
+        val holderContexts = SessionsStore.loginContexts.values
+            .filter { it.userRole == UserRole.Holder && it.targetId == targetId }
+        if (holderContexts.isEmpty())
+            error("No Holder LoginContext")
+        if (holderContexts.size > 1)
+            error("Multiple Holder LoginContexts")
+
+        val credOffer = call.request.queryParameters["credential_offer"]
+            ?.let { CredentialOfferV10.fromJson(it) }
+            ?: error("No credential_offer")
+
+        walletSvc.addCredentialOffer(holderContexts[0], credOffer)
+        call.respondRedirect("/wallet/$targetId/credential-offers")
     }
 
     suspend fun handleCredentialOfferDelete(call: RoutingCall, ctx: LoginContext, offerId: String) {

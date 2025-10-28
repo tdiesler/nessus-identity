@@ -93,7 +93,7 @@ class VerifierHandler() {
 
     suspend fun handleVerifierDirectPost(call: RoutingCall) {
 
-        // A direct post will likely not have a session cookie from which we can derive the current verifier session.
+        // A direct post would likely not have a session cookie from which we can derive the Verifier session.
         // Instead, we expect a single Verifier LoginContext that already exists.
         val verifierContexts = SessionsStore.loginContexts.values
             .filter { it.userRole == UserRole.Verifier }

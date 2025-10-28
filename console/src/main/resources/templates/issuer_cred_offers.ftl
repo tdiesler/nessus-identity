@@ -20,7 +20,7 @@
                         <td>
                             <a href="/issuer/credential-config/${id}">view</a>
                             <#if holderAuth.hasAuthToken>
-                                <a href="/issuer/credential-offer?ctype=${id}">send offer</a>
+                                <a href="/issuer/credential-offer/create?ctype=${id}">send offer</a>
                             <#else>
                                 <a class="inactive">send</a>
                             </#if>

@@ -1,14 +1,17 @@
 package io.nessus.identity.console
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
+import io.nessus.identity.service.http
 import io.nessus.identity.types.CredentialConfiguration
-import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.LoginType
 import io.nessus.identity.waltid.RegisterUserParams
@@ -81,28 +84,43 @@ class IssuerHandler() {
         )
     }
 
-    suspend fun handleCredentialOfferSend(call: RoutingCall, ctype: String): CredentialOfferV10? {
+    suspend fun handleCredentialOfferCreate(call: RoutingCall) {
 
+        val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
         val holderContext = requireLoginContext(call, UserRole.Holder)
+        val authToken = holderContext.authToken
 
+        // Show a selection of possible Holder target wallets
+        //
+        val userInfo = widWalletService.authUserInfo(authToken) ?: error("No UserInfo")
         val model = issuerModel(call).also {
             it["ctype"] = ctype
-        }
-        var credOffer: CredentialOfferV10? = null
-        val subjectId = call.request.queryParameters["subjectId"]
-        if (subjectId != null) {
-            credOffer = issuerSvc.createCredentialOffer(subjectId, listOf(ctype))
-            val prettyJson = jsonPretty.encodeToString(credOffer)
-            model["subjectId"] = subjectId
-            model["credOffer"] = prettyJson
-        } else {
-            val userInfo = widWalletService.authUserInfo(holderContext.authToken) ?: error("No UserInfo")
-            model["subInfo"] =userInfo
+            it["userInfo"] = userInfo
         }
         call.respond(
-            FreeMarkerContent("issuer_cred_offer_create.ftl", model)
+            FreeMarkerContent("issuer_cred_offer_send.ftl", model)
         )
-        return credOffer
+    }
+
+    suspend fun handleCredentialOfferSend(call: RoutingCall) {
+
+        val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
+        val subjectId = call.request.queryParameters["subjectId"] ?: error("No subjectId")
+        val holderContext = requireLoginContext(call, UserRole.Holder)
+        val targetId = holderContext.targetId
+
+        // Create the CredentialOffer and send it to the Holder's wallet endpoint
+        // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
+        val credOffer = issuerSvc.createCredentialOffer(subjectId, listOf(ctype))
+
+        val walletUrl = "${requireWalletConfig().baseUrl}/$targetId"
+        val res = http.get("$walletUrl/credential-offer" ) {
+            parameter("credential_offer", credOffer.toJson())
+        }
+        if (res.status.value != 200)
+            error("Error sending credential Offer: ${res.status.value} - ${res.bodyAsText()}")
+
+        call.respondRedirect("$walletUrl/credential-offers")
     }
 
     suspend fun showCredentialOffers(call: RoutingCall) {
@@ -147,7 +165,7 @@ class IssuerHandler() {
         runCatching {
             widWalletService.authRegister(userParams)
         }.onFailure { ex ->
-            if (ex.message?.contains("account with email $email already exists") == true ) {
+            if (ex.message?.contains("account with email $email already exists") == true) {
                 log.error(ex) { }
             } else {
                 throw ex

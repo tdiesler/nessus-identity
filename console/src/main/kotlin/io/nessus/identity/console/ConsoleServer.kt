@@ -131,14 +131,11 @@ class ConsoleServer(val config: ConsoleConfig) {
                 get("/issuer/credential-offers") {
                     issuerHandler.showCredentialOffers(call)
                 }
-                get("/issuer/credential-offer") {
-                    val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
-                    issuerHandler.handleCredentialOfferSend(call, ctype)?.also {
-                        // [TODO #280] Issuer should use the wallet's cred offer endpoint
-                        // https://github.com/tdiesler/nessus-identity/issues/280
-                        val ctx = requireLoginContext(call, UserRole.Holder)
-                        walletHandler.walletSvc.addCredentialOffer(ctx, it)
-                    }
+                get("/issuer/credential-offer/create") {
+                    issuerHandler.handleCredentialOfferCreate(call)
+                }
+                get("/issuer/credential-offer/send") {
+                    issuerHandler.handleCredentialOfferSend(call)
                 }
                 get("/issuer/users") {
                     issuerHandler.showUsers(call)
@@ -189,10 +186,9 @@ class ConsoleServer(val config: ConsoleConfig) {
                         walletHandler.handleCredentialOffers(call, ctx)
                     }
                 }
-                put("/wallet/{targetId}/credential-offer") {
-                    withHolderContextOrHome(call) { ctx ->
-                        walletHandler.handleCredentialOfferAdd(call, ctx)
-                    }
+                get("/wallet/{targetId}/credential-offer") {
+                    val targetId = call.parameters["targetId"] ?: error("No targetId")
+                    walletHandler.handleCredentialOfferAdd(call, targetId)
                 }
                 get("/wallet/{targetId}/credential-offer/{offerId}/accept") {
                     withHolderContextOrHome(call) { ctx ->
