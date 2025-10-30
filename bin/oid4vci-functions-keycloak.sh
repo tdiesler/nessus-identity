@@ -47,7 +47,7 @@ kc_create_realm() {
       echo "Deleting realm '${realm}'"
     else
       echo "Realm '${realm}' already exists"
-      return 0
+      return 1
     fi
   fi
 
@@ -139,7 +139,7 @@ kc_create_oid4vci_service_client() {
   local client_secret="$3"
   local force="$4"
 
-  echo "Create OID4VC Service client: ${client_id} ..."
+  echo "Create service client: ${client_id} ..."
   ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
   {
     "clientId": "${client_id}",
@@ -192,22 +192,8 @@ kc_create_oid4vc_identity_credential() {
     "name": "${credential_id}",
     "protocol": "oid4vc",
     "attributes": {
-      "include.in.token.scope": "true",
-      "vc.include_in_metadata": "true",
-
       "vc.issuer_did": "${issuer_did}",
-
-      "vc.format": "jwt_vc",
-      "vc.credential_contexts": "${credential_id}",
-      "vc.credential_configuration_id": "${credential_id}",
-      "vc.supported_credential_types": "${credential_id}",
-      "vc.verifiable_credential_type": "${credential_id}",
-
-      "vc.cryptographic_binding_methods_supported": "jwk",
-      "vc.proof_signing_alg_values_supported": "ES256",
-
-      "vc.expiry_in_seconds": "31536000",
-      "vc.signing_key_id": "${es256KeyId}"
+      "vc.format": "jwt_vc"
     },
     "protocolMappers": [
       {
@@ -247,51 +233,6 @@ EOF
   local client_scope_id
   client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_id}\") | .id")
   echo "Client Scope Id for ${credential_id}: ${client_scope_id}"
-
-  # ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
-}
-
-kc_patch_oid4vc_natural_person() {
-  local realm="$1"
-
-  local credential_id="oid4vc_natural_person"
-
-  # Patch preinstalled oid4vc_natural_person
-  #
-  local client_scope_id
-  client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_id}\") | .id")
-
-  if [ -n "${client_scope_id}" ]; then
-    echo "Patch preinstalled ${credential_id} client scope: ${client_scope_id}"
-
-    # Remove the illegal oid4vc-subject-id-mapper
-    # [TODO #301] Keycloak issues oid4vc_natural_person with invalid id value
-    # https://github.com/tdiesler/nessus-identity/issues/301
-    protocol_mapper_id=$(${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}/protocol-mappers/models" 2>/dev/null | jq -r '.[] | select(.protocolMapper=="oid4vc-subject-id-mapper") | .id')
-    echo "Delete protocolMapper=oid4vc-subject-id-mapper with id: ${protocol_mapper_id}"
-    ${KCADM} delete "realms/${realm}/client-scopes/${client_scope_id}/protocol-mappers/models/${protocol_mapper_id}"
-
-    ${KCADM} update "realms/${realm}/client-scopes/${client_scope_id}" -f - <<EOF
-    {
-      "name": "${credential_id}",
-      "protocol": "oid4vc",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "vc.include_in_metadata": "true",
-        "vc.issuer_did": "${issuer_did}",
-        "vc.format": "dc+sd-jwt",
-        "vc.credential_contexts": "${credential_id}",
-        "vc.credential_configuration_id": "${credential_id}",
-        "vc.supported_credential_types": "${credential_id}",
-        "vc.verifiable_credential_type": "${credential_id}",
-        "vc.cryptographic_binding_methods_supported": "jwk",
-        "vc.proof_signing_alg_values_supported": "ES256",
-        "vc.expiry_in_seconds": "31536000",
-        "vc.signing_key_id": "${es256KeyId}"
-      }
-    }
-EOF
-  fi
 
   # ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
 }

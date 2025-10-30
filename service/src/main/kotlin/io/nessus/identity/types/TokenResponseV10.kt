@@ -35,7 +35,7 @@ data class TokenResponseV10(
     val notBeforePolicy: Long? = null,
 
     @SerialName("authorization_details")
-    val authorizationDetails: AuthorizationDetails? = null,
+    val authorizationDetails: List<AuthorizationDetails>? = null,
 
     // Optional fields per OpenID4VCI
     @SerialName("c_nonce")

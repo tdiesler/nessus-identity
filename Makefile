@@ -61,13 +61,16 @@ waltid-images: waltid-install
 images: waltid-images nessus-images
 
 keycloak:
-	@cd ../keycloak && ./mvnw -pl quarkus/deployment,quarkus/dist -am -DskipTests clean install
+	@cd ../keycloak && ./mvnw -pl quarkus/dist -am -DskipTests clean install
+	@tar xzf ../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT.tar.gz -C ../keycloak/quarkus/dist/target
 
-# [TODO #43606] Unable to start Keycloak from built quarkus-run.jar
-# https://github.com/keycloak/keycloak/issues/43606
-# https://github.com/keycloak/keycloak/blob/main/docs/building.md#starting-keycloak
-#keycloak-run:
-#	@cd ../keycloak && java -Dkc.config.built=true -jar server/target/lib/quarkus-run.jar start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin
+keycloak-run:
+	@cd ../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT && \
+		./bin/kc.sh start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin
+
+keycloak-tests:
+	@cd ../keycloak/testsuite/integration-arquillian/tests/base && \
+		mvn test -Dtest='org.keycloak.testsuite.oid4vc.**'
 
 run-services: package
 	trap 'kill 0' INT TERM; \

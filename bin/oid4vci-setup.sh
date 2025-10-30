@@ -88,25 +88,22 @@ credential_id="oid4vc_identity_credential"
 
 kc_admin_login "${adminUser}" "${adminPass}"
 
-kc_create_realm "${realm}" "${force}"
+if kc_create_realm "${realm}" "${force}"; then
 
-## Setup Keycloak OID4VCI Service Client -------------------------------------------------------------------------------
-#
-kc_create_oid4vci_service_client "${realm}" "${oid4vciUser}" "${oid4vciPass}" "${force}"
+  ## Setup Keycloak OID4VCI Service Client -------------------------------------------------------------------------------
+  #
+  kc_create_oid4vci_service_client "${realm}" "${oid4vciUser}" "${oid4vciPass}" "${force}"
 
-kc_oid4vci_login "${realm}" "${oid4vciUser}" "${oid4vciPass}"
+  kc_oid4vci_login "${realm}" "${oid4vciUser}" "${oid4vciPass}"
 
-## Setup OID4VCI Identity Credential -----------------------------------------------------------------------------------
-#
-kc_create_oid4vc_identity_credential "${realm}" "${credential_id}"
+  ## Setup OID4VCI Identity Credential -----------------------------------------------------------------------------------
+  #
+  kc_create_oid4vc_identity_credential "${realm}" "${credential_id}"
 
-# [TODO #301] Keycloak issues oid4vc_natural_person with invalid id value
-# https://github.com/tdiesler/nessus-identity/issues/301
-kc_patch_oid4vc_natural_person "${realm}"
-
-## Setup Keycloak OID4VCI Issuance Client ------------------------------------------------------------------------------
-#
-kc_create_oid4vci_client "${realm}" "${client_id}" "${credential_id}" "${force}"
+  ## Setup Keycloak OID4VCI Issuance Client ------------------------------------------------------------------------------
+  #
+  kc_create_oid4vci_client "${realm}" "${client_id}" "${credential_id}" "${force}"
+fi
 
 ## Continue Setup with Alice as Holder
 #
@@ -121,9 +118,7 @@ if [[ ${bare} == "false" ]]; then
   #
   credential_id="oid4vc_natural_person"
   kc_authorization_request "${realm}" "${client_id}" "${credential_id}"
-
   kc_token_request "${realm}" "${client_id}" "${credential_id}"
-
   kc_credential_request "${realm}" "${credential_id}"
 fi
 
