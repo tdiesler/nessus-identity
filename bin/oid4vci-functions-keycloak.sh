@@ -2,7 +2,7 @@
 
 # kcadm does not accept the TLS cert from oauth.nessustech.io
 # https://github.com/tdiesler/nessus-identity/issues/279
-if [[ "$AUTH_SERVER_URL" != *localtest.me ]]; then
+if [[ "$AUTH_SERVER_URL" == *nessustech.io ]]; then
   KCADM="kcadm-insecure"
 else
   KCADM="kcadm"

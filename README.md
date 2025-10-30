@@ -48,6 +48,6 @@ You should now also be able to access the Issuer's configuration [here](https://
 To run the console app ...
 
 ```
-make run-all
+make run-services
 ```
 

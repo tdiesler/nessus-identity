@@ -3,23 +3,19 @@ PROJECT_VERSION := $(shell mvn help:evaluate -Dexpression=project.version -q -Df
 
 TARGET ?= dev
 
-KUBE_CONTEXT_DEV := "rancher-desktop"
-IMAGE_REGISTRY_DEV := ""
-
-KUBE_CONTEXT_STAGE := "ebsi"
-IMAGE_REGISTRY_STAGE := "registry.vps6c.eu.ebsi:30443/"
-
 IMAGE_TAG := "latest"
 
 # Set the IMAGE_REGISTRY based on the deployment TARGET
-ifeq ($(TARGET), dev)
-  KUBE_CONTEXT := $(KUBE_CONTEXT_DEV)
-  IMAGE_REGISTRY := $(IMAGE_REGISTRY_DEV)
-endif
-ifeq ($(TARGET), stage)
-  KUBE_CONTEXT := $(KUBE_CONTEXT_STAGE)
-  IMAGE_REGISTRY := $(IMAGE_REGISTRY_STAGE)
+ifeq ($(TARGET), local)
+  KUBE_CONTEXT := "rancher-desktop"
+else ifeq ($(TARGET), dev)
+  KUBE_CONTEXT := "rancher-desktop"
+else ifeq ($(TARGET), stage)
+  KUBE_CONTEXT := "ebsi"
+  IMAGE_REGISTRY := "registry.vps6c.eu.ebsi:30443/"
   JIB_PLATFORM_OPTS := "-Djib.from.platforms=linux/amd64"
+else
+  $(error Unknown TARGET '$(TARGET)')
 endif
 
 CAROOT_DIR := $(shell mkcert -CAROOT)
@@ -64,7 +60,16 @@ waltid-images: waltid-install
 
 images: waltid-images nessus-images
 
-run-all: package
+keycloak:
+	@cd ../keycloak && ./mvnw -pl quarkus/deployment,quarkus/dist -am -DskipTests clean install
+
+# [TODO #43606] Unable to start Keycloak from built quarkus-run.jar
+# https://github.com/keycloak/keycloak/issues/43606
+# https://github.com/keycloak/keycloak/blob/main/docs/building.md#starting-keycloak
+#keycloak-run:
+#	@cd ../keycloak && java -Dkc.config.built=true -jar server/target/lib/quarkus-run.jar start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin
+
+run-services: package
 	trap 'kill 0' INT TERM; \
 	(mvn -pl console exec:java) & \
 	wait

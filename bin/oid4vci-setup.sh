@@ -12,6 +12,13 @@ set -euo pipefail
 
 echo "Running setup for target: $TARGET"
 case "$TARGET" in
+  local)
+    echo "Doing local setup..."
+    export KUBE_CONTEXT="rancher-desktop"
+    export AUTH_SERVER_URL="http://localhost:8080"
+    export AUTH_REDIRECT_URI="http://localhost:9000/wallet/auth/callback"
+    export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
+    ;;
   dev)
     echo "Doing development setup..."
     export KUBE_CONTEXT="rancher-desktop"
@@ -112,7 +119,7 @@ if [[ ${bare} == "false" ]]; then
 
   # Fetch a Credential - Authorization Flow ------------------------------------------------------------------------------
   #
-  # credential_id="oid4vc_natural_person"
+  credential_id="oid4vc_natural_person"
   kc_authorization_request "${realm}" "${client_id}" "${credential_id}"
 
   kc_token_request "${realm}" "${client_id}" "${credential_id}"

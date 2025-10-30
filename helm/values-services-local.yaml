@@ -1,0 +1,37 @@
+#
+# helm upgrade --kube-context=rancher-desktop --install nessus-identity ./helm -f ./helm/values-services-local.yaml
+#
+environment: local
+
+# WaltId Services
+#
+waltidWalletApiHost: "waltid-wallet-api.localtest.me"
+waltidDemoWalletHost: "waltid-wallet-demo.localtest.me"
+waltidDevWalletHost: "waltid-wallet-dev.localtest.me"
+
+# Edge Certificate for all public Services
+#
+tlsSecret: edge-tls
+
+deployments:
+
+  # SQL Service
+  #
+  postgres:
+    version: 17.4
+    nodePort: 32543
+
+  # WaltId Services
+  #
+  waltid_wallet_api:
+    image: "waltid-wallet-api"
+    version: 1.0.0-SNAPSHOT
+    pullPolicy: IfNotPresent
+  waltid_demo_wallet:
+    image: "waltid/waltid-demo-wallet"
+    version: latest
+    pullPolicy: Always
+  waltid_dev_wallet:
+    image: "waltid/waltid-dev-wallet"
+    version: latest
+    pullPolicy: Always

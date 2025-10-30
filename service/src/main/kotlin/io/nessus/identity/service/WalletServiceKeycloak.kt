@@ -247,25 +247,32 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         val credConfig = authContext.metadata.credentialConfigurationsSupported[ctype] ?: error("No credential_configurations_supported for: $ctype")
         val format = CredentialFormat.fromValue(credConfig.format) as CredentialFormat
 
-        // Resolve issuer DID
-        val issuerDid = sigJwt.jwtClaimsSet.issuer
-        log.info { "Issuer Did: $issuerDid" }
+        // Resolve issuer
+        val issuerId = sigJwt.jwtClaimsSet.issuer
+        log.info { "IssuerId: $issuerId" }
 
-        // Resolve DID Document locally
-        val key = widDidService.resolveToKey(issuerDid).getOrThrow()
-        val jwk = JWK.parse("${key.exportJWKObject()}")
-        log.info { "Issuer Jwk: $jwk" }
+        // [TODO #331] Verify VC signature when iss is not did:key:*
+        // https://github.com/tdiesler/nessus-identity/issues/331
+        when {
+            issuerId.startsWith("did:key:") -> {
 
-        val ecdsaVerifier = ECDSAVerifier(jwk.toECKey())
-        when (vcJwt) {
-            is VCDataV11Jwt -> {
-                check(sigJwt.verify(ecdsaVerifier)) { "Invalid credential signature" }
-            }
-            is VCDataSdV11Jwt -> {
-                val combined = "${sigJwt.serialize()}"
-                val jwsCompact = combined.substringBefore('~')  // keep only JWS
-                val jwsObj = JWSObject.parse(jwsCompact)
-                check(jwsObj.verify(ecdsaVerifier)) { "Invalid credential signature" }
+                // Resolve DID Document locally
+                val key = widDidService.resolveToKey(issuerId).getOrThrow()
+                val jwk = JWK.parse("${key.exportJWKObject()}")
+                log.info { "Issuer Jwk: $jwk" }
+
+                val ecdsaVerifier = ECDSAVerifier(jwk.toECKey())
+                when (vcJwt) {
+                    is VCDataV11Jwt -> {
+                        check(sigJwt.verify(ecdsaVerifier)) { "Invalid credential signature" }
+                    }
+                    is VCDataSdV11Jwt -> {
+                        val combined = "${sigJwt.serialize()}"
+                        val jwsCompact = combined.substringBefore('~')  // keep only JWS
+                        val jwsObj = JWSObject.parse(jwsCompact)
+                        check(jwsObj.verify(ecdsaVerifier)) { "Invalid credential signature" }
+                    }
+                }
             }
         }
 
@@ -274,7 +281,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
             val now = Date()
             check(notBeforeTime == null || !now.before(notBeforeTime)) { "Credential not yet valid" }
             check(expirationTime == null || !now.after(expirationTime)) { "Credential expired" }
-            check(issuer == issuerDid) { "Issuer mismatch" }
+            check(this.issuer == issuerId) { "Issuer mismatch" }
         }
 
         // Add Credential to WaltId storage
