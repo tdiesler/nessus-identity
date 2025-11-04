@@ -47,7 +47,84 @@ kc_create_realm() {
 
   # Create realm
   #
-  ${KCADM} create realms -s realm="${realm}" -s enabled=true
+
+  user_profile_config=$(jq -c . <<< '{
+    "attributes": [
+      {
+        "name": "username",
+        "displayName": "${username}",
+        "multivalued": false,
+        "permissions": {
+          "view": [ "admin", "user" ],
+          "edit": [ "admin", "user" ]
+        }
+      },
+      {
+        "name": "did",
+        "displayName": "DID",
+        "multivalued": false,
+        "permissions": {
+          "view": [ "admin", "user" ],
+          "edit": [ "admin", "user" ]
+        }
+      },
+      {
+        "name": "email",
+        "displayName": "${email}",
+        "multivalued": false,
+        "permissions": {
+          "view": [ "admin", "user" ],
+          "edit": [ "admin", "user" ]
+        }
+      },
+      {
+        "name": "firstName",
+        "displayName": "${firstName}",
+        "multivalued": false,
+        "permissions": {
+          "view": [ "admin", "user" ],
+          "edit": [ "admin", "user" ]
+        }
+      },
+      {
+        "name": "lastName",
+        "displayName": "${lastName}",
+        "multivalued": false,
+        "permissions": {
+          "view": [ "admin", "user" ],
+          "edit": [ "admin", "user" ]
+        }
+      }
+    ],
+    "groups": [
+      {
+        "name": "user-metadata",
+        "displayHeader": "User metadata",
+        "displayDescription": "Attributes that describe user metadata"
+      }
+    ]
+  }')
+
+  escaped_profile_json=$(printf '%s' "$user_profile_config" | jq -R .)
+
+  ${KCADM} create realms -f - <<-EOF
+  {
+    "realm": "oid4vci",
+    "enabled": true,
+    "components": {
+      "org.keycloak.userprofile.UserProfileProvider": [
+        {
+          "name": "Declarative User Profile",
+          "providerId": "declarative-user-profile",
+          "config": {
+            "kc.user.profile.config": [ ${escaped_profile_json} ]
+          }
+        }
+      ]
+    }
+  }
+EOF
+
   realmId=$(${KCADM} get "realms/${realm}" --fields id --format csv --noquotes)
 
   ## Delete Keys with unwanted algos
@@ -191,6 +268,16 @@ kc_create_oid4vc_identity_credential() {
     },
     "protocolMappers": [
       {
+        "name": "did",
+        "protocol": "oid4vc",
+        "protocolMapper": "oid4vc-user-attribute-mapper",
+        "config": {
+          "claim.name": "id",
+          "userAttribute": "did",
+          "vc.mandatory": "false"
+        }
+      },
+      {
         "name": "firstName",
         "protocol": "oid4vc",
         "protocolMapper": "oid4vc-user-attribute-mapper",
@@ -288,7 +375,8 @@ kc_create_user() {
     echo "User '${userName}' already exists (id=${userId})" >&2
   else
     echo "Creating user '${userName}' with role '${role}' in realm '${realm}'" >&2
-    did=$(jq -r '.did' ".secret/${role}-details.json")
+    user_did=$(jq -r '.did' ".secret/${role}-details.json")
+    echo "${firstName}'s DID: ${user_did}" >&2
     ${KCADM} create users -r "${realm}" \
       -s username="${lowerName}" \
       -s email="${userEmail}" \
@@ -296,9 +384,12 @@ kc_create_user() {
       -s lastName="${lastName}" \
       -s emailVerified=true \
       -s enabled=true \
-      -s "attributes.did=${did}"
+      -s attributes.did="${user_did}"
 
     ${KCADM} set-password -r "${realm}" --username "${lowerName}" --new-password "${userPassword}" --temporary=false
+
+    user_id=$(${KCADM} get users -r "${realm}" -q username="alice" --fields id --format json | jq -r '.[0].id')
+    ${KCADM} get -r "${realm}" "users/${user_id}"
   fi
 }
 

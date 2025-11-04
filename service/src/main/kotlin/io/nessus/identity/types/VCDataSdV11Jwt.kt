@@ -1,12 +1,10 @@
 package io.nessus.identity.types
 
 import io.nessus.identity.service.base64UrlDecode
-import io.nessus.identity.service.base64UrlEncode
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.*
-import kotlin.text.Charsets.UTF_8
 import kotlin.time.Instant
 
 @Serializable
@@ -25,8 +23,10 @@ data class VCDataSdV11Jwt(
     @Serializable(with = TimeInstantSerializer::class)
     val exp: Instant? = null,                   // Expiration
     override val jti: String? = null,           // Token ID
-    val id: String? = null,                     // Credential ID
     val cnf: Confirmation? = null,              // Proof of key possession
+
+    // [TODO] Is this an invalid property?
+    val id: String? = null,                     // Credential ID
 ) : VCDataJwt() {
 
     override val types get() = vct?.let { listOf(vct) } ?: listOf()
@@ -38,38 +38,29 @@ data class VCDataSdV11Jwt(
                 .chunked(2).joinToString("-") { it.joinToString("") }
         }
 
-    val disclosures= mutableListOf<Disclosure>()
+    val disclosures = mutableListOf<Disclosure>()
 
-    fun disclosureToDigests(): List<Pair<Disclosure, String>> = run {
-        return disclosures.map {
-            val json = Json // default config; used only to quote strings
-            val s = json.encodeToString(String.serializer(), it.salt)
-            val c = json.encodeToString(String.serializer(), it.claim)
-            val v = json.encodeToString(String.serializer(), it.value)
-            val payload = "[${s}, ${c}, ${v}]".toByteArray(UTF_8)   // note the spaces after commas
-            val digest = base64UrlEncode(payload)
-            Pair(it, digest)
-        }
-    }
-
-    fun decodeDisclosures(encoded: String): List<Disclosure> {
+    fun decodeDisclosures(encoded: String) {
         val encodedParts = encoded.split("~")
             .drop(1).filter { it.isNotBlank() }
-        disclosures.addAll(encodedParts
-            .map { part ->
-                val arr = Json.decodeFromString<JsonArray>(String(base64UrlDecode(part)))
-                Disclosure(
-                    salt = arr[0].jsonPrimitive.content,
-                    claim = arr[1].jsonPrimitive.content,
-                    value = arr[2].jsonPrimitive.content
-                )
-            })
-        require(encodedParts == disclosureToDigests().map { it.second })
-        return disclosures
+        disclosures.addAll(
+            encodedParts
+                .map { part ->
+                    val decoded = String(base64UrlDecode(part))
+                    val arr = Json.decodeFromString<JsonArray>(decoded)
+                    Disclosure(
+                        decoded = decoded,
+                        salt = arr[0].jsonPrimitive.content,
+                        claim = arr[1].jsonPrimitive.content,
+                        value = arr[2].jsonPrimitive.content
+                    )
+                })
     }
 
     @Serializable
     data class Disclosure(
+        @Transient
+        var decoded: String? = null,
         val salt: String,
         val claim: String,
         val value: String

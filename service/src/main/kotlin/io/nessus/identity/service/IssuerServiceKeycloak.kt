@@ -108,9 +108,10 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
             this.email = email
             this.firstName = firstName
             this.lastName = lastName
-            isEnabled = true
-            isEmailVerified = true
+            this.isEnabled = true
+            this.isEmailVerified = true
         }
+
         keycloakConnect(realm).use { keycloak ->
             val users = keycloak.realm(realm).users()
             val res = users.create(user)

@@ -136,10 +136,11 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
                         SignedJWT.parse(wc.document)
                     } else {
                         val parts = mutableListOf(wc.document.substringBefore("~"))
-                        val claimMap = vcJwt.disclosureToDigests().associate { (disc, digest) -> disc.claim to digest }
+                        val claimMap = vcJwt.disclosures.associateBy { disc -> disc.claim }
                         val digests = claims.map { cl ->
                             require(cl.path.size == 1) { "Invalid path in: $cl" }
-                            claimMap[cl.path[0]] ?: error("No digest for: $cl")
+                            val encoded = claimMap[cl.path[0]]?.decoded ?: error("No digest for: $cl")
+                            base64UrlEncode(encoded.toByteArray())
                         }
                         parts.addAll(digests)
                         SignedJWT.parse(parts.joinToString("~"))

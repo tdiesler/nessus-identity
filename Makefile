@@ -65,8 +65,8 @@ keycloak:
 	@tar xzf ../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT.tar.gz -C ../keycloak/quarkus/dist/target
 
 keycloak-run:
-	@cd ../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT && \
-		./bin/kc.sh start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin
+	@KC_HOME="../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT" && \
+		$${KC_HOME}/bin/kc.sh start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin --log-console-color=false
 
 keycloak-tests:
 	@cd ../keycloak/testsuite/integration-arquillian/tests/base && \
