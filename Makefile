@@ -12,7 +12,7 @@ else ifeq ($(TARGET), dev)
   KUBE_CONTEXT := "rancher-desktop"
 else ifeq ($(TARGET), stage)
   KUBE_CONTEXT := "ebsi"
-  IMAGE_REGISTRY := "registry.vps6c.eu.ebsi:30443/"
+  IMAGE_REGISTRY := "registry.vps4c.eu.ebsi:30443/"
   JIB_PLATFORM_OPTS := "-Djib.from.platforms=linux/amd64"
 else
   $(error Unknown TARGET '$(TARGET)')

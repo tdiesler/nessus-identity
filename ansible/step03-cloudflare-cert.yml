@@ -1,5 +1,5 @@
 #
-# ansible-playbook -i ansible/inventory.yml ansible/step04-cloudflare-cert.yml
+# ansible-playbook -i ansible/inventory.yml ansible/step03-cloudflare-cert.yml
 #
 # https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/
 # SSL/TLS encryption: Full (strict)
@@ -34,7 +34,6 @@
       ansible.builtin.debug:
         var: create_secret
 
-
 # Use the origin-tls secret like this
 #
 #    apiVersion: traefik.io/v1alpha1
@@ -47,7 +46,7 @@
 #      entryPoints:
 #        - websecure
 #      routes:
-#        - match: Host(`who.nessustech.io`)
+#        - match: Host(`who.gridley.io`)
 #          kind: Rule
 #          services:
 #            - name: whoami

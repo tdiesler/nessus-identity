@@ -8,18 +8,18 @@
 
 all:
   vars:
-    K3S_SERVER_IP: 207.180.203.45
-    K3S_HOSTNAME:  vps6c.eu.ebsi
+    K3S_SERVER_NAME: vps4c.eu.ebsi
+    K3S_SERVER_IP: 62.84.179.157
 
     REGISTRY_USER: registry
     REGISTRY_PASSWORD: changeme
-    REGISTRY_PORT: <node-port>
+    REGISTRY_PORT: 30443
 
   children:
     k3s-server:
       hosts:
         server:
           ansible_host: "{{ K3S_SERVER_IP }}"
-          ansible_port: 24936
+          ansible_port: <ssh-port>
           ansible_user: core
           k8s_context: ebsi

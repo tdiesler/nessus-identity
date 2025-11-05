@@ -1,5 +1,5 @@
 #
-# ansible-playbook -i ansible/inventory.yml ansible/step02-k3s-config.yml
+# ansible-playbook -i ansible/inventory.yml ansible/step02-kube-config.yml
 #
 ---
 - name: Install K3S
@@ -18,7 +18,7 @@
 
     - name: Copy kubectl config
       ansible.builtin.shell:
-        cp /etc/rancher/k3s/k3s.yaml /etc/rancher/k3s/k3s-{{ k8s_context }}.yaml
+        cp /etc/rancher/k3s/k3s.yaml /etc/rancher/k3s/k3s-{{ kube_context }}.yaml
       register: copy_kube_config
 
     - name: Copy kubectl config result
@@ -27,16 +27,16 @@
 
     - name: Replace 127.0.0.1 with external IP
       ansible.builtin.shell:
-        sed -i "s/127.0.0.1/{{ external_ip.stdout }}/" /etc/rancher/k3s/k3s-{{ k8s_context }}.yaml
+        sed -i "s/127.0.0.1/{{ external_ip.stdout }}/" /etc/rancher/k3s/k3s-{{ kube_context }}.yaml
       register: replace_ip
 
     - name: Replace 127.0.0.1 result
       ansible.builtin.debug:
         var: replace_ip
 
-    - name: Replace 'default' with {{ k8s_context }}
+    - name: Replace 'default' with {{ kube_context }}
       ansible.builtin.shell:
-        sed -i "s/default/{{ k8s_context }}/" /etc/rancher/k3s/k3s-{{ k8s_context }}.yaml
+        sed -i "s/default/{{ kube_context }}/" /etc/rancher/k3s/k3s-{{ kube_context }}.yaml
       register: replace_default
 
     - name: Replace 'default' result
@@ -45,7 +45,7 @@
 
     - name: Fetch kubectl config from remote server
       fetch:
-        src: /etc/rancher/k3s/k3s-{{ k8s_context }}.yaml
+        src: /etc/rancher/k3s/k3s-{{ kube_context }}.yaml
         dest: "{{ playbook_dir }}/"
         flat: yes
       register: fetch_kube_config
@@ -54,12 +54,12 @@
       local_action:
         module: shell
         cmd: |
-          kubectl config delete-context {{ k8s_context }} || true \
-          && kubectl config delete-cluster {{ k8s_context }} || true \
-          && kubectl config delete-user {{ k8s_context }} || true \
-          && KUBECONFIG=~/.kube/config:{{ playbook_dir }}/k3s-{{ k8s_context }}.yaml \
+          kubectl config delete-context {{ kube_context }} || true \
+          && kubectl config delete-cluster {{ kube_context }} || true \
+          && kubectl config delete-user {{ kube_context }} || true \
+          && KUBECONFIG=~/.kube/config:{{ playbook_dir }}/k3s-{{ kube_context }}.yaml \
             kubectl config view --flatten > {{ playbook_dir }}/merged-config.yaml \
-          && rm {{ playbook_dir }}/k3s-{{ k8s_context }}.yaml \
+          && rm {{ playbook_dir }}/k3s-{{ kube_context }}.yaml \
           && mv merged-config.yaml ~/.kube/config \
           && chmod 600 ~/.kube/config
       register: kubecfg_merge
@@ -69,10 +69,10 @@
       ansible.builtin.debug:
         var: kubecfg_merge
 
-    - name: Use context {{ k8s_context }}
+    - name: Use context {{ kube_context }}
       local_action:
         module: shell
-        cmd: kubectl config use-context {{ k8s_context }}
+        cmd: kubectl config use-context {{ kube_context }}
       register: kubecfg_use
       become: no
 

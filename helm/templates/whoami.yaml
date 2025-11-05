@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: whoami
-          image: {{ .image }}traefik/whoami:{{ .version }}
+          image: {{ .registry }}traefik/whoami:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           args: [ "--port=8080" ]
           ports:
@@ -55,7 +55,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host("{{ $.Values.whoHost }}")
+    - match: Host("{{ .hostName }}")
       kind: Rule
       services:
         - name: whoami

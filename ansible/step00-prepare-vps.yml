@@ -1,0 +1,152 @@
+#
+# ansible-playbook -i ansible/inventory.yml ansible/step00-prepare-vps.yml
+#
+---
+- name: Update/Install packages on nodes
+  hosts: k3s-server
+  vars:
+    user_home: "/home/{{ ansible_user }}"
+  become: yes
+
+  tasks:
+
+    # Hostname ---------------------------------------------------------------------------------------------------------
+
+    - name: Get external IP address
+      ansible.builtin.shell: "curl -s ipinfo.io/ip"
+      register: external_ip
+
+    - name: Disable cloud-init /etc/hosts management
+      ansible.builtin.replace:
+        path: /etc/cloud/cloud.cfg
+        regexp: '^preserve_hostname:\s*false$'
+        replace: |-
+          preserve_hostname: false
+          manage_etc_hosts: false
+      register: disable_cloud_init
+
+    - name: Disable cloud-init /etc/hosts management result
+      ansible.builtin.debug:
+        var: disable_cloud_init
+
+    - name: Disable cloud-init permanently
+      ansible.builtin.file:
+        path: /etc/cloud/cloud-init.disabled
+        state: touch
+      register: disable_cloud_init
+
+    - name: Disable cloud-init permanently result
+      ansible.builtin.debug:
+        var: disable_cloud_init
+
+    - name: Append {{ K3S_SERVER_IP }} to /etc/hosts
+      # Do this on k3s-server and k3s-agent
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ K3S_SERVER_IP }} {{ K3S_SERVER_NAME }} registry.{{ K3S_SERVER_NAME }}"
+        create: yes
+      register: append_etc_host
+
+    - name: Append {{ ansible_fqdn }} result
+      ansible.builtin.debug:
+        var: append_etc_host
+
+    # Install packages -------------------------------------------------------------------------------------------------
+
+    - name: Yum update packages
+      dnf:
+        name: '*'
+        state: latest
+      register: yum_update
+
+    - name: Yum update result
+      ansible.builtin.debug:
+        var: yum_update
+
+    - name: Install packages
+      dnf:
+        name:
+          - buildah
+          - git
+          - httpd-tools
+          - jq
+          - pip
+          - unzip
+        state: present
+      register: yum_install
+
+    - name: Install packages result
+      ansible.builtin.debug:
+        var: yum_install
+
+    - name: Install epel-release
+      dnf:
+        name:
+          - epel-release
+        state: present
+      register: epel_release
+
+    - name: Install epel-release result
+      ansible.builtin.debug:
+        var: epel_release
+
+    # Set timezone -----------------------------------------------------------------------------------------------------
+
+    - name: Set timezone to UTC
+      ansible.builtin.shell: |
+        timedatectl set-local-rtc 0
+        timedatectl set-timezone UTC
+        timedatectl
+      register: timedatectl
+
+    - name: Set timezone result
+      ansible.builtin.debug:
+        var: timedatectl
+
+    # Install htop -----------------------------------------------------------------------------------------------------
+
+    - name: Install htop
+      dnf:
+        name:
+          - htop
+        state: present
+      register: htop_install
+
+    - name: Install htop result
+      ansible.builtin.debug:
+        var: htop_install
+
+    # Install snapd ----------------------------------------------------------------------------------------------------
+
+    - name: Install snapd
+      dnf:
+        name:
+          - snapd
+        state: present
+      register: snap_install
+
+    - name: Install snapd result
+      ansible.builtin.debug:
+        var: snap_install
+
+    - name: Start snapd.socket
+      ansible.builtin.systemd:
+        name: snapd.socket
+        enabled: yes
+        state: started
+      register: snap_start
+
+    - name: Start snapd result
+      ansible.builtin.debug:
+        var: snap_start
+
+    - name: Snap symlink
+      ansible.builtin.command:
+        cmd: ln -s /var/lib/snapd/snap /snap
+      args:
+        creates: /snap
+      register: snap_symlink
+
+    - name: Snap symlink result
+      ansible.builtin.debug:
+        var: snap_symlink

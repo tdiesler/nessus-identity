@@ -1,5 +1,5 @@
 #
-# ansible-playbook -i ansible/inventory.yml ansible/step05-nginx-proxy.yml
+# ansible-playbook -i ansible/inventory.yml ansible/step10-nginx-proxy.yml
 #
 #
 ---

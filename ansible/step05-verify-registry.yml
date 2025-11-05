@@ -1,18 +1,15 @@
 #
-# ansible-playbook -i ansible/inventory.yml ansible/step03-verify-registry.yml
+# ansible-playbook -i ansible/inventory.yml ansible/step05-verify-registry.yml
 #
 ---
 - name: Verify Docker Registry
   hosts: k3s-server
   become: yes
   vars:
-    registry_spec: "registry.{{ K3S_HOSTNAME }}:{{ REGISTRY_PORT }}"
+    registry_spec: "registry.{{ K3S_SERVER_NAME }}:{{ REGISTRY_PORT }}"
+    helm_dir: "{{ playbook_dir }}/../helm"
 
   tasks:
-
-    - name: Get external IP address
-      ansible.builtin.shell: "curl -s ipinfo.io/ip"
-      register: external_ip
 
     # Buildah registry access ------------------------------------------------------------------------------------------
 
@@ -46,49 +43,16 @@
 
     # Whoami Deployment ------------------------------------------------------------------------------------------------
 
-    - name: Create whoami deployment
-      ansible.builtin.copy:
-        content: |
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: whoami
-            labels:
-              app.kubernetes.io/name: whoami
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                app.kubernetes.io/name: whoami
-            template:
-              metadata:
-                labels:
-                  app.kubernetes.io/name: whoami
-              spec:
-                containers:
-                - name: whoami
-                  image: {{ registry_spec }}/traefik/whoami
-                  imagePullPolicy: Always
-                  ports:
-                  - containerPort: 80
-          ---
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: whoami
-          spec:
-            type: NodePort
-            ports:
-              - port: 80
-                nodePort: 30080
-            selector:
-              app.kubernetes.io/name: whoami
-        dest: /tmp/whoami-deployment.yaml
-      register: whoami_yaml
-
-    - name: Apply whoami deployment
+    - name: Apply the whoami deployment
       ansible.builtin.shell: |
-        kubectl apply -f /tmp/whoami-deployment.yaml
+        helm upgrade --install whoami {{ helm_dir }} -f {{ helm_dir }}/values-whoami-stage.yaml
+      become: no
+      delegate_to: localhost
+      register: apply_result
+
+    - name: Apply the whoami deployment results
+      ansible.builtin.debug:
+        var: apply_result
 
     - name: Wait for whoami pod ready
       ansible.builtin.shell: |
@@ -102,7 +66,7 @@
 
     - name: Test whoami access
       ansible.builtin.uri:
-        url: "http://{{ external_ip.stdout }}:30080"
+        url: "https://who.nessustech.io"
         return_content: yes
       register: whoami_response
 

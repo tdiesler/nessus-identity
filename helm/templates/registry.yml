@@ -37,6 +37,12 @@ spec:
               value: "Registry Realm"
             - name: REGISTRY_AUTH_HTPASSWD_PATH
               value: "/auth/htpasswd"
+            - name: REGISTRY_HTTP_READ_TIMEOUT
+              value: "15m"
+            - name: REGISTRY_HTTP_WRITE_TIMEOUT
+              value: "15m"
+            - name: REGISTRY_HTTP_IDLE_TIMEOUT
+              value: "5m"
           volumeMounts:
             - name: registry-tls
               mountPath: /certs
@@ -54,6 +60,7 @@ spec:
           secret:
             secretName: registry-auth
 ---
+
 # Registry Service
 #
 apiVersion: v1
