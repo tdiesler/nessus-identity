@@ -33,7 +33,7 @@ deployments:
   # OAuth Service
   #
   keycloak:
-    version: 26.4
+    version: nightly
     pullPolicy: Always
 
   # Nessus Services
