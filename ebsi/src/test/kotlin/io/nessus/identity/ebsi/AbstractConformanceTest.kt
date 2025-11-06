@@ -5,6 +5,7 @@ import com.microsoft.playwright.BrowserContext
 import com.microsoft.playwright.BrowserType
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.Playwright
+import com.microsoft.playwright.assertions.PlaywrightAssertions
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.common.runBlocking
@@ -84,12 +85,12 @@ open class AbstractConformanceTest {
         return ctx
     }
 
-    fun startNessusServer() {
+    fun startEBSIPortal() {
         embeddedServer = EBSIPortal().create()
         embeddedServer.start(wait = false)
     }
 
-    fun stopNessusServer() {
+    fun stopEBSIPortal() {
         embeddedServer.stop(3000, 5000)
     }
 
@@ -107,6 +108,8 @@ open class AbstractConformanceTest {
 
         context = browser.newContext(Browser.NewContextOptions()
             .setViewportSize(screenWidth / 2, (screenHeight * 0.8).toInt()))
+
+        PlaywrightAssertions.setDefaultAssertionTimeout(10_000.0)
     }
 
     fun stopPlaywrightBrowser() {

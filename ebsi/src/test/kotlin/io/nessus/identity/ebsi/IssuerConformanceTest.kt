@@ -1,24 +1,16 @@
 package io.nessus.identity.ebsi
 
-import io.kotest.common.runBlocking
-import io.kotest.matchers.booleans.shouldBeTrue
-import io.nessus.identity.service.LoginContext
-import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import kotlin.random.Random
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class IssuerConformanceTest : AbstractConformanceTest() {
-
-    // Generates a number between 1000 and 9999
-    val userPin = Random.nextInt(1000, 10000)
+class IssuerConformanceTest : AbstractIssuerConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startNessusServer()
+        startEBSIPortal()
         startPlaywrightBrowser()
         prepareIssuerTests()
     }
@@ -26,7 +18,7 @@ class IssuerConformanceTest : AbstractConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopNessusServer()
+        stopEBSIPortal()
     }
 
     @Test
@@ -119,32 +111,5 @@ class IssuerConformanceTest : AbstractConformanceTest() {
         // Click the "Validate" link
         val validateId = "issue_to_holder_validate_ct_wallet_same_pre_authorised_deferred"
         assertCheckboxResult(page, validateId, "Validate")
-    }
-
-    // Private ---------------------------------------------------------------------------------------------------------
-
-    private fun prepareIssuerTests(): LoginContext {
-
-        val ctx = runBlocking { loginWithDid(Max) }
-        ctx.hasDidInfo.shouldBeTrue()
-
-        val page = context.newPage()
-        page.navigate("https://hub.ebsi.eu/wallet-conformance/issue-to-holder")
-
-        // Issue Verifiable Credentials to Holder -> Start tests
-        page.click("a[href='/wallet-conformance/issue-to-holder/flow']")
-
-        // Enter the did:key
-        page.fill("input[name='did']", ctx.did)
-        log.info { "DID: ${ctx.did}" }
-
-        // Enter the issuerUri
-        page.fill("input[name='clientId']", issuerEndpointUri(ctx))
-        log.info { "IssuerUri: ${issuerEndpointUri(ctx)}" }
-
-        // Click "Continue" button
-        page.click("xpath=//button[@type='submit'][.//span[text()='Continue']]")
-
-        return ctx
     }
 }

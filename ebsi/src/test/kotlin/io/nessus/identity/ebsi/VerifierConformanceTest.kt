@@ -1,20 +1,16 @@
 package io.nessus.identity.ebsi
 
-import io.kotest.common.runBlocking
-import io.kotest.matchers.booleans.shouldBeTrue
-import io.nessus.identity.service.LoginContext
-import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class VerifierConformanceTest : AbstractConformanceTest() {
+class VerifierConformanceTest : AbstractVerifierConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startNessusServer()
+        startEBSIPortal()
         startPlaywrightBrowser()
         prepareVerifierTests()
     }
@@ -22,7 +18,7 @@ class VerifierConformanceTest : AbstractConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopNessusServer()
+        stopEBSIPortal()
     }
 
     @Test
@@ -67,35 +63,6 @@ class VerifierConformanceTest : AbstractConformanceTest() {
         val page = context.pages().last()
         val validateId = "verifier_vp_revoked_vc"
         assertCheckboxResult(page, validateId, "Validate")
-    }
-
-    // Private ---------------------------------------------------------------------------------------------------------
-
-    private fun prepareVerifierTests(): LoginContext {
-
-        val ctx = runBlocking { loginWithDid(Max) }
-        ctx.hasDidInfo.shouldBeTrue()
-
-        val page = context.newPage()
-        page.navigate("https://hub.ebsi.eu/wallet-conformance/verifier")
-
-        // Verifier Conformance Testing -> Start
-        page.click("a[href='/wallet-conformance/verifier/flow']")
-
-        // Enter the authUri
-        page.fill("input[name='clientId']", authEndpointUri(ctx))
-        log.info { "AuthUri: ${authEndpointUri(ctx)}" }
-
-        // Click "Continue" button
-        page.click("xpath=//button[@type='submit'][.//span[text()='Continue']]")
-
-        // Click the collapsible element
-        page.click("#id-token-exchange")
-
-        // Click the collapsible element
-        page.click("#verifiable-presentations")
-
-        return ctx
     }
 }
 

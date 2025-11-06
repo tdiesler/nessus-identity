@@ -18,6 +18,8 @@ abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
         ctx.hasDidInfo.shouldBeTrue()
 
         val page = context.newPage()
+        page.setDefaultTimeout(10_000.0)
+        page.setDefaultNavigationTimeout(10_000.0)
         page.navigate("https://hub.ebsi.eu/wallet-conformance")
 
         // Request and present Verifiable Credentials -> Start tests

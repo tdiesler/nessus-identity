@@ -12,7 +12,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startNessusServer()
+        startEBSIPortal()
         startPlaywrightBrowser()
         prepareWalletTests(false)
     }
@@ -20,7 +20,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopNessusServer()
+        stopEBSIPortal()
     }
 
     @Test
