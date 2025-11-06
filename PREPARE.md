@@ -19,12 +19,6 @@ make images
 Create Postgres username/password secret
 
 ```
-KEYCLOAK_ADMIN_USERNAME="admin"
-KEYCLOAK_ADMIN_PASSWORD="admin"
-
-OID4VCI_SERVICE_ID="oid4vci-service"
-OID4VCI_SERVICE_SECRET="changeme"
-
 POSTGRES_PASSWORD="changeme"
 
 kubectl delete secret postgres-secret --ignore-not-found=true
@@ -36,6 +30,12 @@ kubectl create secret generic postgres-secret \
 Create Keycloak admin/password secret
 
 ```
+KEYCLOAK_ADMIN_USERNAME="admin"
+KEYCLOAK_ADMIN_PASSWORD="admin"
+
+OID4VCI_SERVICE_ID="oid4vci-service"
+OID4VCI_SERVICE_SECRET="changeme"
+
 kubectl delete secret keycloak-secret --ignore-not-found=true
 kubectl create secret generic keycloak-secret \
   --from-literal=ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME} \

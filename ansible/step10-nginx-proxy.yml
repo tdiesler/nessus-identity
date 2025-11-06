@@ -10,8 +10,8 @@
     user_home: "/home/{{ ansible_user }}"
     origin_crt: "{{ user_home }}/.k3s/origin.crt"
     origin_key: "{{ user_home }}/.k3s/origin.key"
+    nginx_domain: proxy.{{ K3S_SERVER_DOMAIN }}
     proxy_pass: "http://localhost:9090"
-    nginx_domain: proxy.nessustech.io
 
   tasks:
 
@@ -67,23 +67,21 @@
         dest: /etc/nginx/conf.d/nessus-proxy.conf
         content: |
           server {
-              listen 8443 ssl;
-              server_name {{ nginx_domain }};
-
-              ssl_certificate     /etc/nginx/certs/origin.crt;
-              ssl_certificate_key /etc/nginx/certs/origin.key;
-
-              ssl_protocols       TLSv1.2 TLSv1.3;
-              ssl_ciphers         HIGH:!aNULL:!MD5;
-
-              location / {
-                  proxy_pass {{ proxy_pass }};
-
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto $scheme;
-              }
+            # SELinux might block this
+            listen 8443 ssl;
+            server_name {{ nginx_domain }};
+        
+            ssl_certificate     /etc/nginx/certs/origin.crt;
+            ssl_certificate_key /etc/nginx/certs/origin.key;
+          
+            location / {
+              proxy_pass {{ proxy_pass }};
+          
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+            }
           }
 
     - name: Enable and start NGINX
@@ -106,3 +104,9 @@
     - name: Print nginx service log
       debug:
         msg: "{{ nginx_service_log.stdout_lines }}"
+
+
+# To test run something on 9090
+#
+# python3 -m http.server 9090 --bind 127.0.0.1
+#

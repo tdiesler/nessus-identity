@@ -28,8 +28,8 @@ deployments:
   # OAuth Service
   #
   keycloak:
-    version: 26.4.2
-    pullPolicy: IfNotPresent
+    version: nightly
+    pullPolicy: Always
 
   # WaltId Services
   #

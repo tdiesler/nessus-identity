@@ -8,6 +8,6 @@ tlsSecret: origin-tls
 deployments:
   whoami:
     version: latest
-    # registry: "registry.nessustech.io/"
+    registry: "registry.nessustech.io/"
     hostName: who.nessustech.io
 

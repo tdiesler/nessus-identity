@@ -26,6 +26,8 @@ spec:
           image: {{ .imagePrefix }}{{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
           env:
+            - name: CONSOLE_AUTO_LOGIN
+              value: "false"
             - name: DATABASE__JDBC_URL
               value: "jdbc:postgresql://postgres:5432/waltid"
             - name: DATABASE__USERNAME

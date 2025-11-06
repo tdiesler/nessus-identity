@@ -12,8 +12,7 @@ Edit the Docker config used by the service:
 sudo vi /etc/docker/daemon.json
 {
   "insecure-registries": [
-    "k3s-registry:30443",
-    "registry.vps4c.eu.ebsi:30443"
+    "registry.nessustech.io"
   ]
 }
 ```

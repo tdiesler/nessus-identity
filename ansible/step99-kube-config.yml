@@ -1,5 +1,5 @@
 #
-# ansible-playbook -i ansible/inventory.yml ansible/step02-kube-config.yml
+# ansible-playbook -i ansible/inventory.yml ansible/step99-kube-config.yml
 #
 ---
 - name: Install K3S

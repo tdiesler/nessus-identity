@@ -2,8 +2,14 @@
 # ansible-playbook -i ansible/inventory.yml ansible/step04-install-registry.yml
 #
 # Note, we have not yet succeeded to put the registry behind Traefik and make it available at registry.nessustech.io
-# Something, closes the connection prematurely on docker push. This could be Cloudflare, Traefik or the Registry itself.
-# The most likely candidate is Cloudflare, and we don't know how to allow for large uploads.
+# Something, closes the connection prematurely on docker push. This could be Cloudflare, Traefik or the Registry itself
+#
+# The current approach uses Traefik TCP passthrough and Cloudflare DNS only and an A record for: registry -> <host-ip>
+# We tried removing the A record and serving the Origin Cert directly from the registry with TCP passthrough.
+# Cloudflare’s orange-cloud mode enforces 100 MB upload size and 100 second timeout on HTTPS connections.
+# The latter causes docker push to fail for layers beyond that limit.
+#
+# Summary: Keep DNS-only mode, self-signed registry-tls, and add it to insecure-registries. It’s minimal and works.
 #
 ---
 - name: Install Docker Registry
@@ -12,7 +18,7 @@
   vars:
     user_home: "/home/{{ ansible_user }}"
     helm_dir: "{{ playbook_dir }}/../helm"
-    registry_spec: "registry.{{ K3S_SERVER_NAME }}:{{ REGISTRY_PORT }}"
+    registry_spec: "registry.{{ K3S_SERVER_DOMAIN }}"
 
   pre_tasks:
     - name: Get external IP address
@@ -42,7 +48,7 @@
         -subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=K3S Registry" \
         -addext "keyUsage = critical, digitalSignature, keyEncipherment" \
         -addext "extendedKeyUsage = serverAuth" \
-        -addext "subjectAltName = DNS:registry.{{ K3S_SERVER_NAME }},IP:{{ external_ip.stdout }}" \
+        -addext "subjectAltName = DNS:registry.{{ K3S_SERVER_DOMAIN }},IP:{{ external_ip.stdout }}" \
         -keyout "{{ user_home }}/.k3s/registry.key" -out "{{ user_home }}/.k3s/registry.crt"
       args:
         creates: "{{ user_home }}/.k3s/registry.crt"
@@ -96,7 +102,7 @@
           mirrors:
             "{{ registry_spec }}":
               endpoint:
-                - "https://{{ K3S_SERVER_IP }}:{{ REGISTRY_PORT }}"
+                - "https://{{ registry_spec }}"
           configs:
             "{{ registry_spec }}":
               auth:

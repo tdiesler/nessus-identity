@@ -6,8 +6,8 @@
   hosts: k3s-server
   become: yes
   vars:
-    registry_spec: "registry.{{ K3S_SERVER_NAME }}:{{ REGISTRY_PORT }}"
     helm_dir: "{{ playbook_dir }}/../helm"
+    registry_spec: "registry.{{ K3S_SERVER_DOMAIN }}"
 
   tasks:
 
@@ -66,7 +66,7 @@
 
     - name: Test whoami access
       ansible.builtin.uri:
-        url: "https://who.nessustech.io"
+        url: https://who.{{ K3S_SERVER_DOMAIN }}
         return_content: yes
       register: whoami_response
 

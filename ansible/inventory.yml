@@ -8,12 +8,12 @@
 
 all:
   vars:
+    K3S_SERVER_DOMAIN: nessustech.io
     K3S_SERVER_NAME: vps4c.eu.ebsi
     K3S_SERVER_IP: 62.84.179.157
 
     REGISTRY_USER: registry
     REGISTRY_PASSWORD: changeme
-    REGISTRY_PORT: 30443
 
   children:
     k3s-server:
@@ -22,4 +22,4 @@ all:
           ansible_host: "{{ K3S_SERVER_IP }}"
           ansible_port: <ssh-port>
           ansible_user: core
-          k8s_context: ebsi
+          kube_context: ebsi

@@ -58,3 +58,12 @@ semanage port -a -t ssh_port_t -p tcp $rnd
 
 systemctl restart sshd
 ```
+
+### Disable SELinux
+
+```
+sed -i "s/^SELINUX=enforcing/SELINUX=disabled/" /etc/selinux/config
+
+# Persistently set the bootloader to boot with selinux=0
+grubby --update-kernel ALL --args selinux=0
+```

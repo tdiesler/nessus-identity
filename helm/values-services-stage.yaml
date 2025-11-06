@@ -39,7 +39,7 @@ deployments:
   # Nessus Services
   #
   console:
-    imagePrefix: "registry.vps4c.eu.ebsi:30443/"
+    imagePrefix: "registry.nessustech.io/"
     image: "nessusio/console"
     version: latest
     pullPolicy: Always
@@ -47,7 +47,7 @@ deployments:
   # WaltId Services
   #
   waltid_wallet_api:
-    imagePrefix: "registry.vps4c.eu.ebsi:30443/"
+    imagePrefix: "registry.nessustech.io/"
     image: "waltid-wallet-api"
     version: 1.0.0-SNAPSHOT
     pullPolicy: Always
