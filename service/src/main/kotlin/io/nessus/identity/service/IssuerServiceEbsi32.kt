@@ -39,7 +39,7 @@ import kotlin.uuid.Uuid
 
 // DefaultIssuerService ================================================================================================
 
-class IssuerServiceEbsi32(issuerUrl: String, val authUrl: String) : AbstractIssuerService<IssuerMetadataDraft11>(issuerUrl) {
+class IssuerServiceEbsi32(val issuerUrl: String, val authUrl: String) : AbstractIssuerService<IssuerMetadataDraft11>() {
 
     /**
      * Creates a CredentialOffer for the given subject and credential types

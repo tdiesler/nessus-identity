@@ -2,7 +2,7 @@ package io.nessus.identity.service
 
 import io.kotest.common.runBlocking
 import io.kotest.matchers.nulls.shouldNotBeNull
-import io.kotest.matchers.string.shouldEndWith
+import io.kotest.matchers.string.shouldContain
 import io.nessus.identity.waltid.Alice
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -40,7 +40,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
         runBlocking {
 
             val metadataUrl = issuerSvc.getIssuerMetadataUrl()
-            metadataUrl.shouldEndWith(".well-known/openid-credential-issuer")
+            metadataUrl.shouldContain("/.well-known/openid-credential-issuer")
 
             val metadata = issuerSvc.getIssuerMetadata()
             metadata.shouldNotBeNull()

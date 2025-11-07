@@ -28,10 +28,10 @@ import kotlin.time.Duration.Companion.minutes
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService<IssuerMetadataV10>(
-        issuerUrl = "${issuerCfg.baseUrl}/realms/${issuerCfg.realm}") {
+class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService<IssuerMetadataV10>() {
 
     val issuerBaseUrl = issuerCfg.baseUrl
+    val issuerUrl = "$issuerBaseUrl/realms/${issuerCfg.realm}"
 
     /**
      * Creates a CredentialOffer for the given subject and credential types
@@ -139,6 +139,11 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
         keycloakConnect(realm).use {
             it.realm(realm).users().delete(userId)
         }
+    }
+
+    override fun getIssuerMetadataUrl(): String {
+        val metadataUrl = "$issuerBaseUrl/.well-known/openid-credential-issuer/realms/${issuerCfg.realm}"
+        return metadataUrl
     }
 
     override suspend fun getIssuerMetadata(): IssuerMetadataV10 {
