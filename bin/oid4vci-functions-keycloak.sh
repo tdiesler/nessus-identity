@@ -190,6 +190,7 @@ EOF
   {
     "realm": "${realm}",
     "enabled": true,
+    "verifiableCredentialsEnabled": true,
     "attributes": {
       "preAuthorizedCodeLifespanS": 120
     }
