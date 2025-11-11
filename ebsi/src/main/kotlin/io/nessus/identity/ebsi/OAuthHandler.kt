@@ -22,7 +22,7 @@ import io.nessus.identity.service.OIDContext.Companion.EBSI32_REQUEST_URI_OBJECT
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.types.TokenRequestV10
+import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.*
 
@@ -252,25 +252,27 @@ object OAuthHandler {
         log.info { "Token Request: ${call.request.uri}" }
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val tokenReq = TokenRequestV10.fromHttpParameters(postParams)
-        val tokenResponse = when (tokenReq) {
-            is TokenRequestV10.AuthorizationCode -> {
+        val tokReq = TokenRequest.fromHttpParameters(postParams)
+        val tokRes = when (tokReq) {
+            is TokenRequest.AuthorizationCode -> {
                 val ctx = OIDCContextRegistry.assert(dstId)
                 val authSvc = AuthServiceEbsi32.create(ctx)
-                authSvc.handleTokenRequestAuthCode(tokenReq)
+                authSvc.handleTokenRequestAuthCode(tokReq)
             }
 
-            is TokenRequestV10.PreAuthorizedCode -> {
+            is TokenRequest.PreAuthorizedCode -> {
                 val ctx = OIDContext(requireLoginContext(dstId))
                 val authSvc = AuthServiceEbsi32.create(ctx)
-                authSvc.handleTokenRequestPreAuthorized(tokenReq)
+                authSvc.handleTokenRequestPreAuthorized(tokReq)
             }
+
+            else -> error("Unsupported grant_type: ${tokReq.grantType}")
         }
 
         call.respondText(
             status = HttpStatusCode.OK,
             contentType = ContentType.Application.Json,
-            text = Json.encodeToString(tokenResponse)
+            text = Json.encodeToString(tokRes)
         )
     }
 }

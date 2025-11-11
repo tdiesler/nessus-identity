@@ -14,10 +14,10 @@ import id.walt.webwallet.db.models.WalletCredential
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.types.AuthorizationRequestV10
-import io.nessus.identity.types.AuthorizationResponseV10
+import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.QueryClaim
+import io.nessus.identity.types.TokenResponseV0
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
@@ -45,7 +45,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
      *
      * https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#section-3
      */
-    suspend fun handleVPTokenRequest(ctx: LoginContext, authReq: AuthorizationRequestV10): AuthorizationResponseV10 {
+    suspend fun handleVPTokenRequest(ctx: LoginContext, authReq: AuthorizationRequest): TokenResponseV0 {
 
         log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(authReq)}" }
 
@@ -107,7 +107,7 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
 
         vpTokenJwt.verifyJwtSignature("VPToken", ctx.didInfo)
 
-        return AuthorizationResponseV10(vpToken, vpSubmission)
+        return TokenResponseV0(vpToken = vpToken, presentationSubmission = vpSubmission)
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -125,11 +125,11 @@ class WalletAuthService(val walletSvc: WalletServiceKeycloak) {
             val dm = DescriptorMapping(
                 // [TODO #1276] Cannot parse WalletCredential document for sd_jwt_dc
                 // https://github.com/walt-id/waltid-identity/issues/1276
-                format = if(wc.format == CredentialFormat.sd_jwt_dc) VCFormat.sd_jwt_vc else VCFormat.valueOf(wc.format.value),
+                format = if (wc.format == CredentialFormat.sd_jwt_dc) VCFormat.sd_jwt_vc else VCFormat.valueOf(wc.format.value),
                 path = "$.vp.verifiableCredential[$n]",
             )
             val vcJwt = VCDataJwt.fromEncoded(wc.document)
-            val sigJwt = when(vcJwt) {
+            val sigJwt = when (vcJwt) {
                 is VCDataV11Jwt -> SignedJWT.parse(wc.document)
                 is VCDataSdV11Jwt -> {
                     if (claims == null || claims.isEmpty()) {

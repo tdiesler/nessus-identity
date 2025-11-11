@@ -55,7 +55,9 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
         */
         runBlocking {
 
-            issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_identity_credential"))
+            // issuerSvc.createCredentialOfferThroughKeycloak("oid4vc_natural_person")
+
+            issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_natural_person"))
 
             assertThrows<IllegalArgumentException> {
                 issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_unknown"))

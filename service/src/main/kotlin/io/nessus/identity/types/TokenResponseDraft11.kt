@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 @Serializable
-data class TokenResponseV10(
+data class TokenResponseDraft11(
 
     @SerialName("token_type")
     val tokenType: String,
@@ -49,8 +49,8 @@ data class TokenResponseV10(
 
     companion object {
         val jsonInst = Json { ignoreUnknownKeys = true}
-        fun fromJson(json: String) = jsonInst.decodeFromString<TokenResponseV10>(json)
-        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<TokenResponseV10>(json)
+        fun fromJson(json: String) = jsonInst.decodeFromString<TokenResponseDraft11>(json)
+        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<TokenResponseDraft11>(json)
     }
 
     @Serializable

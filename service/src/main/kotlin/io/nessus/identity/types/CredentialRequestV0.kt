@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 @Serializable
-data class CredentialRequestV10(
+data class CredentialRequestV0(
     @SerialName("credential_identifier")
     val credentialIdentifier: String? = null,
     @SerialName("credential_configuration_id")

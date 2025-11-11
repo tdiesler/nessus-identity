@@ -41,11 +41,8 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             val vcJwt = walletSvc.getCredentialByType(alice, ctype)
             if (vcJwt == null) {
                 val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
-                val authContext = walletSvc.authContextForCredential(alice, "urn:ietf:wg:oauth:2.0:oob", credOffer)
-                val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-                callbackHandler.getAuthCode(authContext.authRequestUrl).also {
-                    authContext.withAuthCode(it)
-                }
+                walletSvc.authContextForCredential(alice, "urn:ietf:wg:oauth:2.0:oob", credOffer)
+                walletSvc.sendAuthenticationRequest(alice, Alice.username, Alice.password)
                 walletSvc.credentialFromOfferInTime(alice)
             }
 
@@ -70,7 +67,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 """.trimIndent())
             )
 
-            log.info { authReq.toHttpParameters() }
+            log.info { authReq.getParameters() }
 
             val authRes = walletAuthSvc.handleVPTokenRequest(alice, authReq)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
@@ -102,11 +99,8 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             val vcJwt = walletSvc.getCredentialByType(alice, ctype)
             if (vcJwt == null) {
                 val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
-                val authContext = walletSvc.authContextForCredential(alice, "urn:ietf:wg:oauth:2.0:oob", credOffer)
-                val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-                callbackHandler.getAuthCode(authContext.authRequestUrl).also {
-                    authContext.withAuthCode(it)
-                }
+                walletSvc.authContextForCredential(alice, "urn:ietf:wg:oauth:2.0:oob", credOffer)
+                walletSvc.sendAuthenticationRequest(alice, Alice.username, Alice.password)
                 walletSvc.credentialFromOfferInTime(alice)
             }
 
@@ -131,7 +125,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 """.trimIndent())
             )
 
-            log.info { authReq.toHttpParameters() }
+            log.info { authReq.getParameters() }
 
             val authRes = walletAuthSvc.handleVPTokenRequest(alice, authReq)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)

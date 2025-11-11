@@ -26,29 +26,6 @@ class APIException(val id: String, val code: Int, val status: String, message: S
     }
 }
 
-@Suppress("UNCHECKED_CAST")
-suspend inline fun <reified T> handleResponse(res: HttpResponse): T {
-    val body = res.bodyAsText()
-    val json = Json { ignoreUnknownKeys = true }
-    if (res.status.value in 200..<300) {
-        val resVal = if (T::class == HttpResponse::class) {
-            res as T
-        } else if (T::class == String::class) {
-            body as T
-        } else if (T::class == Boolean::class) {
-            when {
-                body.isEmpty() -> true as T
-                else -> body.toBoolean() as T
-            }
-        } else {
-            json.decodeFromString<T>(body)
-        }
-        return resVal
-    }
-    val err = json.decodeFromString<ErrorResponse>(body)
-    throw APIException(err)
-}
-
 // WaltIDApiClient =====================================================================================================
 
 class WaltIDApiClient(val baseUrl: String) {
@@ -221,6 +198,29 @@ class WaltIDApiClient(val baseUrl: String) {
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
+
+    @Suppress("UNCHECKED_CAST")
+    private suspend inline fun <reified T> handleResponse(res: HttpResponse): T {
+        val body = res.bodyAsText()
+        val json = Json { ignoreUnknownKeys = true }
+        if (res.status.value in 200..<300) {
+            val resVal = if (T::class == HttpResponse::class) {
+                res as T
+            } else if (T::class == String::class) {
+                body as T
+            } else if (T::class == Boolean::class) {
+                when {
+                    body.isEmpty() -> true as T
+                    else -> body.toBoolean() as T
+                }
+            } else {
+                json.decodeFromString<T>(body)
+            }
+            return resVal
+        }
+        val err = json.decodeFromString<ErrorResponse>(body)
+        throw APIException(err)
+    }
 }
 
 // Authentication --------------------------------------------------------------------------------------------------

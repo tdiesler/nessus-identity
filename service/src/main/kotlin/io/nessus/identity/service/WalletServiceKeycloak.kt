@@ -17,14 +17,14 @@ import io.ktor.http.*
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
-import io.nessus.identity.types.AuthorizationRequestV10
-import io.nessus.identity.types.AuthorizationRequestV10Builder
+import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.CredentialOfferV10
-import io.nessus.identity.types.CredentialRequestV10
-import io.nessus.identity.types.CredentialResponseV10
+import io.nessus.identity.types.CredentialRequestV0
+import io.nessus.identity.types.CredentialResponseV0
 import io.nessus.identity.types.IssuerMetadataV10
-import io.nessus.identity.types.TokenRequestV10
-import io.nessus.identity.types.TokenResponseV10
+import io.nessus.identity.types.TokenRequest
+import io.nessus.identity.types.TokenResponseV0
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
 import io.nessus.identity.types.VCDataV11Jwt
@@ -69,6 +69,21 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         return authContext
     }
 
+    fun sendAuthenticationRequest(ctx: LoginContext, username: String, password: String): String {
+
+        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
+
+        val authReq = authContext.authRequest
+        val authEndpointUrl = authContext.authEndpointUrl
+
+        val authCode = OAuthClient()
+            .withLoginCredentials(username, password)
+            .sendAuthorizationRequest(authEndpointUrl, authReq)
+
+        authContext.authCode = authCode
+        return authCode
+    }
+
     /**
      * Holder gets a Credential from an Issuer based on a CredentialOffer
      * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
@@ -80,12 +95,12 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
         // Holder sends a TokenRequest to obtain an AccessToken
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-token-request
-        val tokenRes = sendTokenRequest(authContext)
-        log.info { "AccessToken: ${tokenRes.accessToken}" }
+        val tokRes = sendTokenRequest(authContext)
+        log.info { "AccessToken: ${tokRes.accessToken}" }
 
         // Holder sends a CredentialRequest
         //
-        val credRes = sendCredentialRequest(ctx, credOffer, tokenRes)
+        val credRes = sendCredentialRequest(ctx, credOffer, tokRes)
 
         val vcJwt = validateAndStoreCredential(ctx, credRes)
 
@@ -98,9 +113,9 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         redirectUri: String,
         credOffer: CredentialOfferV10,
         codeVerifier: String? = null
-    ): AuthorizationRequestV10 {
+    ): AuthorizationRequest {
 
-        val builder = AuthorizationRequestV10Builder()
+        val builder = AuthorizationRequestBuilder()
             .withRedirectUri(redirectUri)
             .withClientId(clientId)
 
@@ -113,48 +128,32 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         return authReq
     }
 
-    private suspend fun sendTokenRequest(authContext: AuthorizationContext): TokenResponseV10 {
+    private suspend fun sendTokenRequest(authContext: AuthorizationContext): TokenResponseV0 {
 
         val authReq = authContext.authRequest
-        val metadata = authContext.metadata
+        val metadata = authContext.issuerMetadata
         val authCode = authContext.authCode ?: error("No Auth Code")
         val codeVerifier = authContext.codeVerifier ?: error("No Code Verifier")
 
         val tokenEndpointUrl = metadata.getAuthorizationTokenEndpoint()
 
-        val tokenReq = TokenRequestV10.AuthorizationCode(
+        val tokReq = TokenRequest.AuthorizationCode(
             clientId = clientId,
             redirectUri = authReq.redirectUri,
             codeVerifier = codeVerifier,
             code = authCode
         )
 
-        val res = http.post(tokenEndpointUrl) {
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody(
-                Parameters.build {
-                    append("grant_type", "authorization_code")
-                    append("client_id", tokenReq.clientId)
-                    append("code", tokenReq.code)
-                    append("redirect_uri", tokenReq.redirectUri!!)
-                    append("code_verifier", tokenReq.codeVerifier!!) // when using PKCE
-                }.formUrlEncode()
-            )
-        }
-        val tokenResJson = res.bodyAsText()
-        log.info { "TokenResponse: $tokenResJson" }
-        if (res.status != HttpStatusCode.OK)
-            throw HttpStatusException(res.status, tokenResJson)
-
-        val tokenRes = TokenResponseV10.fromJson(tokenResJson)
-        return tokenRes
+        val tokRes = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokReq)
+        log.info { "TokenResponse: ${tokRes.toJson()}" }
+        return tokRes
     }
 
     private suspend fun sendCredentialRequest(
         ctx: LoginContext,
         credOffer: CredentialOfferV10,
-        tokenRes: TokenResponseV10
-    ): CredentialResponseV10 {
+        tokenRes: TokenResponseV0
+    ): CredentialResponseV0 {
 
         val metadata: IssuerMetadataV10 = credOffer.resolveIssuerMetadata()
 
@@ -193,9 +192,9 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         log.info { "ProofHeader: ${proofJwt.header}" }
         log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
 
-        val credReq = CredentialRequestV10(
+        val credReq = CredentialRequestV0(
             credentialConfigurationId = ctype,
-            proofs = CredentialRequestV10.Proofs(jwt = listOf(proofJwt.serialize()))
+            proofs = CredentialRequestV0.Proofs(jwt = listOf(proofJwt.serialize()))
         )
 
         log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
@@ -210,14 +209,14 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
             throw HttpStatusException(res.status, credResJson)
 
         log.info { "CredentialResponse: $credResJson" }
-        val credRes = CredentialResponseV10.fromJson(credResJson)
+        val credRes = CredentialResponseV0.fromJson(credResJson)
 
         return credRes
     }
 
     private suspend fun validateAndStoreCredential(
         ctx: LoginContext,
-        credRes: CredentialResponseV10
+        credRes: CredentialResponseV0
     ): VCDataJwt {
 
         // Extract the VerifiableCredentials from the CredentialResponse
@@ -244,7 +243,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
             }
         }
         val authContext = ctx.removeAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) as AuthorizationContext
-        val credConfig = authContext.metadata.credentialConfigurationsSupported[ctype] ?: error("No credential_configurations_supported for: $ctype")
+        val credConfig = authContext.issuerMetadata.credentialConfigurationsSupported[ctype] ?: error("No credential_configurations_supported for: $ctype")
         val format = CredentialFormat.fromValue(credConfig.format) as CredentialFormat
 
         // Resolve issuer

@@ -18,7 +18,7 @@ import io.nessus.identity.service.WalletAuthService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.types.AuthorizationRequestV10
+import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
@@ -85,7 +85,7 @@ class WalletHandler() {
     suspend fun handleAuthCallback(call: RoutingCall, ctx: LoginContext) {
         val authContext = ctx.getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) as AuthorizationContext
         call.parameters["code"]?.also {
-            authContext.withAuthCode(it)
+            authContext.authCode = it
             log.info { "AuthCode: $it" }
         } ?: error("No code")
         val vcJwt = walletSvc.credentialFromOfferInTime(ctx)
@@ -117,9 +117,11 @@ class WalletHandler() {
 
         val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
         val authContext = walletSvc.authContextForCredential(ctx, redirectUri, credOffer)
-        val authRequestUrl = authContext.authRequestUrl
+        val authEndpointUrl = authContext.issuerMetadata.getAuthorizationAuthEndpoint()
+        val authRequestUrl = authContext.authRequest.getAuthorizationRequestUrl(authEndpointUrl)
+
         log.info { "AuthRequestUrl: $authRequestUrl" }
-        call.respondRedirect("$authRequestUrl")
+        call.respondRedirect(authRequestUrl)
     }
 
     suspend fun handleCredentialOfferAdd(call: RoutingCall, targetId: String) {
@@ -227,7 +229,7 @@ class WalletHandler() {
     private suspend fun handleAuthVPTokenRequest(call: RoutingCall, ctx: LoginContext) {
 
         val httpParams = urlQueryToMap(call.request.uri)
-        val authReq = AuthorizationRequestV10.fromHttpParameters(httpParams)
+        val authReq = AuthorizationRequest.fromHttpParameters(httpParams)
         ctx.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authReq)
 
         call.respondRedirect("/wallet/auth/flow/vp-token-consent?state=ask")
@@ -237,7 +239,7 @@ class WalletHandler() {
 
         when (val state = call.parameters["state"]) {
             "ask" -> run {
-                val authReq = ctx.getAttachment(AUTH_REQUEST_ATTACHMENT_KEY) as AuthorizationRequestV10
+                val authReq = ctx.getAttachment(AUTH_REQUEST_ATTACHMENT_KEY) as AuthorizationRequest
                 val model = walletModel(call).also {
                     it["dcqlQuery"] = jsonPretty.encodeToString(authReq.dcqlQuery!!.toJsonObj())
                 }
@@ -246,7 +248,7 @@ class WalletHandler() {
                 )
             }
             "accept" -> run {
-                val authReq = ctx.removeAttachment(AUTH_REQUEST_ATTACHMENT_KEY) as AuthorizationRequestV10
+                val authReq = ctx.removeAttachment(AUTH_REQUEST_ATTACHMENT_KEY) as AuthorizationRequest
                 val authRes = walletAuthSvc.handleVPTokenRequest(ctx, authReq)
                 when (authReq.responseMode) {
                     "direct_post" -> run {

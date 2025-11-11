@@ -1,34 +1,23 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.types.AuthorizationRequestV10
+import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.IssuerMetadataV10
-import java.net.URI
 
 // AuthorizationContext ===============================================================================================
 
 class AuthorizationContext {
 
-    lateinit var authRequest: AuthorizationRequestV10
-    lateinit var metadata: IssuerMetadataV10
+    lateinit var authRequest: AuthorizationRequest
+    lateinit var issuerMetadata: IssuerMetadataV10
 
     var authCode: String? = null
     var codeVerifier: String? = null
     var credOffer: CredentialOfferV10? = null
 
-    val authEndpointUrl get() = metadata.getAuthorizationAuthEndpoint()
+    val authEndpointUrl get() = issuerMetadata.getAuthorizationAuthEndpoint()
 
-    val authRequestUrl get() = run {
-        val authRequestParams = authRequest.toHttpParameters()
-        URI("${authEndpointUrl}?$authRequestParams")
-    }
-
-    fun withAuthCode(authCode: String): AuthorizationContext {
-        this.authCode = authCode
-        return this
-    }
-
-    fun withAuthorizationRequest(authRequest: AuthorizationRequestV10): AuthorizationContext {
+    fun withAuthorizationRequest(authRequest: AuthorizationRequest): AuthorizationContext {
         this.authRequest = authRequest
         return this
     }
@@ -44,7 +33,7 @@ class AuthorizationContext {
     }
 
     fun withIssuerMetadata(metadata: IssuerMetadataV10): AuthorizationContext {
-        this.metadata = metadata
+        this.issuerMetadata = metadata
         return this
     }
 }

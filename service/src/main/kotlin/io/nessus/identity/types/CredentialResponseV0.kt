@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 @Serializable
-data class CredentialResponseV10(
+data class CredentialResponseV0(
     @SerialName("credentials")
     val credentials: List<IssuedCredential>? = null,
     @SerialName("transaction_id")
@@ -21,8 +21,8 @@ data class CredentialResponseV10(
 
     companion object {
         val jsonInst = Json { ignoreUnknownKeys = true}
-        fun fromJson(json: String) = jsonInst.decodeFromString<CredentialResponseV10>(json)
-        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<CredentialResponseV10>(json)
+        fun fromJson(json: String) = jsonInst.decodeFromString<CredentialResponseV0>(json)
+        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<CredentialResponseV0>(json)
     }
 
     @Serializable

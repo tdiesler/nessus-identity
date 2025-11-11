@@ -13,8 +13,8 @@ import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_RESPONSE_ATTACHMENT_KEY
 import io.nessus.identity.service.VerifierService
-import io.nessus.identity.types.AuthorizationResponseV10
 import io.nessus.identity.types.DCQLQuery
+import io.nessus.identity.types.TokenResponseV0
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.waltid.LoginParams
@@ -68,7 +68,8 @@ class VerifierHandler() {
 
     suspend fun handleVerifierCallback(call: RoutingCall, ctx: LoginContext) {
 
-        val authRes = ctx.getAttachment(AUTH_RESPONSE_ATTACHMENT_KEY) as AuthorizationResponseV10
+        val authRes = ctx.getAttachment(AUTH_RESPONSE_ATTACHMENT_KEY) as TokenResponseV0
+        val vpSubmission = authRes.presentationSubmission ?: error("No presentation_submission")
 
         val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
         val headerObj = Json.decodeFromString<JsonObject>("${vpTokenJwt.header}")
@@ -77,7 +78,7 @@ class VerifierHandler() {
         val model = verifierModel(call)
         model["vpTokenHeader"] = jsonPretty.encodeToString(headerObj)
         model["vpTokenClaims"] = jsonPretty.encodeToString(claimsObj)
-        model["submissionJson"] = jsonPretty.encodeToString(authRes.presentationSubmission.toJSON())
+        model["submissionJson"] = jsonPretty.encodeToString(vpSubmission.toJSON())
 
         val vpObj = claimsObj.getValue("vp").jsonObject
         val credsArr = vpObj.getValue("verifiableCredential").jsonArray
@@ -103,7 +104,7 @@ class VerifierHandler() {
             error("Multiple Verifier LoginContexts")
 
         val authResJson = call.receiveText()
-        val authRes = AuthorizationResponseV10.fromJson(authResJson)
+        val authRes = TokenResponseV0.fromJson(authResJson)
         verifierContexts[0].putAttachment(AUTH_RESPONSE_ATTACHMENT_KEY, authRes)
 
         // If the Response URI has successfully processed the Authorization Response or Authorization Error Response,
@@ -145,7 +146,7 @@ class VerifierHandler() {
         )
 
         val walletAuthUrl = requireWalletConfig().authUrl
-        val redirectUrl = "$walletAuthUrl?${authReq.toHttpParameters()}"
+        val redirectUrl = authReq.getAuthorizationRequestUrl(walletAuthUrl)
 
         log.info { redirectUrl }
         call.respondRedirect(redirectUrl)

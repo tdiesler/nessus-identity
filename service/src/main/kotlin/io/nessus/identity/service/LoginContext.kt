@@ -1,7 +1,7 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.types.AuthorizationRequestV10
-import io.nessus.identity.types.AuthorizationResponseV10
+import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.TokenResponseV0
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.DidInfo
@@ -33,8 +33,8 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
     companion object {
 
         val AUTH_CONTEXT_ATTACHMENT_KEY = attachmentKey<AuthorizationContext>()
-        val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestV10>()
-        val AUTH_RESPONSE_ATTACHMENT_KEY = attachmentKey<AuthorizationResponseV10>()
+        val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequest>()
+        val AUTH_RESPONSE_ATTACHMENT_KEY = attachmentKey<TokenResponseV0>()
         val AUTH_TOKEN_ATTACHMENT_KEY = attachmentKey<String>("AUTH_TOKEN")
         val WALLET_INFO_ATTACHMENT_KEY = attachmentKey<WalletInfo>()
         val DID_INFO_ATTACHMENT_KEY = attachmentKey<DidInfo>()

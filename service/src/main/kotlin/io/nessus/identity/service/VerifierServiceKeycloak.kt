@@ -1,7 +1,7 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.types.AuthorizationRequestV10
-import io.nessus.identity.types.AuthorizationRequestV10Builder
+import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.DCQLQuery
 
 // VerifierService =====================================================================================================
@@ -17,9 +17,9 @@ class VerifierServiceKeycloak : AbstractVerifierService() {
         dcql: DCQLQuery,
         redirectUri: String? = null,
         responseUri: String? = null,
-    ): AuthorizationRequestV10 {
+    ): AuthorizationRequest {
 
-        val builder = AuthorizationRequestV10Builder()
+        val builder = AuthorizationRequestBuilder()
             .withResponseType("vp_token")
             .withClientId(clientId)
             .withDCQLAssertion(dcql)

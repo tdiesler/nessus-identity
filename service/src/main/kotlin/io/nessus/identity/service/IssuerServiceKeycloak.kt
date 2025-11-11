@@ -4,13 +4,17 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.PlainJWT
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
+import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.CredentialOfferV10
 import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataV10
 import io.nessus.identity.types.PreAuthorizedCodeGrant
+import io.nessus.identity.types.TokenRequest
+import jakarta.ws.rs.core.HttpHeaders
 import org.keycloak.OAuth2Constants
 import org.keycloak.admin.client.Keycloak
 import org.keycloak.admin.client.KeycloakBuilder
@@ -32,6 +36,43 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
 
     val issuerBaseUrl = issuerCfg.baseUrl
     val issuerUrl = "$issuerBaseUrl/realms/${issuerCfg.realm}"
+
+    /**
+     * Creates a CredentialOffer for the given credential configuration id
+     */
+    suspend fun createCredentialOfferThroughKeycloak(
+        credConfigId: String,
+    ): CredentialOfferV10 {
+
+        val metadata = getIssuerMetadata()
+        val supportedTypes = metadata.supportedTypes
+
+        require(credConfigId in supportedTypes) { "UnsupportedType: $credConfigId" }
+
+        val cfg = requireIssuerConfig()
+        val issMetadata = getIssuerMetadata()
+
+        val tokReq = TokenRequest.ClientCredentials(
+            clientId = cfg.serviceId,
+            clientSecret = cfg.serviceSecret,
+            scopes = listOf(credConfigId),
+        )
+
+        val tokenEndpointUri = issMetadata.getAuthorizationTokenEndpoint()
+        val tokRes = OAuthClient().sendTokenRequest(tokenEndpointUri, tokReq)
+
+        val credentialOfferUrl = "$issuerUrl/credential-offer-uri"
+        val apiRes = http.get(credentialOfferUrl) {
+            header(HttpHeaders.AUTHORIZATION, "Bearer ${tokRes.accessToken}")
+            url {
+                parameter("credential_configuration_id", credConfigId)
+            }
+        }
+        val credOffer = handleApiResponse(apiRes) as CredentialOfferV10
+
+        log.info { "Issued CredentialOffer: ${credOffer.toJson()}" }
+        return credOffer
+    }
 
     /**
      * Creates a CredentialOffer for the given subject and credential types

@@ -4,7 +4,28 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-sealed class TokenRequestV10 {
+enum class GrantType(val value: String) {
+
+    @SerialName("authorization_code")
+    AUTHORIZATION_CODE("authorization_code"),
+
+    @SerialName("urn:ietf:params:oauth:grant-type:pre-authorized_code")
+    PRE_AUTHORIZED_CODE("urn:ietf:params:oauth:grant-type:pre-authorized_code"),
+
+    @SerialName("client_credentials")
+    CLIENT_CREDENTIALS("client_credentials"),
+
+    @SerialName("refresh_token")
+    REFRESH_TOKEN("refresh_token");
+
+    companion object {
+        fun fromValue(value: String): GrantType? =
+            entries.find { it.value == value }
+    }
+}
+
+@Serializable
+sealed class TokenRequest {
 
     abstract val grantType: GrantType
     abstract val clientId: String?
@@ -13,10 +34,10 @@ sealed class TokenRequestV10 {
     /** Each subclass must expose its own field map for form encoding */
     abstract fun specificParameters(): Map<String, List<String>>
 
-    fun toHttpParameters(): Map<String, List<String>> {
+    fun getParameters(): Map<String, List<String>> {
         return buildMap {
             put("grant_type", listOf(grantType.value))
-            clientId?.let { put("client_id", listOf(it)) }
+            clientId?.also { put("client_id", listOf(it)) }
             putAll(specificParameters())
             putAll(extras)
         }
@@ -24,48 +45,40 @@ sealed class TokenRequestV10 {
 
     companion object {
         private val knownKeys = setOf(
-            "grant_type", "client_id", "redirect_uri", "code", "pre-authorized_code", "tx_code", "code_verifier"
+            "client_id", 
+            "client_secret",
+            "code",
+            "code_verifier",
+            "grant_type",
+            "pre-authorized_code",
+            "redirect_uri", 
+            "tx_code"
         )
 
-        fun fromHttpParameters(parameters: Map<String, List<String>>): TokenRequestV10 {
+        fun fromHttpParameters(parameters: Map<String, List<String>>): TokenRequest {
             val grantType = parameters["grant_type"]!!.first().let { GrantType.fromValue(it)!! }
             val extras = parameters.filterKeys { !knownKeys.contains(it) }
 
             return when (grantType) {
                 GrantType.AUTHORIZATION_CODE -> AuthorizationCode(
                     clientId = parameters["client_id"]?.firstOrNull()
-                        ?: throw IllegalArgumentException("Missing 'client_id' for Authorization Code flow."),
+                        ?: error("Missing 'client_id' for Authorization Code flow."),
                     code = parameters["code"]?.firstOrNull()
-                        ?: throw IllegalArgumentException("Missing 'code' for Authorization Code flow."),
+                        ?: error("Missing 'code' for Authorization Code flow."),
                     redirectUri = parameters["redirect_uri"]?.firstOrNull(),
                     codeVerifier = parameters["code_verifier"]?.firstOrNull(),
                     extras = extras
                 )
-
                 GrantType.PRE_AUTHORIZED_CODE -> PreAuthorizedCode(
                     preAuthorizedCode = parameters["pre-authorized_code"]?.firstOrNull()
-                        ?: throw IllegalArgumentException("Missing 'pre-authorized_code' for Pre-Authorized flow."),
+                        ?: error("Missing 'pre-authorized_code' for Pre-Authorized flow."),
                     txCode = parameters["tx_code"]?.firstOrNull(),
                     userPin = parameters["user_pin"]?.firstOrNull(),
                     clientId = parameters["client_id"]?.firstOrNull(),
                     extras = extras
                 )
+                else -> error("Unsupported grant_type: $grantType")
             }
-        }
-    }
-
-    @Serializable
-    enum class GrantType(val value: String) {
-
-        @SerialName("authorization_code")
-        AUTHORIZATION_CODE("authorization_code"),
-
-        @SerialName("urn:ietf:params:oauth:grant-type:pre-authorized_code")
-        PRE_AUTHORIZED_CODE("urn:ietf:params:oauth:grant-type:pre-authorized_code");
-
-        companion object {
-            fun fromValue(value: String): GrantType? =
-                entries.find { it.value == value }
         }
     }
 
@@ -79,7 +92,7 @@ sealed class TokenRequestV10 {
         @SerialName("code_verifier")
         val codeVerifier: String? = null,
         override val extras: Map<String, List<String>> = emptyMap()
-    ) : TokenRequestV10() {
+    ) : TokenRequest() {
         override val grantType = GrantType.AUTHORIZATION_CODE
 
         override fun specificParameters(): Map<String, List<String>> = buildMap {
@@ -100,13 +113,29 @@ sealed class TokenRequestV10 {
         @SerialName("client_id")
         override val clientId: String? = null,
         override val extras: Map<String, List<String>> = emptyMap()
-    ) : TokenRequestV10() {
+    ) : TokenRequest() {
         override val grantType = GrantType.PRE_AUTHORIZED_CODE
-
         override fun specificParameters(): Map<String, List<String>> = buildMap {
             put("pre-authorized_code", listOf(preAuthorizedCode))
             txCode?.let { put("tx_code", listOf(it)) }
             userPin?.let { put("user_pin", listOf(it)) }
+        }
+    }
+
+    @Serializable
+    data class ClientCredentials(
+        @SerialName("client_id")
+        override val clientId: String,
+        @SerialName("client_secret")
+        val clientSecret: String,
+        @SerialName("scopes")
+        val scopes: List<String>? = null,
+        override val extras: Map<String, List<String>> = emptyMap()
+    ) : TokenRequest() {
+        override val grantType = GrantType.CLIENT_CREDENTIALS
+        override fun specificParameters(): Map<String, List<String>> = buildMap {
+            put("client_secret", listOf(clientSecret))
+            scopes?.also { put("scope", listOf(scopes.joinToString(" "))) }
         }
     }
 }

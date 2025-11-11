@@ -39,8 +39,8 @@ import io.nessus.identity.service.OIDContext.Companion.EBSI32_REQUEST_URI_OBJECT
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
-import io.nessus.identity.types.TokenRequestV10
-import io.nessus.identity.types.TokenResponseV10
+import io.nessus.identity.types.TokenRequest
+import io.nessus.identity.types.TokenResponseDraft11
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import io.nessus.identity.waltid.authenticationId
@@ -71,7 +71,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
     suspend fun createCredentialRequest(
         ctx: OIDContext,
         types: List<String>,
-        accessToken: TokenResponseV10
+        accessToken: TokenResponseDraft11
     ): CredentialRequest {
 
         val cNonce = accessToken.cNonce
@@ -275,9 +275,9 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
     fun createTokenRequestAuthCode(
         ctx: OIDContext,
         authCode: String
-    ): TokenRequestV10 {
+    ): TokenRequest {
 
-        val tokenRequest = TokenRequestV10.AuthorizationCode(
+        val tokenRequest = TokenRequest.AuthorizationCode(
             clientId = ctx.did,
             redirectUri = ctx.authRequest.redirectUri,
             codeVerifier = ctx.authRequestCodeVerifier,
@@ -290,12 +290,12 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
         ctx: OIDContext,
         credOffer: CredentialOfferDraft11,
         userPin: String
-    ): TokenRequestV10 {
+    ): TokenRequest {
 
         val preAuthCode = credOffer.getPreAuthorizedCodeGrant()?.preAuthorizedCode
             ?: throw IllegalStateException("No pre-authorized code")
 
-        val tokenRequest = TokenRequestV10.PreAuthorizedCode(
+        val tokenRequest = TokenRequest.PreAuthorizedCode(
             clientId = ctx.did,
             preAuthorizedCode = preAuthCode,
             userPin = userPin
@@ -592,15 +592,15 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
 
     suspend fun sendTokenRequestAuthCode(
         ctx: OIDContext,
-        tokenReq: TokenRequestV10
-    ): TokenResponseV10 {
+        tokenReq: TokenRequest
+    ): TokenResponseDraft11 {
 
         val tokenReqUrl = "${ctx.authorizationServer}/token"
 
         log.info { "Send Token Request $tokenReqUrl" }
         log.info { "  $tokenReq" } // AuthorizationCode is not @Serializable
 
-        val formData = tokenReq.toHttpParameters()
+        val formData = tokenReq.getParameters()
         val res = http.post(tokenReqUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
             setBody(FormDataContent(Parameters.build {
@@ -613,7 +613,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
 
         val tokenResJson = res.bodyAsText()
         log.info { "Token Response: $tokenResJson" }
-        val tokenRes = TokenResponseV10.fromJson(tokenResJson)
+        val tokenRes = TokenResponseDraft11.fromJson(tokenResJson)
 
         val accessTokenJwt = SignedJWT.parse(tokenRes.accessToken)
         ctx.putAttachment(EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
@@ -623,11 +623,11 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
 
     suspend fun sendTokenRequestPreAuthorized(
         ctx: OIDContext,
-        tokenRequest: TokenRequestV10
-    ): TokenResponseV10 {
+        tokenRequest: TokenRequest
+    ): TokenResponseDraft11 {
 
         val tokenReqUrl = "${ctx.authorizationServer}/token"
-        val formData = tokenRequest.toHttpParameters()
+        val formData = tokenRequest.getParameters()
 
         log.info { "Send TokenRequest $tokenReqUrl" }
         formData.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
@@ -644,7 +644,7 @@ class WalletServiceEbsi32() : AbstractWalletService<CredentialOfferDraft11>() {
 
         val tokenResJson = res.bodyAsText()
         log.info { "Token Response: $tokenResJson" }
-        val tokenRes = TokenResponseV10.fromJson(tokenResJson)
+        val tokenRes = TokenResponseDraft11.fromJson(tokenResJson)
 
         val accessToken = SignedJWT.parse(tokenRes.accessToken)
         ctx.putAttachment(EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY, accessToken)

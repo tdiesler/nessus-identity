@@ -47,13 +47,8 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
             credOffer.filteredConfigurationIds shouldContain ctype
 
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
-            val authContext = walletSvc.authContextForCredential(alice, redirectUri, credOffer)
-
-            val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-            val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
-
-            // After successful authorization, we also inject the WaltId LoginContext
-            authContext.withAuthCode(authCode)
+            walletSvc.authContextForCredential(alice, redirectUri, credOffer)
+            walletSvc.sendAuthenticationRequest(alice, Alice.username, Alice.password)
 
             val vcJwt = walletSvc.credentialFromOfferInTime(alice) as VCDataV11Jwt
             vcJwt.types shouldBeEqual credOffer.credentialConfigurationIds
@@ -86,13 +81,8 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
             credOffer.filteredConfigurationIds shouldContain ctype
 
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
-            val authContext = walletSvc.authContextForCredential(alice, redirectUri, credOffer)
-
-            val callbackHandler = PlaywrightAuthCallbackHandler(Alice.username, Alice.password)
-            val authCode = callbackHandler.getAuthCode(authContext.authRequestUrl)
-
-            // After successful authorization, we also inject the WaltId LoginContext
-            authContext.withAuthCode(authCode)
+            walletSvc.authContextForCredential(alice, redirectUri, credOffer)
+            walletSvc.sendAuthenticationRequest(alice, Alice.username, Alice.password)
 
             val vcJwt = walletSvc.credentialFromOfferInTime(alice) as VCDataSdV11Jwt
             vcJwt.types shouldBeEqual credOffer.credentialConfigurationIds
