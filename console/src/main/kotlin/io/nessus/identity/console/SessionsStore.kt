@@ -3,14 +3,13 @@ package io.nessus.identity.console
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.urlDecode
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.LoginParams
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.*
-import java.net.URLDecoder
-import kotlin.text.Charsets.UTF_8
 
 object SessionsStore {
 
@@ -57,10 +56,9 @@ object SessionsStore {
         val roleCookie = call.request.cookies.rawCookies
             .filter { (k, _) -> k == cookieName(role) }
             .map { (_, v) ->
-                val strVal = URLDecoder.decode(v, UTF_8)
                 when (role) {
-                    UserRole.Holder -> Json.decodeFromString<HolderCookie>(strVal)
-                    UserRole.Verifier -> Json.decodeFromString<VerifierCookie>(strVal)
+                    UserRole.Holder -> Json.decodeFromString<HolderCookie>(urlDecode(v))
+                    UserRole.Verifier -> Json.decodeFromString<VerifierCookie>(urlDecode(v))
                 }
             }.firstOrNull()
         return roleCookie

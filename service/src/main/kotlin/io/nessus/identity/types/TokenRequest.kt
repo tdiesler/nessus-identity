@@ -15,6 +15,9 @@ enum class GrantType(val value: String) {
     @SerialName("client_credentials")
     CLIENT_CREDENTIALS("client_credentials"),
 
+    @SerialName("password")
+    DIRECT_ACCESS("password"),
+
     @SerialName("refresh_token")
     REFRESH_TOKEN("refresh_token");
 
@@ -135,6 +138,26 @@ sealed class TokenRequest {
         override val grantType = GrantType.CLIENT_CREDENTIALS
         override fun specificParameters(): Map<String, List<String>> = buildMap {
             put("client_secret", listOf(clientSecret))
+            scopes?.also { put("scope", listOf(scopes.joinToString(" "))) }
+        }
+    }
+
+    @Serializable
+    data class DirectAccess(
+        @SerialName("client_id")
+        override val clientId: String,
+        @SerialName("username")
+        val username: String,
+        @SerialName("password")
+        val password: String,
+        @SerialName("scopes")
+        val scopes: List<String>? = null,
+        override val extras: Map<String, List<String>> = emptyMap()
+    ) : TokenRequest() {
+        override val grantType = GrantType.DIRECT_ACCESS
+        override fun specificParameters(): Map<String, List<String>> = buildMap {
+            put("username", listOf(username))
+            put("password", listOf(password))
             scopes?.also { put("scope", listOf(scopes.joinToString(" "))) }
         }
     }

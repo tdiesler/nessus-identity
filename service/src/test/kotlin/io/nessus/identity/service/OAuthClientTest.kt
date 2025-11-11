@@ -58,7 +58,7 @@ class OAuthClientTest : AbstractServiceTest() {
             val tokReq = TokenRequest.ClientCredentials(
                 clientId = cfg.serviceId,
                 clientSecret = cfg.serviceSecret,
-                scopes = listOf("oid4vc_natural_person"),
+                scopes = listOf("openid"),
             )
             val tokRes = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokReq)
             tokRes.accessToken.shouldNotBeNull()

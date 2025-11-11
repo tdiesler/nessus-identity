@@ -5,10 +5,10 @@ import com.microsoft.playwright.Page
 import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.urlEncode
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.waltid.Max
 import java.net.URI
-import java.net.URLEncoder
 
 abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
 
@@ -60,7 +60,7 @@ abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
 
         val uri = URI(initiateHref)
         val queryParams = urlQueryToMap(initiateHref).toMutableMap()
-        val encodedWalletUri = URLEncoder.encode(walletUri, "UTF-8")
+        val encodedWalletUri = urlEncode(walletUri)
 
         val credentialOfferEndpoint = queryParams["credential_offer_endpoint"]
         if (credentialOfferEndpoint != encodedWalletUri) {

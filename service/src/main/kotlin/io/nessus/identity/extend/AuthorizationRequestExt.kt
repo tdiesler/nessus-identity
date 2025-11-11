@@ -1,9 +1,8 @@
 package io.nessus.identity.extend
 
 import id.walt.oid4vc.requests.AuthorizationRequest
+import io.nessus.identity.service.urlEncode
 import kotlinx.serialization.json.*
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 fun AuthorizationRequest.getQueryParameters(): String {
     val sb = StringBuilder()
@@ -28,6 +27,3 @@ fun AuthorizationRequest.getQueryParameters(): String {
 }
 
 // Private -----------------------------------------------------------------------------------------------------------------------------------------------------
-
-private fun urlEncode(json: String): String =
-    URLEncoder.encode(json, StandardCharsets.UTF_8)

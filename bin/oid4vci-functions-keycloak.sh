@@ -209,7 +209,6 @@ kc_create_oid4vci_service_client() {
   local realm="$1"
   local client_id="$2"
   local client_secret="$3"
-  local credential_id="$3"
 
   echo "Create service client: ${client_id} ..."
   ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
@@ -225,9 +224,9 @@ kc_create_oid4vci_service_client() {
     "standardFlowEnabled": false,
     "secret": "${client_secret}",
     "attributes": {
-      "oid4vci.enabled": "false"
+      "oid4vci.enabled": "true"
     },
-    "optionalClientScopes": ["oid4vc_natural_person", "${credential_id}"]
+    "optionalClientScopes": []
   }
 EOF
 
@@ -334,7 +333,7 @@ kc_create_oid4vci_client() {
     "protocol": "openid-connect",
     "publicClient": true,
     "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${AUTH_REDIRECT_URI}"],
-    "directAccessGrantsEnabled": false,
+    "directAccessGrantsEnabled": true,
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": ["oid4vc_natural_person", "${credential_id}"],
     "baseUrl": "${AUTH_SERVER_URL}/realms/${realm}/.well-known/openid-credential-issuer",

@@ -8,6 +8,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
 import java.net.URI
 import java.net.URLDecoder
+import java.net.URLEncoder
 import java.util.*
 
 val http = HttpClient {
@@ -25,9 +26,13 @@ fun base64UrlDecode(input: String): ByteArray = Base64.getUrlDecoder().decode(in
 
 fun base64UrlEncode(input: ByteArray): String = Base64.getUrlEncoder().withoutPadding().encodeToString(input)
 
+fun urlEncode(input: String): String = URLEncoder.encode(input, "UTF-8")
+
+fun urlDecode(input: String): String = URLDecoder.decode(input, "UTF-8")
+
 fun urlQueryToMap(url: String): Map<String, String> {
     return URI(url).rawQuery?.split("&")?.associate { p ->
-        p.split("=", limit = 2).let { (k, v) -> k to URLDecoder.decode(v, "UTF-8") }
+        p.split("=", limit = 2).let { (k, v) -> k to urlDecode(v) }
     } ?: mapOf()
 }
 

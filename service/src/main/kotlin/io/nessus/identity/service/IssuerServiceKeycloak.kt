@@ -14,7 +14,9 @@ import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataV10
 import io.nessus.identity.types.PreAuthorizedCodeGrant
 import io.nessus.identity.types.TokenRequest
+import io.nessus.identity.waltid.User
 import jakarta.ws.rs.core.HttpHeaders
+import kotlinx.serialization.json.*
 import org.keycloak.OAuth2Constants
 import org.keycloak.admin.client.Keycloak
 import org.keycloak.admin.client.KeycloakBuilder
@@ -35,12 +37,12 @@ import kotlin.time.Duration.Companion.minutes
 class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService<IssuerMetadataV10>() {
 
     val issuerBaseUrl = issuerCfg.baseUrl
-    val issuerUrl = "$issuerBaseUrl/realms/${issuerCfg.realm}"
+    val issuerRealmUrl = "$issuerBaseUrl/realms/${issuerCfg.realm}"
 
     /**
      * Creates a CredentialOffer for the given credential configuration id
      */
-    suspend fun createCredentialOfferKeycloak(credType: String): CredentialOfferV10 {
+    suspend fun createCredentialOfferKeycloak(credType: String, user: User): CredentialOfferV10 {
 
         val metadata = getIssuerMetadata()
         val supportedTypes = metadata.supportedTypes
@@ -50,23 +52,41 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
         val cfg = requireIssuerConfig()
         val issMetadata = getIssuerMetadata()
 
-        val tokReq = TokenRequest.ClientCredentials(
-            clientId = cfg.serviceId,
-            clientSecret = cfg.serviceSecret,
-            scopes = listOf(credType),
+//        val tokReq = TokenRequest.ClientCredentials(
+//            clientId = cfg.serviceId,
+//            clientSecret = cfg.serviceSecret,
+//            scopes = listOf(credType)
+//        )
+        val tokReq = TokenRequest.DirectAccess(
+            clientId = cfg.clientId,
+            username = user.username,
+            password = user.password,
+            scopes = listOf("openid", credType)
         )
 
         val tokenEndpointUri = issMetadata.getAuthorizationTokenEndpoint()
         val tokRes = OAuthClient().sendTokenRequest(tokenEndpointUri, tokReq)
+        val accessToken = tokRes.accessToken
 
-        val credentialOfferUrl = "$issuerUrl/credential-offer-uri"
-        val apiRes = http.get(credentialOfferUrl) {
-            header(HttpHeaders.AUTHORIZATION, "Bearer ${tokRes.accessToken}")
+        val credOfferUriUrl = "$issuerRealmUrl/protocol/oid4vc/credential-offer-uri"
+        log.info { "CredentialOfferUriReq: $credOfferUriUrl?credential_configuration_id=$credType" }
+        val credOfferUriRes = http.get(credOfferUriUrl) {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
             url {
                 parameter("credential_configuration_id", credType)
             }
         }
-        val credOffer = handleApiResponse(apiRes) as CredentialOfferV10
+        val credOfferUriJson = handleApiResponse(credOfferUriRes) as JsonObject
+        val issuerUrl = credOfferUriJson.getValue("issuer").jsonPrimitive.content
+        val nonce = credOfferUriJson.getValue("nonce").jsonPrimitive.content
+
+        val credOfferUrl = "$issuerUrl$nonce"
+        log.info { "CredentialOfferReq: $credOfferUrl}" }
+
+        val credOfferRes = http.get(credOfferUrl) {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
+        }
+        val credOffer = handleApiResponse(credOfferRes) as CredentialOfferV10
 
         log.info { "Issued CredentialOffer: ${credOffer.toJson()}" }
         return credOffer
@@ -95,7 +115,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
 
         val issuerStateClaims = JWTClaimsSet.Builder()
             .subject(subjectId)
-            .issuer(issuerUrl)
+            .issuer(issuerRealmUrl)
             .issueTime(Date(iat.toEpochMilliseconds()))
             .expirationTime(Date(exp.toEpochMilliseconds()))
             .claim("credential_types", types)

@@ -1,10 +1,9 @@
 package io.nessus.identity.types
 
+import io.nessus.identity.service.urlEncode
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 @Serializable
 data class AuthorizationRequest(
@@ -143,9 +142,6 @@ data class AuthorizationRequest(
             return authReq
         }
     }
-
-    private fun urlEncode(json: String) =
-        URLEncoder.encode(json, StandardCharsets.UTF_8)
 
     @Serializable
     data class ClientMetadata(

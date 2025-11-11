@@ -24,7 +24,7 @@ class OAuthClient {
         val authParams = authReq.getParameters()
         log.info { "AuthorizationParams: $authParams" }
         val authCode = Playwright.create().use { plw ->
-            val browser = plw.chromium().launch(
+            val browser = plw.firefox().launch(
                 BrowserType.LaunchOptions().setHeadless(true)
             )
             val page = browser.newPage()
@@ -52,11 +52,12 @@ class OAuthClient {
 
     suspend fun sendTokenRequest(endpointUrl: String, tokReq: TokenRequest): TokenResponseV0 {
         val authParams = tokReq.getParameters()
-        log.info { "AuthorizationParams: $authParams" }
+        log.info { "AuthorizationUrl: $endpointUrl" }
+        log.info { "AuthorizationParams: ${redactedParams(authParams)}" }
         val res = http.post(endpointUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
             setBody(Parameters.build {
-                authParams.forEach { (k, vals) ->
+                tokReq.getParameters().forEach { (k, vals) ->
                     vals.forEach { v -> append(k, v) }
                 }
             }.formUrlEncode())
@@ -70,8 +71,8 @@ class OAuthClient {
         @Suppress("UNCHECKED_CAST")
         suspend inline fun <reified T> handleApiResponse(res: HttpResponse): T {
             val body = res.bodyAsText()
-            log.info { "ApiResponse: $body" }
             if (res.status.value in 200..<300) {
+                log.info { "Response: $body" }
                 val resVal = if (T::class == HttpResponse::class) {
                     res as T
                 } else if (T::class == String::class) {
@@ -97,4 +98,10 @@ class OAuthClient {
     )
 
     // Private ---------------------------------------------------------------------------------------------------------
+
+    private fun redactedParams(params: Map<String, List<String>>): Map<String, List<String>> {
+        return params.mapValues { (k, v) ->
+            if (k == "client_secret") listOf("******") else v
+        }
+    }
 }

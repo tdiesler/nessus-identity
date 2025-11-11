@@ -92,7 +92,7 @@ if kc_create_realm "${realm}" "${force}"; then
 
   ## Setup Keycloak OID4VCI Service Client -------------------------------------------------------------------------------
   #
-  kc_create_oid4vci_service_client "${realm}" "${oid4vciUser}" "${oid4vciPass}" "${credential_id}"
+  kc_create_oid4vci_service_client "${realm}" "${oid4vciUser}" "${oid4vciPass}"
 
   kc_oid4vci_login "${realm}" "${oid4vciUser}" "${oid4vciPass}"
 
