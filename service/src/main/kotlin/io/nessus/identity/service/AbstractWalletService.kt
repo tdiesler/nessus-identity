@@ -69,14 +69,14 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
 
     override suspend fun getCredentialByType(
         ctx: LoginContext,
-        ctype: String
+        credType: String
     ): VCDataJwt? {
         val res = widWalletService.findCredentials(ctx) { true }
             .asSequence()
             .map {
                 VCDataJwt.fromEncoded(it.document)
             }
-            .filter { it.types.contains(ctype) }
+            .filter { it.types.contains(credType) }
             .firstOrNull()
         return res
     }

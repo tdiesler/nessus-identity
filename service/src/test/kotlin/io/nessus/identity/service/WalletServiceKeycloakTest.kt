@@ -36,15 +36,15 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
         */
         runBlocking {
 
-            val ctype = "oid4vc_identity_credential"
+            val credType = "oid4vc_identity_credential"
 
             // Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
 
             // [TODO #280] Issuer should use the wallet's offer endpoint
             // https://github.com/tdiesler/nessus-identity/issues/280
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
-            credOffer.filteredConfigurationIds shouldContain ctype
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(credType))
+            credOffer.filteredConfigurationIds shouldContain credType
 
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
             walletSvc.authContextForCredential(alice, redirectUri, credOffer)
@@ -70,15 +70,15 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
         */
         runBlocking {
 
-            val ctype = "oid4vc_natural_person"
+            val credType = "oid4vc_natural_person"
 
             // Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
 
             // [TODO #280] Issuer should use the wallet's offer endpoint
             // https://github.com/tdiesler/nessus-identity/issues/280
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(ctype))
-            credOffer.filteredConfigurationIds shouldContain ctype
+            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(credType))
+            credOffer.filteredConfigurationIds shouldContain credType
 
             val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
             walletSvc.authContextForCredential(alice, redirectUri, credOffer)

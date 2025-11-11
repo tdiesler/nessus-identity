@@ -159,7 +159,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
         val ctypes = credOffer.credentialConfigurationIds
         if (ctypes.size != 1) throw IllegalArgumentException("Multiple types not supported: $ctypes")
-        val ctype = ctypes.first()
+        val credType = ctypes.first()
 
         val cNonce = tokenRes.cNonce ?: let {
             val res = http.post(metadata.nonceEndpoint!!)
@@ -193,7 +193,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
 
         val credReq = CredentialRequestV0(
-            credentialConfigurationId = ctype,
+            credentialConfigurationId = credType,
             proofs = CredentialRequestV0.Proofs(jwt = listOf(proofJwt.serialize()))
         )
 
@@ -232,7 +232,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         val vcJwt = VCDataJwt.fromEncoded("${sigJwt.serialize()}")
         log.info { "Credential: ${vcJwt.toJson()}" }
 
-        val ctype = when (vcJwt) {
+        val credType = when (vcJwt) {
             is VCDataV11Jwt -> {
                 vcJwt.vc.type.first {
                     !listOf("VerifiableAttestation", "VerifiableCredential").contains(it)
@@ -243,7 +243,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
             }
         }
         val authContext = ctx.removeAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) as AuthorizationContext
-        val credConfig = authContext.issuerMetadata.credentialConfigurationsSupported[ctype] ?: error("No credential_configurations_supported for: $ctype")
+        val credConfig = authContext.issuerMetadata.credentialConfigurationsSupported[credType] ?: error("No credential_configurations_supported for: $credType")
         val format = CredentialFormat.fromValue(credConfig.format) as CredentialFormat
 
         // Resolve issuer

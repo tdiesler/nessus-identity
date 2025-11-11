@@ -40,14 +40,12 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
     /**
      * Creates a CredentialOffer for the given credential configuration id
      */
-    suspend fun createCredentialOfferThroughKeycloak(
-        credConfigId: String,
-    ): CredentialOfferV10 {
+    suspend fun createCredentialOfferKeycloak(credType: String): CredentialOfferV10 {
 
         val metadata = getIssuerMetadata()
         val supportedTypes = metadata.supportedTypes
 
-        require(credConfigId in supportedTypes) { "UnsupportedType: $credConfigId" }
+        require(credType in supportedTypes) { "UnsupportedType: $credType" }
 
         val cfg = requireIssuerConfig()
         val issMetadata = getIssuerMetadata()
@@ -55,7 +53,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
         val tokReq = TokenRequest.ClientCredentials(
             clientId = cfg.serviceId,
             clientSecret = cfg.serviceSecret,
-            scopes = listOf(credConfigId),
+            scopes = listOf(credType),
         )
 
         val tokenEndpointUri = issMetadata.getAuthorizationTokenEndpoint()
@@ -65,7 +63,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
         val apiRes = http.get(credentialOfferUrl) {
             header(HttpHeaders.AUTHORIZATION, "Bearer ${tokRes.accessToken}")
             url {
-                parameter("credential_configuration_id", credConfigId)
+                parameter("credential_configuration_id", credType)
             }
         }
         val credOffer = handleApiResponse(apiRes) as CredentialOfferV10

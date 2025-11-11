@@ -20,13 +20,13 @@ class CredentialVerificationFlowEbsi32(val holderCtx: OIDContext, val verifierCt
     /**
      * Holder finds Credential by Type and presents it to the Verifier
      */
-    suspend fun verifyPresentationByType(ctype: String) {
+    suspend fun verifyPresentationByType(credType: String) {
         
         // Holder queries it's Wallet to find the requested Credential
         //
-        val vcFound = widWalletService.findCredentialsByType(holderCtx, ctype)
+        val vcFound = widWalletService.findCredentialsByType(holderCtx, credType)
         if (vcFound.isEmpty())
-            throw IllegalStateException("$ctype not found")
+            throw IllegalStateException("$credType not found")
 
         // The Holder sends an AuthorizationRequest to the Verifier
         //
@@ -40,7 +40,7 @@ class CredentialVerificationFlowEbsi32(val holderCtx: OIDContext, val verifierCt
             .withCodeChallengeMethod("S256")
             .withCodeVerifier(codeVerifier)
             .withPresentationDefinition(PresentationDefinitionBuilder()
-                .withInputDescriptorForType(ctype, id = "inp#1")
+                .withInputDescriptorForType(credType, id = "inp#1")
                 .build())
             .withRedirectUri(redirectUri)
             .build()
@@ -81,7 +81,7 @@ class CredentialVerificationFlowEbsi32(val holderCtx: OIDContext, val verifierCt
 
         val vcp = CredentialParameters()
             .withSubject(holderCtx.did)
-            .withTypes(listOf(ctype))
+            .withTypes(listOf(credType))
 
         verifierSvc.validateVerifiableCredential(vpcJwt, vcp)
     }

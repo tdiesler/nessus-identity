@@ -7,6 +7,7 @@ import io.nessus.identity.waltid.Alice
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import kotlin.test.Ignore
 
 
 class IssuerServiceKeycloakTest : AbstractServiceTest() {
@@ -55,13 +56,23 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
         */
         runBlocking {
 
-            // issuerSvc.createCredentialOfferThroughKeycloak("oid4vc_natural_person")
-
             issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_natural_person"))
 
             assertThrows<IllegalArgumentException> {
                 issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_unknown"))
             }
+        }
+    }
+
+    @Test
+    @Ignore
+    fun testCreateCredentialOfferKeycloak() {
+        /*
+            Credential Offer Endpoint
+            https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
+        */
+        runBlocking {
+            issuerSvc.createCredentialOfferKeycloak("oid4vc_natural_person")
         }
     }
 
