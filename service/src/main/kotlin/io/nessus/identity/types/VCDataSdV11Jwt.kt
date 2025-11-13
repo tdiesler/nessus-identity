@@ -57,6 +57,11 @@ data class VCDataSdV11Jwt(
                 })
     }
 
+    fun disclosedValue(claim: String): String {
+        val disc = disclosures.firstOrNull() { it.claim == claim } ?: error("Not disclosed: $claim")
+        return disc.value
+    }
+
     @Serializable
     data class Disclosure(
         @Transient

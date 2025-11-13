@@ -73,8 +73,8 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Issuer creates the CredentialOffer
             //
-            val credType = "CTWalletSameAuthorisedInTime"
-            val types = listOf("VerifiableCredential", credType)
+            val ctype = "CTWalletSameAuthorisedInTime"
+            val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types)
             val issuerMetadata = issuerSvc.getIssuerMetadata(max)
             max.issuerMetadata = issuerMetadata
@@ -92,7 +92,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
             val vcIssuer = CredentialMatcher.pathValues(credJwt, "$.vc.issuer").first()
             val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
-            vcTypes shouldContain credType
+            vcTypes shouldContain ctype
             vcSubject shouldBe alice.did
             vcIssuer shouldBe max.did
 
@@ -127,8 +127,8 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Issuer creates the CredentialOffer
             //
-            val credType = "CTWalletSameAuthorisedDeferred"
-            val types = listOf("VerifiableCredential", credType)
+            val ctype = "CTWalletSameAuthorisedDeferred"
+            val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types)
             val issuerMetadata = issuerSvc.getIssuerMetadata(max)
             max.issuerMetadata = issuerMetadata
@@ -151,7 +151,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
             val vcIssuer = CredentialMatcher.pathValues(credJwt, "$.vc.issuer").first()
             val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
-            vcTypes shouldContain credType
+            vcTypes shouldContain ctype
             vcSubject shouldBe alice.did
             vcIssuer shouldBe max.did
 
@@ -183,8 +183,8 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
 
             // Issuer creates the CredentialOffer
             //
-            val credType = "CTWalletSamePreAuthorisedInTime"
-            val types = listOf("VerifiableCredential", credType)
+            val ctype = "CTWalletSamePreAuthorisedInTime"
+            val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types, "$userPin")
             val issuerMetadata = issuerSvc.getIssuerMetadata(max)
             max.issuerMetadata = issuerMetadata
@@ -202,7 +202,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
             val vcIssuer = CredentialMatcher.pathValues(credJwt, "$.vc.issuer").first()
             val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
-            vcTypes shouldContain credType
+            vcTypes shouldContain ctype
             vcSubject shouldBe alice.did
             vcIssuer shouldBe max.did
 
@@ -237,8 +237,8 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             // Issuer creates the CredentialOffer
             //
             val sub= alice.did
-            val credType = "CTWalletSamePreAuthorisedDeferred"
-            val types = listOf("VerifiableCredential", credType)
+            val ctype = "CTWalletSamePreAuthorisedDeferred"
+            val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, sub, types, "$userPin")
             val issuerMetadata = issuerSvc.getIssuerMetadata(max)
             max.issuerMetadata = issuerMetadata
@@ -261,7 +261,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
             val vcSubject = CredentialMatcher.pathValues(credJwt, "$.vc.credentialSubject.id").first()
             val vcIssuer = CredentialMatcher.pathValues(credJwt, "$.vc.issuer").first()
             val vcTypes = CredentialMatcher.pathValues(credJwt, "$.vc.type")
-            vcTypes shouldContain credType
+            vcTypes shouldContain ctype
             vcSubject shouldBe alice.did
             vcIssuer shouldBe max.did
 

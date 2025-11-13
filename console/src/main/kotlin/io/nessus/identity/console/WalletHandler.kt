@@ -8,7 +8,6 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.console.SessionsStore.findLoginContext
 import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.LoginContext
@@ -84,11 +83,9 @@ class WalletHandler() {
 
     suspend fun handleAuthCallback(call: RoutingCall, ctx: LoginContext) {
         val authContext = ctx.getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) as AuthorizationContext
-        call.parameters["code"]?.also {
-            authContext.authCode = it
-            log.info { "AuthCode: $it" }
-        } ?: error("No code")
-        val vcJwt = walletSvc.credentialFromOfferInTime(ctx)
+        val authCode = call.parameters["code"] ?: error("No code")
+        val accessToken = walletSvc.getAccessTokenFromCode(authContext, authCode)
+        val vcJwt = walletSvc.getCredential(authContext, accessToken)
         call.respondRedirect("/wallet/${ctx.targetId}/credential/${vcJwt.vcId}")
     }
 
@@ -114,12 +111,9 @@ class WalletHandler() {
 
     suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: LoginContext, offerId: String) {
         val credOffer = walletSvc.getCredentialOffer(ctx, offerId) ?: error("No credential_offer for: $offerId")
-
-        val redirectUri = ConfigProvider.requireWalletConfig().redirectUri
-        val authContext = walletSvc.authContextForCredential(ctx, redirectUri, credOffer)
+        val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
         val authEndpointUrl = authContext.issuerMetadata.getAuthorizationAuthEndpoint()
         val authRequestUrl = authContext.authRequest.getAuthorizationRequestUrl(authEndpointUrl)
-
         log.info { "AuthRequestUrl: $authRequestUrl" }
         call.respondRedirect(authRequestUrl)
     }

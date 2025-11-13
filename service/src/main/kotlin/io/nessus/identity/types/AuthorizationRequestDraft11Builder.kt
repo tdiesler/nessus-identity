@@ -88,15 +88,15 @@ class AuthorizationRequestDraft11Builder {
             }
 
             is CredentialOfferV10 -> {
-                credOffer.credentialConfigurationIds.forEach { credType ->
+                credOffer.credentialConfigurationIds.forEach { ctype ->
                     authDetails.add(AuthorizationDetails.fromJSONString("""{
                         "type": "openid_credential",
-                        "credential_configuration_id": "$credType",
+                        "credential_configuration_id": "$ctype",
                         "locations": [ "${credOffer.credentialIssuer}" ]
                     }"""))
                     // Keycloak requires credential id in scope although already given in authorizationDetails
                     // https://github.com/tdiesler/nessus-identity/issues/264
-                    scopes.add(credType)
+                    scopes.add(ctype)
                 }
             }
         }

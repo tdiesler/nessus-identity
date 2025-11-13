@@ -100,8 +100,9 @@ class OAuthClient {
     // Private ---------------------------------------------------------------------------------------------------------
 
     private fun redactedParams(params: Map<String, List<String>>): Map<String, List<String>> {
+        val keys = listOf("client_secret", "password")
         return params.mapValues { (k, v) ->
-            if (k == "client_secret") listOf("******") else v
+            if (k in keys) listOf("******") else v
         }
     }
 }

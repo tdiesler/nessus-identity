@@ -1,19 +1,17 @@
 package io.nessus.identity.waltid
 
-import java.util.Locale.getDefault
-
 // Authentication ------------------------------------------------------------------------------------------------------
 
 enum class LoginType(val type: String) { EMAIL("email") }
 
 data class LoginParams(val type: LoginType, val email: String, val password: String) {
-    fun toAuthLoginRequest() : LoginRequest {
+    fun toAuthLoginRequest(): LoginRequest {
         return LoginRequest(type.type, email, password)
     }
 }
 
 data class RegisterUserParams(val type: LoginType, val name: String, val email: String, val password: String) {
-    fun toAuthRegisterRequest() : RegisterUserRequest {
+    fun toAuthRegisterRequest(): RegisterUserRequest {
         return RegisterUserRequest(type.type, name, email, password)
     }
 }
@@ -32,11 +30,24 @@ data class Key(val id: String, val algorithm: String)
 // Users ----------------------------------------------------------------------------------------------------------------
 
 open class User(val name: String, val email: String, val password: String) {
-    val username = name.split("\\s+".toRegex())[0].lowercase(getDefault())
-    fun toLoginParams() : LoginParams {
+
+    private var explicitUsername: String? = null
+
+    val username get() =
+        if (explicitUsername.isNullOrEmpty())
+            name.split("\\s+".toRegex())[0].lowercase()
+        else
+            explicitUsername!!
+
+    fun withUsername(username: String) {
+        explicitUsername = username
+    }
+
+    fun toLoginParams(): LoginParams {
         return LoginParams(LoginType.EMAIL, email, password)
     }
-    fun toRegisterUserParams() : RegisterUserParams {
+
+    fun toRegisterUserParams(): RegisterUserParams {
         return RegisterUserParams(LoginType.EMAIL, name, email, password)
     }
 }

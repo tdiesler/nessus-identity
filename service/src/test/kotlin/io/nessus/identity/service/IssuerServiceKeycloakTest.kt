@@ -3,6 +3,7 @@ package io.nessus.identity.service
 import io.kotest.common.runBlocking
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldEndWith
 import io.nessus.identity.waltid.Alice
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -27,56 +28,56 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
         }
     }
 
+    /**
+     * Credential Issuer Metadata
+     * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
+     */
     @Test
-    fun testGetIssuerMetadata() {
-        /*
-            Credential Issuer Metadata
-            https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
-
-            Issuer Metadata Endpoints
-            https://oauth.localtest.me/realms/oid4vci/.well-known/openid-configuration
-            https://oauth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer
-        */
+    fun getIssuerMetadata() {
         runBlocking {
 
             val metadataUrl = issuerSvc.getIssuerMetadataUrl()
             metadataUrl.shouldContain("/.well-known/openid-credential-issuer")
+            metadataUrl.shouldEndWith("/realms/oid4vci")
 
             val metadata = issuerSvc.getIssuerMetadata()
             metadata.shouldNotBeNull()
         }
     }
 
+    /**
+     * Credential Offer Endpoint
+     * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
+     */
     @Test
-    fun testCreateCredentialOffer() {
-        /*
-            Credential Offer Endpoint
-            https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
-        */
+    fun createCredentialOffer() {
         runBlocking {
+            val metadata = issuerSvc.getIssuerMetadata()
+            val offerUri = issuerSvc.createCredentialOfferUri("oid4vc_natural_person")
+            val authContext = walletSvc.createAuthorizationContext(alice, metadata)
+            val credOffer = walletSvc.fetchCredentialOffer(authContext, offerUri)
+            credOffer.shouldNotBeNull()
+        }
+    }
 
-            issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_natural_person"))
-
+    @Test
+    fun createCredentialOfferInvalidType() {
+        runBlocking {
             assertThrows<IllegalArgumentException> {
-                issuerSvc.createCredentialOffer(alice.did, listOf("oid4vc_unknown"))
+                issuerSvc.createCredentialOfferUri("oid4vc_unknown")
             }
         }
     }
 
     @Test
-    fun testCreateCredentialOfferKeycloak() {
-        /*
-            Credential Offer Endpoint
-            https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
-        */
+    fun createCredentialOfferNative() {
         runBlocking {
-            issuerSvc.createCredentialOfferKeycloak("oid4vc_natural_person", Alice)
+            issuerSvc.createCredentialOfferNative(alice.did, listOf("oid4vc_natural_person"))
         }
     }
 
     @Test
-    fun testGetRealmUsers() {
-
+    fun getRealmUsers() {
         val realmUsers = issuerSvc.getUsers()
         realmUsers.forEach { usr ->
             val did = usr.attributes?.get("did")?.firstOrNull()

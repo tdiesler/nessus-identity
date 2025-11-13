@@ -66,7 +66,8 @@ keycloak:
 
 keycloak-run:
 	@KC_HOME="../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT" && \
-		$${KC_HOME}/bin/kc.sh start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin --log-console-color=false
+		$${KC_HOME}/bin/kc.sh start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin \
+			--log-console-color=false --log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
 
 keycloak-tests:
 	@cd ../keycloak/testsuite/integration-arquillian/tests/base && \

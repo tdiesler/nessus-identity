@@ -43,8 +43,8 @@ class VCDataTest {
         log.info { jsonPretty.encodeToString(vcJwt) }
 
         val jsonObj = vcJwt.toJson()
-        val credType = jsonObj.getValue("vct").jsonPrimitive.content
-        credType shouldBeEqual "oid4vc_natural_person"
+        val ctype = jsonObj.getValue("vct").jsonPrimitive.content
+        ctype shouldBeEqual "oid4vc_natural_person"
     }
 
     @Test

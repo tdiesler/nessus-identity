@@ -2,11 +2,13 @@ package io.nessus.identity.service
 
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.PlainJWT
+import com.nimbusds.jwt.SignedJWT
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
+import io.nessus.identity.service.LoginContext.Companion.USER_ATTACHMENT_KEY
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.CredentialOfferV10
@@ -14,6 +16,7 @@ import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataV10
 import io.nessus.identity.types.PreAuthorizedCodeGrant
 import io.nessus.identity.types.TokenRequest
+import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.User
 import jakarta.ws.rs.core.HttpHeaders
 import kotlinx.serialization.json.*
@@ -34,68 +37,86 @@ import kotlin.time.Duration.Companion.minutes
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService<IssuerMetadataV10>() {
+class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService<IssuerMetadataV10>() {
 
-    val issuerBaseUrl = issuerCfg.baseUrl
-    val issuerRealmUrl = "$issuerBaseUrl/realms/${issuerCfg.realm}"
+    val issuerBaseUrl = config.baseUrl
+    val issuerUrl = "$issuerBaseUrl/realms/${config.realm}"
+
+    override fun getIssuerMetadataUrl(): String {
+        val metadataUrl = "$issuerBaseUrl/.well-known/openid-credential-issuer/realms/${config.realm}"
+        return metadataUrl
+    }
+
+    override suspend fun getIssuerMetadata(): IssuerMetadataV10 {
+        val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
+        log.info { "IssuerMetadataUrl: $metadataUrl" }
+        return http.get(metadataUrl).body<IssuerMetadataV10>()
+    }
 
     /**
-     * Creates a CredentialOffer for the given credential configuration id
+     * Creates a CredentialOfferUri for the given credential configuration id
      */
-    suspend fun createCredentialOfferKeycloak(credType: String, user: User): CredentialOfferV10 {
+    suspend fun createCredentialOfferUri(ctype: String, preAuthorized: Boolean = false, user: User = Alice): String {
 
         val metadata = getIssuerMetadata()
         val supportedTypes = metadata.supportedTypes
 
-        require(credType in supportedTypes) { "UnsupportedType: $credType" }
+        require(ctype in supportedTypes) { "UnsupportedType: $ctype" }
 
         val cfg = requireIssuerConfig()
         val issMetadata = getIssuerMetadata()
 
-//        val tokReq = TokenRequest.ClientCredentials(
-//            clientId = cfg.serviceId,
-//            clientSecret = cfg.serviceSecret,
-//            scopes = listOf(credType)
-//        )
         val tokReq = TokenRequest.DirectAccess(
             clientId = cfg.clientId,
             username = user.username,
             password = user.password,
-            scopes = listOf("openid", credType)
+            scopes = listOf(ctype)
         )
 
         val tokenEndpointUri = issMetadata.getAuthorizationTokenEndpoint()
         val tokRes = OAuthClient().sendTokenRequest(tokenEndpointUri, tokReq)
         val accessToken = tokRes.accessToken
 
-        val credOfferUriUrl = "$issuerRealmUrl/protocol/oid4vc/credential-offer-uri"
-        log.info { "CredentialOfferUriReq: $credOfferUriUrl?credential_configuration_id=$credType" }
+        val tokenJwt = SignedJWT.parse(accessToken)
+        log.info { "AccessToken: ${tokenJwt.jwtClaimsSet}" }
+
+        val credOfferUriUrl = "$issuerUrl/protocol/oid4vc/credential-offer-uri"
+        log.info { "CredentialOfferUriReq: $credOfferUriUrl?credential_configuration_id=$ctype" }
         val credOfferUriRes = http.get(credOfferUriUrl) {
             header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
             url {
-                parameter("credential_configuration_id", credType)
+                parameter("credential_configuration_id", ctype)
+                parameter("pre_authorized", preAuthorized)
+                if (preAuthorized) {
+                    val email = user?.email ?: error("No user email")
+                    val user = findUserByEmail(email) ?: error("No user for email: $email")
+                    parameter("subject_id", user.id)
+                }
             }
         }
         val credOfferUriJson = handleApiResponse(credOfferUriRes) as JsonObject
         val issuerUrl = credOfferUriJson.getValue("issuer").jsonPrimitive.content
         val nonce = credOfferUriJson.getValue("nonce").jsonPrimitive.content
 
-        val credOfferUrl = "$issuerUrl$nonce"
-        log.info { "CredentialOfferReq: $credOfferUrl}" }
+        val credOfferUri = "$issuerUrl$nonce"
+        log.info { "CredentialOfferUri: $credOfferUri}" }
 
-        val credOfferRes = http.get(credOfferUrl) {
-            header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
-        }
-        val credOffer = handleApiResponse(credOfferRes) as CredentialOfferV10
+        return credOfferUri
+    }
 
-        log.info { "Issued CredentialOffer: ${credOffer.toJson()}" }
+    suspend fun createCredentialOffer(ctx: LoginContext, ctype: String, preAuthorized: Boolean = false): CredentialOfferV10 {
+        val user = ctx.assertAttachment(USER_ATTACHMENT_KEY)
+        val offerUri = createCredentialOfferUri(ctype, preAuthorized, user)
+        val walletSvc = WalletServiceKeycloak()
+        val authContext = walletSvc.createAuthorizationContext(ctx, getIssuerMetadata())
+        val credOffer = walletSvc.fetchCredentialOffer(authContext, offerUri)
         return credOffer
     }
 
     /**
      * Creates a CredentialOffer for the given subject and credential types
      */
-    suspend fun createCredentialOffer(
+    suspend fun createCredentialOfferNative(
         subjectId: String,
         types: List<String>,
         userPin: String? = null
@@ -115,7 +136,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
 
         val issuerStateClaims = JWTClaimsSet.Builder()
             .subject(subjectId)
-            .issuer(issuerRealmUrl)
+            .issuer(issuerUrl)
             .issueTime(Date(iat.toEpochMilliseconds()))
             .expirationTime(Date(exp.toEpochMilliseconds()))
             .claim("credential_types", types)
@@ -133,7 +154,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
                 val preAuthCode = issuerState
                 Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
             } else {
-                val clientId = issuerCfg.clientId
+                val clientId = config.clientId
                 val issuerState = issuerState
                 Grants(authorizationCode = AuthorizationCodeGrant(issuerState, clientId = clientId))
             }
@@ -151,8 +172,17 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
         return credOffer
     }
 
+    fun findUserByEmail(email: String): UserRepresentation? {
+        val realm = config.realm
+        keycloakConnect(realm).use {
+            val usersResource = it.realm(realm).users()
+            val realmUsers = usersResource.searchByEmail(email, true)
+            return realmUsers.firstOrNull()
+        }
+    }
+
     fun getUsers(): List<UserRepresentation> {
-        val realm = issuerCfg.realm
+        val realm = config.realm
         keycloakConnect(realm).use {
             val usersResource = it.realm(realm).users()
             val realmUsers = usersResource.list()
@@ -161,7 +191,7 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
     }
 
     fun createUser(firstName: String, lastName: String, email: String, username: String, password: String): UserRepresentation {
-        val realm = issuerCfg.realm
+        val realm = config.realm
         val user = UserRepresentation().apply {
             this.username = username
             this.email = email
@@ -194,21 +224,10 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
     }
 
     fun deleteUser(userId: String) {
-        val realm = issuerCfg.realm
+        val realm = config.realm
         keycloakConnect(realm).use {
             it.realm(realm).users().delete(userId)
         }
-    }
-
-    override fun getIssuerMetadataUrl(): String {
-        val metadataUrl = "$issuerBaseUrl/.well-known/openid-credential-issuer/realms/${issuerCfg.realm}"
-        return metadataUrl
-    }
-
-    override suspend fun getIssuerMetadata(): IssuerMetadataV10 {
-        val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
-        log.info { "IssuerMetadataUrl: $metadataUrl" }
-        return http.get(metadataUrl).body<IssuerMetadataV10>()
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
@@ -216,8 +235,8 @@ class IssuerServiceKeycloak(val issuerCfg: IssuerConfig) : AbstractIssuerService
     private fun keycloakConnect(realm: String): Keycloak {
         val kc = KeycloakBuilder.builder()
             .serverUrl(issuerBaseUrl)
-            .clientId(issuerCfg.serviceId)
-            .clientSecret(issuerCfg.serviceSecret)
+            .clientId(config.serviceId)
+            .clientSecret(config.serviceSecret)
             .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
             .realm(realm)
             .build()

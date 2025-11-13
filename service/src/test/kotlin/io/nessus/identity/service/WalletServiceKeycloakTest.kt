@@ -28,64 +28,99 @@ class WalletServiceKeycloakTest : AbstractServiceTest() {
         }
     }
 
+    /**
+     * Issue credential in time (Authorization Code Flow)
+     * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-code-flow
+     */
     @Test
-    fun testIssueCredentialInTime() {
-        /*
-            Authorization Code Flow
-            https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-code-flow
-        */
+    fun testCredentialFromOfferInTime() {
         runBlocking {
-
-            val credType = "oid4vc_identity_credential"
+            val ctype = "oid4vc_identity_credential"
 
             // Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
 
-            // [TODO #280] Issuer should use the wallet's offer endpoint
-            // https://github.com/tdiesler/nessus-identity/issues/280
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(credType))
-            credOffer.filteredConfigurationIds shouldContain credType
+            val credOffer = issuerSvc.createCredentialOffer(alice, ctype)
+            val authContext = walletSvc.createAuthorizationContext(alice).withCredentialOffer(credOffer)
+            val authCode = walletSvc.getAuthorizationCode(authContext, Alice.username, Alice.password)
+            val accessToken = walletSvc.getAccessTokenFromCode(authContext, authCode)
 
-            val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
-            walletSvc.authContextForCredential(alice, redirectUri, credOffer)
-            walletSvc.sendAuthenticationRequest(alice, Alice.username, Alice.password)
-
-            val vcJwt = walletSvc.credentialFromOfferInTime(alice) as VCDataV11Jwt
+            val vcJwt = walletSvc.getCredential(authContext, accessToken) as VCDataV11Jwt
             vcJwt.types shouldBeEqual credOffer.credentialConfigurationIds
 
             val subject = vcJwt.vc.credentialSubject
             subject.claims.getValue("email").jsonPrimitive.content shouldBeEqual Alice.email
-
-            // [TODO #302] Keycloak issues oid4vc_identity_credential with no id value
-            // https://github.com/tdiesler/nessus-identity/issues/302
-            //subject.id!! shouldBeEqual alice.did
+            subject.id!! shouldBeEqual alice.did
         }
     }
 
     @Test
-    fun testIssueCredentialInTimeSD() {
-        /*
-            Authorization Code Flow
-            https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-code-flow
-        */
+    fun testCredentialNoOfferInTime() {
         runBlocking {
+            val ctype = "oid4vc_identity_credential"
 
-            val credType = "oid4vc_natural_person"
+            val authContext = walletSvc.createAuthorizationContext(alice)
+                .withIssuerMetadata(issuerSvc.getIssuerMetadata())
+                .withCredentialConfigurationId(ctype)
+
+            val authCode = walletSvc.getAuthorizationCode(authContext, Alice.username, Alice.password)
+            val accessToken = walletSvc.getAccessTokenFromCode(authContext, authCode)
+
+            val vcJwt = walletSvc.getCredential(authContext, accessToken) as VCDataV11Jwt
+            vcJwt.types shouldBeEqual listOf(ctype)
+
+            val subject = vcJwt.vc.credentialSubject
+            subject.claims.getValue("email").jsonPrimitive.content shouldBeEqual Alice.email
+            subject.id!! shouldBeEqual alice.did
+        }
+    }
+
+    /**
+     * Issue credential in time (Authorization Code Flow)
+     * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-code-flow
+     */
+    @Test
+    fun testSDCredentialInTime() {
+        runBlocking {
+            val ctype = "oid4vc_natural_person"
 
             // Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
 
-            // [TODO #280] Issuer should use the wallet's offer endpoint
-            // https://github.com/tdiesler/nessus-identity/issues/280
-            val credOffer = issuerSvc.createCredentialOffer(alice.did, listOf(credType))
-            credOffer.filteredConfigurationIds shouldContain credType
+            val credOffer = issuerSvc.createCredentialOffer(alice, ctype)
+            credOffer.filteredConfigurationIds shouldContain ctype
 
-            val redirectUri = "urn:ietf:wg:oauth:2.0:oob"
-            walletSvc.authContextForCredential(alice, redirectUri, credOffer)
-            walletSvc.sendAuthenticationRequest(alice, Alice.username, Alice.password)
+            val authContext = walletSvc.createAuthorizationContext(alice).withCredentialOffer(credOffer)
+            val authCode = walletSvc.getAuthorizationCode(authContext, Alice.username, Alice.password)
+            val accessToken = walletSvc.getAccessTokenFromCode(authContext, authCode)
 
-            val vcJwt = walletSvc.credentialFromOfferInTime(alice) as VCDataSdV11Jwt
+            val vcJwt = walletSvc.getCredential(authContext, accessToken) as VCDataSdV11Jwt
             vcJwt.types shouldBeEqual credOffer.credentialConfigurationIds
+            vcJwt.disclosedValue("sub") shouldBeEqual alice.did
+        }
+    }
+
+    /**
+     * Issue credential in time (Authorization Code Flow)
+     * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-authorization-code-flow
+     */
+    @Test
+    fun testSDCredentialPreAuthorized() {
+        runBlocking {
+            val ctype = "oid4vc_natural_person"
+
+            // Issuer generates a CredentialOffer and (somehow) passes it the Holder's wallet
+            // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
+
+            val credOffer = issuerSvc.createCredentialOffer(alice, ctype, true)
+            credOffer.filteredConfigurationIds shouldContain ctype
+
+            val authContext = walletSvc.createAuthorizationContext(alice)
+            val accessToken = walletSvc.getAccessTokenPreAuthorized(authContext, credOffer)
+
+            val vcJwt = walletSvc.getCredential(authContext, accessToken) as VCDataSdV11Jwt
+            vcJwt.types shouldBeEqual credOffer.credentialConfigurationIds
+            vcJwt.disclosedValue("sub") shouldBeEqual alice.did
         }
     }
 }

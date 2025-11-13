@@ -24,7 +24,7 @@ interface WalletService<COType: CredentialOffer> {
 
     suspend fun getCredentialById(ctx: LoginContext, vcId: String): VCDataJwt?
 
-    suspend fun getCredentialByType(ctx: LoginContext, credType: String): VCDataJwt?
+    suspend fun getCredentialByType(ctx: LoginContext, ctype: String): VCDataJwt?
 
     suspend fun deleteCredential(ctx: LoginContext, vcId: String): VCDataJwt?
 

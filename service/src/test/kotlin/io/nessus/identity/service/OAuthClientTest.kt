@@ -37,7 +37,7 @@ class OAuthClientTest : AbstractServiceTest() {
             val authReq = AuthorizationRequestBuilder()
                 .withClientId(cfg.clientId)
                 .withRedirectUri("urn:ietf:wg:oauth:2.0:oob")
-                .withScopes("oid4vc_natural_person")
+                .withScopes(listOf("oid4vc_natural_person"))
                 .withCodeChallengeMethod("S256")
                 .withCodeVerifier(codeVerifier)
                 .build()

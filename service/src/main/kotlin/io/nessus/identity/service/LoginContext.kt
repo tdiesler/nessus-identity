@@ -39,9 +39,12 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
         val WALLET_INFO_ATTACHMENT_KEY = attachmentKey<WalletInfo>()
         val DID_INFO_ATTACHMENT_KEY = attachmentKey<DidInfo>()
         val USER_ROLE_ATTACHMENT_KEY = attachmentKey<UserRole>()
+        val USER_ATTACHMENT_KEY = attachmentKey<User>()
 
         suspend fun login(user: User): LoginContext {
-            return login(user.toLoginParams())
+            return login(user.toLoginParams()).also {
+                it.putAttachment(USER_ATTACHMENT_KEY, user)
+            }
         }
 
         suspend fun login(params: LoginParams): LoginContext {

@@ -32,7 +32,6 @@ sealed class TokenRequest {
 
     abstract val grantType: GrantType
     abstract val clientId: String?
-    abstract val extras: Map<String, List<String>>
 
     /** Each subclass must expose its own field map for form encoding */
     abstract fun specificParameters(): Map<String, List<String>>
@@ -42,7 +41,6 @@ sealed class TokenRequest {
             put("grant_type", listOf(grantType.value))
             clientId?.also { put("client_id", listOf(it)) }
             putAll(specificParameters())
-            putAll(extras)
         }
     }
 
@@ -60,7 +58,6 @@ sealed class TokenRequest {
 
         fun fromHttpParameters(parameters: Map<String, List<String>>): TokenRequest {
             val grantType = parameters["grant_type"]!!.first().let { GrantType.fromValue(it)!! }
-            val extras = parameters.filterKeys { !knownKeys.contains(it) }
 
             return when (grantType) {
                 GrantType.AUTHORIZATION_CODE -> AuthorizationCode(
@@ -70,7 +67,6 @@ sealed class TokenRequest {
                         ?: error("Missing 'code' for Authorization Code flow."),
                     redirectUri = parameters["redirect_uri"]?.firstOrNull(),
                     codeVerifier = parameters["code_verifier"]?.firstOrNull(),
-                    extras = extras
                 )
                 GrantType.PRE_AUTHORIZED_CODE -> PreAuthorizedCode(
                     preAuthorizedCode = parameters["pre-authorized_code"]?.firstOrNull()
@@ -78,7 +74,6 @@ sealed class TokenRequest {
                     txCode = parameters["tx_code"]?.firstOrNull(),
                     userPin = parameters["user_pin"]?.firstOrNull(),
                     clientId = parameters["client_id"]?.firstOrNull(),
-                    extras = extras
                 )
                 else -> error("Unsupported grant_type: $grantType")
             }
@@ -94,7 +89,6 @@ sealed class TokenRequest {
         val code: String,
         @SerialName("code_verifier")
         val codeVerifier: String? = null,
-        override val extras: Map<String, List<String>> = emptyMap()
     ) : TokenRequest() {
         override val grantType = GrantType.AUTHORIZATION_CODE
 
@@ -107,15 +101,14 @@ sealed class TokenRequest {
 
     @Serializable
     data class PreAuthorizedCode(
+        @SerialName("client_id")
+        override val clientId: String? = null,
         @SerialName("pre-authorized_code")
         val preAuthorizedCode: String,
         @SerialName("tx_code")
         val txCode: String? = null,
         @SerialName("user_pin")
         val userPin: String? = null,
-        @SerialName("client_id")
-        override val clientId: String? = null,
-        override val extras: Map<String, List<String>> = emptyMap()
     ) : TokenRequest() {
         override val grantType = GrantType.PRE_AUTHORIZED_CODE
         override fun specificParameters(): Map<String, List<String>> = buildMap {
@@ -133,7 +126,6 @@ sealed class TokenRequest {
         val clientSecret: String,
         @SerialName("scopes")
         val scopes: List<String>? = null,
-        override val extras: Map<String, List<String>> = emptyMap()
     ) : TokenRequest() {
         override val grantType = GrantType.CLIENT_CREDENTIALS
         override fun specificParameters(): Map<String, List<String>> = buildMap {
@@ -152,7 +144,6 @@ sealed class TokenRequest {
         val password: String,
         @SerialName("scopes")
         val scopes: List<String>? = null,
-        override val extras: Map<String, List<String>> = emptyMap()
     ) : TokenRequest() {
         override val grantType = GrantType.DIRECT_ACCESS
         override fun specificParameters(): Map<String, List<String>> = buildMap {

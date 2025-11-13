@@ -99,8 +99,8 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
             // Issuer creates the CredentialOffer
             //
-            val credType = "CTWalletSameAuthorisedInTime"
-            val types = listOf("VerifiableCredential", credType)
+            val ctype = "CTWalletSameAuthorisedInTime"
+            val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
@@ -112,7 +112,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
             // Holder finds Credential by Type and presents it to the Verifier
             //
             val verificationFlow = CredentialVerificationFlowEbsi32(alice, bob)
-            verificationFlow.verifyPresentationByType(credType)
+            verificationFlow.verifyPresentationByType(ctype)
         }
     }
 
@@ -133,8 +133,8 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
             // Issuer creates the CredentialOffer
             //
-            val credType = "CTWalletSamePreAuthorisedInTime"
-            val types = listOf("VerifiableCredential", credType)
+            val ctype = "CTWalletSamePreAuthorisedInTime"
+            val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
@@ -156,7 +156,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
             //
             val verificationFlow = CredentialVerificationFlowEbsi32(alice, bob)
             runCatching {
-                verificationFlow.verifyPresentationByType(credType)
+                verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
                 log.error { it }
                 it.message shouldContain "is expired"
@@ -183,8 +183,8 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
             // Issuer creates the CredentialOffer
             //
-            val credType = "CTWalletSamePreAuthorisedInTime"
-            val types = listOf("VerifiableCredential", credType)
+            val ctype = "CTWalletSamePreAuthorisedInTime"
+            val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
@@ -205,7 +205,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
             //
             val verificationFlow = CredentialVerificationFlowEbsi32(alice, bob)
             runCatching {
-                verificationFlow.verifyPresentationByType(credType)
+                verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
                 log.error { it }
                 it.message shouldContain "not yet valid"
@@ -232,8 +232,8 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
 
             // Issuer creates the CredentialOffer
             //
-            val credType = "CTWalletSamePreAuthorisedInTime"
-            val types = listOf("VerifiableCredential", credType)
+            val ctype = "CTWalletSamePreAuthorisedInTime"
+            val types = listOf("VerifiableCredential", ctype)
             val credOffer = issuerSvc.createCredentialOffer(max, alice.did, types, userPin)
 
             // Holder gets the Credential from the Issuer based on a CredentialOffer
@@ -259,7 +259,7 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
             //
             val verificationFlow = CredentialVerificationFlowEbsi32(alice, bob)
             runCatching {
-                verificationFlow.verifyPresentationByType(credType)
+                verificationFlow.verifyPresentationByType(ctype)
             }.onFailure {
                 log.error { it }
                 it.message shouldContain "is revoked"

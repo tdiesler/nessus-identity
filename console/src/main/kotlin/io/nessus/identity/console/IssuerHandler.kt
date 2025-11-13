@@ -111,7 +111,7 @@ class IssuerHandler() {
 
         // Create the CredentialOffer and send it to the Holder's wallet endpoint
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
-        val credOffer = issuerSvc.createCredentialOffer(subjectId, listOf(ctype))
+        val credOffer = issuerSvc.createCredentialOfferNative(subjectId, listOf(ctype))
 
         val walletUrl = "${requireWalletConfig().baseUrl}/$targetId"
         val res = http.get("$walletUrl/credential-offer" ) {

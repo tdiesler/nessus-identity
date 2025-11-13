@@ -15,8 +15,8 @@ object CredentialOfferRegistry {
     // Maps Pre-Authorization Codes to CredentialOfferRecord
     private val registry = mutableMapOf<String, CredentialOfferRecord>()
 
-    fun isEBSIPreAuthorizedType(credType: String): Boolean {
-        return credType.startsWith("CT") && credType.contains("PreAuthorised")
+    fun isEBSIPreAuthorizedType(ctype: String): Boolean {
+        return ctype.startsWith("CT") && ctype.contains("PreAuthorised")
     }
 
     fun assertCredentialOfferRecord(authCode: String): CredentialOfferRecord {

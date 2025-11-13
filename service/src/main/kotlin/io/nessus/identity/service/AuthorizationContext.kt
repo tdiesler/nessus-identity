@@ -6,16 +6,19 @@ import io.nessus.identity.types.IssuerMetadataV10
 
 // AuthorizationContext ===============================================================================================
 
-class AuthorizationContext {
+class AuthorizationContext(val loginContext: LoginContext) {
 
     lateinit var authRequest: AuthorizationRequest
     lateinit var issuerMetadata: IssuerMetadataV10
 
-    var authCode: String? = null
     var codeVerifier: String? = null
     var credOffer: CredentialOfferV10? = null
+    var explicitCredentialConfigurationIds = mutableListOf<String>()
 
     val authEndpointUrl get() = issuerMetadata.getAuthorizationAuthEndpoint()
+
+    val credentialConfigurationIds get() =
+        explicitCredentialConfigurationIds.ifEmpty { credOffer?.credentialConfigurationIds ?: listOf() }
 
     fun withAuthorizationRequest(authRequest: AuthorizationRequest): AuthorizationContext {
         this.authRequest = authRequest
@@ -24,6 +27,11 @@ class AuthorizationContext {
 
     fun withCodeVerifier(codeVerifier: String): AuthorizationContext {
         this.codeVerifier = codeVerifier
+        return this
+    }
+
+    fun withCredentialConfigurationId(ctype: String): AuthorizationContext {
+        explicitCredentialConfigurationIds.add(ctype)
         return this
     }
 

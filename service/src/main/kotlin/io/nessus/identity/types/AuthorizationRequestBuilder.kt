@@ -79,33 +79,23 @@ class AuthorizationRequestBuilder {
         return this
     }
 
-    fun withScopes(vararg scopes: String): AuthorizationRequestBuilder {
+    fun withScopes(scopes: List<String>): AuthorizationRequestBuilder {
         this.scopes.addAll(scopes)
         return this
     }
 
-    suspend fun buildFrom(credOffer: CredentialOfferV10): AuthorizationRequest {
+    fun withAuthorizationDetails(): AuthorizationRequestBuilder {
+        val issuerUri = metadata?.credentialIssuer ?: error("No issuer metadata")
+        addAuthorizationDetails(issuerUri, scopes)
+        return this
+    }
+
+    fun buildFrom(credOffer: CredentialOfferV10): AuthorizationRequest {
         this.credOffer = credOffer
-        this.responseType = "code"
 
-        if (metadata == null)
-            metadata = credOffer.resolveIssuerMetadata()
+        val issuerUri = credOffer.credentialIssuer
+        addAuthorizationDetails(issuerUri, credOffer.credentialConfigurationIds)
 
-
-        credOffer.credentialConfigurationIds.forEach { credType ->
-            authDetails.add(
-                Json.decodeFromString(
-                    """{
-                        "type": "openid_credential",
-                        "credential_configuration_id": "$credType",
-                        "locations": [ "${credOffer.credentialIssuer}" ]
-                    }"""
-                )
-            )
-            // Keycloak requires credential id in scope although already given in authorizationDetails
-            // https://github.com/tdiesler/nessus-identity/issues/264
-            scopes.add(credType)
-        }
         return buildInternal()
     }
 
@@ -114,6 +104,25 @@ class AuthorizationRequestBuilder {
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+
+    fun addAuthorizationDetails(issuerUri: String, ctypes: List<String>) {
+        ctypes.forEach {
+            authDetails.add(
+                Json.decodeFromString(
+                    """{
+                            "type": "openid_credential",
+                            "credential_configuration_id": "$it",
+                            "locations": [ "$issuerUri" ]
+                        }"""
+                )
+            )
+        }
+        // [TODO #264] Keycloak requires credential id in scope although already given in authorizationDetails
+        // https://github.com/tdiesler/nessus-identity/issues/264
+        if (scopes.isEmpty()) {
+            scopes.addAll(ctypes)
+        }
+    }
 
     private fun buildInternal(): AuthorizationRequest {
 

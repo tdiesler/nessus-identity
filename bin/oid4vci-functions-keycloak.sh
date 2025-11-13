@@ -209,6 +209,7 @@ kc_create_oid4vci_service_client() {
   local realm="$1"
   local client_id="$2"
   local client_secret="$3"
+  local credential_id="$4"
 
   echo "Create service client: ${client_id} ..."
   ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
@@ -226,7 +227,7 @@ kc_create_oid4vci_service_client() {
     "attributes": {
       "oid4vci.enabled": "true"
     },
-    "optionalClientScopes": []
+    "optionalClientScopes": ["oid4vc_natural_person", "${credential_id}"]
   }
 EOF
 
