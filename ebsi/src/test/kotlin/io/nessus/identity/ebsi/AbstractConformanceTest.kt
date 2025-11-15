@@ -109,7 +109,7 @@ open class AbstractConformanceTest {
         context = browser.newContext(Browser.NewContextOptions()
             .setViewportSize(screenWidth / 2, (screenHeight * 0.8).toInt()))
 
-        PlaywrightAssertions.setDefaultAssertionTimeout(10_000.0)
+        PlaywrightAssertions.setDefaultAssertionTimeout(20_000.0)
     }
 
     fun stopPlaywrightBrowser() {

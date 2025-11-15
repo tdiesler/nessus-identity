@@ -64,10 +64,12 @@ keycloak:
 	@cd ../keycloak && ./mvnw -pl quarkus/dist -am -DskipTests clean install
 	@tar xzf ../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT.tar.gz -C ../keycloak/quarkus/dist/target
 
+# Append debug log options e.g.
+# 	--log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
 keycloak-run:
-	@KC_HOME="../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT" && \
+	@KC_HOME="../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT" && PRINT_ENV="true" \
 		$${KC_HOME}/bin/kc.sh start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin \
-			--log-console-color=false --log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
+		  --log-console-color=false # --log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
 
 keycloak-tests:
 	@cd ../keycloak/testsuite/integration-arquillian/tests/base && \

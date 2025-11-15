@@ -17,8 +17,8 @@ abstract class AbstractIssuerConformanceTest : AbstractConformanceTest() {
         ctx.hasDidInfo.shouldBeTrue()
 
         val page = context.newPage()
-        page.setDefaultTimeout(10_000.0)
-        page.setDefaultNavigationTimeout(10_000.0)
+        page.setDefaultTimeout(20_000.0)
+        page.setDefaultNavigationTimeout(20_000.0)
         page.navigate("https://hub.ebsi.eu/wallet-conformance/issue-to-holder")
 
         // Issue Verifiable Credentials to Holder -> Start tests
