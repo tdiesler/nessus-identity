@@ -43,10 +43,9 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
     val clientId = requireIssuerConfig().clientId
 
-    fun createAuthorizationContext(ctx: LoginContext, metadata: IssuerMetadataV10? = null): AuthorizationContext {
+    fun createAuthorizationContext(ctx: LoginContext): AuthorizationContext {
         val authContext = AuthorizationContext(ctx)
         ctx.putAttachment(AUTH_CONTEXT_ATTACHMENT_KEY, authContext)
-        metadata?.also { authContext.withIssuerMetadata(it) }
         return authContext
     }
 
@@ -64,7 +63,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
             buildAuthorizationRequestFromOffer(redirectUri, credOffer, codeVerifier)
         } else {
             val metadata = authContext.issuerMetadata
-            val ctypes = authContext.credentialConfigurationIds
+            val ctypes = authContext.credentialConfigurationIds ?: error("No credential config ids")
             buildAuthorizationRequestFromCredentialTypes(redirectUri, metadata, ctypes, codeVerifier)
         }
 
@@ -104,7 +103,11 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
         val metadata = authContext.issuerMetadata
         val tokenEndpointUrl = metadata.getAuthorizationTokenEndpoint()
-        val scopes = authContext.credentialConfigurationIds.ifEmpty { listOf("openid") }
+        val scopes = mutableListOf("openid")
+
+        authContext.credentialConfigurationIds?.also {
+            scopes.addAll(it)
+        }
 
         val user = authContext.loginContext.assertAttachment(USER_ATTACHMENT_KEY)
         val tokReq = TokenRequest.DirectAccess(
@@ -138,18 +141,11 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
     }
 
     /**
-     * Creates a CredentialOffer for the given credential configuration id
+     * Fetch the CredentialOffer for the given credential offer uri
      */
-    suspend fun fetchCredentialOffer(authContext: AuthorizationContext, offerUri: String): CredentialOfferV10 {
-
-        val tokRes = getAccessTokenFromDirectAccess(authContext)
-        val accessToken = tokRes.accessToken
-
-        val credOfferRes = http.get(offerUri) {
-            header(jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
-        }
-        val credOffer = handleApiResponse(credOfferRes) as CredentialOfferV10
-
+    suspend fun fetchCredentialOffer(offerUri: String): CredentialOfferV10 {
+        val credOfferRes = http.get(offerUri)
+        val credOffer = (handleApiResponse(credOfferRes) as CredentialOfferV10)
         log.info { "CredentialOffer: ${credOffer.toJson()}" }
         return credOffer
     }
@@ -161,7 +157,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
     suspend fun getCredential(authContext: AuthorizationContext, accessToken: TokenResponseV0): VCDataJwt {
 
         val ctx = authContext.loginContext
-        val ctypes = authContext.credentialConfigurationIds
+        val ctypes = authContext.credentialConfigurationIds ?: error("No credential config ids")
         val credRes = sendCredentialRequest(authContext, ctypes, accessToken)
 
         val vcJwt = validateAndStoreCredential(ctx, credRes)

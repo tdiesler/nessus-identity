@@ -5,6 +5,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldEndWith
 import io.nessus.identity.waltid.Alice
+import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -52,10 +53,9 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     @Test
     fun createCredentialOffer() {
         runBlocking {
-            val metadata = issuerSvc.getIssuerMetadata()
-            val offerUri = issuerSvc.createCredentialOfferUri("oid4vc_natural_person")
-            val authContext = walletSvc.createAuthorizationContext(alice, metadata)
-            val credOffer = walletSvc.fetchCredentialOffer(authContext, offerUri)
+            val ctype = "oid4vc_natural_person"
+            val offerUri = issuerSvc.createCredentialOfferUri(Max, ctype)
+            val credOffer = walletSvc.fetchCredentialOffer(offerUri)
             credOffer.shouldNotBeNull()
         }
     }
@@ -64,7 +64,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     fun createCredentialOfferInvalidType() {
         runBlocking {
             assertThrows<IllegalArgumentException> {
-                issuerSvc.createCredentialOfferUri("oid4vc_unknown")
+                issuerSvc.createCredentialOfferUri(Max, "oid4vc_unknown")
             }
         }
     }

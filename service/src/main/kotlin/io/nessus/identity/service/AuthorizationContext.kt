@@ -13,12 +13,12 @@ class AuthorizationContext(val loginContext: LoginContext) {
 
     var codeVerifier: String? = null
     var credOffer: CredentialOfferV10? = null
-    var explicitCredentialConfigurationIds = mutableListOf<String>()
+    var explicitCredentialConfigurationIds: List<String>? = null
 
     val authEndpointUrl get() = issuerMetadata.getAuthorizationAuthEndpoint()
 
     val credentialConfigurationIds get() =
-        explicitCredentialConfigurationIds.ifEmpty { credOffer?.credentialConfigurationIds ?: listOf() }
+        explicitCredentialConfigurationIds ?: credOffer?.credentialConfigurationIds
 
     fun withAuthorizationRequest(authRequest: AuthorizationRequest): AuthorizationContext {
         this.authRequest = authRequest
@@ -31,7 +31,7 @@ class AuthorizationContext(val loginContext: LoginContext) {
     }
 
     fun withCredentialConfigurationId(ctype: String): AuthorizationContext {
-        explicitCredentialConfigurationIds.add(ctype)
+        explicitCredentialConfigurationIds = listOf(ctype)
         return this
     }
 

@@ -6,6 +6,7 @@ import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataV11Jwt
 import io.nessus.identity.waltid.Alice
+import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -40,8 +41,9 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Identity Credential on demand
             val vcJwt = walletSvc.getCredentialByType(alice, ctype)
             if (vcJwt == null) {
-                val credOffer = issuerSvc.createCredentialOffer(alice, ctype)
-                val authContext = walletSvc.createAuthorizationContext(alice).withCredentialOffer(credOffer)
+                val offerUri = issuerSvc.createCredentialOfferUri(Max, ctype)
+                val credOffer = walletSvc.fetchCredentialOffer(offerUri)
+                val authContext = walletSvc.createAuthorizationContext(alice)
                 val authCode = walletSvc.getAuthorizationCode(authContext, Alice.username, Alice.password)
                 val accessToken = walletSvc.getAccessTokenFromCode(authContext, authCode)
                 walletSvc.getCredential(authContext, accessToken)
@@ -99,8 +101,9 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Identity Credential on demand
             val vcJwt = walletSvc.getCredentialByType(alice, ctype)
             if (vcJwt == null) {
-                val credOffer = issuerSvc.createCredentialOffer(alice, ctype)
-                val authContext = walletSvc.createAuthorizationContext(alice).withCredentialOffer(credOffer)
+                val offerUri = issuerSvc.createCredentialOfferUri(Max, ctype)
+                val credOffer = walletSvc.fetchCredentialOffer(offerUri)
+                val authContext = walletSvc.createAuthorizationContext(alice)
                 val authCode = walletSvc.getAuthorizationCode(authContext, Alice.username, Alice.password)
                 val accessToken = walletSvc.getAccessTokenFromCode(authContext, authCode)
                 walletSvc.getCredential(authContext, accessToken)

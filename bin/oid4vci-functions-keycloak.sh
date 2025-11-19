@@ -359,27 +359,27 @@ EOF
 kc_create_user() {
   local realm="$1"
   local role="$2"
-  local userName="$3"
+  local fullName="$3"
   local userEmail="$4"
   local userPassword="$5"
 
-  local firstName lastName lowerName
-  firstName=$(echo "${userName}" | awk '{print $1}')
-  lastName=$(echo "${userName}" | awk '{print $2}')
-  lowerName="$(echo "${firstName}" | tr '[:upper:]' '[:lower:]')"
+  local firstName lastName username
+  firstName=$(echo "${fullName}" | awk '{print $1}')
+  lastName=$(echo "${fullName}" | awk '{print $2}')
+  username="$(echo "${firstName}" | tr '[:upper:]' '[:lower:]')"
 
   # Check if user already exists
   local userId
-  userId=$(${KCADM} get users -r "${realm}" -q username="${lowerName}" --fields id --format csv --noquotes)
+  userId=$(${KCADM} get users -r "${realm}" -q username="${username}" --fields id --format csv --noquotes)
 
   if [[ -n "${userId}" ]]; then
-    echo "User '${userName}' already exists (id=${userId})" >&2
+    echo "User '${fullName}' already exists (id=${userId})" >&2
   else
-    echo "Creating user '${userName}' with role '${role}' in realm '${realm}'" >&2
+    echo "Creating user '${fullName}' with role '${role}' in realm '${realm}'" >&2
     user_did=$(jq -r '.did' ".secret/${role}-details.json")
     echo "${firstName}'s DID: ${user_did}" >&2
     ${KCADM} create users -r "${realm}" \
-      -s username="${lowerName}" \
+      -s username="${username}" \
       -s email="${userEmail}" \
       -s firstName="${firstName}" \
       -s lastName="${lastName}" \
@@ -387,9 +387,13 @@ kc_create_user() {
       -s enabled=true \
       -s attributes.did="${user_did}"
 
-    ${KCADM} set-password -r "${realm}" --username "${lowerName}" --new-password "${userPassword}" --temporary=false
+    ${KCADM} set-password -r "${realm}" --username "${username}" --new-password "${userPassword}" --temporary=false
 
-    user_id=$(${KCADM} get users -r "${realm}" -q username="alice" --fields id --format json | jq -r '.[0].id')
+    if [[ "${role}" == "issuer" ]]; then
+      ${KCADM} add-roles -r "${realm}" --uusername "${username}" --rolename "credential-offer-create"
+    fi
+
+    user_id=$(${KCADM} get users -r "${realm}" -q username="${username}" --fields id --format json | jq -r '.[0].id')
     ${KCADM} get -r "${realm}" "users/${user_id}"
   fi
 }

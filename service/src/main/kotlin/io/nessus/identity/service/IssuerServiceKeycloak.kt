@@ -8,7 +8,6 @@ import io.ktor.client.request.*
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
-import io.nessus.identity.service.LoginContext.Companion.USER_ATTACHMENT_KEY
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.CredentialOfferV10
@@ -16,7 +15,6 @@ import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataV10
 import io.nessus.identity.types.PreAuthorizedCodeGrant
 import io.nessus.identity.types.TokenRequest
-import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.User
 import jakarta.ws.rs.core.HttpHeaders
 import kotlinx.serialization.json.*
@@ -56,7 +54,7 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService<Is
     /**
      * Creates a CredentialOfferUri for the given credential configuration id
      */
-    suspend fun createCredentialOfferUri(ctype: String, preAuthorized: Boolean = false, user: User = Alice): String {
+    suspend fun createCredentialOfferUri(issuer: User, ctype: String, preAuthorized: Boolean = false, holder: User? = null): String {
 
         val metadata = getIssuerMetadata()
         val supportedTypes = metadata.supportedTypes
@@ -68,8 +66,8 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService<Is
 
         val tokReq = TokenRequest.DirectAccess(
             clientId = cfg.clientId,
-            username = user.username,
-            password = user.password,
+            username = issuer.username,
+            password = issuer.password,
             scopes = listOf(ctype)
         )
 
@@ -88,9 +86,9 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService<Is
                 parameter("credential_configuration_id", ctype)
                 parameter("pre_authorized", preAuthorized)
                 if (preAuthorized) {
-                    val email = user?.email ?: error("No user email")
+                    val email = holder?.email ?: error("No user email")
                     val user = findUserByEmail(email) ?: error("No user for email: $email")
-                    parameter("subject_id", user.id)
+                    parameter("user_id", user.username)
                 }
             }
         }
@@ -102,15 +100,6 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService<Is
         log.info { "CredentialOfferUri: $credOfferUri}" }
 
         return credOfferUri
-    }
-
-    suspend fun createCredentialOffer(ctx: LoginContext, ctype: String, preAuthorized: Boolean = false): CredentialOfferV10 {
-        val user = ctx.assertAttachment(USER_ATTACHMENT_KEY)
-        val offerUri = createCredentialOfferUri(ctype, preAuthorized, user)
-        val walletSvc = WalletServiceKeycloak()
-        val authContext = walletSvc.createAuthorizationContext(ctx, getIssuerMetadata())
-        val credOffer = walletSvc.fetchCredentialOffer(authContext, offerUri)
-        return credOffer
     }
 
     /**
@@ -151,8 +140,7 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService<Is
             credentialIssuer = issuerUri,
             credentialConfigurationIds = types,
             grants = if (userPin != null) {
-                val preAuthCode = issuerState
-                Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
+                Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = issuerState))
             } else {
                 val clientId = config.clientId
                 val issuerState = issuerState

@@ -163,7 +163,7 @@ data class AuthorizationDetails(
     val type: String,  // must be "openid_credential"
 
     @SerialName("credential_configuration_id")
-    val credentialConfigurationId: String,
+    val credentialConfigurationId: String? = null,
 
     /** Optional: credential format (e.g. "jwt_vc_json") */
     val format: String? = null,
