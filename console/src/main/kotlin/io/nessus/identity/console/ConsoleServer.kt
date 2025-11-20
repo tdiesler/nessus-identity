@@ -114,159 +114,165 @@ class ConsoleServer(val config: ConsoleConfig) {
 
                 // Issuer ---------------------------------------------------------------------------------
                 //
-                get("/issuer") {
-                    autoLogin(call)
-                    issuerHandler.showIssuerHome(call)
-                }
-                get("/issuer/auth-config") {
-                    issuerHandler.showAuthConfig(call)
-                }
-                get("/issuer/issuer-config") {
-                    issuerHandler.showIssuerConfig(call)
-                }
-                get("/issuer/credential-config/{configId}") {
-                    val configId = call.parameters["configId"] ?: error("No configId")
-                    issuerHandler.showCredentialConfig(call, configId)
-                }
-                get("/issuer/credential-offers") {
-                    issuerHandler.showCredentialOffers(call)
-                }
-                get("/issuer/credential-offer/create") {
-                    issuerHandler.showCredentialOfferCreate(call)
-                }
-                post("/issuer/credential-offer/create") {
-                    issuerHandler.handleCredentialOfferCreate(call)
-                }
-                post("/issuer/credential-offer/send") {
-                    issuerHandler.handleCredentialOfferSend(call)
-                }
-                get("/issuer/users") {
-                    issuerHandler.showUsers(call)
-                }
-                get("/issuer/user-create") {
-                    issuerHandler.showCreateUserPage(call)
-                }
-                post("/issuer/user-create") {
-                    issuerHandler.handleUserCreate(call)
-                }
-                get("/issuer/user-delete/{userId}") {
-                    val userId = call.parameters["userId"] ?: error("No userId")
-                    issuerHandler.handleUserDelete(call, userId)
+                route("/issuer") {
+                    get {
+                        autoLogin(call)
+                        issuerHandler.showIssuerHome(call)
+                    }
+                    get("/auth-config") {
+                        issuerHandler.showAuthConfig(call)
+                    }
+                    get("/issuer-config") {
+                        issuerHandler.showIssuerConfig(call)
+                    }
+                    get("/credential-config/{configId}") {
+                        val configId = call.parameters["configId"] ?: error("No configId")
+                        issuerHandler.showCredentialConfig(call, configId)
+                    }
+                    get("/credential-offers") {
+                        issuerHandler.showCredentialOffers(call)
+                    }
+                    get("/credential-offer/create") {
+                        issuerHandler.showCredentialOfferCreate(call)
+                    }
+                    post("/credential-offer/create") {
+                        issuerHandler.handleCredentialOfferCreate(call)
+                    }
+                    post("/credential-offer/send") {
+                        issuerHandler.handleCredentialOfferSend(call)
+                    }
+                    get("/users") {
+                        issuerHandler.showUsers(call)
+                    }
+                    get("/user-create") {
+                        issuerHandler.showCreateUserPage(call)
+                    }
+                    post("/user-create") {
+                        issuerHandler.handleUserCreate(call)
+                    }
+                    get("/user-delete/{userId}") {
+                        val userId = call.parameters["userId"] ?: error("No userId")
+                        issuerHandler.handleUserDelete(call, userId)
+                    }
                 }
 
                 // Wallet ---------------------------------------------------------------------------------
                 //
-                get("/wallet") {
-                    autoLogin(call)
-                    walletHandler.showWalletHome(call)
-                }
-                // Issuer Callback to obtain Holder consent for Credential issuance
-                get("/wallet/auth/callback") {
-                    val ctx = requireLoginContext(call, UserRole.Holder)
-                    walletHandler.handleAuthCallback(call, ctx)
-                }
-                get("/wallet/login") {
-                    walletHandler.walletLoginPage(call)
-                }
-                post("/wallet/login") {
-                    walletHandler.handleWalletLogin(call)
-                }
-                get("/wallet/logout") {
-                    walletHandler.handleWalletLogout(call)
-                }
+                route("/wallet") {
+                    get {
+                        autoLogin(call)
+                        walletHandler.showWalletHome(call)
+                    }
+                    // Issuer Callback to obtain Holder consent for Credential issuance
+                    get("/auth/callback") {
+                        val ctx = requireLoginContext(call, UserRole.Holder)
+                        walletHandler.handleAuthCallback(call, ctx)
+                    }
+                    get("/login") {
+                        walletHandler.walletLoginPage(call)
+                    }
+                    post("/login") {
+                        walletHandler.handleWalletLogin(call)
+                    }
+                    get("/logout") {
+                        walletHandler.handleWalletLogout(call)
+                    }
 
-                get("/wallet/auth") {
-                    val ctx = requireLoginContext(call, UserRole.Holder)
-                    walletHandler.handleAuthorization(call, ctx)
-                }
-                get("/wallet/auth/flow/{flowStep}") {
-                    val ctx = requireLoginContext(call, UserRole.Holder)
-                    val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
-                    walletHandler.handleAuthFlow(call, ctx, flowStep)
-                }
-                get("/wallet/{targetId}/credential-offers") {
-                    withHolderContextOrHome(call) { ctx ->
-                        walletHandler.showCredentialOffers(call, ctx)
+                    get("/auth") {
+                        val ctx = requireLoginContext(call, UserRole.Holder)
+                        walletHandler.handleAuthorization(call, ctx)
                     }
-                }
-                get("/wallet/{targetId}/credential-offer") {
-                    val targetId = call.parameters["targetId"] ?: error("No targetId")
-                    walletHandler.handleCredentialOfferAdd(call, targetId)
-                }
-                get("/wallet/{targetId}/credential-offer/{offerId}/accept") {
-                    withHolderContextOrHome(call) { ctx ->
-                        val offerId = call.parameters["offerId"] ?: error("No offerId")
-                        walletHandler.handleCredentialOfferAccept(call, ctx, offerId)
+                    get("/auth/flow/{flowStep}") {
+                        val ctx = requireLoginContext(call, UserRole.Holder)
+                        val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
+                        walletHandler.handleAuthFlow(call, ctx, flowStep)
                     }
-                }
-                get("/wallet/{targetId}/credential-offer/{offerId}/delete") {
-                    withHolderContextOrHome(call) { ctx ->
-                        val offerId = call.parameters["offerId"] ?: error("No offerId")
-                        walletHandler.handleCredentialOfferDelete(call, ctx, offerId)
+                    get("/{targetId}/credential-offers") {
+                        withHolderContextOrHome(call) { ctx ->
+                            walletHandler.showCredentialOffers(call, ctx)
+                        }
                     }
-                }
-                get("/wallet/{targetId}/credential-offer/delete-all") {
-                    withHolderContextOrHome(call) { ctx ->
-                        walletHandler.handleCredentialOfferDeleteAll(call, ctx)
+                    get("/{targetId}/credential-offer") {
+                        val targetId = call.parameters["targetId"] ?: error("No targetId")
+                        walletHandler.handleCredentialOfferAdd(call, targetId)
                     }
-                }
-                get("/wallet/{targetId}/credential-offer/{offerId}/view") {
-                    withHolderContextOrHome(call) { ctx ->
-                        val offerId = call.parameters["offerId"] ?: error("No offerId")
-                        walletHandler.handleCredentialOfferDetails(call, ctx, offerId)
+                    get("/{targetId}/credential-offer/{offerId}/accept") {
+                        withHolderContextOrHome(call) { ctx ->
+                            val offerId = call.parameters["offerId"] ?: error("No offerId")
+                            walletHandler.handleCredentialOfferAccept(call, ctx, offerId)
+                        }
                     }
-                }
-                get("/wallet/{targetId}/credentials") {
-                    withHolderContextOrHome(call) { ctx ->
-                        walletHandler.handleCredentials(call, ctx)
+                    get("/{targetId}/credential-offer/{offerId}/delete") {
+                        withHolderContextOrHome(call) { ctx ->
+                            val offerId = call.parameters["offerId"] ?: error("No offerId")
+                            walletHandler.handleCredentialOfferDelete(call, ctx, offerId)
+                        }
                     }
-                }
-                get("/wallet/{targetId}/credential/{vcId}") {
-                    withHolderContextOrHome(call) { ctx ->
-                        val vcId = call.parameters["vcId"] ?: error("No vcId")
-                        walletHandler.handleCredentialDetails(call, ctx, vcId)
+                    get("/{targetId}/credential-offer/delete-all") {
+                        withHolderContextOrHome(call) { ctx ->
+                            walletHandler.handleCredentialOfferDeleteAll(call, ctx)
+                        }
                     }
-                }
-                get("/wallet/{targetId}/credential/{vcId}/delete") {
-                    withHolderContextOrHome(call) { ctx ->
-                        val vcId = call.parameters["vcId"] ?: error("No vcId")
-                        walletHandler.handleCredentialDelete(call, ctx, vcId)
+                    get("/{targetId}/credential-offer/{offerId}/view") {
+                        withHolderContextOrHome(call) { ctx ->
+                            val offerId = call.parameters["offerId"] ?: error("No offerId")
+                            walletHandler.handleCredentialOfferDetails(call, ctx, offerId)
+                        }
                     }
-                }
-                get("/wallet/{targetId}/credential/delete-all") {
-                    withHolderContextOrHome(call) { ctx ->
-                        walletHandler.handleCredentialDeleteAll(call, ctx)
+                    get("/{targetId}/credentials") {
+                        withHolderContextOrHome(call) { ctx ->
+                            walletHandler.handleCredentials(call, ctx)
+                        }
+                    }
+                    get("/{targetId}/credential/{vcId}") {
+                        withHolderContextOrHome(call) { ctx ->
+                            val vcId = call.parameters["vcId"] ?: error("No vcId")
+                            walletHandler.handleCredentialDetails(call, ctx, vcId)
+                        }
+                    }
+                    get("/{targetId}/credential/{vcId}/delete") {
+                        withHolderContextOrHome(call) { ctx ->
+                            val vcId = call.parameters["vcId"] ?: error("No vcId")
+                            walletHandler.handleCredentialDelete(call, ctx, vcId)
+                        }
+                    }
+                    get("/{targetId}/credential/delete-all") {
+                        withHolderContextOrHome(call) { ctx ->
+                            walletHandler.handleCredentialDeleteAll(call, ctx)
+                        }
                     }
                 }
 
                 // Verifier -------------------------------------------------------------------------------
                 //
-                get("/verifier") {
-                    autoLogin(call)
-                    verifierHandler.showVerifierHome(call)
-                }
-                get("/verifier/login") {
-                    verifierHandler.verifierLoginPage(call)
-                }
-                post("/verifier/login") {
-                    verifierHandler.handleVerifierLogin(call)
-                }
-                get("/verifier/logout") {
-                    verifierHandler.handleVerifierLogout(call)
-                }
+                route("/verifier") {
+                    get {
+                        autoLogin(call)
+                        verifierHandler.showVerifierHome(call)
+                    }
+                    get("/login") {
+                        verifierHandler.verifierLoginPage(call)
+                    }
+                    post("/login") {
+                        verifierHandler.handleVerifierLogin(call)
+                    }
+                    get("/logout") {
+                        verifierHandler.handleVerifierLogout(call)
+                    }
 
-                get("/verifier/callback") {
-                    val ctx = requireLoginContext(call, UserRole.Verifier)
-                    verifierHandler.handleVerifierCallback(call, ctx)
-                }
-                post("/verifier/callback") {
-                    verifierHandler.handleVerifierDirectPost(call)
-                }
-                get("/verifier/presentation-request") {
-                    verifierHandler.showPresentationRequestPage(call)
-                }
-                post("/verifier/presentation-request") {
-                    verifierHandler.handlePresentationRequest(call)
+                    get("/callback") {
+                        val ctx = requireLoginContext(call, UserRole.Verifier)
+                        verifierHandler.handleVerifierCallback(call, ctx)
+                    }
+                    post("/callback") {
+                        verifierHandler.handleVerifierDirectPost(call)
+                    }
+                    get("/presentation-request") {
+                        verifierHandler.showPresentationRequestPage(call)
+                    }
+                    post("/presentation-request") {
+                        verifierHandler.handlePresentationRequest(call)
+                    }
                 }
             }
         }
