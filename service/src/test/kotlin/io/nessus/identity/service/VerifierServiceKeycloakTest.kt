@@ -35,17 +35,19 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
 
     @Test
     fun requestCredentialPresentation() {
-        val ctype = "oid4vc_identity_credential"
         runBlocking {
+            val credConfigId = "oid4vc_identity_credential"
+
+            val issuerMetadata = issuerSvc.getIssuerMetadata()
+            val ctype = issuerMetadata.getCredentialScope(credConfigId)
 
             // Create the Identity Credential on demand
-            val vcJwt = walletSvc.getCredentialByType(alice, ctype)
+            val vcJwt = walletSvc.getCredentialByType(alice, ctype!!)
             if (vcJwt == null) {
-                val offerUri = issuerSvc.createCredentialOfferUri(Max, ctype)
+                val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
                 val credOffer = walletSvc.fetchCredentialOffer(offerUri)
                 val authContext = walletSvc.createAuthorizationContext(alice)
-                val authCode = walletSvc.getAuthorizationCode(authContext, Alice.username, Alice.password)
-                val accessToken = walletSvc.getAccessTokenFromCode(authContext, authCode)
+                val accessToken = walletSvc.getAccessTokenFromPreAuthorizedCode(authContext, credOffer)
                 walletSvc.getCredential(authContext, accessToken)
             }
 
@@ -59,7 +61,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                       "id": "queryId",
                       "format": "jwt_vc",
                       "meta": {
-                        "vct_values": [ "$ctype" ]
+                        "vct_values": [ "$credConfigId" ]
                       },
                       "claims": [
                           {"path": ["email"], "values": ["alice@email.com"]}
@@ -87,7 +89,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
 
             val vcp = CredentialParameters()
                 .withSubject(alice.did)
-                .withTypes(listOf(ctype))
+                .withTypes(listOf(credConfigId))
 
             verifierSvc.validateVerifiableCredential(vpcJwt, vcp)
         }
@@ -95,17 +97,19 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
 
     @Test
     fun requestCredentialPresentationSD() {
-        val ctype = "oid4vc_natural_person"
         runBlocking {
+            val credConfigId = "oid4vc_natural_person"
+
+            val issuerMetadata = issuerSvc.getIssuerMetadata()
+            val ctype = issuerMetadata.getCredentialScope(credConfigId)
 
             // Create the Identity Credential on demand
-            val vcJwt = walletSvc.getCredentialByType(alice, ctype)
+            val vcJwt = walletSvc.getCredentialByType(alice, ctype!!)
             if (vcJwt == null) {
-                val offerUri = issuerSvc.createCredentialOfferUri(Max, ctype)
+                val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
                 val credOffer = walletSvc.fetchCredentialOffer(offerUri)
                 val authContext = walletSvc.createAuthorizationContext(alice)
-                val authCode = walletSvc.getAuthorizationCode(authContext, Alice.username, Alice.password)
-                val accessToken = walletSvc.getAccessTokenFromCode(authContext, authCode)
+                val accessToken = walletSvc.getAccessTokenFromPreAuthorizedCode(authContext, credOffer)
                 walletSvc.getCredential(authContext, accessToken)
             }
 
@@ -119,7 +123,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                       "id": "queryId",
                       "format": "dc+sd-jwt",
                       "meta": {
-                        "vct_values": [ "$ctype" ]
+                        "vct_values": [ "$credConfigId" ]
                       },
                       "claims": [
                           {"path": ["email"], "values": ["alice@email.com"]}
@@ -147,7 +151,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
 
             val vcp = CredentialParameters()
                 .withSubject(alice.did)
-                .withTypes(listOf(ctype))
+                .withTypes(listOf(credConfigId))
 
             // [TODO #318] Consolidate presented credential verification in verifier
             // https://github.com/tdiesler/nessus-identity/issues/318

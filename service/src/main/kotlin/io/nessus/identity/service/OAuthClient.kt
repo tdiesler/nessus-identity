@@ -3,6 +3,7 @@ package io.nessus.identity.service
 import com.microsoft.playwright.BrowserType
 import com.microsoft.playwright.Playwright
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -70,25 +71,41 @@ class OAuthClient {
         val log = KotlinLogging.logger {}
         @Suppress("UNCHECKED_CAST")
         suspend inline fun <reified T> handleApiResponse(res: HttpResponse): T {
-            val body = res.bodyAsText()
+
             if (res.status.value in 200..<300) {
-                log.info { "Response: $body" }
-                val resVal = if (T::class == HttpResponse::class) {
-                    res as T
-                } else if (T::class == String::class) {
-                    body as T
-                } else if (T::class == Boolean::class) {
-                    when {
-                        body.isEmpty() -> true as T
-                        else -> body.toBoolean() as T
+                if (!isBinary(getContentType(res))) {
+                    val body = res.bodyAsText()
+                    log.info { "Response: $body" }
+                }
+                val resVal = when (T::class) {
+                    ByteArray::class -> res.body() as T
+                    Boolean::class -> {
+                        val body = res.bodyAsText()
+                        (body.ifEmpty { "false" }.toBoolean()) as T                    }
+                    HttpResponse::class -> res as T
+                    String::class -> res.bodyAsText() as T
+                    else -> {
+                        val json = Json { ignoreUnknownKeys = true }
+                        json.decodeFromString<T>(res.bodyAsText())
                     }
-                } else {
-                    val json = Json { ignoreUnknownKeys = true }
-                    json.decodeFromString<T>(body)
                 }
                 return resVal
             }
-            error("APIError[code=${res.status.value}, message=$body]")
+            error("APIError[code=${res.status.value}, message=$res.bodyAsText()]")
+        }
+
+        fun getContentType(res: HttpResponse): ContentType? {
+            return res.headers[HttpHeaders.ContentType]?.let { ContentType.parse(it) }
+        }
+
+        fun isBinary(contentType: ContentType?): Boolean {
+            val txtSubtypes = listOf("json", "xml", "javascript", "x-www-form-urlencoded")
+            if (contentType == null) return false
+            return when (contentType.contentType) {
+                "image", "audio", "video" -> true
+                "application" -> contentType.contentSubtype !in txtSubtypes
+                else -> false
+            }
         }
     }
 

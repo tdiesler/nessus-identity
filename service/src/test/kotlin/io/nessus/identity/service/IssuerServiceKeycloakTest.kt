@@ -46,15 +46,30 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
         }
     }
 
-    /**
-     * Credential Offer Endpoint
-     * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
-     */
     @Test
     fun createCredentialOffer() {
         runBlocking {
-            val ctype = "oid4vc_natural_person"
-            val offerUri = issuerSvc.createCredentialOfferUri(Max, ctype)
+            val credConfigId = "oid4vc_natural_person"
+            val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId)
+            val credOffer = walletSvc.fetchCredentialOffer(offerUri)
+            credOffer.shouldNotBeNull()
+        }
+    }
+
+    @Test
+    fun createCredentialOfferQRCode() {
+        runBlocking {
+            val credConfigId = "oid4vc_natural_person"
+            val offerQrCode = issuerSvc.createCredentialOfferUriQRCode(Max, credConfigId)
+            offerQrCode.shouldNotBeNull()
+        }
+    }
+
+    @Test
+    fun createCredentialOfferPreAuthorized() {
+        runBlocking {
+            val credConfigId = "oid4vc_natural_person"
+            val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
             val credOffer = walletSvc.fetchCredentialOffer(offerUri)
             credOffer.shouldNotBeNull()
         }
@@ -66,13 +81,6 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
             assertThrows<IllegalArgumentException> {
                 issuerSvc.createCredentialOfferUri(Max, "oid4vc_unknown")
             }
-        }
-    }
-
-    @Test
-    fun createCredentialOfferNative() {
-        runBlocking {
-            issuerSvc.createCredentialOfferNative(alice.did, listOf("oid4vc_natural_person"))
         }
     }
 

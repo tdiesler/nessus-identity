@@ -1,21 +1,23 @@
 package io.nessus.identity.service
 
 import io.nessus.identity.types.AuthorizationRequest
-import io.nessus.identity.types.CredentialOfferV10
-import io.nessus.identity.types.IssuerMetadataV10
+import io.nessus.identity.types.CredentialOfferV0
+import io.nessus.identity.types.IssuerMetadataV0
 
 // AuthorizationContext ===============================================================================================
 
-class AuthorizationContext(val loginContext: LoginContext) {
+class AuthorizationContext(val loginContext: LoginContext? = null) {
 
     lateinit var authRequest: AuthorizationRequest
-    lateinit var issuerMetadata: IssuerMetadataV10
 
     var codeVerifier: String? = null
-    var credOffer: CredentialOfferV10? = null
-    var explicitCredentialConfigurationIds: List<String>? = null
+    var credOffer: CredentialOfferV0? = null
 
-    val authEndpointUrl get() = issuerMetadata.getAuthorizationAuthEndpoint()
+    private var explicitCredentialConfigurationIds: List<String>? = null
+    private var explicitIssuerMetadata: IssuerMetadataV0? = null
+
+    suspend fun getIssuerMetadata() = requireNotNull(explicitIssuerMetadata
+        ?: credOffer?.resolveIssuerMetadata()) { "No issuer metadata"}
 
     val credentialConfigurationIds get() =
         explicitCredentialConfigurationIds ?: credOffer?.credentialConfigurationIds
@@ -30,18 +32,18 @@ class AuthorizationContext(val loginContext: LoginContext) {
         return this
     }
 
-    fun withCredentialConfigurationId(ctype: String): AuthorizationContext {
-        explicitCredentialConfigurationIds = listOf(ctype)
+    fun withCredentialConfigurationId(configId: String): AuthorizationContext {
+        explicitCredentialConfigurationIds = listOf(configId)
         return this
     }
 
-    fun withCredentialOffer(credOffer: CredentialOfferV10): AuthorizationContext {
+    fun withCredentialOffer(credOffer: CredentialOfferV0): AuthorizationContext {
         this.credOffer = credOffer
         return this
     }
 
-    fun withIssuerMetadata(metadata: IssuerMetadataV10): AuthorizationContext {
-        this.issuerMetadata = metadata
+    fun withIssuerMetadata(metadata: IssuerMetadataV0): AuthorizationContext {
+        this.explicitIssuerMetadata = metadata
         return this
     }
 }

@@ -33,7 +33,7 @@ data class AuthorizationRequest(
     val state: String? = null,
 
     @SerialName("authorization_details")
-    val authorizationDetails: List<AuthorizationDetails>? = null,
+    val authorizationDetails: List<AuthorizationDetail>? = null,
 
     @SerialName("code_challenge")
     val codeChallenge: String? = null,
@@ -121,7 +121,7 @@ data class AuthorizationRequest(
                 scope = params["scope"],
                 state = params["state"],
                 authorizationDetails = params["authorization_details"]?.let {
-                    Json.decodeFromString<List<AuthorizationDetails>>(it)
+                    Json.decodeFromString<List<AuthorizationDetail>>(it)
                 },
                 codeChallenge = params["code_challenge"],
                 codeChallengeMethod = params["code_challenge_method"],
@@ -157,7 +157,7 @@ data class AuthorizationRequest(
 // AuthorizationDetails ================================================================================================
 
 @Serializable
-data class AuthorizationDetails(
+data class AuthorizationDetail(
 
     /** Always "openid_credential" for credential issuance */
     val type: String,  // must be "openid_credential"

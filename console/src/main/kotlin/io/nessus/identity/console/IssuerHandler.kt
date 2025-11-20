@@ -12,13 +12,19 @@ import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.http
 import io.nessus.identity.types.CredentialConfiguration
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.UserRole
+import io.nessus.identity.waltid.Alice
+import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.LoginType
+import io.nessus.identity.waltid.Max
 import io.nessus.identity.waltid.RegisterUserParams
+import io.nessus.identity.waltid.User
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import org.keycloak.representations.idm.UserRepresentation
+import kotlin.io.encoding.Base64
 
 
 class IssuerHandler() {
@@ -27,6 +33,7 @@ class IssuerHandler() {
 
     val jsonPretty = Json { prettyPrint = true }
 
+    val issuer = Max
     val issuerSvc = IssuerService.createKeycloak()
     val issuerMetadata get() = runBlocking { issuerSvc.getIssuerMetadata() }
 
@@ -44,7 +51,7 @@ class IssuerHandler() {
         return model
     }
 
-    suspend fun issuerHomePage(call: RoutingCall) {
+    suspend fun showIssuerHome(call: RoutingCall) {
         val model = issuerModel(call)
         call.respond(
             FreeMarkerContent("issuer_home.ftl", model)
@@ -72,11 +79,11 @@ class IssuerHandler() {
         )
     }
 
-    suspend fun showCredentialConfigForType(call: RoutingCall, ctype: String) {
-        val credConfig = issuerMetadata.credentialConfigurationsSupported[ctype] as CredentialConfiguration
+    suspend fun showCredentialConfig(call: RoutingCall, configId: String) {
+        val credConfig = issuerMetadata.credentialConfigurationsSupported[configId] as CredentialConfiguration
         val prettyJson = jsonPretty.encodeToString(credConfig.toJsonObj())
         val model = issuerModel(call).also {
-            it["ctype"] = ctype
+            it["configId"] = configId
             it["credConfigJson"] = prettyJson
         }
         call.respond(
@@ -84,19 +91,40 @@ class IssuerHandler() {
         )
     }
 
+    suspend fun showCredentialOfferCreate(call: RoutingCall) {
+
+        val configId = call.request.queryParameters["configId"] ?: error("No configId")
+        val users = issuerSvc.getUsers().map { SubjectOption.fromUserRepresentation(it) }
+
+        val model = issuerModel(call).also {
+            it["configId"] = configId
+            it["users"] = users
+        }
+        call.respond(
+            FreeMarkerContent("issuer_cred_offer_create.ftl", model)
+        )
+    }
+
     suspend fun handleCredentialOfferCreate(call: RoutingCall) {
 
-        val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
-        val holderContext = requireLoginContext(call, UserRole.Holder)
-        val authToken = holderContext.authToken
+        val params = call.receiveParameters()
+        val configId = params["configId"] ?: error("No configId")
+        val userId = params["userId"] ?: error("No userId")
+        val preAuthorized = params["preAuthorized"].toBoolean()
 
-        // Show a selection of possible Holder target wallets
-        //
-        val userInfo = widWalletService.authUserInfo(authToken) ?: error("No UserInfo")
+        val usersMap = listOf(Alice, Bob, Max).associateBy { usr -> usr.email }
+        val holder = usersMap[userId]
+
+        val credOfferUri = issuerSvc.createCredentialOfferUri(issuer,configId, preAuthorized, holder)
+        val credOfferQRCode = issuerSvc.createCredentialOfferUriQRCode(issuer,configId, preAuthorized, holder)
+
         val model = issuerModel(call).also {
-            it["ctype"] = ctype
-            it["userInfo"] = userInfo
+            it["configId"] = configId
+            it["holder"] = holder ?: User("Anonymous", "", "")
+            it["credOfferUri"] = credOfferUri
+            it["credOfferQRCode"] = Base64.encode(credOfferQRCode)
         }
+
         call.respond(
             FreeMarkerContent("issuer_cred_offer_send.ftl", model)
         )
@@ -104,21 +132,21 @@ class IssuerHandler() {
 
     suspend fun handleCredentialOfferSend(call: RoutingCall) {
 
-        val ctype = call.request.queryParameters["ctype"] ?: error("No ctype")
-        val subjectId = call.request.queryParameters["subjectId"] ?: error("No subjectId")
+        val params = call.receiveParameters()
+        val credOfferUri = params["credOfferUri"] ?: error("No credOfferUri")
+
         val holderContext = requireLoginContext(call, UserRole.Holder)
         val targetId = holderContext.targetId
 
-        // Create the CredentialOffer and send it to the Holder's wallet endpoint
-        // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
-        val credOffer = issuerSvc.createCredentialOfferNative(subjectId, listOf(ctype))
+        val credOfferUriRes = http.get(credOfferUri ) {}
+        val credOffer = CredentialOffer.fromJson(credOfferUriRes.bodyAsText())
 
         val walletUrl = "${requireWalletConfig().baseUrl}/$targetId"
-        val res = http.get("$walletUrl/credential-offer" ) {
+        val credOfferSendRes = http.get("$walletUrl/credential-offer" ) {
             parameter("credential_offer", credOffer.toJson())
         }
-        if (res.status.value != 200)
-            error("Error sending credential Offer: ${res.status.value} - ${res.bodyAsText()}")
+        if (credOfferSendRes.status.value != 200)
+            error("Error sending credential Offer: ${credOfferSendRes.status.value} - ${credOfferSendRes.bodyAsText()}")
 
         call.respondRedirect("$walletUrl/credential-offers")
     }
@@ -126,7 +154,7 @@ class IssuerHandler() {
     suspend fun showCredentialOffers(call: RoutingCall) {
         val supported = issuerMetadata.credentialConfigurationsSupported
         val model = issuerModel(call).also {
-            it["credentialConfigurationIds"] = supported.keys
+            it["configIds"] = supported.keys
         }
         call.respond(
             FreeMarkerContent("issuer_cred_offers.ftl", model)
@@ -136,7 +164,7 @@ class IssuerHandler() {
     suspend fun showUsers(call: RoutingCall) {
         val users = issuerSvc.getUsers().map { SubjectOption.fromUserRepresentation(it) }
         val model = issuerModel(call).also {
-            it["credentialUsers"] = users
+            it["users"] = users
         }
         call.respond(
             FreeMarkerContent("issuer_users.ftl", model)

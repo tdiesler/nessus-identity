@@ -1,0 +1,77 @@
+package io.nessus.identity.service
+
+import io.kotest.common.runBlocking
+import io.nessus.identity.types.TokenResponseV0
+import io.nessus.identity.waltid.Alice
+import io.nessus.identity.waltid.Max
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+
+abstract class WalletServiceKeycloakBase : AbstractServiceTest() {
+
+    lateinit var alice: LoginContext
+
+    lateinit var issuerSvc: IssuerServiceKeycloak
+    lateinit var walletSvc: WalletServiceKeycloak
+
+    @BeforeEach
+    fun setUp() {
+        kotlinx.coroutines.runBlocking {
+            issuerSvc = IssuerService.createKeycloak()
+
+            // Create the Holders's OIDC context (Alice is the Holder)
+            alice = login(Alice).withDidInfo()
+            walletSvc = WalletService.createKeycloak()
+        }
+    }
+
+    abstract val credentialConfigurationId: String
+
+    abstract suspend fun getCredential(authContext: AuthorizationContext, accessToken: TokenResponseV0)
+
+    @Test
+    fun getCredentialWithoutOffer() {
+        runBlocking {
+            val configId = credentialConfigurationId
+
+            val authContext = walletSvc.createAuthorizationContext(alice)
+                .withIssuerMetadata(issuerSvc.getIssuerMetadata())
+                .withCredentialConfigurationId(configId)
+
+            val authCode = walletSvc.getAuthorizationCode(authContext, Alice.username, Alice.password)
+            val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(authContext, authCode)
+
+            getCredential(authContext, accessToken)
+        }
+    }
+
+    @Test
+    fun getCredentialFromOfferInTime() {
+        runBlocking {
+            val configId = credentialConfigurationId
+
+            val offerUri = issuerSvc.createCredentialOfferUri(Max, configId)
+            val credOffer = walletSvc.fetchCredentialOffer(offerUri)
+            val authContext = walletSvc.createAuthorizationContext(alice).withCredentialOffer(credOffer)
+            val authCode = walletSvc.getAuthorizationCode(authContext, Alice.username, Alice.password)
+            val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(authContext, authCode)
+
+            getCredential(authContext, accessToken)
+        }
+    }
+
+    @Test
+    fun getCredentialFromOfferPreAuthorized() {
+        runBlocking {
+            val configId = credentialConfigurationId
+
+            val offerUri = issuerSvc.createCredentialOfferUri(Max, configId, true, Alice)
+            val credOffer = walletSvc.fetchCredentialOffer(offerUri)
+
+            val authContext = walletSvc.createAuthorizationContext(alice)
+            val accessToken = walletSvc.getAccessTokenFromPreAuthorizedCode(authContext, credOffer)
+
+            getCredential(authContext, accessToken)
+        }
+    }
+}

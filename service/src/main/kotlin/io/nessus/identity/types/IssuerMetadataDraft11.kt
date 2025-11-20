@@ -41,7 +41,7 @@ data class IssuerMetadataDraft11(
         fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<IssuerMetadataDraft11>(json)
     }
 
-    override val supportedTypes
+    override val supportedCredentialScopes
         get() = credentialsSupported.flatMap { it.types ?: emptyList() }.toSet()
 
     fun toWaltIdIssuerMetadata(): OpenIDProviderMetadata {

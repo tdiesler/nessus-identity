@@ -14,16 +14,12 @@
                 <tr><th>Configurations</th><th>Actions</th></tr>
             </thead>
             <tbody>
-                <#list credentialConfigurationIds as id>
+                <#list configIds as cid>
                     <tr>
-                        <td>${id}</td>
+                        <td>${cid}</td>
                         <td>
-                            <a href="/issuer/credential-config/${id}">view</a>
-                            <#if holderAuth.hasAuthToken>
-                                <a href="/issuer/credential-offer/create?ctype=${id}">send offer</a>
-                            <#else>
-                                <a class="inactive">send</a>
-                            </#if>
+                            <a href="/issuer/credential-config/${cid}">view</a>
+                            <a href="/issuer/credential-offer/create?configId=${cid}">create</a>
                         </td>
                     </tr>
                 </#list>

@@ -116,7 +116,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                 //
                 get("/issuer") {
                     autoLogin(call)
-                    issuerHandler.issuerHomePage(call)
+                    issuerHandler.showIssuerHome(call)
                 }
                 get("/issuer/auth-config") {
                     issuerHandler.showAuthConfig(call)
@@ -124,17 +124,20 @@ class ConsoleServer(val config: ConsoleConfig) {
                 get("/issuer/issuer-config") {
                     issuerHandler.showIssuerConfig(call)
                 }
-                get("/issuer/credential-config/{ctype}") {
-                    val ctype = call.parameters["ctype"] ?: error("No ctype")
-                    issuerHandler.showCredentialConfigForType(call, ctype)
+                get("/issuer/credential-config/{configId}") {
+                    val configId = call.parameters["configId"] ?: error("No configId")
+                    issuerHandler.showCredentialConfig(call, configId)
                 }
                 get("/issuer/credential-offers") {
                     issuerHandler.showCredentialOffers(call)
                 }
                 get("/issuer/credential-offer/create") {
+                    issuerHandler.showCredentialOfferCreate(call)
+                }
+                post("/issuer/credential-offer/create") {
                     issuerHandler.handleCredentialOfferCreate(call)
                 }
-                get("/issuer/credential-offer/send") {
+                post("/issuer/credential-offer/send") {
                     issuerHandler.handleCredentialOfferSend(call)
                 }
                 get("/issuer/users") {
@@ -155,7 +158,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                 //
                 get("/wallet") {
                     autoLogin(call)
-                    walletHandler.walletHomePage(call)
+                    walletHandler.showWalletHome(call)
                 }
                 // Issuer Callback to obtain Holder consent for Credential issuance
                 get("/wallet/auth/callback") {
@@ -183,7 +186,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                 }
                 get("/wallet/{targetId}/credential-offers") {
                     withHolderContextOrHome(call) { ctx ->
-                        walletHandler.handleCredentialOffers(call, ctx)
+                        walletHandler.showCredentialOffers(call, ctx)
                     }
                 }
                 get("/wallet/{targetId}/credential-offer") {
@@ -240,7 +243,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                 //
                 get("/verifier") {
                     autoLogin(call)
-                    verifierHandler.verifierHomePage(call)
+                    verifierHandler.showVerifierHome(call)
                 }
                 get("/verifier/login") {
                     verifierHandler.verifierLoginPage(call)
@@ -284,6 +287,6 @@ class ConsoleServer(val config: ConsoleConfig) {
     private suspend fun withHolderContextOrHome(call: RoutingCall, block: suspend (LoginContext) -> Unit) {
         val targetId = call.parameters["targetId"] ?: error("No targetId")
         val ctx = findLoginContext(call, UserRole.Holder, targetId)
-        ctx?.let { ctx -> block(ctx) } ?: walletHandler.walletHomePage(call)
+        ctx?.let { ctx -> block(ctx) } ?: walletHandler.showWalletHome(call)
     }
 }

@@ -14,19 +14,22 @@ class AuthorizationRequestBuilder {
 
     private var clientState: String? = null
     private var codeChallengeMethod: String? = null
+    private var credOffer: CredentialOfferV0? = null
     private var dcqlQuery: DCQLQuery? = null
-    private var metadata: IssuerMetadata? = null
     private var responseType: String? = null
     private var responseMode: String? = null
     private var redirectUri: String? = null
     private var responseUri: String? = null
 
     // Internal props
-    private val authDetails = mutableListOf<AuthorizationDetails>()
-    private var credOffer: CredentialOfferV10? = null
+    private var buildAuthorizationDetails = true
+    private var explicitIssuerMetadata: IssuerMetadata? = null
     private var scopes = mutableListOf<String>()
+    private var credentialConfigurationIds = mutableListOf<String>()
+    private var codeChallenge: String? = null
 
-    var codeChallenge: String? = null
+    suspend fun getIssuerMetadata() = requireNotNull(explicitIssuerMetadata
+        ?: credOffer?.resolveIssuerMetadata()) { "No issuer metadata"}
 
     fun withClientId(clientId: String): AuthorizationRequestBuilder {
         this.clientId = clientId
@@ -49,13 +52,23 @@ class AuthorizationRequestBuilder {
         return this
     }
 
+    fun withCredentialConfigurationIds(configIds: List<String>): AuthorizationRequestBuilder {
+        this.credentialConfigurationIds.addAll(configIds)
+        return this
+    }
+
+    fun withCredentialOffer(credOffer: CredentialOfferV0): AuthorizationRequestBuilder {
+        this.credOffer = credOffer
+        return this
+    }
+
     fun withDCQLAssertion(dcql: DCQLQuery): AuthorizationRequestBuilder {
         this.dcqlQuery = dcql
         return this
     }
 
     fun withIssuerMetadata(metadata: IssuerMetadata): AuthorizationRequestBuilder {
-        this.metadata = metadata
+        this.explicitIssuerMetadata = metadata
         return this
     }
 
@@ -84,47 +97,12 @@ class AuthorizationRequestBuilder {
         return this
     }
 
-    fun withAuthorizationDetails(): AuthorizationRequestBuilder {
-        val issuerUri = metadata?.credentialIssuer ?: error("No issuer metadata")
-        addAuthorizationDetails(issuerUri, scopes)
+    fun withAuthorizationDetails(flag: Boolean): AuthorizationRequestBuilder {
+        this.buildAuthorizationDetails = flag
         return this
     }
 
-    fun buildFrom(credOffer: CredentialOfferV10): AuthorizationRequest {
-        this.credOffer = credOffer
-
-        val issuerUri = credOffer.credentialIssuer
-        addAuthorizationDetails(issuerUri, credOffer.credentialConfigurationIds)
-
-        return buildInternal()
-    }
-
-    fun build(): AuthorizationRequest {
-        return buildInternal()
-    }
-
-    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
-
-    fun addAuthorizationDetails(issuerUri: String, ctypes: List<String>) {
-        ctypes.forEach {
-            authDetails.add(
-                Json.decodeFromString(
-                    """{
-                            "type": "openid_credential",
-                            "credential_configuration_id": "$it",
-                            "locations": [ "$issuerUri" ]
-                        }"""
-                )
-            )
-        }
-        // [TODO #264] Keycloak requires credential id in scope although already given in authorizationDetails
-        // https://github.com/tdiesler/nessus-identity/issues/264
-        if (scopes.isEmpty()) {
-            scopes.addAll(ctypes)
-        }
-    }
-
-    private fun buildInternal(): AuthorizationRequest {
+    suspend fun build(): AuthorizationRequest {
 
         require(clientId.isNotBlank()) { "No client_id" }
         if (responseType == null) {
@@ -137,13 +115,48 @@ class AuthorizationRequestBuilder {
             codeChallenge = Base64URL.encode(codeVerifierHash).toString()
         }
 
+        if (credentialConfigurationIds.isEmpty() && credOffer != null) {
+            credentialConfigurationIds.addAll(credOffer!!.credentialConfigurationIds)
+        }
+
         if (responseMode == "direct_post") {
             require(redirectUri == null) { "redirect_uri must be null for direct_post" }
             require(responseUri != null) { "response_uri required for direct_post" }
         }
 
+        val authorizationDetails = mutableListOf<AuthorizationDetail>()
+        if (buildAuthorizationDetails) {
+            val metadata = getIssuerMetadata() ?: error("No issuer metadata")
+            val issuerUri = metadata.credentialIssuer
+            credentialConfigurationIds.forEach {
+                authorizationDetails.add(
+                    Json.decodeFromString(
+                        """{
+                            "type": "openid_credential",
+                            "credential_configuration_id": "$it",
+                            "locations": [ "$issuerUri" ]
+                        }"""
+                    )
+                )
+                // [TODO #264] Keycloak requires credential id in scope although already given in authorizationDetails
+                // https://github.com/tdiesler/nessus-identity/issues/264
+                when(metadata) {
+                    is IssuerMetadataDraft11 -> {
+                        scopes.add(it)
+                    }
+                    is IssuerMetadataV0 -> {
+                        metadata.credentialConfigurationsSupported[it]?.scope
+                            ?.also { sc -> scopes.add(sc) }
+                    }
+                }
+            }
+        }
+
+        if (scopes.isEmpty()) {
+            scopes.add("openid")
+        }
+
         val authReq = AuthorizationRequest(
-            authorizationDetails = authDetails.ifEmpty { null },
             clientId = clientId,
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
@@ -153,9 +166,12 @@ class AuthorizationRequestBuilder {
             responseType = responseType,
             responseUri = responseUri,
             scope = scopes.joinToString(" "),
+            authorizationDetails = authorizationDetails.ifEmpty { null },
             state = clientState,
         )
 
         return authReq
     }
+
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 }

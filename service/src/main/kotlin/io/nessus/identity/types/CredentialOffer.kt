@@ -15,9 +15,11 @@ sealed class CredentialOffer {
     abstract val credentialIssuer: String
     abstract val grants: Grants?
 
-    val filteredConfigurationIds get() = credentialConfigurationIds
-        .filter { it != "VerifiableAttestation" }
-        .filter { it != "VerifiableCredential" }
+    val filteredConfigurationIds
+        get() = credentialConfigurationIds.filter { it !in listOf("VerifiableAttestation", "VerifiableCredential")  }
+
+    val isPreAuthorized
+        get() = grants?.preAuthorizedCode?.preAuthorizedCode != null
 
     @Transient
     private lateinit var issuerMetadata: IssuerMetadata
@@ -54,7 +56,7 @@ object CredentialOfferSerializer : JsonContentPolymorphicSerializer<CredentialOf
         val jsonObj = element.jsonObject
         return when {
             jsonObj.containsKey("credentials") -> CredentialOfferDraft11.serializer()
-            jsonObj.containsKey("credential_configuration_ids") -> CredentialOfferV10.serializer()
+            jsonObj.containsKey("credential_configuration_ids") -> CredentialOfferV0.serializer()
             else -> throw SerializationException("Unknown CredentialEntry type: $element")
         }
     }

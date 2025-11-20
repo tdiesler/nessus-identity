@@ -9,7 +9,7 @@ import kotlinx.serialization.json.*
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
 */
 @Serializable
-data class IssuerMetadataV10(
+data class IssuerMetadataV0(
     @SerialName("credential_issuer")
     override val credentialIssuer: String,
 
@@ -37,14 +37,21 @@ data class IssuerMetadataV10(
     @SerialName("credential_configurations_supported")
     val credentialConfigurationsSupported: Map<String, CredentialConfigurationDraft17>
 ) : IssuerMetadata() {
+
     companion object {
         val jsonInst = Json { ignoreUnknownKeys = true}
-        fun fromJson(json: String) = jsonInst.decodeFromString<IssuerMetadataV10>(json)
-        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<IssuerMetadataV10>(json)
+        fun fromJson(json: String) = jsonInst.decodeFromString<IssuerMetadataV0>(json)
+        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<IssuerMetadataV0>(json)
     }
 
-    override val supportedTypes
-        get() = credentialConfigurationsSupported.keys
+    override val supportedCredentialScopes
+        get() = credentialConfigurationsSupported
+            .mapNotNull { (_, v) -> v.scope }
+            .toSet()
+
+    fun getCredentialScope(credConfigId: String): String? {
+        return credentialConfigurationsSupported[credConfigId]?.scope
+    }
 }
 
 @Serializable

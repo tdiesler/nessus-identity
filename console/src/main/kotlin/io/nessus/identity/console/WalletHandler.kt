@@ -8,6 +8,7 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.console.SessionsStore.findLoginContext
 import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.LoginContext
@@ -18,7 +19,7 @@ import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequest
-import io.nessus.identity.types.CredentialOfferV10
+import io.nessus.identity.types.CredentialOfferV0
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataJwt
 import io.nessus.identity.types.VCDataSdV11Jwt
@@ -46,7 +47,7 @@ class WalletHandler() {
         return model
     }
 
-    suspend fun walletHomePage(call: RoutingCall) {
+    suspend fun showWalletHome(call: RoutingCall) {
         val model = walletModel(call)
         call.respond(
             FreeMarkerContent("holder_home.ftl", model)
@@ -84,7 +85,7 @@ class WalletHandler() {
     suspend fun handleAuthCallback(call: RoutingCall, ctx: LoginContext) {
         val authContext = ctx.getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) as AuthorizationContext
         val authCode = call.parameters["code"] ?: error("No code")
-        val accessToken = walletSvc.getAccessTokenFromCode(authContext, authCode)
+        val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(authContext, authCode)
         val vcJwt = walletSvc.getCredential(authContext, accessToken)
         call.respondRedirect("/wallet/${ctx.targetId}/credential/${vcJwt.vcId}")
     }
@@ -96,10 +97,10 @@ class WalletHandler() {
         }
     }
 
-    suspend fun handleCredentialOffers(call: RoutingCall, ctx: LoginContext) {
+    suspend fun showCredentialOffers(call: RoutingCall, ctx: LoginContext) {
         val credOfferData = walletSvc.getCredentialOffers(ctx)
             .map { (k, v) ->
-                listOf(k.encodeURLPath(), v.credentialIssuer, v.filteredConfigurationIds.first())
+                listOf(k.encodeURLPath(), v.credentialIssuer, v.filteredConfigurationIds.first(), "${v.isPreAuthorized}")
             }.toList()
         val model = walletModel(call).also {
             it["credentialOffers"] = credOfferData
@@ -112,10 +113,18 @@ class WalletHandler() {
     suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: LoginContext, offerId: String) {
         val credOffer = walletSvc.getCredentialOffer(ctx, offerId) ?: error("No credential_offer for: $offerId")
         val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
-        val authEndpointUrl = authContext.issuerMetadata.getAuthorizationAuthEndpoint()
-        val authRequestUrl = authContext.authRequest.getAuthorizationRequestUrl(authEndpointUrl)
-        log.info { "AuthRequestUrl: $authRequestUrl" }
-        call.respondRedirect(authRequestUrl)
+        val authEndpointUrl = authContext.getIssuerMetadata().getAuthorizationEndpoint()
+        if (credOffer.isPreAuthorized) {
+            val accessToken = walletSvc.getAccessTokenFromPreAuthorizedCode(authContext, credOffer)
+            val credJwt = walletSvc.getCredential(authContext, accessToken)
+            call.respondRedirect("/wallet/${ctx.targetId}/credential/${credJwt.vcId}")
+        } else {
+            val redirectUri = requireWalletConfig().redirectUri
+            val authRequest = walletSvc.buildAuthorizationRequest(authContext, redirectUri)
+            val authRequestUrl = authRequest.getAuthorizationRequestUrl(authEndpointUrl)
+            log.info { "AuthRequestUrl: $authRequestUrl" }
+            call.respondRedirect(authRequestUrl)
+        }
     }
 
     suspend fun handleCredentialOfferAdd(call: RoutingCall, targetId: String) {
@@ -130,7 +139,7 @@ class WalletHandler() {
             error("Multiple Holder LoginContexts")
 
         val credOffer = call.request.queryParameters["credential_offer"]
-            ?.let { CredentialOfferV10.fromJson(it) }
+            ?.let { CredentialOfferV0.fromJson(it) }
             ?: error("No credential_offer")
 
         walletSvc.addCredentialOffer(holderContexts[0], credOffer)

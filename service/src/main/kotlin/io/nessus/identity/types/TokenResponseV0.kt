@@ -9,7 +9,7 @@ import kotlinx.serialization.json.*
 data class TokenResponseV0(
 
     @SerialName("authorization_details")
-    val authorizationDetails: List<AuthorizationDetails>? = null,
+    val authorizationDetails: List<AuthorizationDetail>? = null,
 
     // Optional fields per OpenID4VCI
     @SerialName("c_nonce")

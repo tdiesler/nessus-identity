@@ -38,7 +38,7 @@ class VerifierHandler() {
         return model
     }
 
-    suspend fun verifierHomePage(call: RoutingCall) {
+    suspend fun showVerifierHome(call: RoutingCall) {
         val model = verifierModel(call)
         call.respond(
             FreeMarkerContent("verifier_home.ftl", model)

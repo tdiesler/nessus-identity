@@ -14,7 +14,7 @@
                 <tr><th>Name</th><th>Email</th><th>Actions</th></tr>
             </thead>
             <tbody>
-                <#list credentialUsers as usr>
+                <#list users as usr>
                     <tr>
                         <td>${usr.name}</td>
                         <td>${usr.email}</td>

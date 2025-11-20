@@ -13,7 +13,7 @@ import kotlinx.serialization.json.*
 abstract class IssuerMetadata {
     abstract val credentialIssuer: String
     abstract val credentialEndpoint: String
-    abstract val supportedTypes: Set<String>
+    abstract val supportedCredentialScopes: Set<String>
 
     private lateinit var authMetadata: JsonObject
 
@@ -21,7 +21,7 @@ abstract class IssuerMetadata {
         if (!::authMetadata.isInitialized) {
             val authServerUrl = when(this) {
                 is IssuerMetadataDraft11 -> authorizationServer!!
-                is IssuerMetadataV10 -> authorizationServers!!.first()
+                is IssuerMetadataV0 -> authorizationServers!!.first()
                 else -> throw IllegalStateException("Unsupported IssuerMetadata type")
             }
             runBlocking {
@@ -32,7 +32,7 @@ abstract class IssuerMetadata {
         return authMetadata
     }
 
-    fun getAuthorizationAuthEndpoint(): String {
+    fun getAuthorizationEndpoint(): String {
         return getAuthorizationMetadata().getValue("authorization_endpoint").jsonPrimitive.content
     }
 
@@ -55,7 +55,7 @@ object IssuerMetadataSerializer : JsonContentPolymorphicSerializer<IssuerMetadat
         val jsonObj = element.jsonObject
         return when {
             jsonObj.containsKey("credentials_supported") -> IssuerMetadataDraft11.serializer()
-            jsonObj.containsKey("credential_configurations_supported") -> IssuerMetadataV10.serializer()
+            jsonObj.containsKey("credential_configurations_supported") -> IssuerMetadataV0.serializer()
             else -> throw SerializationException("Unknown CredentialEntry type: $element")
         }
     }

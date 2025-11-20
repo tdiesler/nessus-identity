@@ -39,21 +39,30 @@ case "$TARGET" in
     ;;
 esac
 
-ISSUER=("Max Mustermann" "user@email.com" "password")
-HOLDER=("Alice Wonderland" "alice@email.com" "password")
-VERIFIER=("Bob Baumeister" "bob@email.com" "password")
+ISSUER=("Max Mustermann" "user@email.com" "max" "password")
+HOLDER=("Alice Wonderland" "alice@email.com" "alice" "password")
+VERIFIER=("Bob Baumeister" "bob@email.com" "bob" "password")
 
 source "${SCRIPT_DIR}/oid4vci-functions-keycloak.sh"
 source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
 
 ## Parse args
 #
-bare="false"
 force="false"
+skip_verify="false"
+verify_oauth="false"
 for arg in "$@"; do
   case $arg in
     --force)
       force="true"
+      shift
+      ;;
+    --verify-oauth)
+      verify_oauth="true"
+      shift
+      ;;
+    --skip-verify)
+      skip_verify="true"
       shift
       ;;
     *)
@@ -65,9 +74,9 @@ done
 
 ## Setup EBSI Test Users -----------------------------------------------------------------------------------------------
 #
-wallet_create_user "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[2]}" || exit 1
-wallet_create_user "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}" || exit 1
-wallet_create_user "verifier" "${VERIFIER[0]}" "${VERIFIER[1]}" "${VERIFIER[2]}" || exit 1
+wallet_create_user "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}" || exit 1
+wallet_create_user "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}" || exit 1
+wallet_create_user "verifier" "${VERIFIER[0]}" "${VERIFIER[1]}" "${VERIFIER[3]}" || exit 1
 
 ## Keycloak admin login ------------------------------------------------------------------------------------------------
 #
@@ -104,13 +113,30 @@ fi
 
 ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
 #
-kc_create_user "${realm}" "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[2]}"
-kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[2]}"
+kc_create_user "${realm}" "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}"
+kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
 
-# Fetch a Credential - Authorization Flow ------------------------------------------------------------------------------
+# Fetch the Credential from a Pre-Authorized Offer -----------------------------------------------------------------------
 #
-# credential_id="oid4vc_natural_person"
-kc_authorization_request "${realm}" "${client_id}" "${credential_id}"
-kc_token_request "${realm}" "${client_id}" "${credential_id}"
-kc_credential_request "${realm}" "${credential_id}"
+if [[ ${skip_verify} == "false" ]]; then
+  # credential_id="oid4vc_natural_person"
 
+  kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"
+  kc_credential_offer_uri "${realm}" "${client_id}" "${credential_id}" "true" "${HOLDER[2]}"
+  kc_credential_offer "${realm}" "true"
+  kc_access_token_pre_auth_code "${realm}"
+  kc_credential_request "${realm}" "${CREDENTIAL_IDENTIFIER}" ""
+fi
+
+# Fetch the Credential from an unauthorized Offer ----------------------------------------------------------------------
+#
+if [[ ${verify_oauth} == "true" ]]; then
+  # credential_id="oid4vc_natural_person"
+
+  kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"
+  kc_credential_offer_uri "${realm}" "${client_id}" "${credential_id}" "false" "${HOLDER[2]}"
+  kc_credential_offer "${realm}" "false"
+  kc_authorization_request "${realm}" "${client_id}" "${credential_id}"
+  kc_access_token_authorization_code "${realm}" "${client_id}" "${credential_id}"
+  kc_credential_request "${realm}" "" "${credential_id}"
+fi

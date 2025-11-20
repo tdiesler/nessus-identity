@@ -398,6 +398,79 @@ kc_create_user() {
   fi
 }
 
+# Verification ---------------------------------------------------------------------------------------------------------
+
+kc_access_token_authorization_code() {
+  local realm="$1"
+
+  local tokenUrl="${AUTH_SERVER_URL}/realms/${realm}/protocol/openid-connect/token"
+
+  tokenRes=$(curl -s -X POST "$tokenUrl" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "grant_type=authorization_code" \
+    -d "client_id=${client_id}" \
+    -d "code=${VC_AUTH_CODE}" \
+    -d "redirect_uri=${VC_REDIRECT_URI}" \
+    -d "code_verifier=${VC_CODE_VERIFIER}")
+
+  # Show raw tokens
+  echo "Token Response ..."
+  echo "${tokenRes}" | jq . >&2
+
+  # Extract access_token
+  access_token=$(echo "${tokenRes}" | jq -r .access_token)
+  export ACCESS_TOKEN="${access_token}"
+}
+
+kc_access_token_pre_auth_code() {
+  local realm="$1"
+
+  local tokenUrl="${AUTH_SERVER_URL}/realms/${realm}/protocol/openid-connect/token"
+
+  tokenRes=$(curl -s -X POST "$tokenUrl" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "grant_type=urn:ietf:params:oauth:grant-type:pre-authorized_code" \
+    -d "client_id=${client_id}" \
+    -d "pre-authorized_code=${PRE_AUTH_CODE}")
+
+  # Show raw tokens
+  echo "Token Response ..."
+  echo "${tokenRes}" | jq . >&2
+
+  # Extract access_token
+  access_token=$(echo "${tokenRes}" | jq -r .access_token)
+  credential_identifier=$(echo "${tokenRes}" | jq -r .authorization_details[0].credential_identifiers[0])
+  echo "Credential Id: ${credential_identifier}"
+
+  export ACCESS_TOKEN="${access_token}"
+  export CREDENTIAL_IDENTIFIER="${credential_identifier}"
+}
+
+kc_access_token_direct_access() {
+  local realm="$1"
+  local client_id="$2"
+  local username="$3"
+  local password="$4"
+
+  local authUrl="${AUTH_SERVER_URL}/realms/${realm}/protocol/openid-connect/token"
+
+  tokenRes=$(curl -s "${authUrl}" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "grant_type=password" \
+    -d "client_id=${client_id}" \
+    -d "username=${username}" \
+    -d "password=${password}" \
+    -d "scope=openid")
+
+  # Show raw tokens
+  echo "Token Response ..."
+  echo "${tokenRes}" | jq . >&2
+
+  # Extract access_token
+  access_token=$(echo "${tokenRes}" | jq -r .access_token)
+  export ACCESS_TOKEN="${access_token}"
+}
+
 kc_authorization_request() {
   local realm="$1"
   local client_id="$2"
@@ -441,31 +514,47 @@ kc_authorization_request() {
   export VC_CODE_VERIFIER="${code_verifier}"
 }
 
-kc_token_request() {
+kc_credential_offer_uri() {
   local realm="$1"
+  local client_id="$2"
+  local credential_id="$3"
+  local pre_authorized="$4"
+  local user_id="$5"
 
-  local tokenUrl="${AUTH_SERVER_URL}/realms/${realm}/protocol/openid-connect/token"
+  local credOfferUriUrl="${AUTH_SERVER_URL}/realms/${realm}/protocol/oid4vc/credential-offer-uri"
+  credOfferUriUrl="${credOfferUriUrl}?credential_configuration_id=${credential_id}&pre_authorized=${pre_authorized}&user_id=${user_id}"
 
-  tokens=$(curl -s -X POST "$tokenUrl" \
-    -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "grant_type=authorization_code" \
-    -d "client_id=${client_id}" \
-    -d "code=${VC_AUTH_CODE}" \
-    -d "redirect_uri=${VC_REDIRECT_URI}" \
-    -d "code_verifier=${VC_CODE_VERIFIER}")
+  credOfferUriRes=$(curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" "${credOfferUriUrl}")
+  echo "Credential Offer Uri: ${credOfferUriRes}"
 
-  # Show raw tokens
-  echo "Token Response ..."
-  echo "${tokens}" | jq . >&2
+  issuer=$(echo "${credOfferUriRes}" | jq -r '.issuer')
+  nonce=$(echo "${credOfferUriRes}" | jq -r '.nonce')
 
-  # Extract access_token
-  access_token=$(echo "${tokens}" | jq -r .access_token)
-  export VC_ACCESS_TOKEN="${access_token}"
+  # export for next step
+  export CREDENTIAL_OFFER_URI="${issuer}${nonce}"
+}
+
+kc_credential_offer() {
+  local realm="$1"
+  local pre_authorized="$2"
+
+  credOffer=$(curl -s "${CREDENTIAL_OFFER_URI}")
+  echo "Credential Offer: ${credOffer}"
+
+  if [[ "${pre_authorized}" == "true" ]]; then
+    preAuthCode=$(echo "${credOffer}" | jq -r '.grants["urn:ietf:params:oauth:grant-type:pre-authorized_code"]["pre-authorized_code"]')
+    echo "Pre-Authorized Code: ${preAuthCode}"
+    export PRE_AUTH_CODE="${preAuthCode}"
+  fi
+
+  # export for next step
+  export CREDENTIAL_OFFER="${credOffer}"
 }
 
 kc_credential_request() {
   local realm="$1"
   local credential_id="$2"
+  local credential_configuration_id="$3"
 
   local nonceUrl="${AUTH_SERVER_URL}/realms/${realm}/protocol/oid4vc/nonce"
   c_nonce=$(curl -s -X POST "${nonceUrl}" | jq -r '.c_nonce')
@@ -503,20 +592,30 @@ kc_credential_request() {
   proof=$(wallet_keys_sign "${token}" "${wid}" "${kid}" "${proof_jws}")
 
   # Credential request body
-  req_body=$(jq -n \
-    --arg cid "${credential_id}" \
-    --arg proof "${proof}" \
-    '{
-      credential_configuration_id: $cid,
-      proofs: { jwt: [ $proof ] }
-    }')
+  if [[ "${credential_id}" ]]; then
+    req_body=$(jq -n \
+      --arg cid "${credential_id}" \
+      --arg proof "${proof}" \
+      '{
+        credential_identifier: $cid,
+        proofs: { jwt: [ $proof ] }
+      }')
+  else
+    req_body=$(jq -n \
+      --arg cid "${credential_configuration_id}" \
+      --arg proof "${proof}" \
+      '{
+        credential_configuration_id: $cid,
+        proofs: { jwt: [ $proof ] }
+      }')
+  fi
 
   echo "==== Credential Request Body ====" >&2
   echo "${req_body}" | jq . >&2
   echo "================================" >&2
 
   resp_json="$(curl -s -X POST "${AUTH_SERVER_URL}/realms/${realm}/protocol/oid4vc/credential" \
-      -H "Authorization: Bearer ${VC_ACCESS_TOKEN}" \
+      -H "Authorization: Bearer ${ACCESS_TOKEN}" \
       -H "Content-Type: application/json" \
       -d "${req_body}")"
   echo "$resp_json" | jq .

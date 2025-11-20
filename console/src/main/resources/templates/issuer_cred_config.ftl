@@ -8,10 +8,10 @@
     <div class="content">
         <h1>OID4VC Issuer</h1>
 
-        <h5>Credential Configuration for ${ctype}</h5>
+        <h5>Credential Configuration for ${configId}</h5>
         <textarea readonly>${credConfigJson?html}</textarea>
         <div>
-            <a href="/issuer/credential-offer?ctype=${ctype}">send offer</a>
+            <a href="/issuer/credential-offer/create?configId=${configId}">create offer</a>
         </div>
     </div>
 </@layout.layout>

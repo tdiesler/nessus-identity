@@ -87,7 +87,7 @@ class AuthorizationRequestDraft11Builder {
                 authDetails.add(AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer))
             }
 
-            is CredentialOfferV10 -> {
+            is CredentialOfferV0 -> {
                 credOffer.credentialConfigurationIds.forEach { ctype ->
                     authDetails.add(AuthorizationDetails.fromJSONString("""{
                         "type": "openid_credential",

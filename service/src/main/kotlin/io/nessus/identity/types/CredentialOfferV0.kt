@@ -8,7 +8,7 @@ import kotlinx.serialization.json.*
     https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-offer-endpoint
 */
 @Serializable
-data class CredentialOfferV10(
+data class CredentialOfferV0(
     @SerialName("credential_issuer")
     override val credentialIssuer: String,
 
@@ -21,8 +21,8 @@ data class CredentialOfferV10(
 
     companion object {
         val jsonInst = Json { ignoreUnknownKeys = true}
-        fun fromJson(json: String) = jsonInst.decodeFromString<CredentialOfferV10>(json)
-        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<CredentialOfferV10>(json)
+        fun fromJson(json: String) = jsonInst.decodeFromString<CredentialOfferV0>(json)
+        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<CredentialOfferV0>(json)
     }
 }
 

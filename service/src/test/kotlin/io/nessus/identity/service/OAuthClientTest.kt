@@ -29,13 +29,14 @@ class OAuthClientTest : AbstractServiceTest() {
         val cfg = requireIssuerConfig()
         runBlocking {
             val issMetadata = issuerSvc.getIssuerMetadata()
-            val authEndpointUrl = issMetadata.getAuthorizationAuthEndpoint()
+            val authEndpointUrl = issMetadata.getAuthorizationEndpoint()
 
             val rndBytes = Random.nextBytes(32)
             val codeVerifier = Base64URL.encode(rndBytes).toString()
 
             val authReq = AuthorizationRequestBuilder()
                 .withClientId(cfg.clientId)
+                .withIssuerMetadata(issMetadata)
                 .withRedirectUri("urn:ietf:wg:oauth:2.0:oob")
                 .withScopes(listOf("oid4vc_natural_person"))
                 .withCodeChallengeMethod("S256")

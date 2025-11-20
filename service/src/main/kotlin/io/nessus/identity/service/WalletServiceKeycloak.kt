@@ -21,10 +21,10 @@ import io.nessus.identity.service.LoginContext.Companion.USER_ATTACHMENT_KEY
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestBuilder
-import io.nessus.identity.types.CredentialOfferV10
+import io.nessus.identity.types.CredentialOfferV0
 import io.nessus.identity.types.CredentialRequestV0
 import io.nessus.identity.types.CredentialResponseV0
-import io.nessus.identity.types.IssuerMetadataV10
+import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.TokenResponseV0
 import io.nessus.identity.types.VCDataJwt
@@ -39,53 +39,63 @@ import kotlin.random.Random
 
 // WalletServiceKeycloak =======================================================================================================================================
 
-class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
+class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV0>() {
 
     val clientId = requireIssuerConfig().clientId
 
-    fun createAuthorizationContext(ctx: LoginContext): AuthorizationContext {
+    fun createAuthorizationContext(ctx: LoginContext? = null): AuthorizationContext {
         val authContext = AuthorizationContext(ctx)
-        ctx.putAttachment(AUTH_CONTEXT_ATTACHMENT_KEY, authContext)
+        ctx?.also { it.putAttachment(AUTH_CONTEXT_ATTACHMENT_KEY, authContext) }
         return authContext
     }
 
-    suspend fun getAuthorizationCode(authContext: AuthorizationContext,
-        username: String, password: String, redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
-    ): String {
+    suspend fun buildAuthorizationRequest(
+        authContext: AuthorizationContext,
+        redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
+    ): AuthorizationRequest {
 
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
         authContext.withCodeVerifier(codeVerifier)
 
+        val issuerMetadata = authContext.getIssuerMetadata()
+
         val authRequest = if (authContext.credOffer != null) {
             val credOffer = authContext.credOffer ?: error("No credential offer")
-            authContext.withIssuerMetadata(credOffer.resolveIssuerMetadata())
             buildAuthorizationRequestFromOffer(redirectUri, credOffer, codeVerifier)
         } else {
-            val metadata = authContext.issuerMetadata
-            val ctypes = authContext.credentialConfigurationIds ?: error("No credential config ids")
-            buildAuthorizationRequestFromCredentialTypes(redirectUri, metadata, ctypes, codeVerifier)
+            val configIds = authContext.credentialConfigurationIds ?: error("No credential configuration ids")
+            buildAuthorizationRequestFromCredentialConfigurationIds(redirectUri, issuerMetadata, configIds, codeVerifier)
         }
-
         authContext.withAuthorizationRequest(authRequest)
+        return authRequest
+    }
 
-        val authReq = authContext.authRequest
-        val authEndpointUrl = authContext.authEndpointUrl
+    suspend fun getAuthorizationCode(
+        authContext: AuthorizationContext,
+        username: String,
+        password: String,
+        redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
+    ): String {
+
+        val issuerMetadata = authContext.getIssuerMetadata()
+        val authRequest = buildAuthorizationRequest(authContext, redirectUri)
+        val authEndpointUrl = issuerMetadata.getAuthorizationEndpoint()
 
         val authCode = OAuthClient()
             .withLoginCredentials(username, password)
-            .sendAuthorizationRequest(authEndpointUrl, authReq)
+            .sendAuthorizationRequest(authEndpointUrl, authRequest)
 
         return authCode
     }
 
-    suspend fun getAccessTokenFromCode(authContext: AuthorizationContext, authCode: String): TokenResponseV0 {
+    suspend fun getAccessTokenFromAuthorizationCode(authContext: AuthorizationContext, authCode: String): TokenResponseV0 {
 
         val authReq = authContext.authRequest
-        val metadata = authContext.issuerMetadata
+        val issuerMetadata = authContext.getIssuerMetadata()
         val codeVerifier = authContext.codeVerifier ?: error("No Code Verifier")
 
-        val tokenEndpointUrl = metadata.getAuthorizationTokenEndpoint()
+        val tokenEndpointUrl = issuerMetadata.getAuthorizationTokenEndpoint()
 
         val tokReq = TokenRequest.AuthorizationCode(
             clientId = clientId,
@@ -101,15 +111,17 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
     suspend fun getAccessTokenFromDirectAccess(authContext: AuthorizationContext): TokenResponseV0 {
 
-        val metadata = authContext.issuerMetadata
-        val tokenEndpointUrl = metadata.getAuthorizationTokenEndpoint()
+        val issuerMetadata = authContext.getIssuerMetadata()
+        val tokenEndpointUrl = issuerMetadata.getAuthorizationTokenEndpoint()
         val scopes = mutableListOf("openid")
 
         authContext.credentialConfigurationIds?.also {
             scopes.addAll(it)
         }
 
-        val user = authContext.loginContext.assertAttachment(USER_ATTACHMENT_KEY)
+        val loginContext = requireNotNull(authContext.loginContext) { "No login context "}
+        val user = requireNotNull(loginContext.getAttachment(USER_ATTACHMENT_KEY)) { "No attached user "}
+
         val tokReq = TokenRequest.DirectAccess(
             clientId = clientId,
             username = user.username,
@@ -122,13 +134,13 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         return tokRes
     }
 
-    suspend fun getAccessTokenPreAuthorized(authContext: AuthorizationContext, credOffer: CredentialOfferV10): TokenResponseV0 {
+    suspend fun getAccessTokenFromPreAuthorizedCode(authContext: AuthorizationContext, credOffer: CredentialOfferV0): TokenResponseV0 {
 
         authContext.withCredentialOffer(credOffer)
-        authContext.withIssuerMetadata(credOffer.resolveIssuerMetadata())
 
+        val issuerMetadata = authContext.getIssuerMetadata()
         val code = credOffer.getPreAuthorizedCodeGrant()?.preAuthorizedCode ?: error("No pre-authorized code")
-        val tokenEndpointUrl = authContext.issuerMetadata.getAuthorizationTokenEndpoint()
+        val tokenEndpointUrl = issuerMetadata.getAuthorizationTokenEndpoint()
 
         val tokReq = TokenRequest.PreAuthorizedCode(
             clientId = clientId,
@@ -143,9 +155,9 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
     /**
      * Fetch the CredentialOffer for the given credential offer uri
      */
-    suspend fun fetchCredentialOffer(offerUri: String): CredentialOfferV10 {
+    suspend fun fetchCredentialOffer(offerUri: String): CredentialOfferV0 {
         val credOfferRes = http.get(offerUri)
-        val credOffer = (handleApiResponse(credOfferRes) as CredentialOfferV10)
+        val credOffer = (handleApiResponse(credOfferRes) as CredentialOfferV0)
         log.info { "CredentialOffer: ${credOffer.toJson()}" }
         return credOffer
     }
@@ -156,29 +168,32 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
      */
     suspend fun getCredential(authContext: AuthorizationContext, accessToken: TokenResponseV0): VCDataJwt {
 
-        val ctx = authContext.loginContext
-        val ctypes = authContext.credentialConfigurationIds ?: error("No credential config ids")
-        val credRes = sendCredentialRequest(authContext, ctypes, accessToken)
+        val credConfigIds = authContext.credentialConfigurationIds ?: error("No credential configuration ids")
+        val credRes = sendCredentialRequest(authContext, credConfigIds, accessToken)
 
-        val vcJwt = validateAndStoreCredential(ctx, credRes)
+        val vcJwt = validateAndStoreCredential(authContext, credRes)
         return vcJwt
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    private fun buildAuthorizationRequestFromCredentialTypes(
+    private suspend fun buildAuthorizationRequestFromCredentialConfigurationIds(
         redirectUri: String,
-        metadata: IssuerMetadataV10,
-        ctypes: List<String>,
+        metadata: IssuerMetadataV0,
+        configIds: List<String>,
         codeVerifier: String? = null
     ): AuthorizationRequest {
+
+        val scopes = metadata.credentialConfigurationsSupported
+            .filter { (k, _) -> configIds.contains(k) }
+            .mapNotNull { (_, v) -> v.scope }
+            .toList()
 
         val builder = AuthorizationRequestBuilder()
             .withRedirectUri(redirectUri)
             .withIssuerMetadata(metadata)
-            .withScopes(ctypes)
             .withClientId(clientId)
-            .withAuthorizationDetails()
+            .withScopes(scopes)
 
         if (codeVerifier != null) {
             builder.withCodeChallengeMethod("S256")
@@ -189,13 +204,14 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         return authReq
     }
 
-    private fun buildAuthorizationRequestFromOffer(
+    private suspend fun buildAuthorizationRequestFromOffer(
         redirectUri: String,
-        credOffer: CredentialOfferV10,
+        credOffer: CredentialOfferV0,
         codeVerifier: String? = null
     ): AuthorizationRequest {
 
         val builder = AuthorizationRequestBuilder()
+            .withCredentialOffer(credOffer)
             .withRedirectUri(redirectUri)
             .withClientId(clientId)
 
@@ -204,32 +220,32 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
             builder.withCodeVerifier(codeVerifier)
         }
 
-        val authReq = builder.buildFrom(credOffer)
+        val authReq = builder.build()
         return authReq
     }
 
     private suspend fun sendCredentialRequest(
         authContext: AuthorizationContext,
-        ctypes: List<String>,
+        credConfigIds: List<String>,
         accessToken: TokenResponseV0
     ): CredentialResponseV0 {
-        require(ctypes.size == 1) { "Expected single credential type: $ctypes" }
+        require(credConfigIds.size == 1) { "Expected single credential configuration id: $credConfigIds" }
 
-        val metadata = authContext.issuerMetadata
-        val ctype = ctypes.first()
+        val issuerMetadata = authContext.getIssuerMetadata()
+        val ctype = credConfigIds.first()
 
         val cNonce = accessToken.cNonce ?: let {
-            val res = http.post(metadata.nonceEndpoint!!)
+            val res = http.post(issuerMetadata.nonceEndpoint!!)
             if (res.status != HttpStatusCode.OK)
                 throw HttpStatusException(res.status, res.bodyAsText())
             val jsonObj = Json.decodeFromString<JsonObject>(res.bodyAsText())
             jsonObj.getValue("c_nonce").jsonPrimitive.content
         }
 
-        val ctx = authContext.loginContext
-        val kid = ctx.didInfo.keyId
+        val loginContext = requireNotNull(authContext.loginContext) { "No login context "}
+        val kid = loginContext.didInfo.keyId
 
-        val ecKeyJson = widWalletService.exportKey(ctx, kid)
+        val ecKeyJson = widWalletService.exportKey(loginContext, kid)
         val publicJwk = JWK.parse(ecKeyJson) as ECKey
         log.info { "PublicJwk: $publicJwk" }
 
@@ -241,13 +257,13 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
         val proofClaims = JWTClaimsSet.Builder()
-            .audience(metadata.credentialIssuer)
+            .audience(issuerMetadata.credentialIssuer)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
             .claim("nonce", cNonce)
             .build()
 
-        val proofJwt = SignedJWT(proofHeader, proofClaims).signWithKey(ctx, kid)
+        val proofJwt = SignedJWT(proofHeader, proofClaims).signWithKey(loginContext, kid)
         log.info { "ProofHeader: ${proofJwt.header}" }
         log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
 
@@ -258,7 +274,7 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
         log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
 
-        val res = http.post(metadata.credentialEndpoint) {
+        val res = http.post(issuerMetadata.credentialEndpoint) {
             header(HttpHeaders.Authorization, "Bearer ${accessToken.accessToken}")
             contentType(ContentType.Application.Json)
             setBody(credReq)
@@ -274,9 +290,11 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
     }
 
     private suspend fun validateAndStoreCredential(
-        ctx: LoginContext,
+        authContext: AuthorizationContext,
         credRes: CredentialResponseV0
     ): VCDataJwt {
+
+        val issuerMetadata = authContext.getIssuerMetadata()
 
         // Extract the VerifiableCredentials from the CredentialResponse
         //
@@ -301,8 +319,8 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
                 vcJwt.vct ?: error("No vct")
             }
         }
-        val authContext = ctx.removeAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) as AuthorizationContext
-        val credConfig = authContext.issuerMetadata.credentialConfigurationsSupported[ctype] ?: error("No credential_configurations_supported for: $ctype")
+
+        val credConfig = issuerMetadata.credentialConfigurationsSupported[ctype] ?: error("No credential_configurations_supported for: $ctype")
         val format = CredentialFormat.fromValue(credConfig.format) as CredentialFormat
 
         // Resolve issuer
@@ -344,7 +362,9 @@ class WalletServiceKeycloak : AbstractWalletService<CredentialOfferV10>() {
 
         // Add Credential to WaltId storage
         //
-        widWalletService.addCredential(ctx.walletId, format, sigJwt)
+        authContext.loginContext?.also {
+            widWalletService.addCredential(it.walletId, format, sigJwt)
+        }
 
         return vcJwt
     }
