@@ -1,7 +1,7 @@
 package io.nessus.identity.ebsi
 
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
-import io.nessus.identity.waltid.Max
+import io.nessus.identity.waltid.Alice
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -29,7 +29,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSameAuthorisedInTime"
         log.info { ">>>>> Wallet $ctype" }
 
-        val ctx = login(Max)
+        val ctx = login(Alice)
 
         // Click the collapsible element
         val page = context.pages().last()
@@ -67,7 +67,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSameAuthorisedDeferred"
         log.info { ">>>>> Wallet $ctype" }
 
-        val ctx = login(Max)
+        val ctx = login(Alice)
 
         // Click the collapsible element
         val page = context.pages().last()
@@ -104,7 +104,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSamePreAuthorisedInTime"
         log.info { ">>>>> Wallet $ctype" }
 
-        val ctx = login(Max)
+        val ctx = login(Alice)
 
         // Click the collapsible element
         val page = context.pages().last()
@@ -146,7 +146,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSamePreAuthorisedDeferred"
         log.info { ">>>>> Wallet $ctype" }
 
-        val ctx = login(Max)
+        val ctx = login(Alice)
 
         // Click the collapsible element
         val page = context.pages().last()

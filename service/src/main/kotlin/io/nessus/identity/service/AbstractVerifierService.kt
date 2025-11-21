@@ -2,7 +2,7 @@ package io.nessus.identity.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialParameters
-import io.nessus.identity.types.VCDataV11Jwt
+import io.nessus.identity.types.W3CCredentialV11Jwt
 import kotlin.time.Clock
 
 // VerifierService =====================================================================================================
@@ -11,7 +11,7 @@ abstract class AbstractVerifierService : VerifierService {
 
     val log = KotlinLogging.logger {}
 
-    override fun validateVerifiableCredential(vpcJwt: VCDataV11Jwt, vcp: CredentialParameters?) {
+    override fun validateVerifiableCredential(vpcJwt: W3CCredentialV11Jwt, vcp: CredentialParameters?) {
 
         val vc = vpcJwt.vc
         val id = vpcJwt.vcId

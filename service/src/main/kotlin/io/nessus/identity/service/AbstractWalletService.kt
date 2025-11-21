@@ -3,14 +3,14 @@ package io.nessus.identity.service
 import id.walt.webwallet.db.models.WalletCredential
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 
-abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<COType> {
+abstract class AbstractWalletService() : DeprecatedWalletService {
 
     val log = KotlinLogging.logger {}
 
-    override fun addCredentialOffer(ctx: LoginContext, credOffer: COType): String {
+    override fun addCredentialOffer(ctx: LoginContext, credOffer: CredentialOffer): String {
         val offerId = widWalletService.addCredentialOffer(ctx, credOffer)
         return offerId
     }
@@ -21,13 +21,13 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun getCredentialOffer(ctx: LoginContext, offerId: String): COType? {
-        return widWalletService.getCredentialOffer(ctx, offerId) as? COType
+    override fun getCredentialOffer(ctx: LoginContext, offerId: String): CredentialOffer? {
+        return widWalletService.getCredentialOffer(ctx, offerId)
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun deleteCredentialOffer(ctx: LoginContext, offerId: String): COType? {
-        return widWalletService.deleteCredentialOffer(ctx, offerId) as? COType
+    override fun deleteCredentialOffer(ctx: LoginContext, offerId: String): CredentialOffer? {
+        return widWalletService.deleteCredentialOffer(ctx, offerId)
     }
 
     override fun deleteCredentialOffers(ctx: LoginContext, predicate: (CredentialOffer) -> Boolean) {
@@ -58,11 +58,11 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
     override suspend fun getCredentialById(
         ctx: LoginContext,
         vcId: String
-    ): VCDataJwt? {
+    ): W3CCredentialJwt? {
         val res = widWalletService.findCredentials(ctx) { it.id == vcId }
             .asSequence()
             .map {
-                VCDataJwt.fromEncoded(it.document)
+                W3CCredentialJwt.fromEncoded(it.document)
             }.firstOrNull()
         return res
     }
@@ -70,11 +70,11 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
     override suspend fun getCredentialByType(
         ctx: LoginContext,
         ctype: String
-    ): VCDataJwt? {
+    ): W3CCredentialJwt? {
         val res = widWalletService.findCredentials(ctx) { true }
             .asSequence()
             .map {
-                VCDataJwt.fromEncoded(it.document)
+                W3CCredentialJwt.fromEncoded(it.document)
             }
             .filter { it.types.contains(ctype) }
             .firstOrNull()
@@ -84,9 +84,9 @@ abstract class AbstractWalletService<COType: CredentialOffer>() : WalletService<
     override suspend fun deleteCredential(
         ctx: LoginContext,
         vcId: String
-    ): VCDataJwt? {
+    ): W3CCredentialJwt? {
         val res = widWalletService.deleteCredential(ctx, vcId)?.let {
-            VCDataJwt.fromEncoded(it.document)
+            W3CCredentialJwt.fromEncoded(it.document)
         }
         return res
     }

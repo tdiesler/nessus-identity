@@ -9,7 +9,7 @@
         <h1>OID4VC Holder</h1>
 
         <#if holderAuth.hasAuthToken>
-            <h4>${holderName}</h4>
+            <h2>${holderName}</h2>
             Subject DID: <input type="text" class="bx--text-input" value="${holderDid}" style="width: 400px;" readonly autofocus/>
         </#if>
 

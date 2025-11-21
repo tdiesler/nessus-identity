@@ -7,26 +7,26 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-// VCDataV11Jwt ================================================================================================================================================
+// W3CCredentialV11Jwt =================================================================================================
 
 @Serializable
-data class VCDataV11Jwt(
+data class W3CCredentialV11Jwt(
     override val iss: String? = null,
     override val sub: String? = null,
     override val jti: String? = null,
     val iat: Long? = null,
     val nbf: Long? = null,
     var exp: Long? = null,
-    val vc: VCDataV11,
-): VCDataJwt() {
+    val vc: W3CCredentialV11,
+): W3CCredentialJwt() {
 
     override val vcId get() = jti ?: vc.id ?: error("No credential id")
     override val types get() = vc.type
 
     companion object {
-        fun fromEncoded(encoded: String): VCDataV11Jwt {
-            val vcJwt = SignedJWT.parse(encoded)
-            return Json.decodeFromString<VCDataV11Jwt>("${vcJwt.payload}")
+        fun fromEncoded(encoded: String): W3CCredentialV11Jwt {
+            val credJwt = SignedJWT.parse(encoded)
+            return Json.decodeFromString<W3CCredentialV11Jwt>("${credJwt.payload}")
         }
     }
 }
@@ -38,7 +38,7 @@ class VCDataV11JwtBuilder {
     var issuedAt: Instant = Clock.System.now()
     var validFrom: Instant? = null
     var validUntil: Instant? = null
-    var credential: VCDataV11? = null
+    var credential: W3CCredentialV11? = null
 
     fun withId(id: String): VCDataV11JwtBuilder {
         this.id = id
@@ -70,16 +70,16 @@ class VCDataV11JwtBuilder {
         return this
     }
 
-    fun withCredential(vc: VCDataV11): VCDataV11JwtBuilder {
+    fun withCredential(vc: W3CCredentialV11): VCDataV11JwtBuilder {
         this.credential = vc
         return this
     }
 
-    fun build(): VCDataV11Jwt {
+    fun build(): W3CCredentialV11Jwt {
         val issuerId = issuerId ?: throw IllegalStateException("No issuerId")
         val subjectId = subjectId ?: throw IllegalStateException("No subjectId")
         val credential = credential ?: throw IllegalStateException("No credential")
-        val cred = VCDataV11Jwt(
+        val cred = W3CCredentialV11Jwt(
             jti = id,
             iss = issuerId,
             sub = subjectId,

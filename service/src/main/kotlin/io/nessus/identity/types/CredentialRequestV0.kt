@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 @Serializable
-data class CredentialRequestV0(
+class CredentialRequestV0(
     @SerialName("credential_identifier")
     val credentialIdentifier: String? = null,
     @SerialName("credential_configuration_id")
@@ -14,7 +14,7 @@ data class CredentialRequestV0(
     val credentialResponseEncryption: CredentialResponseEncryption? = null,
     @SerialName("proofs")
     val proofs: Proofs? = null,
-) {
+): CredentialRequest() {
 
     @Serializable
     data class CredentialResponseEncryption(

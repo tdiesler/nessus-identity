@@ -27,8 +27,8 @@ import io.nessus.identity.types.CredentialSchema
 import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.PreAuthorizedCodeGrant
-import io.nessus.identity.types.VCDataV11Builder
 import io.nessus.identity.types.VCDataV11JwtBuilder
+import io.nessus.identity.types.W3CCredentialV11Builder
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.*
 import java.time.Instant
@@ -112,9 +112,9 @@ class IssuerServiceEbsi32(val issuerUrl: String, val authUrl: String) : Abstract
         // Validate the AccessToken
         validateAccessToken(accessTokenJwt)
 
-        log.info { "CredentialRequest: ${Json.encodeToString(credReq)}" }
+        log.info { "CredentialRequestV0: ${Json.encodeToString(credReq)}" }
 
-        // Derive the deferred case from the CredentialRequest type
+        // Derive the deferred case from the CredentialRequestV0 type
         //
         val deferredEBSIType = credReq.types?.any { it.startsWith("CT") && it.endsWith("Deferred") } == true
         val credentialResponse = if (deferred || deferredEBSIType) {
@@ -163,7 +163,7 @@ class IssuerServiceEbsi32(val issuerUrl: String, val authUrl: String) : Abstract
             .withValidFrom(nbf)
             .withValidUntil(exp)
             .withCredential(
-                VCDataV11Builder()
+                W3CCredentialV11Builder()
                     .withCredentialSchema(
                         CredentialSchema(
                             "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
@@ -198,7 +198,7 @@ class IssuerServiceEbsi32(val issuerUrl: String, val authUrl: String) : Abstract
         credJwt.verifyJwtSignature("Credential", ctx.didInfo)
 
         val credRes = CredentialResponse.success(CredentialFormat.jwt_vc, credJwt.serialize())
-        log.info { "CredentialResponse: ${Json.encodeToString(credRes)}" }
+        log.info { "CredentialResponseV0: ${Json.encodeToString(credRes)}" }
 
         return credRes
     }
@@ -212,7 +212,7 @@ class IssuerServiceEbsi32(val issuerUrl: String, val authUrl: String) : Abstract
         // [TODO #241] Validate the AcceptanceToken
         // https://github.com/tdiesler/nessus-identity/issues/241
 
-        // Derive the deferred case from the CredentialRequest type
+        // Derive the deferred case from the CredentialRequestV0 type
         //
         log.info { "AcceptanceToken Header: ${acceptanceTokenJwt.header}" }
         log.info { "AcceptanceToken Claims: ${acceptanceTokenJwt.jwtClaimsSet}" }
@@ -302,7 +302,7 @@ class IssuerServiceEbsi32(val issuerUrl: String, val authUrl: String) : Abstract
 
         log.info { "CredentialRequestDeferred: ${Json.encodeToString(credReq)}" }
 
-        val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequest")
+        val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequestV0")
         val metadata = getIssuerMetadata(ctx)
         val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = types.filterNot { it in supportedCredentials }

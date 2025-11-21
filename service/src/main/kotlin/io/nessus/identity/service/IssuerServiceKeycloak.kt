@@ -170,7 +170,7 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService<Is
             scopes = listOf(scope)
         )
 
-        val tokenEndpointUri = issuerMetadata.getAuthorizationTokenEndpoint()
+        val tokenEndpointUri = issuerMetadata.getAuthorizationTokenEndpointUri()
         val tokRes = OAuthClient().sendTokenRequest(tokenEndpointUri, tokReq)
         val accessToken = tokRes.accessToken
 

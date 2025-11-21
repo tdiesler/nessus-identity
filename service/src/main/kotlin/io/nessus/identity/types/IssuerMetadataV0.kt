@@ -1,5 +1,6 @@
 package io.nessus.identity.types
 
+import id.walt.oid4vc.data.CredentialFormat
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -49,8 +50,15 @@ data class IssuerMetadataV0(
             .mapNotNull { (_, v) -> v.scope }
             .toSet()
 
-    fun getCredentialScope(credConfigId: String): String? {
-        return credentialConfigurationsSupported[credConfigId]?.scope
+    override fun getCredentialScope(credType: String): String? {
+        val credConfig = credentialConfigurationsSupported[credType]
+        return credConfig?.scope
+    }
+
+    override fun getCredentialFormat(credType: String): CredentialFormat? {
+        val credConfig = credentialConfigurationsSupported[credType]
+            ?: error("No credential_configurations_supported for: $credType")
+        return CredentialFormat.fromValue(credConfig.format)
     }
 }
 

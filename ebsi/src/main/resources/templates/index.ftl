@@ -69,7 +69,7 @@
                     <table>
                         <tr>
                             <td><label for="email">Email:</label></td>
-                            <td><input type="email" id="email" name="email" value="user@email.com" required /></td>
+                            <td><input type="email" id="email" name="email" value="alice@email.com" required /></td>
                         </tr>
                         <tr>
                             <td><label for="password">Password:</label></td>

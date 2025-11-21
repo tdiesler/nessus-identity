@@ -8,7 +8,7 @@
     <div class="content">
         <h1>OID4VC Issuer</h1>
 
-        <h5>Create a Credential Offer</h5>
+        <h3>Create a Credential Offer</h3>
         <form action="/issuer/credential-offer/create" method="post" style="max-width: 400px;">
             <div class="bx--form-item-horizontal">
                 <label for="configId" class="bx--label">Configuration</label>

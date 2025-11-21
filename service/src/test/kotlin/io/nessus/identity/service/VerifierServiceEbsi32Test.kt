@@ -300,10 +300,10 @@ class VerifierServiceEbsi32Test : AbstractServiceTest() {
         //
         val accessTokenRes = authSvc.handleTokenRequestPreAuthorized(tokenReq)
 
-        // Holder sends the CredentialRequest using the AccessToken
+        // Holder sends the CredentialRequestV0 using the AccessToken
         //
         val types = credOffer.credentialConfigurationIds
-        val credReq = walletSvc.createCredentialRequest(alice, types, accessTokenRes)
+        val credReq = walletSvc.buildCredentialRequest(alice, types, accessTokenRes)
 
         // Issuer sends the requested Credential
         //

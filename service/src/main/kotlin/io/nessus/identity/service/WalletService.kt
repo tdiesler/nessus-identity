@@ -1,34 +1,61 @@
 package io.nessus.identity.service
 
-import id.walt.webwallet.db.models.WalletCredential
+import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.types.CredentialOfferV0
+import io.nessus.identity.types.TokenResponse
+import io.nessus.identity.types.W3CCredentialJwt
 
 // WalletService =======================================================================================================
 
-interface WalletService<COType: CredentialOffer> {
+interface WalletService: DeprecatedWalletService {
 
-    fun addCredentialOffer(ctx: LoginContext, credOffer: COType): String
+    val authorizationSvc: WalletAuthorizationService
+    val defaultClientId: String
 
-    fun getCredentialOffers(ctx: LoginContext): Map<String, CredentialOffer>
+    fun createAuthorizationContext(ctx: LoginContext? = null): AuthorizationContext
 
-    fun getCredentialOffer(ctx: LoginContext, offerId: String): COType?
+    suspend fun buildAuthorizationRequest(
+        authContext: AuthorizationContext,
+        clientId: String = defaultClientId,
+        redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
+    ): AuthorizationRequest
 
-    fun deleteCredentialOffer(ctx: LoginContext, offerId: String): COType?
+    suspend fun getAuthorizationCode(
+        authContext: AuthorizationContext,
+        clientId: String = defaultClientId,
+        username: String,
+        password: String,
+        redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
+    ): String
 
-    fun deleteCredentialOffers(ctx: LoginContext, predicate: (CredentialOffer) -> Boolean)
+    suspend fun getAccessTokenFromAuthorizationCode(
+        authContext: AuthorizationContext,
+        authCode: String,
+        clientId: String = defaultClientId,
+    ): TokenResponse
 
-    suspend fun findCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): List<WalletCredential>
+    suspend fun getAccessTokenFromDirectAccess(
+        authContext: AuthorizationContext,
+        clientId: String = defaultClientId,
+    ): TokenResponse
 
-    suspend fun findCredential(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): WalletCredential?
+    suspend fun getAccessTokenFromCredentialOffer(
+        authContext: AuthorizationContext,
+        credOffer: CredentialOffer,
+        clientId: String = defaultClientId,
+    ): TokenResponse
 
-    suspend fun getCredentialById(ctx: LoginContext, vcId: String): VCDataJwt?
+    /**
+     * Fetch the CredentialOffer for the given CredentialOfferUri
+     */
+    suspend fun getCredentialOffer(offerUri: String): CredentialOfferV0
 
-    suspend fun getCredentialByType(ctx: LoginContext, ctype: String): VCDataJwt?
-
-    suspend fun deleteCredential(ctx: LoginContext, vcId: String): VCDataJwt?
-
-    suspend fun deleteCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean)
+    /**
+     * Holder gets a Credential from an Issuer
+     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
+     */
+    suspend fun getCredential(authContext: AuthorizationContext, accessToken: TokenResponse): W3CCredentialJwt
 
     companion object {
         fun createEbsi(): WalletServiceEbsi32 {

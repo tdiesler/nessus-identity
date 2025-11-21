@@ -51,7 +51,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
         runBlocking {
             val credConfigId = "oid4vc_natural_person"
             val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId)
-            val credOffer = walletSvc.fetchCredentialOffer(offerUri)
+            val credOffer = walletSvc.getCredentialOffer(offerUri)
             credOffer.shouldNotBeNull()
         }
     }
@@ -70,7 +70,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
         runBlocking {
             val credConfigId = "oid4vc_natural_person"
             val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
-            val credOffer = walletSvc.fetchCredentialOffer(offerUri)
+            val credOffer = walletSvc.getCredentialOffer(offerUri)
             credOffer.shouldNotBeNull()
         }
     }

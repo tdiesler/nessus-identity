@@ -5,6 +5,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.Application
+import io.ktor.server.application.createApplicationPlugin
 import io.ktor.server.application.install
 import io.ktor.server.engine.*
 import io.ktor.server.freemarker.*
@@ -39,6 +40,7 @@ class ConsoleServer(val config: ConsoleConfig) {
     val issuerHandler = IssuerHandler()
     val walletHandler = WalletHandler()
     val verifierHandler = VerifierHandler()
+    val ebsiHandler = EBSIHandler()
 
     val versionInfo = getVersionInfo()
 
@@ -95,29 +97,32 @@ class ConsoleServer(val config: ConsoleConfig) {
                     call.respond(HttpStatusCode.InternalServerError, ex.message ?: "Internal error")
                 }
             }
+            install(createApplicationPlugin("AutoLoginPlugin") {
+                onCall { call ->
+                    if (config.autoLogin && !autoLoginComplete) {
+                        createLoginContext(call, UserRole.Holder, Alice.toLoginParams())
+                        createLoginContext(call, UserRole.Verifier, Bob.toLoginParams())
+                        autoLoginComplete = true
+                    }
+                }
+            })
+
             routing {
                 staticResources("/", "static")
 
-                // Root -----------------------------------------------------------------------------------
-                //
                 get("/") {
-                    call.respondRedirect("/issuer")
+                    call.respondRedirect("/wallet")
                 }
 
-                // Docs -----------------------------------------------------------------------------------
-                //
                 get("/docs") {
                     call.respond(
                         FreeMarkerContent("docs_home.ftl", BaseModel())
                     )
                 }
 
-                // Issuer ---------------------------------------------------------------------------------
-                //
                 route("/issuer") {
                     get {
-                        autoLogin(call)
-                        issuerHandler.showIssuerHome(call)
+                        issuerHandler.showHome(call)
                     }
                     get("/auth-config") {
                         issuerHandler.showAuthConfig(call)
@@ -156,45 +161,71 @@ class ConsoleServer(val config: ConsoleConfig) {
                     }
                 }
 
-                // Wallet ---------------------------------------------------------------------------------
-                //
                 route("/wallet") {
                     get {
-                        autoLogin(call)
-                        walletHandler.showWalletHome(call)
+                        walletHandler.showHome(call)
                     }
-                    // Issuer Callback to obtain Holder consent for Credential issuance
-                    get("/auth/callback") {
-                        val ctx = requireLoginContext(call, UserRole.Holder)
-                        walletHandler.handleAuthCallback(call, ctx)
+                    route("/auth") {
+                        get {
+                            val ctx = requireLoginContext(call, UserRole.Holder)
+                            walletHandler.handleAuthorization(call, ctx)
+                        }
+                        route("/callback") {
+                            get {
+                                val ctx = requireLoginContext(call, UserRole.Holder)
+                                walletHandler.handleAuthCallback(call, ctx)
+                            }
+                            get("/{targetId}") {
+                                val targetId = call.parameters["targetId"]
+                                val ctx = requireLoginContext(call, UserRole.Holder, targetId)
+                                walletHandler.handleAuthCallback(call, ctx)
+                            }
+                        }
+                        get("/flow/{flowStep}") {
+                            val ctx = requireLoginContext(call, UserRole.Holder)
+                            val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
+                            walletHandler.handleAuthFlow(call, ctx, flowStep)
+                        }
+                        route ("/{targetId}") {
+                            route ("/authorize") {
+                                get {
+                                    error("Not implemented /auth/authorize")
+                                }
+                            }
+                            route ("/direct_post") {
+                                post {
+                                    error("Not implemented /auth/direct_post")
+                                }
+                            }
+                            route ("/jwks") {
+                                get {
+                                    error("Not implemented /auth/jwks")
+                                }
+                            }
+                            route ("/token") {
+                                get {
+                                    error("Not implemented /auth/token")
+                                }
+                            }
+                        }
                     }
                     get("/login") {
-                        walletHandler.walletLoginPage(call)
+                        walletHandler.showLoginPage(call)
                     }
                     post("/login") {
-                        walletHandler.handleWalletLogin(call)
+                        walletHandler.handleLogin(call)
                     }
                     get("/logout") {
-                        walletHandler.handleWalletLogout(call)
+                        walletHandler.handleLogout(call)
                     }
-
-                    get("/auth") {
-                        val ctx = requireLoginContext(call, UserRole.Holder)
-                        walletHandler.handleAuthorization(call, ctx)
-                    }
-                    get("/auth/flow/{flowStep}") {
-                        val ctx = requireLoginContext(call, UserRole.Holder)
-                        val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
-                        walletHandler.handleAuthFlow(call, ctx, flowStep)
+                    get("/{targetId}") {
+                        val targetId = call.parameters["targetId"] ?: error("No targetId")
+                        walletHandler.handleCredentialOfferReceive(call, targetId)
                     }
                     get("/{targetId}/credential-offers") {
                         withHolderContextOrHome(call) { ctx ->
                             walletHandler.showCredentialOffers(call, ctx)
                         }
-                    }
-                    get("/{targetId}/credential-offer") {
-                        val targetId = call.parameters["targetId"] ?: error("No targetId")
-                        walletHandler.handleCredentialOfferAdd(call, targetId)
                     }
                     get("/{targetId}/credential-offer/{offerId}/accept") {
                         withHolderContextOrHome(call) { ctx ->
@@ -243,23 +274,19 @@ class ConsoleServer(val config: ConsoleConfig) {
                     }
                 }
 
-                // Verifier -------------------------------------------------------------------------------
-                //
                 route("/verifier") {
                     get {
-                        autoLogin(call)
-                        verifierHandler.showVerifierHome(call)
+                        verifierHandler.showHome(call)
                     }
                     get("/login") {
-                        verifierHandler.verifierLoginPage(call)
+                        verifierHandler.showLoginPage(call)
                     }
                     post("/login") {
-                        verifierHandler.handleVerifierLogin(call)
+                        verifierHandler.handleLogin(call)
                     }
                     get("/logout") {
-                        verifierHandler.handleVerifierLogout(call)
+                        verifierHandler.handleLogout(call)
                     }
-
                     get("/callback") {
                         val ctx = requireLoginContext(call, UserRole.Verifier)
                         verifierHandler.handleVerifierCallback(call, ctx)
@@ -272,6 +299,12 @@ class ConsoleServer(val config: ConsoleConfig) {
                     }
                     post("/presentation-request") {
                         verifierHandler.handlePresentationRequest(call)
+                    }
+                }
+
+                route("/ebsi") {
+                    get {
+                        ebsiHandler.showHome(call)
                     }
                 }
             }
@@ -293,6 +326,6 @@ class ConsoleServer(val config: ConsoleConfig) {
     private suspend fun withHolderContextOrHome(call: RoutingCall, block: suspend (LoginContext) -> Unit) {
         val targetId = call.parameters["targetId"] ?: error("No targetId")
         val ctx = findLoginContext(call, UserRole.Holder, targetId)
-        ctx?.let { ctx -> block(ctx) } ?: walletHandler.showWalletHome(call)
+        ctx?.let { ctx -> block(ctx) } ?: walletHandler.showHome(call)
     }
 }

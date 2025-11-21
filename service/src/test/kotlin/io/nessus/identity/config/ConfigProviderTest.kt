@@ -1,8 +1,7 @@
-package io.nessus.identity.service
+package io.nessus.identity.config
 
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
-import io.nessus.identity.config.ConfigProvider
 import org.junit.jupiter.api.Test
 
 class ConfigProviderTest {

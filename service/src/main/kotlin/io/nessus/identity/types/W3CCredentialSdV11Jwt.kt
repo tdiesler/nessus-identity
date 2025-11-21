@@ -8,7 +8,7 @@ import kotlinx.serialization.json.*
 import kotlin.time.Instant
 
 @Serializable
-data class VCDataSdV11Jwt(
+data class W3CCredentialSdV11Jwt(
     @SerialName("_sd")
     val sdDigests: List<String>,
 
@@ -27,7 +27,7 @@ data class VCDataSdV11Jwt(
 
     // [TODO] Is this an invalid property?
     val id: String? = null,                     // Credential ID
-) : VCDataJwt() {
+) : W3CCredentialJwt() {
 
     override val types get() = vct?.let { listOf(vct) } ?: listOf()
 

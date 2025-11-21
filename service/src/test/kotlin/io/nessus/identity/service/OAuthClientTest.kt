@@ -29,7 +29,7 @@ class OAuthClientTest : AbstractServiceTest() {
         val cfg = requireIssuerConfig()
         runBlocking {
             val issMetadata = issuerSvc.getIssuerMetadata()
-            val authEndpointUrl = issMetadata.getAuthorizationEndpoint()
+            val authEndpointUrl = issMetadata.getAuthorizationEndpointUri()
 
             val rndBytes = Random.nextBytes(32)
             val codeVerifier = Base64URL.encode(rndBytes).toString()
@@ -55,7 +55,7 @@ class OAuthClientTest : AbstractServiceTest() {
         val cfg = requireIssuerConfig()
         runBlocking {
             val issMetadata = issuerSvc.getIssuerMetadata()
-            val tokenEndpointUrl = issMetadata.getAuthorizationTokenEndpoint()
+            val tokenEndpointUrl = issMetadata.getAuthorizationTokenEndpointUri()
             val tokReq = TokenRequest.ClientCredentials(
                 clientId = cfg.serviceId,
                 clientSecret = cfg.serviceSecret,

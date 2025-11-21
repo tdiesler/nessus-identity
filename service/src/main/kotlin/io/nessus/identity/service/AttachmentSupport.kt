@@ -24,7 +24,7 @@ data class AttachmentKey<T : Any>(val type: Class<T>, val name: String? = null) 
 // AttachmentContext ===================================================================================================
 
 @Suppress("UNCHECKED_CAST")
-open class AttachmentContext() {
+open class AttachmentSupport() {
 
     constructor(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : this() {
         valueStore.putAll(attachments)

@@ -7,8 +7,8 @@
     <!-- Main content -->
     <div class="content">
         <h1>OID4VC Holder</h1>
-        <h4>${holderName}</h4>
-        <h5>Available Credentials</h5>
+        <h2>${holderName}</h2>
+        <h3>Available Credentials</h3>
 
         <table class="bx--data-table bx--data-table--compact" style="width: auto; table-layout: auto;">
             <thead>

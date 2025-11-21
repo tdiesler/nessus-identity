@@ -1,7 +1,7 @@
 package io.nessus.identity.service
 
 import io.nessus.identity.types.AuthorizationRequest
-import io.nessus.identity.types.TokenResponseV0
+import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.DidInfo
@@ -12,7 +12,7 @@ import io.nessus.identity.waltid.WalletInfo
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import java.security.MessageDigest
 
-open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : AttachmentContext(attachments) {
+open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : AttachmentSupport(attachments) {
 
     val maybeWalletInfo get() = getAttachment(WALLET_INFO_ATTACHMENT_KEY)
     val maybeDidInfo get() = getAttachment(DID_INFO_ATTACHMENT_KEY)
@@ -34,7 +34,7 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
 
         val AUTH_CONTEXT_ATTACHMENT_KEY = attachmentKey<AuthorizationContext>()
         val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequest>()
-        val AUTH_RESPONSE_ATTACHMENT_KEY = attachmentKey<TokenResponseV0>()
+        val AUTH_RESPONSE_ATTACHMENT_KEY = attachmentKey<TokenResponse>()
         val AUTH_TOKEN_ATTACHMENT_KEY = attachmentKey<String>("AUTH_TOKEN")
         val WALLET_INFO_ATTACHMENT_KEY = attachmentKey<WalletInfo>()
         val DID_INFO_ATTACHMENT_KEY = attachmentKey<DidInfo>()

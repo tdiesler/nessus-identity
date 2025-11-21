@@ -26,7 +26,7 @@ import io.nessus.identity.service.OIDContext.Companion.EBSI32_ISSUER_METADATA_AT
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.TokenRequest
-import io.nessus.identity.types.TokenResponseDraft11
+import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.*
 import java.time.Instant
@@ -196,7 +196,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         return vpTokenRedirectUrl
     }
 
-    suspend fun handleTokenRequestAuthCode(tokenReq: TokenRequest): TokenResponseDraft11 {
+    suspend fun handleTokenRequestAuthCode(tokenReq: TokenRequest): TokenResponse {
 
         val tokReq = tokenReq as TokenRequest.AuthorizationCode
         val grantType = tokReq.grantType
@@ -215,7 +215,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         return tokenRes
     }
 
-    suspend fun handleTokenRequestPreAuthorized(tokenReq: TokenRequest): TokenResponseDraft11 {
+    suspend fun handleTokenRequestPreAuthorized(tokenReq: TokenRequest): TokenResponse {
 
         if (!ctx.hasAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY))
             ctx.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, issuerSvc.getIssuerMetadata(ctx))
@@ -319,7 +319,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
     // Private ---------------------------------------------------------------------------------------------------------
 
-    private suspend fun buildTokenResponse(): TokenResponseDraft11 {
+    private suspend fun buildTokenResponse(): TokenResponse {
         val keyJwk = ctx.didInfo.publicKeyJwk()
         val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
 
@@ -360,7 +360,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         """.trimIndent()
 
         log.info { "Token Response: $tokenRespJson" }
-        val tokenRes = TokenResponseDraft11.fromJson(tokenRespJson).also {
+        val tokenRes = TokenResponse.fromJson(tokenRespJson).also {
             ctx.putAttachment(EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
         }
         return tokenRes

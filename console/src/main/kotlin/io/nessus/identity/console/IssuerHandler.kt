@@ -51,7 +51,7 @@ class IssuerHandler() {
         return model
     }
 
-    suspend fun showIssuerHome(call: RoutingCall) {
+    suspend fun showHome(call: RoutingCall) {
         val model = issuerModel(call)
         call.respond(
             FreeMarkerContent("issuer_home.ftl", model)
@@ -115,8 +115,8 @@ class IssuerHandler() {
         val usersMap = listOf(Alice, Bob, Max).associateBy { usr -> usr.email }
         val holder = usersMap[userId]
 
-        val credOfferUri = issuerSvc.createCredentialOfferUri(issuer,configId, preAuthorized, holder)
-        val credOfferQRCode = issuerSvc.createCredentialOfferUriQRCode(issuer,configId, preAuthorized, holder)
+        val credOfferUri = issuerSvc.createCredentialOfferUri(issuer, configId, preAuthorized, holder)
+        val credOfferQRCode = issuerSvc.createCredentialOfferUriQRCode(issuer, configId, preAuthorized, holder)
 
         val model = issuerModel(call).also {
             it["configId"] = configId
@@ -138,11 +138,11 @@ class IssuerHandler() {
         val holderContext = requireLoginContext(call, UserRole.Holder)
         val targetId = holderContext.targetId
 
-        val credOfferUriRes = http.get(credOfferUri ) {}
+        val credOfferUriRes = http.get(credOfferUri) {}
         val credOffer = CredentialOffer.fromJson(credOfferUriRes.bodyAsText())
 
         val walletUrl = "${requireWalletConfig().baseUrl}/$targetId"
-        val credOfferSendRes = http.get("$walletUrl/credential-offer" ) {
+        val credOfferSendRes = http.get(walletUrl) {
             parameter("credential_offer", credOffer.toJson())
         }
         if (credOfferSendRes.status.value != 200)

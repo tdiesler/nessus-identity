@@ -8,7 +8,7 @@
     <div class="content">
         <h1>OID4VC Issuer</h1>
 
-        <h5>Credential User Create</h5>
+        <h3>Credential User Create</h3>
 
         <form action="/issuer/user-create" method="post" style="max-width:640px;">
             <!-- Name -->

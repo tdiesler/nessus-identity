@@ -16,14 +16,14 @@ import kotlinx.serialization.json.*
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-// VCDataV11 ===================================================================================================================================================
+// W3CCredentialV11 ====================================================================================================
 
-// VC-Data Model v1.1
+// Verifiable Credentials Data Model v1.1
 // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#VC_DATA
 // https://www.w3.org/TR/2022/REC-vc-data-model-20220303
 
 @Serializable
-data class VCDataV11(
+data class W3CCredentialV11(
     val id: String? = null,
     @SerialName("@context")
     val context: List<String>,
@@ -60,9 +60,9 @@ data class VCDataV11(
     }
 }
 
-// VCDataV11Builder ============================================================================================================================================
+// W3CCredentialV11Builder =============================================================================================
 
-class VCDataV11Builder {
+class W3CCredentialV11Builder {
 
     var id = "${Uuid.random()}"
     var context = listOf("https://www.w3.org/2018/credentials/v1")
@@ -81,63 +81,63 @@ class VCDataV11Builder {
     // https://www.w3.org/standards/history/vc-data-model-2.0/
     // var validUntil: Instant? = null
 
-    fun withContexts(contexts: List<String>): VCDataV11Builder {
+    fun withContexts(contexts: List<String>): W3CCredentialV11Builder {
         this.context = contexts
         return this
     }
 
-    fun withCredentialSchema(schema: CredentialSchema): VCDataV11Builder {
+    fun withCredentialSchema(schema: CredentialSchema): W3CCredentialV11Builder {
         this.credentialSchema = CredentialSchemaWrapper.Single(schema)
         return this
     }
 
-    fun withCredentialSchemas(schemas: List<CredentialSchema>): VCDataV11Builder {
+    fun withCredentialSchemas(schemas: List<CredentialSchema>): W3CCredentialV11Builder {
         this.credentialSchema = CredentialSchemaWrapper.Multiple(schemas)
         return this
     }
 
-    fun withCredentialStatus(status: CredentialStatus?): VCDataV11Builder {
+    fun withCredentialStatus(status: CredentialStatus?): W3CCredentialV11Builder {
         this.credentialStatus = status
         return this
     }
 
-    fun withCredentialSubject(sub: String): VCDataV11Builder {
+    fun withCredentialSubject(sub: String): W3CCredentialV11Builder {
         this.credentialSubject = CredentialSubject(sub)
         return this
     }
 
-    fun withId(id: String): VCDataV11Builder {
+    fun withId(id: String): W3CCredentialV11Builder {
         this.id = id
         return this
     }
 
-    fun withIssuer(id: String): VCDataV11Builder {
+    fun withIssuer(id: String): W3CCredentialV11Builder {
         this.issuer = Issuer(id)
         return this
     }
 
-    fun withTypes(types: List<String>): VCDataV11Builder {
+    fun withTypes(types: List<String>): W3CCredentialV11Builder {
         this.type.addAll(types)
         return this
     }
 
-    fun withIssuedAt(iat: Instant): VCDataV11Builder {
+    fun withIssuedAt(iat: Instant): W3CCredentialV11Builder {
         this.issuanceDate = iat
         return this
     }
 
-    fun withValidFrom(nbf: Instant): VCDataV11Builder {
+    fun withValidFrom(nbf: Instant): W3CCredentialV11Builder {
         this.validFrom = nbf
         return this
     }
 
-    fun withValidUntil(exp: Instant): VCDataV11Builder {
+    fun withValidUntil(exp: Instant): W3CCredentialV11Builder {
         this.validUntil = exp
         return this
     }
 
-    fun build(): VCDataV11 {
-        val vc = VCDataV11(
+    fun build(): W3CCredentialV11 {
+        val vc = W3CCredentialV11(
             id = id,
             context = context,
             credentialSchema = credentialSchema,

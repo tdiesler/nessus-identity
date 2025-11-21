@@ -3,13 +3,13 @@ package io.nessus.identity.ebsi
 import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.waltid.Max
+import io.nessus.identity.waltid.Alice
 
 abstract class AbstractVerifierConformanceTest : AbstractConformanceTest() {
 
     fun prepareVerifierTests(): LoginContext {
 
-        val ctx = runBlocking { loginWithDid(Max) }
+        val ctx = runBlocking { loginWithDid(Alice) }
         ctx.hasDidInfo.shouldBeTrue()
 
         val page = context.newPage()

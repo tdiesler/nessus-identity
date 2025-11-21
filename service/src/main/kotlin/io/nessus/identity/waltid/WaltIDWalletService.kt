@@ -15,7 +15,7 @@ import io.nessus.identity.service.LoginContext.Companion.WALLET_INFO_ATTACHMENT_
 import io.nessus.identity.service.base64UrlDecode
 import io.nessus.identity.service.base64UrlEncode
 import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.CredentialOfferTable.deleteCredentialOffer
 import io.nessus.identity.waltid.CredentialOfferTable.insertCredentialOffer
 import io.nessus.identity.waltid.CredentialOfferTable.selectCredentialOffer
@@ -129,11 +129,11 @@ class WaltIDWalletService {
 
     fun addCredential(walletId: String, format: CredentialFormat, sigJwt: SignedJWT): String {
 
-        val vcJwt = VCDataJwt.fromEncoded("${sigJwt.serialize()}")
+        val credJwt = W3CCredentialJwt.fromEncoded("${sigJwt.serialize()}")
         val walletUid = Uuid.parse(walletId)
         val document = sigJwt.serialize()
 
-        val vcId = vcJwt.vcId
+        val vcId = credJwt.vcId
 
         val walletCredential = WalletCredential(
             id = vcId,
@@ -173,8 +173,8 @@ class WaltIDWalletService {
 
     suspend fun findCredentialsByType(ctx: LoginContext, ctype: String): List<WalletCredential> {
         val res = findCredentials(ctx) { wc ->
-            val vcJwt = VCDataJwt.fromEncoded(wc.document)
-            vcJwt.types.contains(ctype)
+            val credJwt = W3CCredentialJwt.fromEncoded(wc.document)
+            credJwt.types.contains(ctype)
         }
         return res
     }

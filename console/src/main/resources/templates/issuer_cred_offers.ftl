@@ -7,7 +7,7 @@
     <!-- Main content -->
     <div class="content">
         <h1>OID4VC Issuer</h1>
-        <h5>Credential Configurations</h5>
+        <h3>Credential Configurations</h3>
 
         <table class="bx--data-table bx--data-table--compact" style="width: auto; table-layout: auto;">
             <thead>

@@ -16,3 +16,10 @@ ansible-playbook -i ansible/inventory.yml ansible/step05-verify-registry.yml
 helm upgrade --install whoami ./helm -f ./helm/values-whoami-stage.yaml
 curl -vk https://who.nessustech.io
 ```
+
+
+## Nginx Reverse Proxy
+
+```
+sudo systemctl status nginx
+```

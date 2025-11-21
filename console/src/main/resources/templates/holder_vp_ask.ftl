@@ -7,9 +7,9 @@
     <!-- Main content -->
     <div class="content">
         <h1>OID4VC Holder</h1>
-        <h4>${holderName}</h4>
+        <h2>${holderName}</h2>
 
-        <h5>Request Verifiable Presentation Consent</h5>
+        <h3>Request Verifiable Presentation Consent</h3>
 
         <!-- Show textarea with the DCQLQuery -->
         <textarea class="height4" readonly>${dcqlQuery?html}</textarea>

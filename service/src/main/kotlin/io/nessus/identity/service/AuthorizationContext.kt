@@ -1,26 +1,46 @@
 package io.nessus.identity.service
 
+import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.dif.PresentationSubmission
 import io.nessus.identity.types.AuthorizationRequest
-import io.nessus.identity.types.CredentialOfferV0
-import io.nessus.identity.types.IssuerMetadataV0
+import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialOfferDraft11
+import io.nessus.identity.types.IssuerMetadata
+import io.nessus.identity.types.IssuerMetadataDraft11
 
 // AuthorizationContext ===============================================================================================
 
-class AuthorizationContext(val loginContext: LoginContext? = null) {
+class AuthorizationContext(val loginContext: LoginContext? = null): AttachmentSupport() {
 
     lateinit var authRequest: AuthorizationRequest
 
     var codeVerifier: String? = null
-    var credOffer: CredentialOfferV0? = null
+    var credOffer: CredentialOffer? = null
 
     private var explicitCredentialConfigurationIds: List<String>? = null
-    private var explicitIssuerMetadata: IssuerMetadataV0? = null
-
-    suspend fun getIssuerMetadata() = requireNotNull(explicitIssuerMetadata
-        ?: credOffer?.resolveIssuerMetadata()) { "No issuer metadata"}
+    private var explicitIssuerMetadata: IssuerMetadata? = null
 
     val credentialConfigurationIds get() =
         explicitCredentialConfigurationIds ?: credOffer?.credentialConfigurationIds
+
+    val filteredConfigurationIds
+        get() = credentialConfigurationIds?.filter { it !in listOf("VerifiableAttestation", "VerifiableCredential")  }
+
+    companion object {
+        val EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY = attachmentKey<SignedJWT>("ACCESS_TOKEN")
+        val EBSI32_AUTH_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE")
+        val EBSI32_AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<id.walt.oid4vc.requests.AuthorizationRequest>()
+        val EBSI32_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("CODE_VERIFIER")
+        val EBSI32_CREDENTIAL_OFFER_ATTACHMENT_KEY = attachmentKey<CredentialOfferDraft11>()
+        val EBSI32_ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<IssuerMetadataDraft11>()
+        val EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY = attachmentKey<PresentationSubmission>()
+        val EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<Any>("RequestUriObject")
+    }
+
+    suspend fun getIssuerMetadata(): IssuerMetadata {
+        return requireNotNull(explicitIssuerMetadata ?: credOffer?.resolveIssuerMetadata())
+        { "No credential offer nor explicit issuer metadata" }
+    }
 
     fun withAuthorizationRequest(authRequest: AuthorizationRequest): AuthorizationContext {
         this.authRequest = authRequest
@@ -37,12 +57,12 @@ class AuthorizationContext(val loginContext: LoginContext? = null) {
         return this
     }
 
-    fun withCredentialOffer(credOffer: CredentialOfferV0): AuthorizationContext {
+    fun withCredentialOffer(credOffer: CredentialOffer): AuthorizationContext {
         this.credOffer = credOffer
         return this
     }
 
-    fun withIssuerMetadata(metadata: IssuerMetadataV0): AuthorizationContext {
+    fun withIssuerMetadata(metadata: IssuerMetadata): AuthorizationContext {
         this.explicitIssuerMetadata = metadata
         return this
     }

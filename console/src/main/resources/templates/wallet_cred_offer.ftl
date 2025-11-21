@@ -7,8 +7,8 @@
     <!-- Main content -->
     <div class="content">
         <h1>OID4VC Holder</h1>
-        <h4>${holderName}</h4>
-        <h5>Available Credential Offer</h5>
+        <h2>${holderName}</h2>
+        <h3>Available Credential Offer</h3>
 
         <!-- Show textarea with the CredentialOffer -->
         <textarea class="height4" readonly>${credOffer?html}</textarea>

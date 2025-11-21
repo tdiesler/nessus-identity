@@ -3,8 +3,8 @@ package io.nessus.identity.service
 import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.DCQLQuery
-import io.nessus.identity.types.VCDataJwt
-import io.nessus.identity.types.VCDataV11Jwt
+import io.nessus.identity.types.W3CCredentialJwt
+import io.nessus.identity.types.W3CCredentialV11Jwt
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
@@ -17,7 +17,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
 
     lateinit var issuerSvc: IssuerServiceKeycloak
     lateinit var walletSvc: WalletServiceKeycloak
-    lateinit var walletAuthSvc: WalletAuthService
+    lateinit var walletAuthSvc: WalletAuthorizationService
     lateinit var verifierSvc: VerifierServiceKeycloak
 
     @BeforeEach
@@ -29,7 +29,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = OIDContext(loginOrRegister(Alice).withDidInfo())
             walletSvc = WalletService.createKeycloak()
-            walletAuthSvc = WalletAuthService(walletSvc)
+            walletAuthSvc = WalletAuthorizationService(walletSvc)
         }
     }
 
@@ -42,12 +42,12 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             val ctype = issuerMetadata.getCredentialScope(credConfigId)
 
             // Create the Identity Credential on demand
-            val vcJwt = walletSvc.getCredentialByType(alice, ctype!!)
-            if (vcJwt == null) {
+            val credJwt = walletSvc.getCredentialByType(alice, ctype!!)
+            if (credJwt == null) {
                 val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
-                val credOffer = walletSvc.fetchCredentialOffer(offerUri)
+                val credOffer = walletSvc.getCredentialOffer(offerUri)
                 val authContext = walletSvc.createAuthorizationContext(alice)
-                val accessToken = walletSvc.getAccessTokenFromPreAuthorizedCode(authContext, credOffer)
+                val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
                 walletSvc.getCredential(authContext, accessToken)
             }
 
@@ -85,7 +85,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Verifier validates the Credential
             //
             val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
-            val vpcJwt = VCDataV11Jwt.fromEncoded(vpCred)
+            val vpcJwt = W3CCredentialV11Jwt.fromEncoded(vpCred)
 
             val vcp = CredentialParameters()
                 .withSubject(alice.did)
@@ -104,12 +104,12 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             val ctype = issuerMetadata.getCredentialScope(credConfigId)
 
             // Create the Identity Credential on demand
-            val vcJwt = walletSvc.getCredentialByType(alice, ctype!!)
-            if (vcJwt == null) {
+            val credJwt = walletSvc.getCredentialByType(alice, ctype!!)
+            if (credJwt == null) {
                 val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
-                val credOffer = walletSvc.fetchCredentialOffer(offerUri)
+                val credOffer = walletSvc.getCredentialOffer(offerUri)
                 val authContext = walletSvc.createAuthorizationContext(alice)
-                val accessToken = walletSvc.getAccessTokenFromPreAuthorizedCode(authContext, credOffer)
+                val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
                 walletSvc.getCredential(authContext, accessToken)
             }
 
@@ -147,7 +147,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Verifier validates the Credential
             //
             val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
-            val vpcJwt = VCDataJwt.fromEncoded(vpCred)
+            val vpcJwt = W3CCredentialJwt.fromEncoded(vpCred)
 
             val vcp = CredentialParameters()
                 .withSubject(alice.did)
@@ -155,7 +155,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
 
             // [TODO #318] Consolidate presented credential verification in verifier
             // https://github.com/tdiesler/nessus-identity/issues/318
-            if (vpcJwt is VCDataV11Jwt)
+            if (vpcJwt is W3CCredentialV11Jwt)
                 verifierSvc.validateVerifiableCredential(vpcJwt, vcp)
         }
     }

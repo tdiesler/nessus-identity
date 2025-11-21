@@ -2,6 +2,8 @@ package io.nessus.identity.types
 
 import com.nimbusds.jose.util.Base64URL
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.nessus.identity.config.FeatureProfile.EBSI_V32
+import io.nessus.identity.config.Features
 import kotlinx.serialization.json.*
 import java.security.MessageDigest
 
@@ -14,7 +16,7 @@ class AuthorizationRequestBuilder {
 
     private var clientState: String? = null
     private var codeChallengeMethod: String? = null
-    private var credOffer: CredentialOfferV0? = null
+    private var credOffer: CredentialOffer? = null
     private var dcqlQuery: DCQLQuery? = null
     private var responseType: String? = null
     private var responseMode: String? = null
@@ -57,7 +59,7 @@ class AuthorizationRequestBuilder {
         return this
     }
 
-    fun withCredentialOffer(credOffer: CredentialOfferV0): AuthorizationRequestBuilder {
+    fun withCredentialOffer(credOffer: CredentialOffer): AuthorizationRequestBuilder {
         this.credOffer = credOffer
         return this
     }
@@ -105,6 +107,7 @@ class AuthorizationRequestBuilder {
     suspend fun build(): AuthorizationRequest {
 
         require(clientId.isNotBlank()) { "No client_id" }
+
         if (responseType == null) {
             responseType = "code"
         }
@@ -126,8 +129,8 @@ class AuthorizationRequestBuilder {
 
         val authorizationDetails = mutableListOf<AuthorizationDetail>()
         if (buildAuthorizationDetails) {
-            val metadata = getIssuerMetadata() ?: error("No issuer metadata")
-            val issuerUri = metadata.credentialIssuer
+            val issuerMetadata = getIssuerMetadata()
+            val issuerUri = issuerMetadata.credentialIssuer
             credentialConfigurationIds.forEach {
                 authorizationDetails.add(
                     Json.decodeFromString(
@@ -140,14 +143,10 @@ class AuthorizationRequestBuilder {
                 )
                 // [TODO #264] Keycloak requires credential id in scope although already given in authorizationDetails
                 // https://github.com/tdiesler/nessus-identity/issues/264
-                when(metadata) {
-                    is IssuerMetadataDraft11 -> {
-                        scopes.add(it)
-                    }
-                    is IssuerMetadataV0 -> {
-                        metadata.credentialConfigurationsSupported[it]?.scope
-                            ?.also { sc -> scopes.add(sc) }
-                    }
+                if (!Features.isProfile(EBSI_V32)) {
+                    issuerMetadata as IssuerMetadataV0
+                    issuerMetadata.credentialConfigurationsSupported[it]?.scope
+                        ?.also { sc -> scopes.add(sc) }
                 }
             }
         }

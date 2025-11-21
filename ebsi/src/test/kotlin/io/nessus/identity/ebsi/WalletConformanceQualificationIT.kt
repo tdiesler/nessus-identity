@@ -1,6 +1,6 @@
 package io.nessus.identity.ebsi
 
-import io.nessus.identity.waltid.Max
+import io.nessus.identity.waltid.Alice
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -28,7 +28,7 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
         val ctype = "CTWalletQualificationCredential"
         log.info { ">>>>> CTQualificationThroughVPExchange" }
 
-        val ctx = login(Max)
+        val ctx = login(Alice)
 
         // Click "Continue" button
         val page = context.pages().last()

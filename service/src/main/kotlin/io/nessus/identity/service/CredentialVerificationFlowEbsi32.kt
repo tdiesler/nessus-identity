@@ -7,7 +7,7 @@ import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_CODE_
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.PresentationDefinitionBuilder
-import io.nessus.identity.types.VCDataV11Jwt
+import io.nessus.identity.types.W3CCredentialV11Jwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlin.random.Random
 
@@ -77,7 +77,7 @@ class CredentialVerificationFlowEbsi32(val holderCtx: OIDContext, val verifierCt
         // Verifier validates the Credential
         //
         val vpCred = CredentialMatcher.pathValues(vpTokenJwt, "$.vp.verifiableCredential").first()
-        val vpcJwt = VCDataV11Jwt.fromEncoded(vpCred)
+        val vpcJwt = W3CCredentialV11Jwt.fromEncoded(vpCred)
 
         val vcp = CredentialParameters()
             .withSubject(holderCtx.did)

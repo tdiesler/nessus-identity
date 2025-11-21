@@ -8,7 +8,7 @@
     <div class="content">
         <h1>OID4VC Verifier</h1>
 
-        <h5>Request Credential Presentation</h5>
+        <h3>Request Credential Presentation</h3>
 
         <form action="/verifier/presentation-request" method="post" style="max-width:640px;">
             <hidden name="subjectId" value="${subInfo.id}"/>

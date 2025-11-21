@@ -1,9 +1,21 @@
 
 /* === Customizations === */
 
-h5 {
+h1 {
+  font-size: 1.6rem;
+  font-weight: 400;
+}
+
+h2 {
+  margin-top: 0.4rem;
+  margin-bottom: 0.4rem;
+  font-size: 1.2rem;
+}
+
+h3 {
   margin-top: 0.8rem;
   margin-bottom: 0.4rem;
+  font-size: 1rem;
 }
 
 textarea {

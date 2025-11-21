@@ -1,5 +1,6 @@
 package io.nessus.identity.types
 
+import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -43,6 +44,17 @@ data class IssuerMetadataDraft11(
 
     override val supportedCredentialScopes
         get() = credentialsSupported.flatMap { it.types ?: emptyList() }.toSet()
+
+    override fun getCredentialScope(credConfigId: String): String? {
+        return credConfigId
+    }
+
+    override fun getCredentialFormat(credType: String): CredentialFormat? {
+        val credConfig = credentialsSupported
+            .firstOrNull { it.types!!.contains(credType) }
+            ?: error("No credential configuration for: $credType")
+        return CredentialFormat.fromValue(credConfig.format)
+    }
 
     fun toWaltIdIssuerMetadata(): OpenIDProviderMetadata {
         val jsonStr = Json.encodeToString(this)

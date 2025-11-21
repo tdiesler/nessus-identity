@@ -62,7 +62,7 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
      * - Issuer validates IDToken and returns an Authorization Code
      * - Holder sends a TokenRequest to the Issuer's Token Endpoint
      * - Issuer validates the TokenRequest and responds with an AccessToken
-     * - Holder sends the CredentialRequest using the AccessToken
+     * - Holder sends the CredentialRequestV0 using the AccessToken
      * - Issuer sends the requested Credential
      * - Holder validates the received Credential
      * - Holder storages the Credential
@@ -115,8 +115,8 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
      * - Issuer validates IDToken and returns an Authorization Code
      * - Holder sends a TokenRequest to the Issuer's Token Endpoint
      * - Issuer validates the TokenRequest and responds with an AccessToken
-     * - Holder sends the CredentialRequest using the AccessToken
-     * - Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
+     * - Holder sends the CredentialRequestV0 using the AccessToken
+     * - Issuer responds with a deferred CredentialResponseV0 that contains an AcceptanceToken
      * - Holder requests the Deferred Credential using the AcceptanceToken
      * - Holder validates the received Credential
      * - Holder storages the Credential
@@ -171,8 +171,8 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
      * - The Holder received a CredentialOffer
      * - Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
      * - Issuer validates the TokenRequest and responds with an AccessToken
-     * - Holder sends the CredentialRequest using the AccessToken
-     * - Issuer responds with a CredentialResponse that contains an AcceptanceToken
+     * - Holder sends the CredentialRequestV0 using the AccessToken
+     * - Issuer responds with a CredentialResponseV0 that contains an AcceptanceToken
      * - Holder requests the Deferred Credential using the AcceptanceToken
      * - Holder validates the received Credential
      * - Holder storages the Credential
@@ -224,8 +224,8 @@ class IssuerServiceEbsi32Test : AbstractServiceTest() {
      * - The Holder received a CredentialOffer
      * - Holder immediately sends a TokenRequest with the pre-authorized code to the Issuer
      * - Issuer validates the TokenRequest and responds with an AccessToken
-     * - Holder sends the CredentialRequest using the AccessToken
-     * - Issuer responds with a deferred CredentialResponse that contains an AcceptanceToken
+     * - Holder sends the CredentialRequestV0 using the AccessToken
+     * - Issuer responds with a deferred CredentialResponseV0 that contains an AcceptanceToken
      * - Holder requests the Deferred Credential using the AcceptanceToken
      * - Holder validates the received Credential
      * - Holder storages the Credential

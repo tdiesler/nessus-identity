@@ -8,7 +8,7 @@ import io.nessus.identity.service.OIDContext
 import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.types.VCDataV11Jwt
+import io.nessus.identity.types.W3CCredentialV11Jwt
 import kotlinx.serialization.json.*
 import java.util.*
 import kotlin.uuid.Uuid
@@ -56,7 +56,7 @@ object VerificationHandler {
             log.info { "   Header: ${jwt.header}" }
             log.info { "   Claims: ${jwt.jwtClaimsSet}" }
             runCatching {
-                val vpcJwt = VCDataV11Jwt.fromEncoded(vcEncoded)
+                val vpcJwt = W3CCredentialV11Jwt.fromEncoded(vcEncoded)
                 verifierSvc.validateVerifiableCredential(vpcJwt)
             }.onFailure {
                 validationError = it

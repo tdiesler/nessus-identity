@@ -25,8 +25,8 @@ class CredentialMatcherDraft11 : CredentialMatcher() {
             val filterMap = fld.filter?.toMap()
                 ?: throw IllegalStateException("No filter in: $fld")
 
-            val vcJwt = SignedJWT.parse(wc.document)
-            val pathValue = pathValues(vcJwt, path)
+            val credJwt = SignedJWT.parse(wc.document)
+            val pathValue = pathValues(credJwt, path)
 
             val containsObj =
                 filterMap["contains"] ?: throw IllegalStateException("No filter.contains in: ${fld.filter}")

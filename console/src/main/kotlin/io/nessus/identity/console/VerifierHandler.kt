@@ -14,9 +14,9 @@ import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_RESPONSE_ATTACHMENT_KEY
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.types.DCQLQuery
-import io.nessus.identity.types.TokenResponseV0
+import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserRole
-import io.nessus.identity.types.VCDataJwt
+import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
@@ -38,21 +38,21 @@ class VerifierHandler() {
         return model
     }
 
-    suspend fun showVerifierHome(call: RoutingCall) {
+    suspend fun showHome(call: RoutingCall) {
         val model = verifierModel(call)
         call.respond(
             FreeMarkerContent("verifier_home.ftl", model)
         )
     }
 
-    suspend fun verifierLoginPage(call: RoutingCall) {
+    suspend fun showLoginPage(call: RoutingCall) {
         val model = verifierModel(call)
         call.respond(
             FreeMarkerContent("verifier_login.ftl", model)
         )
     }
 
-    suspend fun handleVerifierLogin(call: RoutingCall) {
+    suspend fun handleLogin(call: RoutingCall) {
         val params = call.receiveParameters()
         val email = params["email"] ?: error("No email")
         val password = params["password"] ?: error("No password")
@@ -61,14 +61,14 @@ class VerifierHandler() {
         call.respondRedirect("/verifier")
     }
 
-    suspend fun handleVerifierLogout(call: RoutingCall) {
+    suspend fun handleLogout(call: RoutingCall) {
         SessionsStore.logout(call, UserRole.Verifier)
         call.respondRedirect("/verifier")
     }
 
     suspend fun handleVerifierCallback(call: RoutingCall, ctx: LoginContext) {
 
-        val authRes = ctx.getAttachment(AUTH_RESPONSE_ATTACHMENT_KEY) as TokenResponseV0
+        val authRes = ctx.getAttachment(AUTH_RESPONSE_ATTACHMENT_KEY) as TokenResponse
         val vpSubmission = authRes.presentationSubmission ?: error("No presentation_submission")
 
         val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
@@ -83,7 +83,7 @@ class VerifierHandler() {
         val vpObj = claimsObj.getValue("vp").jsonObject
         val credsArr = vpObj.getValue("verifiableCredential").jsonArray
         val verifiableCredentials = credsArr.map {
-            VCDataJwt.fromEncoded(it.jsonPrimitive.content).toJson()
+            W3CCredentialJwt.fromEncoded(it.jsonPrimitive.content).toJson()
         }
         model["verifiableCredentials"] = jsonPretty.encodeToString(verifiableCredentials)
 
@@ -104,7 +104,7 @@ class VerifierHandler() {
             error("Multiple Verifier LoginContexts")
 
         val authResJson = call.receiveText()
-        val authRes = TokenResponseV0.fromJson(authResJson)
+        val authRes = TokenResponse.fromJson(authResJson)
         verifierContexts[0].putAttachment(AUTH_RESPONSE_ATTACHMENT_KEY, authRes)
 
         // If the Response URI has successfully processed the Authorization Response or Authorization Error Response,
@@ -145,7 +145,7 @@ class VerifierHandler() {
             )
         )
 
-        val walletAuthUrl = requireWalletConfig().authUrl
+        val walletAuthUrl = requireWalletConfig().authUri
         val redirectUrl = authReq.getAuthorizationRequestUrl(walletAuthUrl)
 
         log.info { redirectUrl }

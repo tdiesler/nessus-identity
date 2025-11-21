@@ -57,7 +57,7 @@ object CredentialOfferSerializer : JsonContentPolymorphicSerializer<CredentialOf
         return when {
             jsonObj.containsKey("credentials") -> CredentialOfferDraft11.serializer()
             jsonObj.containsKey("credential_configuration_ids") -> CredentialOfferV0.serializer()
-            else -> throw SerializationException("Unknown CredentialEntry type: $element")
+            else -> throw SerializationException("Unknown CredentialOffer type: $element")
         }
     }
 }

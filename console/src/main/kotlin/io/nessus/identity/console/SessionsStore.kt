@@ -1,6 +1,6 @@
 package io.nessus.identity.console
 
-import io.ktor.server.routing.*
+import io.ktor.server.application.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.urlDecode
@@ -18,7 +18,7 @@ object SessionsStore {
 
     fun cookieName(role: UserRole) = "${role.name}Cookie"
 
-    suspend fun createLoginContext(call: RoutingCall, role: UserRole, params: LoginParams): LoginContext {
+    suspend fun createLoginContext(call: ApplicationCall, role: UserRole, params: LoginParams): LoginContext {
         val ctx = LoginContext.login(params).withUserRole(role).withWalletInfo()
         val wid = ctx.walletId
         val did = ctx.maybeDidInfo?.did
@@ -30,29 +30,32 @@ object SessionsStore {
         return ctx
     }
 
-    fun findLoginContext(call: RoutingCall, role: UserRole, targetId: String? = null): LoginContext? {
-        val ctx = getRoleCookieFromSession(call, role)
-            ?.let { LoginContext.getTargetId(it.wid, it.did ?: "") }
-            ?.takeIf { tid -> tid == targetId || targetId == null }
+    fun findLoginContext(call: ApplicationCall, role: UserRole, targetId: String? = null): LoginContext? {
+        val cookie = getRoleCookieFromSession(call, role)
+        val cookieTargetId = cookie?.let { LoginContext.getTargetId(it.wid, it.did ?: "") }
+        var ctx = cookieTargetId
+            ?.takeIf { targetId == null || it == targetId }
             ?.let { tid -> loginContexts[tid] }
+        if (ctx == null && targetId != null) {
+            ctx = loginContexts.values.firstOrNull { it.userRole == role && it.targetId == targetId }
+        }
         return ctx
     }
 
-    fun logout(call: RoutingCall, role: UserRole) {
+    fun logout(call: ApplicationCall, role: UserRole) {
         findLoginContext(call, role)?.also {
             call.sessions.clear(cookieName(role))
             loginContexts.remove(it.targetId)
         }
     }
 
-    fun requireLoginContext(call: RoutingCall, role: UserRole, targetId: String? = null): LoginContext {
-        val ctx = findLoginContext(call, role, targetId) ?: error("No ${role.name} LoginContext")
-        return ctx
+    fun requireLoginContext(call: ApplicationCall, role: UserRole, targetId: String? = null): LoginContext {
+        return requireNotNull(findLoginContext(call, role, targetId)) { "No ${role.name} LoginContext" }
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    private fun getRoleCookieFromSession(call: RoutingCall, role: UserRole): BaseCookie? {
+    private fun getRoleCookieFromSession(call: ApplicationCall, role: UserRole): BaseCookie? {
         val roleCookie = call.request.cookies.rawCookies
             .filter { (k, _) -> k == cookieName(role) }
             .map { (_, v) ->

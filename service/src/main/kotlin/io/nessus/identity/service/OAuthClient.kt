@@ -9,7 +9,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.TokenRequest
-import io.nessus.identity.types.TokenResponseV0
+import io.nessus.identity.types.TokenResponse
 import kotlinx.serialization.json.*
 
 class OAuthClient {
@@ -51,19 +51,19 @@ class OAuthClient {
         return authCode
     }
 
-    suspend fun sendTokenRequest(endpointUrl: String, tokReq: TokenRequest): TokenResponseV0 {
-        val authParams = tokReq.getParameters()
+    suspend fun sendTokenRequest(endpointUrl: String, tokenRequest: TokenRequest): TokenResponse {
+        val authParams = tokenRequest.getParameters()
         log.info { "AuthorizationUrl: $endpointUrl" }
         log.info { "AuthorizationParams: ${redactedParams(authParams)}" }
         val res = http.post(endpointUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
             setBody(Parameters.build {
-                tokReq.getParameters().forEach { (k, vals) ->
+                tokenRequest.getParameters().forEach { (k, vals) ->
                     vals.forEach { v -> append(k, v) }
                 }
             }.formUrlEncode())
         }
-        val authRes = handleApiResponse(res) as TokenResponseV0
+        val authRes = handleApiResponse(res) as TokenResponse
         return authRes
     }
 
@@ -75,7 +75,7 @@ class OAuthClient {
             if (res.status.value in 200..<300) {
                 if (!isBinary(getContentType(res))) {
                     val body = res.bodyAsText()
-                    log.info { "Response: $body" }
+                    log.debug { "OAuth Response: $body" }
                 }
                 val resVal = when (T::class) {
                     ByteArray::class -> res.body() as T
@@ -91,7 +91,7 @@ class OAuthClient {
                 }
                 return resVal
             }
-            error("APIError[code=${res.status.value}, message=$res.bodyAsText()]")
+            error("APIError[code=${res.status.value}, message=${res.bodyAsText()}]")
         }
 
         fun getContentType(res: HttpResponse): ContentType? {

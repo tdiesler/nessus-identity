@@ -8,7 +8,7 @@
     <div class="content" style="flex:1; padding:1rem;">
         <h1>OID4VC Docs</h1>
 
-        <h5>EBSI</h5>
+        <h3>EBSI</h3>
         <p>
             <ul class="bx--list--unordered bx--list">
                 <li class="bx--list__item">
@@ -29,7 +29,7 @@
             </ul>
         </p>
 
-        <h5>Standards</h5>
+        <h3>Standards</h3>
         <p>
             <ul class="bx--list--unordered bx--list">
                 <li class="bx--list__item">

@@ -8,7 +8,7 @@
     <div class="content">
         <h1>OID4VC Issuer</h1>
 
-        <h5>Send a Credential Offer</h5>
+        <h3>Send a Credential Offer</h3>
         <table class="bx--data-table bx--data-table--compact" style="width: auto; table-layout: auto;">
             <tbody>
                 <tr>

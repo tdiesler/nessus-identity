@@ -1,19 +1,32 @@
 package io.nessus.identity.config
 
 import com.sksamuel.hoplite.ConfigLoaderBuilder
+import com.sksamuel.hoplite.ConfigResult
+import com.sksamuel.hoplite.DecoderContext
 import com.sksamuel.hoplite.ExperimentalHoplite
+import com.sksamuel.hoplite.Node
+import com.sksamuel.hoplite.StringNode
 import com.sksamuel.hoplite.addEnvironmentSource
 import com.sksamuel.hoplite.addResourceSource
+import com.sksamuel.hoplite.decoder.Decoder
+import com.sksamuel.hoplite.fp.Validated
 import kotlinx.serialization.Serializable
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
 
 @OptIn(ExperimentalHoplite::class)
 object ConfigProvider {
 
-    val root = ConfigLoaderBuilder.Companion.default()
-        .withExplicitSealedTypes()
-        .addEnvironmentSource()
-        .addResourceSource("/application.conf")
-        .build().loadConfigOrThrow<RootConfig>()
+    val root = run {
+        val rootConfig = ConfigLoaderBuilder.default()
+            .withExplicitSealedTypes()
+            .addEnvironmentSource()
+            .addResourceSource("/application.conf")
+            .addDecoder(FeatureProfileDecoder)
+            .build().loadConfigOrThrow<RootConfig>()
+        Features.initProfile(rootConfig.featureProfile)
+        rootConfig
+    }
 
     fun requireConsoleConfig(): ConsoleConfig {
         return root.console ?: error("No 'console' config")
@@ -52,6 +65,7 @@ object ConfigProvider {
 @Serializable
 data class RootConfig(
     val version: String,
+    val featureProfile: FeatureProfile,
     val console: ConsoleConfig?,
     val database: DatabaseConfig?,
     val ebsi: EbsiConfig?,
@@ -114,7 +128,7 @@ data class VerifierConfig(
 @Serializable
 data class WalletConfig(
     val baseUrl: String,
-    val authUrl: String,
+    val authUri: String,
     val redirectUri: String,
 )
 
@@ -125,3 +139,20 @@ data class WaltIdConfig(
     val devWallet: EndpointConfig?,
     val vcRepo: EndpointConfig?,
 )
+
+object FeatureProfileDecoder : Decoder<FeatureProfile> {
+    override fun decode(
+        node: Node,
+        type: KType,
+        context: DecoderContext
+    ): ConfigResult<FeatureProfile> {
+        val value = (node as StringNode).value
+        val profile = requireNotNull(FeatureProfile.entries
+            .firstOrNull() { it.value == value }) { "No such FeatureProfile: $value" }
+        return Validated.Valid(profile)
+    }
+
+    override fun supports(type: KType): Boolean {
+        return type == typeOf<FeatureProfile>()
+    }
+}

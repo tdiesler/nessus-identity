@@ -95,11 +95,11 @@ data class AuthorizationRequest(
         return params
     }
 
-    fun getAuthorizationRequestUrl(authUrl: String): String {
+    fun getAuthorizationRequestUrl(authEndpointUri: String): String {
         val params = getParameters().map { (k, vals) ->
             vals.joinToString("&") { v -> "$k=${urlEncode(v)}" }
         }.joinToString( "&" )
-        return "$authUrl?$params"
+        return "$authEndpointUri?$params"
     }
 
     fun toJson() = Json.encodeToString(this)
@@ -160,23 +160,28 @@ data class AuthorizationRequest(
 data class AuthorizationDetail(
 
     /** Always "openid_credential" for credential issuance */
-    val type: String,  // must be "openid_credential"
+    val type: String,
 
+    /** Optional: the credential configuration that this access token authorizes */
     @SerialName("credential_configuration_id")
     val credentialConfigurationId: String? = null,
-
-    /** Optional: credential format (e.g. "jwt_vc_json") */
-    val format: String? = null,
 
     /** Optional: array of credential identifiers available under this token */
     @SerialName("credential_identifiers")
     val credentialIdentifiers: List<String>? = null,
+
+    /** Optional: credential format (e.g. "jwt_vc_json") */
+    val format: String? = null,
 
     /** Optional: where to send subsequent credential requests */
     val locations: List<String>? = null,
 
     /** Optional: human-readable or UI display data */
     val display: JsonElement? = null,
+
+    /** Optional: credential type (e.g. "UniversityDegreeCredential") */
+    @SerialName("credential_type")
+    val credentialType: String? = null,
 )
 
 // DCQLQuery ===========================================================================================================

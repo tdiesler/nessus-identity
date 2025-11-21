@@ -1,28 +1,21 @@
 package io.nessus.identity.types
 
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.equals.shouldBeEqual
 import kotlinx.serialization.json.*
 import kotlin.test.Test
 import kotlin.test.assertNull
 
-class VCDataTest {
-
-    val log = KotlinLogging.logger {}
-
-    val jsonPretty = Json { prettyPrint = true }
+class W3CCredentialTest {
 
     @Test
-    fun testVCDataV11Keycloak() {
+    fun testW3CCredentialV11() {
 
-        val vcJwt = VCDataV11Jwt.fromEncoded(
+        val credJwt = W3CCredentialV11Jwt.fromEncoded(
             "eyJhbGciOiJFUzI1NiIsInR5cCIgOiAiSldTIiwia2lkIiA6ICJaTnJqZzcyNXlVNXl3a21PNGZVMW04WldURVhSRTJxTzA2dEJVMi01WVNvIn0.eyJuYmYiOjE3NjAwOTg0NTMsImp0aSI6InVybjp1dWlkOmVkYmRhMmMwLWEyMzctNDFjOC04MmQ2LWM5MzAzYWU5MzVkZSIsImlzcyI6Imh0dHBzOi8vb2F1dGgubG9jYWx0ZXN0Lm1lL3JlYWxtcy9vaWQ0dmNpIiwic3ViIjoiZGlkOmtleTp6MmRtekQ4MWNnUHg4VmtpN0pidXVNbUZZcldQZ1lveXR5a1VaM2V5cWh0MWo5S2JxYXlqZHU4aXF5WjNMbjNtZW5HS0VVWjZtUzl0Q2pmanZraE5nb2dLczF6ZEVlRlNrazFHN1hRVWo3QVE4b3dKaVpaS0ZFN3BtUFZUeUd0RkZVa2ZQNHVqUnpIYzRnRUxGV1hmVzM5YmdpZ2F6eXlpeGRLRXNjZXZOSlV4N201SmI2IiwidmMiOnsidHlwZSI6WyJvaWQ0dmNfaWRlbnRpdHlfY3JlZGVudGlhbCJdLCJpc3N1ZXIiOiJodHRwczovL29hdXRoLmxvY2FsdGVzdC5tZS9yZWFsbXMvb2lkNHZjaSIsImlzc3VhbmNlRGF0ZSI6MTc2MDA5ODQ1My40MjIwMDAwMDAsImNyZWRlbnRpYWxTdWJqZWN0Ijp7Imxhc3ROYW1lIjoiV29uZGVybGFuZCIsImZpcnN0TmFtZSI6IkFsaWNlIiwiaWQiOiJkaWQ6a2V5OnoyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnFheWpkdThpcXlaM0xuM21lbkdLRVVaNm1TOXRDamZqdmtoTmdvZ0tzMXpkRWVGU2trMUc3WFFVajdBUThvd0ppWlpLRkU3cG1QVlR5R3RGRlVrZlA0dWpSekhjNGdFTEZXWGZXMzliZ2lnYXp5eWl4ZEtFc2Nldk5KVXg3bTVKYjYiLCJlbWFpbCI6ImFsaWNlQGVtYWlsLmNvbSJ9LCJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvbnMvY3JlZGVudGlhbHMvdjEiXX19.NQ-JFR1XSil0qsKBXt9YXkGyT_TZpsOIYDerMlWbmkpNvpf3sXODz1LEd_CGgkZLGLfqnR53ouA0TbrZbRmUCA"
         )
 
-        log.info { jsonPretty.encodeToString(vcJwt) }
-
-        val jsonObj = vcJwt.toJson()
+        val jsonObj = credJwt.toJson()
         val vcObj = jsonObj.getValue("vc").jsonObject
         val ctypes = vcObj.getValue("type").jsonArray.map { it.jsonPrimitive.content }
         ctypes shouldContain "oid4vc_identity_credential"
@@ -34,29 +27,25 @@ class VCDataTest {
     }
 
     @Test
-    fun testVCDataSdV11Keycloak() {
+    fun testW3CCredentialSdV11() {
 
-        val vcJwt = VCDataJwt.fromEncoded(
+        val credJwt = W3CCredentialJwt.fromEncoded(
             "eyJhbGciOiJFUzI1NiIsInR5cCIgOiAiSldTIiwia2lkIiA6ICJaTnJqZzcyNXlVNXl3a21PNGZVMW04WldURVhSRTJxTzA2dEJVMi01WVNvIn0.eyJfc2QiOlsiMllJNVZCTTdIMFlkRnlLQjIxRm95MDNxZXNXNzJGRFd2dVpmWGdKNUZkRSIsIjJyX3FRYXZpS3ZlOXNBOVdxbHJCakpxZVMtZTNvcDJERzZMNExNZVRJSGMiLCJBRUpDYWJtcHRibk0tRDFFbkRWX2RVczlJbnFoRHl0Y2ljb05RRmM5VFBZIiwiRVZBeGoyWDJ1TzN6bVJsTFdVb1lib28wZ2RJcE52NkFJRGdUOXFQcFZfdyIsIktPZkJmbW5WbGN6YkhsNmtBRHlWZXNOV3dOYWI4YXJIa3J2NE44b2JoMmciLCJPQjRjcnBHWlVrU1VUMUtIM1dUSU5MaTlJcDFIU1lsSlJaTnhhZU82dHk4IiwiVDVpandIbHluR1BScHRsOEk5UW8yekpXd1hBOE5WTFduVDFUS1FXVUotTSIsIldydVdqaXhVekFvVDlIWUlENW5MLWVFOElqQUc2eEpEZnBqQkh4d1hNdXciLCJZNmYwaElIQXV5clFVRnNxSzdZWWJCbVQzcmR0cVJfQ0o2WTVreGV2UkpFIiwiZmUyWElNb3prbjIzQl95Tk5IOEx3OTR1WHQ0QWVtbXNtUVh1bGtCOFdnRSIsImtGeTNwYjdMblN4XzNKa1JRTXZjQzRhdnV4R0lZRDFtcU94TGdsdEVpa0EiLCJ0VVRyTWJlRmRBcmw2Tk1IVWZibm8xRnhEeGNnWTNaQ2RUeXBDb29MQzZZIiwieDhfLWh0X0tPUWhlTVJFTUxPaFhELUNYYXE2a0NBYzF0RWJIa291blgtVSJdLCJfc2RfYWxnIjoiU0hBLTI1NiIsInZjdCI6Im9pZDR2Y19uYXR1cmFsX3BlcnNvbiIsImlzcyI6Imh0dHBzOi8vb2F1dGgubG9jYWx0ZXN0Lm1lL3JlYWxtcy9vaWQ0dmNpIiwiY25mIjp7Imp3ayI6eyJraWQiOiJoVGJDcmI2MG9GOHdHcHBIOWRJOHp5OTQ1YmY1RVZmWlFmSU41NWVkY3lBIiwia3R5IjoiRUMiLCJhbGciOiJFUzI1NiIsInVzZSI6InNpZyIsImNydiI6IlAtMjU2IiwieCI6IjRTRHlGbElSVXk2WXBNSXgxM0FIbEQ3Y05pYjd1V2l2VmlWdVdZVnRPU2ciLCJ5IjoiQ0NiRDJBZEZtTFBLVzVxMEhFNEVXNGFyMURsbC1QanJwTVhaY0xCclpYayJ9fSwiaWQiOiJpZCJ9.uBhSRmT4lx_x8Sv7eJUw2Mriog1aFL9NZjWwBsjuqKxwIVPHvWTGIhzgJ9brI_2dndzJd6-tKOSWzeBLeu3etg~WyJ2REJzaTJoajlpSU9rX0ppck02QlJ3IiwgImZpcnN0TmFtZSIsICJBbGljZSJd~WyJqZUl0WVVaa3l3dUNmMElKc0JYZENnIiwgImZhbWlseU5hbWUiLCAiV29uZGVybGFuZCJd~WyJHQjlFcWZhR19raGhRb1ZaQTljTnJBIiwgImVtYWlsIiwgImFsaWNlQGVtYWlsLmNvbSJd~"
         )
 
-        log.info { jsonPretty.encodeToString(vcJwt) }
-
-        val jsonObj = vcJwt.toJson()
+        val jsonObj = credJwt.toJson()
         val ctype = jsonObj.getValue("vct").jsonPrimitive.content
         ctype shouldBeEqual "oid4vc_natural_person"
     }
 
     @Test
-    fun testVCDataV11Ebsi32() {
+    fun testW3CCredentialV11Ebsi32() {
 
-        val vcJwt = VCDataV11Jwt.fromEncoded(
+        val credJwt = W3CCredentialV11Jwt.fromEncoded(
             "eyJhbGciOiJFUzI1NiIsImtpZCI6ImRpZDplYnNpOnpqSFpqSjRTeTdyOTJCeFh6RkdzN3FEI1Q2aVBNVy1rOE80dXdaaWQyOUd3TGUtTmpnNDBFNmpOVDdoZExwSjNaU2ciLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3NjAwOTkyMjksImV4cCI6MTc2MDE4NTYzNCwianRpIjoidmM6ZWJzaTpjb25mb3JtYW5jZSNjYWUyOTMzZS1jNmUxLTQ5YjItOTg1Zi00NGYxYWM4MGVmNWYiLCJzdWIiOiJkaWQ6a2V5OnoyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYm5oZWZwTTE0VXVTcUpEaUN6QjJMQ2RUZ1JabzhKZW1DTEhXbWhZcWpDY2JkejQ5R2FlWTl1Z0QxaTJRdzhTbzZ3VGlTcXlnVVR0OTNvVWplVjFkeHpNemFVTEJ4VE5vb2R3eGNqdXc2a0t5NWVCNDN2ZXFGWnh6QVF1NVZ1V1FnbWEiLCJpc3MiOiJkaWQ6ZWJzaTp6akhaako0U3k3cjkyQnhYekZHczdxRCIsIm5iZiI6MTc2MDA5OTIyOSwidmMiOnsiQGNvbnRleHQiOlsiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvdjEiXSwiY3JlZGVudGlhbFNjaGVtYSI6eyJpZCI6Imh0dHBzOi8vYXBpLWNvbmZvcm1hbmNlLmVic2kuZXUvdHJ1c3RlZC1zY2hlbWFzLXJlZ2lzdHJ5L3YzL3NjaGVtYXMvekRwV0dVQmVubXFYenVyc2tyeTlOc2s2dnEyUjh0aGg5VlNlb1JxZ3VveU1EIiwidHlwZSI6IkZ1bGxKc29uU2NoZW1hVmFsaWRhdG9yMjAyMSJ9LCJjcmVkZW50aWFsU3ViamVjdCI6eyJpZCI6ImRpZDprZXk6ejJkbXpEODFjZ1B4OFZraTdKYnV1TW1GWXJXUGdZb3l0eWtVWjNleXFodDFqOUtibmhlZnBNMTRVdVNxSkRpQ3pCMkxDZFRnUlpvOEplbUNMSFdtaFlxakNjYmR6NDlHYWVZOXVnRDFpMlF3OFNvNndUaVNxeWdVVHQ5M29VamVWMWR4ek16YVVMQnhUTm9vZHd4Y2p1dzZrS3k1ZUI0M3ZlcUZaeHpBUXU1VnVXUWdtYSJ9LCJleHBpcmF0aW9uRGF0ZSI6IjIwMjUtMTAtMTFUMTI6Mjc6MTRaIiwiaWQiOiJ2YzplYnNpOmNvbmZvcm1hbmNlI2NhZTI5MzNlLWM2ZTEtNDliMi05ODVmLTQ0ZjFhYzgwZWY1ZiIsImlzc3VhbmNlRGF0ZSI6IjIwMjUtMTAtMTBUMTI6Mjc6MDlaIiwiaXNzdWVkIjoiMjAyNS0xMC0xMFQxMjoyNzowOVoiLCJpc3N1ZXIiOiJkaWQ6ZWJzaTp6akhaako0U3k3cjkyQnhYekZHczdxRCIsInR5cGUiOlsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCJWZXJpZmlhYmxlQXR0ZXN0YXRpb24iLCJDVFdhbGxldFNhbWVBdXRob3Jpc2VkSW5UaW1lIl0sInZhbGlkRnJvbSI6IjIwMjUtMTAtMTBUMTI6Mjc6MDlaIiwidGVybXNPZlVzZSI6eyJpZCI6Imh0dHBzOi8vYXBpLWNvbmZvcm1hbmNlLmVic2kuZXUvdHJ1c3RlZC1pc3N1ZXJzLXJlZ2lzdHJ5L3Y1L2lzc3VlcnMvZGlkOmVic2k6empIWmpKNFN5N3I5MkJ4WHpGR3M3cUQvYXR0cmlidXRlcy9iY2RiNmJjOTUyYzhjODk3Y2ExZTYwNWZjZTI1ZjgyNjA0Yzc2YzE2ZDQ3OTc3MDAxNGI3YjI2MmI5M2MwMjUwIiwidHlwZSI6Iklzc3VhbmNlQ2VydGlmaWNhdGUifX19.1PxKOsTYnXnxBiqnC1rf_YY4sJsSlle_a3I3gBIji5qWOlKnc0LAYgcWdx-4-K9gZNx6gSLfKL7ojl4cjYQ1hg"
         )
 
-        log.info { jsonPretty.encodeToString(vcJwt) }
-
-        val jsonObj = vcJwt.toJson()
+        val jsonObj = credJwt.toJson()
         val vcObj = jsonObj.getValue("vc").jsonObject
         val ctypes = vcObj.getValue("type").jsonArray.map { it.jsonPrimitive.content }
         ctypes shouldContain "CTWalletSameAuthorisedInTime"

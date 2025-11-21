@@ -11,7 +11,7 @@
     origin_crt: "{{ user_home }}/.k3s/origin.crt"
     origin_key: "{{ user_home }}/.k3s/origin.key"
     nginx_domain: proxy.{{ K3S_SERVER_DOMAIN }}
-    proxy_pass: "http://localhost:9090"
+    proxy_pass: "http://localhost:9000"
 
   tasks:
 
@@ -104,9 +104,3 @@
     - name: Print nginx service log
       debug:
         msg: "{{ nginx_service_log.stdout_lines }}"
-
-
-# To test run something on 9090
-#
-# python3 -m http.server 9090 --bind 127.0.0.1
-#

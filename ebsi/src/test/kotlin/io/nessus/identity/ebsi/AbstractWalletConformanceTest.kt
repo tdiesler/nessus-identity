@@ -7,14 +7,14 @@ import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.urlEncode
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.waltid.Max
+import io.nessus.identity.waltid.Alice
 import java.net.URI
 
 abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
 
     fun prepareWalletTests(crossDevive: Boolean): LoginContext {
 
-        val ctx = runBlocking { loginWithDid(Max) }
+        val ctx = runBlocking { loginWithDid(Alice) }
         ctx.hasDidInfo.shouldBeTrue()
 
         val page = context.newPage()
