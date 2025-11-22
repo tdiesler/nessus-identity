@@ -34,5 +34,9 @@
                 <a href="/wallet/${targetId}/credential-offer/delete-all">delete all</a>
             </div>
         </#if>
+        <div style="margin-top: 1em;">
+            <a href="https://api-conformance.ebsi.eu/conformance/v3/issuer-mock/initiate-credential-offer?credential_type=CTWalletSameAuthorisedInTime&client_id=${userDid}&credential_offer_endpoint=${credentialOfferEndpoint}">
+                Request from EBSI CT v3.2</a>
+        </div>
     </div>
 </@layout.layout>

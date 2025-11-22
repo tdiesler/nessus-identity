@@ -247,18 +247,18 @@ class ConsoleServer(val config: ConsoleConfig) {
                     get("/{targetId}/credential-offer/{offerId}/view") {
                         withHolderContextOrHome(call) { ctx ->
                             val offerId = call.parameters["offerId"] ?: error("No offerId")
-                            walletHandler.handleCredentialOfferDetails(call, ctx, offerId)
+                            walletHandler.showCredentialOfferDetails(call, ctx, offerId)
                         }
                     }
                     get("/{targetId}/credentials") {
                         withHolderContextOrHome(call) { ctx ->
-                            walletHandler.handleCredentials(call, ctx)
+                            walletHandler.showCredentials(call, ctx)
                         }
                     }
                     get("/{targetId}/credential/{vcId}") {
                         withHolderContextOrHome(call) { ctx ->
                             val vcId = call.parameters["vcId"] ?: error("No vcId")
-                            walletHandler.handleCredentialDetails(call, ctx, vcId)
+                            walletHandler.showCredentialDetails(call, ctx, vcId)
                         }
                     }
                     get("/{targetId}/credential/{vcId}/delete") {

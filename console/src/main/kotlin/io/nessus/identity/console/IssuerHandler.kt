@@ -10,6 +10,7 @@ import io.ktor.server.routing.*
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
+import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.http
 import io.nessus.identity.types.CredentialConfiguration
 import io.nessus.identity.types.CredentialOffer
@@ -37,17 +38,17 @@ class IssuerHandler() {
     val issuerSvc = IssuerService.createKeycloak()
     val issuerMetadata get() = runBlocking { issuerSvc.getIssuerMetadata() }
 
-    fun issuerModel(call: RoutingCall): BaseModel {
+    fun issuerModel(call: RoutingCall, ctx: LoginContext? = null): BaseModel {
         val authServerUrl = issuerMetadata.authorizationServers?.first() ?: error("No AuthorizationServer")
         val authConfigUrl = "$authServerUrl/.well-known/openid-configuration"
         val issuerConfigUrl = issuerSvc.getIssuerMetadataUrl()
-        val model = BaseModel()
-            .withLoginContext(call, UserRole.Holder)
-            .also {
-                it["issuerUrl"] = issuerSvc.issuerBaseUrl
-                it["issuerConfigUrl"] = issuerConfigUrl
-                it["authConfigUrl"] = authConfigUrl
-            }
+        val model = ctx?.let { BaseModel().withLoginContext(ctx) }
+            ?: BaseModel().withLoginContext(call, UserRole.Holder)
+        model.also {
+            it["issuerUrl"] = issuerSvc.issuerBaseUrl
+            it["issuerConfigUrl"] = issuerConfigUrl
+            it["authConfigUrl"] = authConfigUrl
+        }
         return model
     }
 
