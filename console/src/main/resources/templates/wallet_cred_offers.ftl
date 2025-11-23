@@ -34,12 +34,25 @@
                 <a href="/wallet/${targetId}/credential-offer/delete-all">delete all</a>
             </div>
         </#if>
+        <#assign initiateOfferUrl = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock/initiate-credential-offer">
         <div style="margin-top: 1em;">
             <h3>Initiate from EBSI CT v3.2</h3>
             <ul class="bx--list--unordered bx--list">
                 <li class="bx--list__item">
-                    <a href="https://api-conformance.ebsi.eu/conformance/v3/issuer-mock/initiate-credential-offer?credential_type=CTWalletSameAuthorisedInTime&client_id=${userDid}&credential_offer_endpoint=${credentialOfferEndpoint}">
+                    <a href="${initiateOfferUrl}?credential_type=CTWalletSameAuthorisedInTime&client_id=${userDid}&credential_offer_endpoint=${credentialOfferEndpoint}">
                         CTWalletSameAuthorisedInTime</a>
+                </li>
+                <li class="bx--list__item">
+                    <a href="${initiateOfferUrl}?credential_type=CTWalletSameAuthorisedDeferred&client_id=${userDid}&credential_offer_endpoint=${credentialOfferEndpoint}">
+                        CTWalletSameAuthorisedDeferred</a>
+                </li>
+                <li class="bx--list__item">
+                    <a href="${initiateOfferUrl}?credential_type=CTWalletSamePreAuthorisedInTime&client_id=${userDid}&credential_offer_endpoint=${credentialOfferEndpoint}">
+                        CTWalletSamePreAuthorisedInTime</a>
+                </li>
+                <li class="bx--list__item">
+                    <a href="${initiateOfferUrl}?credential_type=CTWalletSamePreAuthorisedDeferred&client_id=${userDid}&credential_offer_endpoint=${credentialOfferEndpoint}">
+                        CTWalletSamePreAuthorisedDeferred</a>
                 </li>
             </ul>
         </div>
