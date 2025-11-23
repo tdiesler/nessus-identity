@@ -2,14 +2,22 @@ package io.nessus.identity.console
 
 import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.server.freemarker.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
-import io.ktor.util.*
+import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.http.encodeURLPath
+import io.ktor.server.freemarker.FreeMarkerContent
+import io.ktor.server.request.receiveParameters
+import io.ktor.server.request.uri
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondRedirect
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.RoutingCall
+import io.ktor.util.toMap
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.config.Features
@@ -18,11 +26,14 @@ import io.nessus.identity.config.Features.CREDENTIAL_OFFER_STORE
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.HttpStatusException
+import io.nessus.identity.service.KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
+import io.nessus.identity.service.urlDecode
+import io.nessus.identity.service.urlEncode
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOffer
@@ -32,7 +43,11 @@ import io.nessus.identity.types.W3CCredentialSdV11Jwt
 import io.nessus.identity.types.W3CCredentialV11Jwt
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class WalletHandler() {
 
@@ -84,6 +99,7 @@ class WalletHandler() {
 
     /**
      * /wallet/auth/callback
+     * /wallet/auth/callback/{targetId}
      */
     suspend fun handleAuthCallback(call: RoutingCall, ctx: LoginContext) {
 
@@ -97,6 +113,13 @@ class WalletHandler() {
             val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(authContext, authCode)
             val credJwt = walletSvc.getCredential(authContext, accessToken)
             return call.respondRedirect("/wallet/${ctx.targetId}/credential/${credJwt.vcId}")
+        }
+
+        val error = call.parameters["error"]
+        if (error != null) {
+            val errorMessage = call.parameters["error_description"]
+                ?.let { urlDecode(it) } ?: error
+            error("Authentication Error: $errorMessage")
         }
 
         val responseType = call.parameters["response_type"]
@@ -225,13 +248,29 @@ class WalletHandler() {
     }
 
     suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: LoginContext, offerId: String) {
-        val credOffer = walletSvc.getCredentialOffer(ctx, offerId) ?: error("No credential_offer for: $offerId")
+
+        // Load the Credential Offer from storage
+        //
+        val credOffer = walletSvc.getCredentialOffer(ctx, offerId)
+            ?: error("No credential_offer for: $offerId")
+
+        // Accept a Credential Offer from EBSI CT
+        //
+        if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
+            val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
+            val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
+            val credJwt = walletSvc.getCredential(authContext, accessToken)
+            return showCredentialDetails(call, ctx, credJwt.vcId)
+        }
+
+        // Accept a Credential Offer from Keycloak
+        //
         val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
         val authEndpointUrl = authContext.getIssuerMetadata().getAuthorizationEndpointUri()
         if (credOffer.isPreAuthorized) {
             val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
             val credJwt = walletSvc.getCredential(authContext, accessToken)
-            call.respondRedirect("/wallet/${ctx.targetId}/credential/${credJwt.vcId}")
+            call.respondRedirect(urlEncode("/wallet/${ctx.targetId}/credential/${credJwt.vcId}"))
         } else {
             val redirectUri = requireWalletConfig().redirectUri
             val authRequest = walletSvc.buildAuthorizationRequest(authContext, redirectUri = redirectUri)

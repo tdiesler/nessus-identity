@@ -95,7 +95,7 @@ data class EbsiConfig(
     var host: String = "0.0.0.0",
     val port: Int,
     val baseUrl: String,
-    // The Issuer needs to know the Requester's DID for the Pre-Authorized use cases
+    // Our Issuer needs to know the Requester's DID for the Pre-Authorized use cases
     // https://hub.ebsi.eu/wallet-conformance/issue-to-holder/flow
     val requesterDid: String?,
     val preauthorizedPin: String?,

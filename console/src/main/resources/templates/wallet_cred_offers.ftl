@@ -35,8 +35,13 @@
             </div>
         </#if>
         <div style="margin-top: 1em;">
-            <a href="https://api-conformance.ebsi.eu/conformance/v3/issuer-mock/initiate-credential-offer?credential_type=CTWalletSameAuthorisedInTime&client_id=${userDid}&credential_offer_endpoint=${credentialOfferEndpoint}">
-                Request from EBSI CT v3.2</a>
+            <h3>Initiate from EBSI CT v3.2</h3>
+            <ul class="bx--list--unordered bx--list">
+                <li class="bx--list__item">
+                    <a href="https://api-conformance.ebsi.eu/conformance/v3/issuer-mock/initiate-credential-offer?credential_type=CTWalletSameAuthorisedInTime&client_id=${userDid}&credential_offer_endpoint=${credentialOfferEndpoint}">
+                        CTWalletSameAuthorisedInTime</a>
+                </li>
+            </ul>
         </div>
     </div>
 </@layout.layout>

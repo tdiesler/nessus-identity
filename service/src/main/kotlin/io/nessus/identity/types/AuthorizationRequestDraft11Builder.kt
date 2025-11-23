@@ -20,12 +20,12 @@ class AuthorizationRequestDraft11Builder {
 
     private var clientState: String? = null
     private var codeChallengeMethod: String? = null
-    private var metadata: IssuerMetadata? = null
+    private var metadata: IssuerMetadataDraft11? = null
     private var presentationDefinition: PresentationDefinition? = null
 
     // Internal props
     private val authDetails = mutableListOf<AuthorizationDetails>()
-    private var credOffer: CredentialOffer? = null
+    private var credOffer: CredentialOfferDraft11? = null
     private var scopes = mutableSetOf("openid")
 
     var codeChallenge: String? = null
@@ -52,7 +52,7 @@ class AuthorizationRequestDraft11Builder {
         return this
     }
 
-    fun withIssuerMetadata(metadata: IssuerMetadata): AuthorizationRequestDraft11Builder {
+    fun withIssuerMetadata(metadata: IssuerMetadataDraft11): AuthorizationRequestDraft11Builder {
         this.metadata = metadata
         return this
     }
@@ -67,39 +67,22 @@ class AuthorizationRequestDraft11Builder {
         return this
     }
 
-    suspend fun buildFrom(credOffer: CredentialOffer): AuthorizationRequest {
+    suspend fun buildFrom(credOffer: CredentialOfferDraft11): AuthorizationRequest {
         this.credOffer = credOffer
 
         if (metadata == null)
             metadata = credOffer.resolveIssuerMetadata()
 
-        when (credOffer) {
+        val waltIdOffer = credOffer.toWaltIdCredentialOffer()
+        val waltIdMetadata = metadata!!.toWaltIdIssuerMetadata()
+        val offeredCredentials = OpenID4VCI.resolveOfferedCredentials(waltIdOffer, waltIdMetadata)
 
-            is CredentialOfferDraft11 -> {
-                val waltIdOffer = credOffer.toWaltIdCredentialOffer()
-                val waltIdMetadata = (metadata as IssuerMetadataDraft11).toWaltIdIssuerMetadata()
-                val offeredCredentials = OpenID4VCI.resolveOfferedCredentials(waltIdOffer, waltIdMetadata)
+        log.info { "Offered Credentials: ${Json.encodeToString(offeredCredentials)}" }
+        if (offeredCredentials.size > 1) log.warn { "Multiple offered credentials, using first" }
+        val offeredCred = offeredCredentials.first()
 
-                log.info { "Offered Credentials: ${Json.encodeToString(offeredCredentials)}" }
-                if (offeredCredentials.size > 1) log.warn { "Multiple offered credentials, using first" }
-                val offeredCred = offeredCredentials.first()
+        authDetails.add(AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer))
 
-                authDetails.add(AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer))
-            }
-
-            is CredentialOfferV0 -> {
-                credOffer.credentialConfigurationIds.forEach { ctype ->
-                    authDetails.add(AuthorizationDetails.fromJSONString("""{
-                        "type": "openid_credential",
-                        "credential_configuration_id": "$ctype",
-                        "locations": [ "${credOffer.credentialIssuer}" ]
-                    }"""))
-                    // Keycloak requires credential id in scope although already given in authorizationDetails
-                    // https://github.com/tdiesler/nessus-identity/issues/264
-                    scopes.add(ctype)
-                }
-            }
-        }
         return buildInternal()
     }
 

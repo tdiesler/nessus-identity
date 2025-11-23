@@ -31,6 +31,7 @@ import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.CredentialOfferV0
 import io.nessus.identity.types.CredentialRequest
 import io.nessus.identity.types.CredentialRequestDraft11
@@ -38,6 +39,7 @@ import io.nessus.identity.types.CredentialRequestV0
 import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.CredentialResponseDraft11
 import io.nessus.identity.types.CredentialResponseV0
+import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.TokenResponse
@@ -116,8 +118,9 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
         clientId: String,
     ): TokenResponse {
 
-        val tokenRequest = when (Features.currentProfile) {
-            EBSI_V32 -> {
+        val credentialIssuer = authContext.getIssuerMetadata().credentialIssuer
+        val tokenRequest = when (credentialIssuer) {
+            KNOWN_ISSUER_EBSI_V3 -> {
                 val authRequest = authContext.assertAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
                 val codeVerifier = authContext.assertAttachment(EBSI32_CODE_VERIFIER_ATTACHMENT_KEY)
                 TokenRequest.AuthorizationCode(
@@ -197,7 +200,11 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
             return tokenRes
         }
 
-        if (Features.isProfile(EBSI_V32)) {
+        if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
+
+            issuerMetadata as IssuerMetadataDraft11
+            credOffer as CredentialOfferDraft11
+
             val rndBytes = Random.nextBytes(32)
             val codeVerifier = Base64URL.encode(rndBytes).toString()
             val redirectUri = "${requireEbsiConfig().baseUrl}/wallet/auth/callback/${ctx.targetId}"
@@ -209,6 +216,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
                 .withIssuerMetadata(issuerMetadata)
                 .withRedirectUri(redirectUri)
                 .buildFrom(credOffer)
+
             authContext.putAttachment(EBSI32_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
             authContext.putAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
             val authEndpointUri = issuerMetadata.getAuthorizationEndpointUri()
@@ -412,12 +420,13 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
 
         val ctx = requireNotNull(authContext.loginContext)
         val issuerMetadata = authContext.getIssuerMetadata()
+        val credentialIssuer = issuerMetadata.credentialIssuer
 
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
 
-        val proofJwt = when (Features.currentProfile) {
-            EBSI_V32 -> {
+        val proofJwt = when (credentialIssuer) {
+            KNOWN_ISSUER_EBSI_V3 -> {
                 val kid = ctx.didInfo.authenticationId()
                 val authRequest = authContext.assertAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
                 val proofHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
@@ -426,7 +435,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
                     .build()
                 val proofClaims = JWTClaimsSet.Builder()
                     .issuer(ctx.did)
-                    .audience(issuerMetadata.credentialIssuer)
+                    .audience(credentialIssuer)
                     .issueTime(Date.from(iat))
                     .expirationTime(Date.from(exp))
                     .claim("nonce", cNonce)
@@ -444,7 +453,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
                     .jwk(publicJwk) // embed JWK directly
                     .build()
                 val proofClaims = JWTClaimsSet.Builder()
-                    .audience(issuerMetadata.credentialIssuer)
+                    .audience(credentialIssuer)
                     .issueTime(Date.from(iat))
                     .expirationTime(Date.from(exp))
                     .claim("nonce", cNonce)
@@ -456,28 +465,31 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
         log.info { "ProofHeader: ${proofJwt.header}" }
         log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
 
-        val credRequest = if (Features.isProfile(EBSI_V32)) {
-            CredentialRequestDraft11(
-                format = "jwt_vc",
-                types = credConfigIds,
-                proof = CredentialRequestDraft11.Proof(
-                    proofType = "jwt",
-                    jwt = proofJwt.serialize()
+        val credRequest = when (credentialIssuer) {
+            KNOWN_ISSUER_EBSI_V3 -> {
+                CredentialRequestDraft11(
+                    format = "jwt_vc",
+                    types = credConfigIds,
+                    proof = CredentialRequestDraft11.Proof(
+                        proofType = "jwt",
+                        jwt = proofJwt.serialize()
+                    )
                 )
-            )
-        } else {
-            val credConfigId = credConfigIds?.firstOrNull()
-            require(credIdentifier != null || credConfigId != null)
+            }
+            else -> {
+                val credConfigId = credConfigIds?.firstOrNull()
+                require(credIdentifier != null || credConfigId != null)
                 { "Either credential_identifier OR credential_configuration_id" }
-            require(!(credIdentifier != null && credConfigId != null))
+                require(!(credIdentifier != null && credConfigId != null))
                 { "Cannot give both credential_identifier AND credential_configuration_id" }
-            CredentialRequestV0(
-                credentialIdentifier = credIdentifier,
-                credentialConfigurationId = credConfigId,
-                proofs = CredentialRequestV0.Proofs(
-                    jwt = listOf(proofJwt.serialize())
+                CredentialRequestV0(
+                    credentialIdentifier = credIdentifier,
+                    credentialConfigurationId = credConfigId,
+                    proofs = CredentialRequestV0.Proofs(
+                        jwt = listOf(proofJwt.serialize())
+                    )
                 )
-            )
+            }
         }
 
         log.info { "CredentialRequest: ${credRequest.toJson()}" }

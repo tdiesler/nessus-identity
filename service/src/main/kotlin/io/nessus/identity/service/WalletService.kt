@@ -8,6 +8,8 @@ import io.nessus.identity.types.W3CCredentialJwt
 
 // WalletService =======================================================================================================
 
+const val KNOWN_ISSUER_EBSI_V3 = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock"
+
 interface WalletService: DeprecatedWalletService {
 
     val authorizationSvc: WalletAuthorizationService

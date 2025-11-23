@@ -120,6 +120,12 @@ class ConsoleServer(val config: ConsoleConfig) {
                     )
                 }
 
+                route("/ebsi") {
+                    get {
+                        ebsiHandler.showHome(call)
+                    }
+                }
+
                 route("/issuer") {
                     get {
                         issuerHandler.showHome(call)
@@ -218,58 +224,60 @@ class ConsoleServer(val config: ConsoleConfig) {
                     get("/logout") {
                         walletHandler.handleLogout(call)
                     }
-                    get("/{targetId}") {
-                        val targetId = call.parameters["targetId"] ?: error("No targetId")
-                        walletHandler.handleCredentialOfferReceive(call, targetId)
-                    }
-                    get("/{targetId}/credential-offers") {
-                        withHolderContextOrHome(call) { ctx ->
-                            walletHandler.showCredentialOffers(call, ctx)
+                    route("/{targetId}") {
+                        get {
+                            val targetId = call.parameters["targetId"] ?: error("No targetId")
+                            walletHandler.handleCredentialOfferReceive(call, targetId)
                         }
-                    }
-                    get("/{targetId}/credential-offer/{offerId}/accept") {
-                        withHolderContextOrHome(call) { ctx ->
-                            val offerId = call.parameters["offerId"] ?: error("No offerId")
-                            walletHandler.handleCredentialOfferAccept(call, ctx, offerId)
+                        get("/credential-offers") {
+                            withHolderContextOrHome(call) { ctx ->
+                                walletHandler.showCredentialOffers(call, ctx)
+                            }
                         }
-                    }
-                    get("/{targetId}/credential-offer/{offerId}/delete") {
-                        withHolderContextOrHome(call) { ctx ->
-                            val offerId = call.parameters["offerId"] ?: error("No offerId")
-                            walletHandler.handleCredentialOfferDelete(call, ctx, offerId)
+                        get("/credential-offer/{offerId}/accept") {
+                            withHolderContextOrHome(call) { ctx ->
+                                val offerId = call.parameters["offerId"] ?: error("No offerId")
+                                walletHandler.handleCredentialOfferAccept(call, ctx, offerId)
+                            }
                         }
-                    }
-                    get("/{targetId}/credential-offer/delete-all") {
-                        withHolderContextOrHome(call) { ctx ->
-                            walletHandler.handleCredentialOfferDeleteAll(call, ctx)
+                        get("/credential-offer/{offerId}/delete") {
+                            withHolderContextOrHome(call) { ctx ->
+                                val offerId = call.parameters["offerId"] ?: error("No offerId")
+                                walletHandler.handleCredentialOfferDelete(call, ctx, offerId)
+                            }
                         }
-                    }
-                    get("/{targetId}/credential-offer/{offerId}/view") {
-                        withHolderContextOrHome(call) { ctx ->
-                            val offerId = call.parameters["offerId"] ?: error("No offerId")
-                            walletHandler.showCredentialOfferDetails(call, ctx, offerId)
+                        get("/credential-offer/delete-all") {
+                            withHolderContextOrHome(call) { ctx ->
+                                walletHandler.handleCredentialOfferDeleteAll(call, ctx)
+                            }
                         }
-                    }
-                    get("/{targetId}/credentials") {
-                        withHolderContextOrHome(call) { ctx ->
-                            walletHandler.showCredentials(call, ctx)
+                        get("/credential-offer/{offerId}/view") {
+                            withHolderContextOrHome(call) { ctx ->
+                                val offerId = call.parameters["offerId"] ?: error("No offerId")
+                                walletHandler.showCredentialOfferDetails(call, ctx, offerId)
+                            }
                         }
-                    }
-                    get("/{targetId}/credential/{vcId}") {
-                        withHolderContextOrHome(call) { ctx ->
-                            val vcId = call.parameters["vcId"] ?: error("No vcId")
-                            walletHandler.showCredentialDetails(call, ctx, vcId)
+                        get("/credentials") {
+                            withHolderContextOrHome(call) { ctx ->
+                                walletHandler.showCredentials(call, ctx)
+                            }
                         }
-                    }
-                    get("/{targetId}/credential/{vcId}/delete") {
-                        withHolderContextOrHome(call) { ctx ->
-                            val vcId = call.parameters["vcId"] ?: error("No vcId")
-                            walletHandler.handleCredentialDelete(call, ctx, vcId)
+                        get("/credential/{vcId}") {
+                            withHolderContextOrHome(call) { ctx ->
+                                val vcId = call.parameters["vcId"] ?: error("No vcId")
+                                walletHandler.showCredentialDetails(call, ctx, vcId)
+                            }
                         }
-                    }
-                    get("/{targetId}/credential/delete-all") {
-                        withHolderContextOrHome(call) { ctx ->
-                            walletHandler.handleCredentialDeleteAll(call, ctx)
+                        get("/credential/{vcId}/delete") {
+                            withHolderContextOrHome(call) { ctx ->
+                                val vcId = call.parameters["vcId"] ?: error("No vcId")
+                                walletHandler.handleCredentialDelete(call, ctx, vcId)
+                            }
+                        }
+                        get("/credential/delete-all") {
+                            withHolderContextOrHome(call) { ctx ->
+                                walletHandler.handleCredentialDeleteAll(call, ctx)
+                            }
                         }
                     }
                 }
@@ -299,12 +307,6 @@ class ConsoleServer(val config: ConsoleConfig) {
                     }
                     post("/presentation-request") {
                         verifierHandler.handlePresentationRequest(call)
-                    }
-                }
-
-                route("/ebsi") {
-                    get {
-                        ebsiHandler.showHome(call)
                     }
                 }
             }
