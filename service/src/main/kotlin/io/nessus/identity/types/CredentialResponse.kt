@@ -22,7 +22,7 @@ object CredentialResponseSerializer : JsonContentPolymorphicSerializer<Credentia
     override fun selectDeserializer(element: JsonElement): DeserializationStrategy<CredentialResponse> {
         val jsonObj = element.jsonObject
         return when {
-            jsonObj.containsKey("credential") -> CredentialResponseDraft11.serializer()
+            jsonObj.containsKey("acceptance_token") || jsonObj.containsKey("credential") -> CredentialResponseDraft11.serializer()
             jsonObj.containsKey("credentials") -> CredentialResponseV0.serializer()
             else -> throw SerializationException("Unknown CredentialResponse type: $element")
         }

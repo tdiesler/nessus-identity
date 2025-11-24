@@ -59,6 +59,8 @@ interface WalletService: DeprecatedWalletService {
      */
     suspend fun getCredential(authContext: AuthorizationContext, accessToken: TokenResponse): W3CCredentialJwt
 
+    suspend fun getCredentialFromOffer(authContext: AuthorizationContext, credOffer: CredentialOffer): W3CCredentialJwt
+
     companion object {
         fun createEbsi(): WalletServiceEbsi32 {
             return WalletServiceEbsi32()

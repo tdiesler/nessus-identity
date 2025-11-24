@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CredentialResponseDraft11(
     @SerialName("format")
-    val format: String,
+    val format: String? = null,
     @SerialName("credential")
     val credential: String? = null,
     @SerialName("acceptance_token")

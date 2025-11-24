@@ -17,8 +17,6 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
-import io.nessus.identity.config.FeatureProfile.EBSI_V32
-import io.nessus.identity.config.Features
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
@@ -46,6 +44,7 @@ import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import io.nessus.identity.waltid.authenticationId
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.*
 import java.time.Instant
 import java.util.*
@@ -250,25 +249,77 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
         val credConfigIds = authContext.credentialConfigurationIds
         val credResponse = sendCredentialRequest(authContext, accessToken, null, credConfigIds)
 
-        // Extract the VerifiableCredentials from the CredentialResponse
+        // Validate the Credential
         //
-        val signedJwts = when(credResponse) {
-            is CredentialResponseDraft11 -> { listOf(SignedJWT.parse(credResponse.credential)) }
-            is CredentialResponseV0 -> { credResponse.credentials?.map { SignedJWT.parse(it.credential) }.orEmpty() }
-        }
-        if (signedJwts.isEmpty()) error("No credential in response")
-        if (signedJwts.size > 1) error("Multiple credentials not supported")
-
-        val signedJwt: SignedJWT = signedJwts[0]
-        log.info { "CredentialJwt Header: ${signedJwt.header}" }
-        log.info { "CredentialJwt Claims: ${signedJwt.jwtClaimsSet}" }
-
-        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
-        log.info { "Credential: ${credJwt.toJson()}" }
-
+        val signedJwt = extractCredentialFromResponse(credResponse)
         val (_, format) = W3CCredentialValidator.validateCredential(authContext, signedJwt)
+
+        // Store the Credential
+        //
         storeCredential(authContext, format, signedJwt)
 
+        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
+        return credJwt
+    }
+
+    override suspend fun getCredentialFromOffer(authContext: AuthorizationContext, credOffer: CredentialOffer): W3CCredentialJwt {
+
+        val issuerMetadata = authContext.getIssuerMetadata()
+        var accessToken = getAccessTokenFromCredentialOffer(authContext, credOffer)
+
+        var cNonce = accessToken.cNonce
+        if (cNonce == null && issuerMetadata is IssuerMetadataV0) {
+            val res = http.post(issuerMetadata.nonceEndpoint!!)
+            if (res.status != HttpStatusCode.OK)
+                throw HttpStatusException(res.status, res.bodyAsText())
+            val jsonObj = Json.decodeFromString<JsonObject>(res.bodyAsText())
+            cNonce = jsonObj.getValue("c_nonce").jsonPrimitive.content
+        }
+
+        val credConfigIds = credOffer.credentialConfigurationIds
+        val credRequest = buildCredentialRequest(authContext, cNonce, null, credConfigIds)
+
+        val res = http.post(issuerMetadata.credentialEndpoint) {
+            header(HttpHeaders.Authorization, "Bearer ${accessToken.accessToken}")
+            contentType(ContentType.Application.Json)
+            setBody(credRequest.toJson())
+        }
+        val credResJson = res.bodyAsText()
+        if (res.status != HttpStatusCode.OK)
+            throw HttpStatusException(res.status, credResJson)
+
+        log.info { "CredentialResponse: $credResJson" }
+        var credResponse = CredentialResponse.fromJson(credResJson)
+
+        var numRetry = 0
+        val maxRetries = 10
+        while (credResponse is CredentialResponseDraft11 && credResponse.acceptanceToken != null && numRetry < maxRetries) {
+            delay(5500)
+
+            val deferredCredentialEndpoint = issuerMetadata.deferredCredentialEndpoint ?: error("No credential_endpoint")
+            log.info { "${++numRetry}/$maxRetries retrying deferred credential on: $deferredCredentialEndpoint" }
+
+            val res = http.post(deferredCredentialEndpoint) {
+                header(HttpHeaders.Authorization, "Bearer ${credResponse.acceptanceToken}")
+            }
+            val credResJson = res.bodyAsText()
+            if (res.status != HttpStatusCode.OK)
+                throw HttpStatusException(res.status, credResJson)
+
+            log.info { "CredentialResponse: $credResJson" }
+            credResponse = CredentialResponse.fromJson(credResJson)
+        }
+
+        // Validate the Credential
+        //
+        val signedJwt = extractCredentialFromResponse(credResponse)
+        val (_, format) = W3CCredentialValidator.validateCredential(authContext, signedJwt)
+
+        // Store the Credential
+        //
+        storeCredential(authContext, format, signedJwt)
+
+        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
         return credJwt
     }
 
@@ -413,7 +464,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
 
     private suspend fun buildCredentialRequest(
         authContext: AuthorizationContext,
-        cNonce: String,
+        cNonce: String?,
         credIdentifier: String? = null,
         credConfigIds: List<String>? = null // [TODO] make credConfigId a single value
     ): CredentialRequest {
@@ -525,10 +576,36 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
         if (res.status != HttpStatusCode.OK)
             throw HttpStatusException(res.status, credResJson)
 
-        log.info { "CredentialResponse: $credResJson" }
         val credResponse = CredentialResponse.fromJson(credResJson)
+        log.info { "CredentialResponse: ${credResponse.toJson()}" }
 
         return credResponse
+    }
+
+    /**
+     * Extract the Credential from the CredentialResponse
+     */
+    private fun extractCredentialFromResponse(credResponse: CredentialResponse): SignedJWT {
+
+        val signedJwts = when (credResponse) {
+            is CredentialResponseDraft11 -> {
+                listOf(SignedJWT.parse(credResponse.credential))
+            }
+            is CredentialResponseV0 -> {
+                credResponse.credentials?.map { SignedJWT.parse(it.credential) }.orEmpty()
+            }
+        }
+        if (signedJwts.isEmpty()) error("No credential in response")
+        if (signedJwts.size > 1) error("Multiple credentials not supported")
+
+        val signedJwt: SignedJWT = signedJwts[0]
+        log.info { "CredentialJwt Header: ${signedJwt.header}" }
+        log.info { "CredentialJwt Claims: ${signedJwt.jwtClaimsSet}" }
+
+        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
+        log.info { "Credential: ${credJwt.toJson()}" }
+
+        return signedJwt
     }
 
     /**

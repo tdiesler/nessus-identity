@@ -20,15 +20,15 @@ data class IssuerMetadataDraft11(
     @SerialName("credential_endpoint")
     override val credentialEndpoint: String,
 
+    // Not in the spec, but used by EBSI CT v3.2
+    @SerialName("deferred_credential_endpoint")
+    override val deferredCredentialEndpoint: String? = null,
+
     @SerialName("authorization_server")
     val authorizationServer: String? = null,
 
     @SerialName("batch_credential_endpoint")
     val batchCredentialEndpoint: String? = null,
-
-    // Not in the spec, but still used by EBSI CT v3.2
-    @SerialName("deferred_credential_endpoint")
-    val deferredCredentialEndpoint: String? = null,
 
     @SerialName("credentials_supported")
     val credentialsSupported: List<CredentialConfigurationDraft11>,

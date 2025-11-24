@@ -2,22 +2,14 @@ package io.nessus.identity.console
 
 import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
-import io.ktor.http.encodeURLPath
-import io.ktor.server.freemarker.FreeMarkerContent
-import io.ktor.server.request.receiveParameters
-import io.ktor.server.request.uri
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondRedirect
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.RoutingCall
-import io.ktor.util.toMap
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.server.freemarker.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.util.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.config.Features
@@ -43,11 +35,7 @@ import io.nessus.identity.types.W3CCredentialSdV11Jwt
 import io.nessus.identity.types.W3CCredentialV11Jwt
 import io.nessus.identity.waltid.LoginParams
 import io.nessus.identity.waltid.LoginType
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 
 class WalletHandler() {
 
@@ -258,8 +246,7 @@ class WalletHandler() {
         //
         if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
             val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
-            val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
-            val credJwt = walletSvc.getCredential(authContext, accessToken)
+            val credJwt = walletSvc.getCredentialFromOffer(authContext, credOffer)
             return showCredentialDetails(call, ctx, credJwt.vcId)
         }
 
@@ -268,8 +255,7 @@ class WalletHandler() {
         val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
         val authEndpointUrl = authContext.getIssuerMetadata().getAuthorizationEndpointUri()
         if (credOffer.isPreAuthorized) {
-            val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
-            val credJwt = walletSvc.getCredential(authContext, accessToken)
+            val credJwt = walletSvc.getCredentialFromOffer(authContext, credOffer)
             call.respondRedirect(urlEncode("/wallet/${ctx.targetId}/credential/${credJwt.vcId}"))
         } else {
             val redirectUri = requireWalletConfig().redirectUri

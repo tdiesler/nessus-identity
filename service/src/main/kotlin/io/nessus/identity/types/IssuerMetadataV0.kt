@@ -17,14 +17,14 @@ data class IssuerMetadataV0(
     @SerialName("credential_endpoint")
     override val credentialEndpoint: String,
 
+    @SerialName("deferred_credential_endpoint")
+    override val deferredCredentialEndpoint: String? = null,
+
     @SerialName("authorization_servers")
     val authorizationServers: List<String>? = null,
 
     @SerialName("nonce_endpoint")
     val nonceEndpoint: String? = null,
-
-    @SerialName("deferred_credential_endpoint")
-    val deferredCredentialEndpoint: String? = null,
 
     @SerialName("notification_endpoint")
     val notificationEndpoint: String? = null,

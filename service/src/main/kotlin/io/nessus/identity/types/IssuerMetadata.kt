@@ -15,6 +15,7 @@ sealed class IssuerMetadata {
 
     abstract val credentialIssuer: String
     abstract val credentialEndpoint: String
+    abstract val deferredCredentialEndpoint: String?
     abstract val supportedCredentialScopes: Set<String>
 
     private lateinit var authMetadata: JsonObject
