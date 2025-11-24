@@ -8,6 +8,7 @@ SCRIPT_DIR=$(realpath "$(dirname "$0")")
 set -euo pipefail
 
 # Default target if not set
+# Keep in sync with Makefile
 : "${TARGET:=dev}"
 
 echo "Running setup for target: $TARGET"

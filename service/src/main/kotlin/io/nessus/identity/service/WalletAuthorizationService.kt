@@ -6,7 +6,6 @@ import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.dif.DescriptorMapping
 import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.w3c.utils.VCFormat
@@ -273,9 +272,7 @@ class WalletAuthorizationService(val walletSvc: WalletServiceKeycloak) {
             val n = vcArray.size
             queryIds.add(queryId)
             val dm = DescriptorMapping(
-                // [TODO #1276] Cannot parse WalletCredential document for sd_jwt_dc
-                // https://github.com/walt-id/waltid-identity/issues/1276
-                format = if (wc.format == CredentialFormat.sd_jwt_dc) VCFormat.sd_jwt_vc else VCFormat.valueOf(wc.format.value),
+                format = VCFormat.entries.first { it.value == wc.format.value },
                 path = "$.vp.verifiableCredential[$n]",
             )
             val credJwt = W3CCredentialJwt.fromEncoded(wc.document)

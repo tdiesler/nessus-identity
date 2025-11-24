@@ -1,7 +1,9 @@
 
 PROJECT_VERSION := $(shell mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 
-TARGET ?= dev
+# Default target if not set
+# Keep in sync with oid4vci-setup
+TARGET ?= local
 
 IMAGE_TAG := "latest"
 
