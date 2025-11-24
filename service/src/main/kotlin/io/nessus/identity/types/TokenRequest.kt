@@ -45,17 +45,6 @@ sealed class TokenRequest {
     }
 
     companion object {
-        private val knownKeys = setOf(
-            "client_id", 
-            "client_secret",
-            "code",
-            "code_verifier",
-            "grant_type",
-            "pre-authorized_code",
-            "redirect_uri", 
-            "tx_code"
-        )
-
         fun fromHttpParameters(parameters: Map<String, List<String>>): TokenRequest {
             val grantType = parameters["grant_type"]!!.first().let { GrantType.fromValue(it)!! }
 
@@ -107,6 +96,7 @@ sealed class TokenRequest {
         val preAuthorizedCode: String,
         @SerialName("tx_code")
         val txCode: String? = null,
+        // [TODO] Remove legacy user_pin, its been replaced by tx_code
         @SerialName("user_pin")
         val userPin: String? = null,
     ) : TokenRequest() {

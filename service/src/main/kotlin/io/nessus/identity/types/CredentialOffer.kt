@@ -4,6 +4,7 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.nessus.identity.service.http
 import kotlinx.serialization.DeserializationStrategy
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.*
@@ -20,6 +21,8 @@ sealed class CredentialOffer {
 
     val isPreAuthorized
         get() = grants?.preAuthorizedCode?.preAuthorizedCode != null
+    val isUserPinRequired
+        get() = grants?.preAuthorizedCode?.userPinRequired == true
 
     @Transient
     private lateinit var issuerMetadata: IssuerMetadata
@@ -50,6 +53,48 @@ sealed class CredentialOffer {
         fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<CredentialOffer>(json)
     }
 }
+
+@Serializable
+data class Grants(
+    @SerialName("authorization_code")
+    val authorizationCode: AuthorizationCodeGrant? = null,
+
+    @SerialName("urn:ietf:params:oauth:grant-type:pre-authorized_code")
+    val preAuthorizedCode: PreAuthorizedCodeGrant? = null
+)
+
+@Serializable
+data class AuthorizationCodeGrant(
+    @SerialName("issuer_state")
+    val issuerState: String? = null,
+
+    @SerialName("authorization_server")
+    val authorizationServer: String? = null,
+
+    // [TODO #275] How to know the client_id for the Authorization Request
+    // https://github.com/tdiesler/nessus-identity/issues/275
+    @SerialName("client_id")
+    val clientId: String? = null,
+)
+
+@Serializable
+data class PreAuthorizedCodeGrant(
+    @SerialName("pre-authorized_code")
+    val preAuthorizedCode: String,
+    @SerialName("tx_code")
+    val txCode: TransactionCode? = null,
+    // [TODO] Remove legacy user_pin_required, its been replaced by tx_code
+    @SerialName("user_pin_required")
+    val userPinRequired: Boolean? = null,
+)
+
+@Serializable
+data class TransactionCode(
+    val length: Int? = null,
+    @SerialName("input_mode")
+    val inputMode: String? = null,
+    val description: String? = null
+)
 
 object CredentialOfferSerializer : JsonContentPolymorphicSerializer<CredentialOffer>(CredentialOffer::class) {
     override fun selectDeserializer(element: JsonElement): DeserializationStrategy<CredentialOffer> {

@@ -21,6 +21,7 @@ import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_CODE_VERIFIER_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_USER_PIN_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.USER_ATTACHMENT_KEY
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
@@ -188,11 +189,14 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
         val issuerMetadata = authContext.getIssuerMetadata()
 
         if (credOffer.isPreAuthorized) {
-            val code = credOffer.getPreAuthorizedCodeGrant()?.preAuthorizedCode ?: error("No pre-authorized code")
+            val preAuthorizedCodeGrant = credOffer.getPreAuthorizedCodeGrant()!!
+            val code = preAuthorizedCodeGrant.preAuthorizedCode
             val tokenEndpointUrl = issuerMetadata.getAuthorizationTokenEndpointUri()
+            val userPin = authContext.getAttachment(EBSI32_USER_PIN_ATTACHMENT_KEY)
             val tokReq = TokenRequest.PreAuthorizedCode(
                 clientId = clientId,
                 preAuthorizedCode = code,
+                userPin = userPin
             )
             val tokenRes = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokReq)
             log.info { "TokenResponse: ${tokenRes.toJson()}" }
@@ -265,7 +269,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
     override suspend fun getCredentialFromOffer(authContext: AuthorizationContext, credOffer: CredentialOffer): W3CCredentialJwt {
 
         val issuerMetadata = authContext.getIssuerMetadata()
-        var accessToken = getAccessTokenFromCredentialOffer(authContext, credOffer)
+        val accessToken = getAccessTokenFromCredentialOffer(authContext, credOffer)
 
         var cNonce = accessToken.cNonce
         if (cNonce == null && issuerMetadata is IssuerMetadataV0) {
@@ -297,7 +301,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
             delay(5500)
 
             val deferredCredentialEndpoint = issuerMetadata.deferredCredentialEndpoint ?: error("No credential_endpoint")
-            log.info { "${++numRetry}/$maxRetries retrying deferred credential on: $deferredCredentialEndpoint" }
+            log.info { "${++numRetry}/$maxRetries fetching deferred credential from: $deferredCredentialEndpoint" }
 
             val res = http.post(deferredCredentialEndpoint) {
                 header(HttpHeaders.Authorization, "Bearer ${credResponse.acceptanceToken}")
@@ -479,19 +483,21 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
         val proofJwt = when (credentialIssuer) {
             KNOWN_ISSUER_EBSI_V3 -> {
                 val kid = ctx.didInfo.authenticationId()
-                val authRequest = authContext.assertAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
                 val proofHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
                     .type(JOSEObjectType("openid4vci-proof+jwt"))
                     .keyID(kid)
                     .build()
-                val proofClaims = JWTClaimsSet.Builder()
+                val proofClaimsBuilder = JWTClaimsSet.Builder()
                     .issuer(ctx.did)
                     .audience(credentialIssuer)
                     .issueTime(Date.from(iat))
                     .expirationTime(Date.from(exp))
                     .claim("nonce", cNonce)
-                    .claim("state", authRequest.state)
-                    .build()
+
+                val authRequest = authContext.getAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
+                authRequest?.also { proofClaimsBuilder.claim("state", it.state) }
+
+                val proofClaims = proofClaimsBuilder.build()
                 SignedJWT(proofHeader, proofClaims).signWithKey(ctx, kid)
             }
             else -> {

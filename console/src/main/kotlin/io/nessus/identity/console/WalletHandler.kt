@@ -17,6 +17,7 @@ import io.nessus.identity.config.Features.CREDENTIAL_OFFER_AUTO_FETCH
 import io.nessus.identity.config.Features.CREDENTIAL_OFFER_STORE
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.service.AuthorizationContext
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_USER_PIN_ATTACHMENT_KEY
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.service.LoginContext
@@ -191,32 +192,75 @@ class WalletHandler() {
         }
     }
 
+    suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: LoginContext, offerId: String) {
+
+        // Load the Credential Offer from storage
+        //
+        val credOffer = walletSvc.getCredentialOffer(ctx, offerId)
+            ?: error("No credential_offer for: $offerId")
+
+        // Accept a Credential Offer from EBSI CT
+        //
+        if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
+            val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
+            call.request.queryParameters["userPin"]?.also {
+                authContext.putAttachment(EBSI32_USER_PIN_ATTACHMENT_KEY, it)
+            }
+            val credJwt = walletSvc.getCredentialFromOffer(authContext, credOffer)
+            return showCredentialDetails(call, ctx, credJwt.vcId)
+        }
+
+        // Accept a Credential Offer from Keycloak
+        //
+        val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
+        if (credOffer.isPreAuthorized) {
+            val credJwt = walletSvc.getCredentialFromOffer(authContext, credOffer)
+            return showCredentialDetails(call, ctx, credJwt.vcId)
+        }
+
+        val redirectUri = requireWalletConfig().redirectUri
+        val authEndpointUrl = authContext.getIssuerMetadata().getAuthorizationEndpointUri()
+        val authRequest = walletSvc.buildAuthorizationRequest(authContext, redirectUri = redirectUri)
+        val authRequestUrl = authRequest.getAuthorizationRequestUrl(authEndpointUrl)
+        log.info { "AuthRequestUrl: $authRequestUrl" }
+
+        call.respondRedirect(authRequestUrl)
+    }
+
+    suspend fun handleCredentialOfferDelete(call: RoutingCall, ctx: LoginContext, offerId: String) {
+        walletSvc.deleteCredentialOffer(ctx, offerId)
+        call.respondRedirect("/wallet/${ctx.targetId}/credential-offers")
+    }
+
+    suspend fun handleCredentialOfferDeleteAll(call: RoutingCall, ctx: LoginContext) {
+        walletSvc.deleteCredentialOffers(ctx) { true }
+        call.respondRedirect("/wallet/${ctx.targetId}/credential-offers")
+    }
+
     suspend fun handleCredentialOfferReceive(call: RoutingCall, targetId: String) {
 
         // An unsolicited call by the Issuer would likely not have a session cookie from which we can derive the target Holder wallet.
         // Instead, we expect to find a Holder LoginContext for the given targetId.
         val ctx = requireLoginContext(call, UserRole.Holder, targetId)
 
-        val credOfferJson = call.request.queryParameters["credential_offer"]
+        var credOfferJson = call.request.queryParameters["credential_offer"]
         val credOfferUri = call.request.queryParameters["credential_offer_uri"]
 
-        val credOffer = if (credOfferJson != null) {
+        if (credOfferUri != null) {
 
-            CredentialOffer.fromJson(credOfferJson)
-
-        } else if (credOfferUri != null) {
-
+            log.info { "Received CredentialOfferUri: $credOfferUri" }
             val credOfferUriRes = http.get(credOfferUri)
-            val bodyAsText = credOfferUriRes.bodyAsText()
-            if (credOfferUriRes.status.value !in 200..201) {
-                error("Error sending credential Offer: ${credOfferUriRes.status.value} - $bodyAsText")
-            }
-            CredentialOffer.fromJson(bodyAsText)
 
-        } else {
-            error("No credential_offer")
+            credOfferJson = credOfferUriRes.bodyAsText()
+            if (credOfferUriRes.status.value !in 200..201) {
+                error("Error sending credential Offer: ${credOfferUriRes.status.value} - $credOfferJson")
+            }
         }
-        log.info { "Received CredentialOffer: ${credOffer.toJson()}" }
+
+        requireNotNull(credOfferJson) { "No credential_offer" }
+
+        log.info { "Received CredentialOffer: $credOfferJson" }
+        val credOffer = CredentialOffer.fromJson(credOfferJson)
 
         if (Features.isEnabled(CREDENTIAL_OFFER_STORE)) {
             walletSvc.addCredentialOffer(ctx, credOffer)
@@ -235,53 +279,16 @@ class WalletHandler() {
         }
     }
 
-    suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: LoginContext, offerId: String) {
-
-        // Load the Credential Offer from storage
-        //
-        val credOffer = walletSvc.getCredentialOffer(ctx, offerId)
-            ?: error("No credential_offer for: $offerId")
-
-        // Accept a Credential Offer from EBSI CT
-        //
-        if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
-            val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
-            val credJwt = walletSvc.getCredentialFromOffer(authContext, credOffer)
-            return showCredentialDetails(call, ctx, credJwt.vcId)
-        }
-
-        // Accept a Credential Offer from Keycloak
-        //
-        val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
-        val authEndpointUrl = authContext.getIssuerMetadata().getAuthorizationEndpointUri()
-        if (credOffer.isPreAuthorized) {
-            val credJwt = walletSvc.getCredentialFromOffer(authContext, credOffer)
-            call.respondRedirect(urlEncode("/wallet/${ctx.targetId}/credential/${credJwt.vcId}"))
-        } else {
-            val redirectUri = requireWalletConfig().redirectUri
-            val authRequest = walletSvc.buildAuthorizationRequest(authContext, redirectUri = redirectUri)
-            val authRequestUrl = authRequest.getAuthorizationRequestUrl(authEndpointUrl)
-            log.info { "AuthRequestUrl: $authRequestUrl" }
-            call.respondRedirect(authRequestUrl)
-        }
-    }
-
-    suspend fun handleCredentialOfferDelete(call: RoutingCall, ctx: LoginContext, offerId: String) {
-        walletSvc.deleteCredentialOffer(ctx, offerId)
-        call.respondRedirect("/wallet/${ctx.targetId}/credential-offers")
-    }
-
-    suspend fun handleCredentialOfferDeleteAll(call: RoutingCall, ctx: LoginContext) {
-        walletSvc.deleteCredentialOffers(ctx) { true }
-        call.respondRedirect("/wallet/${ctx.targetId}/credential-offers")
-    }
-
     suspend fun showCredentialOfferDetails(call: RoutingCall, ctx: LoginContext, offerId: String) {
         val credOffer = walletSvc.getCredentialOffer(ctx, offerId)
         val prettyJson = jsonPretty.encodeToString(credOffer)
+        val isUserPinRequired = call.request.queryParameters["isUserPinRequired"] ?: "false"
+        val defaultUserPin = requireEbsiConfig().preAuthUserPin ?: "1234"
         val model = walletModel(call, ctx).also {
             it["credOffer"] = prettyJson
             it["credOfferId"] = offerId
+            it["isUserPinRequired"] = isUserPinRequired
+            it["defaultUserPin"] = defaultUserPin
         }
         call.respond(
             FreeMarkerContent("wallet_cred_offer.ftl", model)
@@ -292,10 +299,11 @@ class WalletHandler() {
         val credOfferData = walletSvc.getCredentialOffers(ctx)
             .map { (k, v) ->
                 listOf(
-                    k.encodeURLPath(),
+                    urlEncode(k),
                     v.credentialIssuer,
                     v.filteredConfigurationIds.first(),
-                    "${v.isPreAuthorized}"
+                    "${v.isPreAuthorized}",
+                    "${v.isUserPinRequired}",
                 )
             }.toList()
 
@@ -333,7 +341,7 @@ class WalletHandler() {
         }
         val prettyJson = jsonPretty.encodeToString(jsonObj)
         val model = walletModel(call, ctx).also {
-            it["credId"] = credJwt.vcId
+            it["credId"] = urlEncode(credJwt.vcId)
             it["credData"] = prettyJson
         }
         call.respond(

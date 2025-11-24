@@ -20,9 +20,15 @@
                         <td>${vco[1]}</td>
                         <td>${vco[2]}</td>
                         <td>${vco[3]}</td>
+                        <#if vco[4]?string == "true">
+                            <#-- For required user_pin, redirect to view -->
+                            <#assign action = "view">
+                        <#else>
+                            <#assign action = "accept">
+                        </#if>
                         <td>
-                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/view">view</a>
-                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/accept">accept</a>
+                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/view?isUserPinRequired=${vco[4]}">view</a>
+                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/${action}?isUserPinRequired=${vco[4]}">accept</a>
                             <a href="/wallet/${targetId}/credential-offer/${vco[0]}/delete">delete</a>
                         </td>
                     </tr>
