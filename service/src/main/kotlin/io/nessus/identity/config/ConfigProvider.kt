@@ -98,7 +98,7 @@ data class EbsiConfig(
     // Our Issuer needs to know the Requester's DID for the Pre-Authorized use cases
     // https://hub.ebsi.eu/wallet-conformance/issue-to-holder/flow
     val requesterDid: String?,
-    val preAuthUserPin: String?,
+    var preAuthUserPin: String?,
     val userEmail: String?,
     val userPassword: String?,
 )

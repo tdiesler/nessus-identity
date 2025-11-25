@@ -16,7 +16,7 @@ object Features: AttachmentSupport() {
     val CREDENTIAL_OFFER_AUTO_FETCH = attachmentKey<Boolean>("CREDENTIAL_OFFER_AUTO_FETCH")
     val CREDENTIAL_OFFER_STORE = attachmentKey<Boolean>("CREDENTIAL_OFFER_STORE")
 
-    lateinit var currentProfile: FeatureProfile
+    private lateinit var currentProfile: FeatureProfile
 
     fun initProfile(profile: FeatureProfile) {
         currentProfile = profile
@@ -34,6 +34,10 @@ object Features: AttachmentSupport() {
 
     fun isEnabled(key: AttachmentKey<Boolean>): Boolean {
         return getAttachment(key) ?: false
+    }
+
+    fun getProfile(): FeatureProfile {
+        return currentProfile
     }
 
     fun isProfile(profile: FeatureProfile): Boolean {

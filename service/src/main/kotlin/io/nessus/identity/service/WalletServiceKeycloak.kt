@@ -192,7 +192,10 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
             val preAuthorizedCodeGrant = credOffer.getPreAuthorizedCodeGrant()!!
             val code = preAuthorizedCodeGrant.preAuthorizedCode
             val tokenEndpointUrl = issuerMetadata.getAuthorizationTokenEndpointUri()
-            val userPin = authContext.getAttachment(EBSI32_USER_PIN_ATTACHMENT_KEY)
+            var userPin = authContext.getAttachment(EBSI32_USER_PIN_ATTACHMENT_KEY)
+            if (credOffer.isUserPinRequired && userPin == null) {
+               userPin = requireEbsiConfig().preAuthUserPin
+            }
             val tokReq = TokenRequest.PreAuthorizedCode(
                 clientId = clientId,
                 preAuthorizedCode = code,

@@ -267,8 +267,7 @@ class WalletHandler() {
         }
         if (Features.isEnabled(CREDENTIAL_OFFER_AUTO_FETCH)) {
             val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
-            val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
-            val credJwt = walletSvc.getCredential(authContext, accessToken)
+            val credJwt = walletSvc.getCredentialFromOffer(authContext, credOffer)
             call.respondText(
                 status = HttpStatusCode.Accepted,
                 contentType = ContentType.Application.Json,

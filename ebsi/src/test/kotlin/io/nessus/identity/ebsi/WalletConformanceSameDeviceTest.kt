@@ -1,6 +1,6 @@
 package io.nessus.identity.ebsi
 
-import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
+import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.waltid.Alice
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -12,7 +12,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startEBSIPortal()
+        startConsoleServer()
         startPlaywrightBrowser()
         prepareWalletTests(false)
     }
@@ -20,7 +20,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopEBSIPortal()
+        stopConsoleServer()
     }
 
     @Test
@@ -111,8 +111,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         page.click("#pre-auth-in-time-credential-same-device")
 
         val userPin = extractUserPin(page)
-        log.info { "Pre-Auth user PIN: $userPin" }
-        putCredentialOfferRecord(ctype, null, userPin)
+        requireEbsiConfig().preAuthUserPin = userPin
 
         // Click the "Initiate" link
         val link = page.locator("a[href*='credential_type=$ctype']").first()
@@ -153,8 +152,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         page.click("#pre-auth-deferred-credential-same-device")
 
         val userPin = extractUserPin(page)
-        log.info { "Pre-Auth user PIN: $userPin" }
-        putCredentialOfferRecord(ctype, null, userPin)
+        requireEbsiConfig().preAuthUserPin = userPin
 
         // Click the "Initiate" link
         val link = page.locator("a[href*='credential_type=$ctype']").first()

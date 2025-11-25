@@ -5,7 +5,7 @@ import com.google.zxing.MultiFormatReader
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.microsoft.playwright.Locator
-import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
+import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -19,7 +19,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startEBSIPortal()
+        startConsoleServer()
         startPlaywrightBrowser()
         prepareWalletTests(true)
     }
@@ -27,7 +27,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopEBSIPortal()
+        stopConsoleServer()
     }
 
     @Test
@@ -121,8 +121,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         container.scrollIntoViewIfNeeded()
 
         val userPin = extractUserPin(page)
-        log.info { "Pre-Auth user PIN: $userPin" }
-        putCredentialOfferRecord(ctype, null, userPin)
+        requireEbsiConfig().preAuthUserPin = userPin
 
         // Open decoded URL in a new tab
         val targetUrl = getQRCodeLink(container).removePrefix("openid-credential-offer://")
@@ -163,8 +162,7 @@ class WalletConformanceCrossDeviceTest : AbstractWalletConformanceTest() {
         container.scrollIntoViewIfNeeded()
 
         val userPin = extractUserPin(page)
-        log.info { "Pre-Auth user PIN: $userPin" }
-        putCredentialOfferRecord(ctype, null, userPin)
+        requireEbsiConfig().preAuthUserPin = userPin
 
         // Open decoded URL in a new tab
         val targetUrl = getQRCodeLink(container).removePrefix("openid-credential-offer://")
