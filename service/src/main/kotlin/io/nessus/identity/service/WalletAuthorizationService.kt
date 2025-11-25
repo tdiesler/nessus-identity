@@ -6,28 +6,18 @@ import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.data.dif.DescriptorMapping
-import id.walt.oid4vc.data.dif.PresentationSubmission
-import id.walt.w3c.utils.VCFormat
-import id.walt.webwallet.db.models.WalletCredential
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequest
-import io.nessus.identity.types.DCQLQuery
-import io.nessus.identity.types.QueryClaim
 import io.nessus.identity.types.TokenResponse
-import io.nessus.identity.types.W3CCredentialJwt
-import io.nessus.identity.types.W3CCredentialSdV11Jwt
-import io.nessus.identity.types.W3CCredentialV11Jwt
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.*
 import java.time.Instant
@@ -36,18 +26,102 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
-// WalletAuthorizationService ===================================================================================================
+// WalletAuthorizationService ==========================================================================================
 
-class WalletAuthorizationService(val walletSvc: WalletServiceKeycloak) {
+class WalletAuthorizationService(val walletSvc: WalletService) {
 
     val log = KotlinLogging.logger {}
 
-    val authEndpointUri = requireWalletConfig().authUri
+    fun buildAuthorizationMetadata(walletTargetUri: String): JsonObject {
+        return Json.parseToJsonElement(
+            """
+            {
+              "authorization_endpoint": "$walletTargetUri/authorize",
+              "grant_types_supported": [
+                "authorization_code"
+              ],
+              "id_token_signing_alg_values_supported": [
+                "ES256"
+              ],
+              "id_token_types_supported": [
+                "subject_signed_id_token",
+                "attester_signed_id_token"
+              ],
+              "issuer": "$walletTargetUri",
+              "jwks_uri": "$walletTargetUri/jwks",
+              "redirect_uris": [
+                "$walletTargetUri/direct_post"
+              ],
+              "request_authentication_methods_supported": {
+                "authorization_endpoint": [
+                  "request_object"
+                ]
+              },
+              "request_object_signing_alg_values_supported": [
+                "ES256"
+              ],
+              "request_parameter_supported": true,
+              "request_uri_parameter_supported": true,
+              "response_modes_supported": [
+                "query"
+              ],
+              "response_types_supported": [
+                "code",
+                "vp_token",
+                "id_token"
+              ],
+              "scopes_supported": [
+                "openid"
+              ],
+              "subject_syntax_types_discriminations": [
+                "did:key:jwk_jcs-pub",
+                "did:ebsi:v1"
+              ],
+              "subject_syntax_types_supported": [
+                "did:key",
+                "did:ebsi"
+              ],
+              "subject_trust_frameworks_supported": [
+                "ebsi"
+              ],
+              "subject_types_supported": [
+                "public"
+              ],
+              "token_endpoint": "$walletTargetUri/token",
+              "token_endpoint_auth_methods_supported": [
+                "private_key_jwt"
+              ],
+              "vp_formats_supported": {
+                "jwt_vc": {
+                  "alg_values_supported": [
+                    "ES256"
+                  ]
+                },
+                "jwt_vc_json": {
+                  "alg_values_supported": [
+                    "ES256"
+                  ]
+                },
+                "jwt_vp": {
+                  "alg_values_supported": [
+                    "ES256"
+                  ]
+                },
+                "jwt_vp_json": {
+                  "alg_values_supported": [
+                    "ES256"
+                  ]
+                }
+              }
+            }            
+        """.trimIndent()
+        ).jsonObject
+    }
 
     fun buildAuthCodeRedirectUri(ctx: LoginContext, authCode: String): String {
 
         val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        val authReq = authContext.assertAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
+        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
         val authCodeRedirect = URLBuilder("${authReq.redirectUri}").apply {
             parameters.append("code", authCode)
             authReq.state?.also { state ->
@@ -70,17 +144,16 @@ class WalletAuthorizationService(val walletSvc: WalletServiceKeycloak) {
 
         // Verify required query params
         for (key in listOf("client_id", "redirect_uri", "response_type")) {
-            reqParams[key] ?: throw IllegalStateException("Cannot find $key")
+            requireNotNull(reqParams[key]) { "Cannot find $key" }
         }
 
         // The Wallet answers the ID Token Request by providing the id_token in the redirect_uri as instructed by response_mode of direct_post.
         // The id_token must be signed with the DID document's authentication key.
 
         val clientId = reqParams["client_id"] as String
-        val responseType = reqParams["response_type"] as String
 
-        if (responseType != "id_token")
-            throw IllegalStateException("Unexpected response_type: $responseType")
+        val responseType = reqParams["response_type"] as String
+        require(responseType == "id_token") { "Unexpected response_type: $responseType" }
 
         val nonce = reqParams["nonce"]
         val state = reqParams["state"]
@@ -118,11 +191,10 @@ class WalletAuthorizationService(val walletSvc: WalletServiceKeycloak) {
     }
 
     suspend fun sendIDToken(
-        ctx: LoginContext,
+        authContext: AuthorizationContext,
         redirectUri: String,
         idTokenJwt: SignedJWT
     ): String {
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
 
         log.info { "Send IDToken: $redirectUri" }
         val formData = mutableMapOf(
@@ -178,7 +250,7 @@ class WalletAuthorizationService(val walletSvc: WalletServiceKeycloak) {
 
         // Build the list of Credentials and associated PresentationSubmission
         //
-        val (credJwts, vpSubmission) = buildPresentationSubmission(ctx, dcql)
+        val (credJwts, vpSubmission) = walletSvc.buildPresentationSubmission(ctx, dcql)
 
         // Build the VPToken JWT
         //
@@ -243,7 +315,7 @@ class WalletAuthorizationService(val walletSvc: WalletServiceKeycloak) {
         val authCode = "${Uuid.random()}"
         authContext.putAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY, authCode)
 
-        val authReq = authContext.assertAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
+        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
         val idTokenRedirect = URLBuilder("${authReq.redirectUri}").apply {
             parameters.append("code", authCode)
             authReq.state?.also { state ->
@@ -260,76 +332,5 @@ class WalletAuthorizationService(val walletSvc: WalletServiceKeycloak) {
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
-
-    private suspend fun buildPresentationSubmission(
-        ctx: LoginContext,
-        dcql: DCQLQuery,
-    ): SubmissionBundle {
-        val vcArray = mutableListOf<SignedJWT>()
-        val descriptorMappings = mutableListOf<DescriptorMapping>()
-        val queryIds = mutableListOf<String>()
-        findMatchingCredentials(ctx, dcql).forEach { (wc, queryId, claims) ->
-            val n = vcArray.size
-            queryIds.add(queryId)
-            val dm = DescriptorMapping(
-                format = VCFormat.entries.first { it.value == wc.format.value },
-                path = "$.vp.verifiableCredential[$n]",
-            )
-            val credJwt = W3CCredentialJwt.fromEncoded(wc.document)
-            val sigJwt = when (credJwt) {
-                is W3CCredentialV11Jwt -> SignedJWT.parse(wc.document)
-                is W3CCredentialSdV11Jwt -> {
-                    if (claims == null || claims.isEmpty()) {
-                        SignedJWT.parse(wc.document)
-                    } else {
-                        val parts = mutableListOf(wc.document.substringBefore("~"))
-                        val claimMap = credJwt.disclosures.associateBy { disc -> disc.claim }
-                        val digests = claims.map { cl ->
-                            require(cl.path.size == 1) { "Invalid path in: $cl" }
-                            val encoded = claimMap[cl.path[0]]?.decoded ?: error("No digest for: $cl")
-                            base64UrlEncode(encoded.toByteArray())
-                        }
-                        parts.addAll(digests)
-                        SignedJWT.parse(parts.joinToString("~"))
-                    }
-                }
-            }
-            descriptorMappings.add(dm)
-            vcArray.add(sigJwt)
-        }
-
-        // The presentation_submission object **MUST** contain a definition_id property.
-        // The value of this property **MUST** be the id value of a valid Presentation Definition.
-        // https://identity.foundation/presentation-exchange/#presentation-submission
-        //
-        // In the absence of a Presentation Definition
-        val vpSubmission = PresentationSubmission(
-            id = "${Uuid.random()}",
-            definitionId = "dcql:${queryIds.joinToString("-")}",
-            descriptorMap = descriptorMappings
-        )
-        return SubmissionBundle(vcArray, vpSubmission)
-    }
-
-    private suspend fun findMatchingCredentials(
-        ctx: LoginContext,
-        dcql: DCQLQuery
-    ): List<Triple<WalletCredential, String, List<QueryClaim>?>> {
-        val matcher = CredentialMatcherV10()
-        val credentials = walletSvc.findCredentials(ctx) { true } // cache all credentials to avoid multiple API calls
-        val res = dcql.credentials.mapNotNull { cq ->
-            matcher.matchCredential(cq, credentials.asSequence())?.let { (wc, claims) ->
-                Triple(wc, cq.id, claims)
-            }
-        }.onEach {
-            log.info { "Matched: ${it.first.parsedDocument}" }
-        }
-        return res
-    }
-
-    private data class SubmissionBundle(
-        val credentials: List<SignedJWT>,
-        val submission: PresentationSubmission
-    )
 }
 

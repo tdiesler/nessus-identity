@@ -9,6 +9,10 @@ import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.CredentialFormat
+import id.walt.oid4vc.data.dif.DescriptorMapping
+import id.walt.oid4vc.data.dif.PresentationSubmission
+import id.walt.w3c.utils.VCFormat
+import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
@@ -18,8 +22,8 @@ import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.extend.signWithKey
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_USER_PIN_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
@@ -28,6 +32,7 @@ import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.service.OIDContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -38,11 +43,15 @@ import io.nessus.identity.types.CredentialRequestV0
 import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.CredentialResponseDraft11
 import io.nessus.identity.types.CredentialResponseV0
+import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.IssuerMetadataV0
+import io.nessus.identity.types.QueryClaim
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.W3CCredentialJwt
+import io.nessus.identity.types.W3CCredentialSdV11Jwt
+import io.nessus.identity.types.W3CCredentialV11Jwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.coroutines.delay
@@ -52,11 +61,10 @@ import java.util.*
 import kotlin.random.Random
 import kotlin.uuid.Uuid
 
-// WalletServiceKeycloak =======================================================================================================================================
+// WalletServiceKeycloak ===============================================================================================
 
 class WalletServiceKeycloak : AbstractWalletService(), WalletService {
 
-    override val authorizationSvc = WalletAuthorizationService(this)
     override val defaultClientId = requireIssuerConfig().clientId
 
     override fun createAuthorizationContext(ctx: LoginContext?): AuthorizationContext {
@@ -93,6 +101,56 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
         return authRequest
     }
 
+    override suspend fun buildPresentationSubmission(
+        ctx: LoginContext,
+        dcql: DCQLQuery,
+    ): SubmissionBundle {
+        val vcArray = mutableListOf<SignedJWT>()
+        val descriptorMappings = mutableListOf<DescriptorMapping>()
+        val queryIds = mutableListOf<String>()
+        findMatchingCredentials(ctx, dcql).forEach { (wc, queryId, claims) ->
+            val n = vcArray.size
+            queryIds.add(queryId)
+            val dm = DescriptorMapping(
+                format = VCFormat.entries.first { it.value == wc.format.value },
+                path = "$.vp.verifiableCredential[$n]",
+            )
+            val credJwt = W3CCredentialJwt.fromEncoded(wc.document)
+            val sigJwt = when (credJwt) {
+                is W3CCredentialV11Jwt -> SignedJWT.parse(wc.document)
+                is W3CCredentialSdV11Jwt -> {
+                    if (claims == null || claims.isEmpty()) {
+                        SignedJWT.parse(wc.document)
+                    } else {
+                        val parts = mutableListOf(wc.document.substringBefore("~"))
+                        val claimMap = credJwt.disclosures.associateBy { disc -> disc.claim }
+                        val digests = claims.map { cl ->
+                            require(cl.path.size == 1) { "Invalid path in: $cl" }
+                            val encoded = claimMap[cl.path[0]]?.decoded ?: error("No digest for: $cl")
+                            base64UrlEncode(encoded.toByteArray())
+                        }
+                        parts.addAll(digests)
+                        SignedJWT.parse(parts.joinToString("~"))
+                    }
+                }
+            }
+            descriptorMappings.add(dm)
+            vcArray.add(sigJwt)
+        }
+
+        // The presentation_submission object **MUST** contain a definition_id property.
+        // The value of this property **MUST** be the id value of a valid Presentation Definition.
+        // https://identity.foundation/presentation-exchange/#presentation-submission
+        //
+        // In the absence of a Presentation Definition
+        val vpSubmission = PresentationSubmission(
+            id = "${Uuid.random()}",
+            definitionId = "dcql:${queryIds.joinToString("-")}",
+            descriptorMap = descriptorMappings
+        )
+        return SubmissionBundle(vcArray, vpSubmission)
+    }
+
     override suspend fun getAuthorizationCode(
         authContext: AuthorizationContext,
         clientId: String,
@@ -121,7 +179,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
         val credentialIssuer = authContext.getIssuerMetadata().credentialIssuer
         val tokenRequest = when (credentialIssuer) {
             KNOWN_ISSUER_EBSI_V3 -> {
-                val authRequest = authContext.assertAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
+                val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
                 val codeVerifier = authContext.assertAttachment(EBSI32_CODE_VERIFIER_ATTACHMENT_KEY)
                 TokenRequest.AuthorizationCode(
                     clientId = authRequest.clientId,
@@ -213,7 +271,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
 
             val rndBytes = Random.nextBytes(32)
             val codeVerifier = Base64URL.encode(rndBytes).toString()
-            val redirectUri = "${requireEbsiConfig().baseUrl}/wallet/auth/callback/${ctx.targetId}"
+            val redirectUri = "${walletEndpointUri}/${ctx.targetId}/authorize"
             val authRequest = AuthorizationRequestDraft11Builder()
                 .withClientId(ctx.did)
                 .withClientState(ctx.walletId)
@@ -224,9 +282,9 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
                 .buildFrom(credOffer)
 
             authContext.putAttachment(EBSI32_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
-            authContext.putAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+            authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
             val authEndpointUri = issuerMetadata.getAuthorizationEndpointUri()
-            val authCode = sendAuthorizationRequest(authContext, authRequest, authEndpointUri)
+            val authCode = sendAuthorizationRequestDraft11(authContext, authRequest, authEndpointUri)
             val tokenRes = getAccessTokenFromAuthorizationCode(authContext, authCode)
             return tokenRes
         }
@@ -272,6 +330,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
     override suspend fun getCredentialFromOffer(authContext: AuthorizationContext, credOffer: CredentialOffer): W3CCredentialJwt {
 
         val issuerMetadata = authContext.getIssuerMetadata()
+
         val accessToken = getAccessTokenFromCredentialOffer(authContext, credOffer)
 
         var cNonce = accessToken.cNonce
@@ -328,6 +387,22 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
 
         val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
         return credJwt
+    }
+
+    suspend fun findMatchingCredentials(
+        ctx: LoginContext,
+        dcql: DCQLQuery
+    ): List<Triple<WalletCredential, String, List<QueryClaim>?>> {
+        val matcher = CredentialMatcherV10()
+        val credentials = findCredentials(ctx) { true } // cache all credentials to avoid multiple API calls
+        val res = dcql.credentials.mapNotNull { cq ->
+            matcher.matchCredential(cq, credentials.asSequence())?.let { (wc, claims) ->
+                Triple(wc, cq.id, claims)
+            }
+        }.onEach {
+            log.info { "Matched: ${it.first.parsedDocument}" }
+        }
+        return res
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -388,9 +463,9 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
         return authReq
     }
 
-    private suspend fun sendAuthorizationRequest(
+    private suspend fun sendAuthorizationRequestDraft11(
         authContext: AuthorizationContext,
-        authRequest: id.walt.oid4vc.requests.AuthorizationRequest,
+        authRequest: AuthorizationRequestDraft11,
         authEndpointUri: String,
     ): String {
 
@@ -400,8 +475,6 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
 
         log.info { "Send AuthorizationRequest: $authReqUrl" }
         authRequest.toHttpParameters().forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
-
-        log.info { "Send AuthorizationRequest: $authReqUrl" }
 
         // Disable follow redirects
         //
@@ -439,7 +512,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
 
                     // Redirect location is expected to be an Authorization Request
                     val queryParamsExt = queryParams.mapValues { (_, v) -> listOf(v) }
-                    val authReq = id.walt.oid4vc.requests.AuthorizationRequest.fromHttpParameters(queryParamsExt)
+                    val authReq = AuthorizationRequestDraft11.fromHttpParameters(queryParamsExt)
 
                     // Store the AuthorizationRequest in memory
                     val reqObjectId = "${Uuid.random()}"
@@ -497,7 +570,7 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
                     .expirationTime(Date.from(exp))
                     .claim("nonce", cNonce)
 
-                val authRequest = authContext.getAttachment(EBSI32_AUTH_REQUEST_ATTACHMENT_KEY)
+                val authRequest = authContext.getAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
                 authRequest?.also { proofClaimsBuilder.claim("state", it.state) }
 
                 val proofClaims = proofClaimsBuilder.build()

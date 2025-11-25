@@ -11,10 +11,10 @@
         <h3>Request Credential Presentation</h3>
 
         <form action="/verifier/presentation-request" method="post" style="max-width:640px;">
-            <hidden name="subjectId" value="${subInfo.id}"/>
+            <input type="hidden" name="targetId" value="${targetId}"/>
             <div class="bx--form-item-horizontal">
-                <label for="subjectId" class="bx--label">Subject</label>
-                <input type="text" name="subjectId" class="bx--text-input" value="${subInfo.name} - ${subInfo.email}" readonly/>
+                <label for="subject" class="bx--label">Subject</label>
+                <input type="text" id="subject" name="subject" class="bx--text-input" value="${subInfo.name} - ${subInfo.email}" readonly/>
                 <label for="ctype" class="bx--label">Credential Type</label>
                 <select name="ctype" id="ctype" class="bx--select">
                     <#list vctValues as vct>

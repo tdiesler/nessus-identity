@@ -1,7 +1,6 @@
 package io.nessus.identity.ebsi
 
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.requests.AuthorizationRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -22,6 +21,7 @@ import io.nessus.identity.service.OIDContext.Companion.EBSI32_REQUEST_URI_OBJECT
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.*
@@ -114,7 +114,7 @@ object OAuthHandler {
     private suspend fun handleAuthorizationRequest(call: RoutingCall, ctx: OIDContext) {
 
         val queryParams = call.parameters.toMap()
-        val authReq = AuthorizationRequest.fromHttpParameters(queryParams)
+        val authReq = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
         log.info { "Authorization Request: ${Json.encodeToString(authReq)}" }
         queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
@@ -190,7 +190,7 @@ object OAuthHandler {
             urlQueryToMap(requestUri)["request_object"]
                 ?: throw IllegalStateException("No request_object in: $requestUri")
 
-            authReq = ctx.assertAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
+            authReq = ctx.assertAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequestDraft11
         }
 
         val walletSvc = WalletService.createEbsi()

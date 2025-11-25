@@ -9,20 +9,20 @@ import io.nessus.identity.types.UserRole
 class BaseModel() : HashMap<String, Any>() {
 
     val versionInfo = getVersionInfo()
-    lateinit var loginContext: LoginContext
+    val loginContexts = mutableMapOf<UserRole, LoginContext>()
 
     init {
         this["versionInfo"] = versionInfo
     }
 
-    fun withLoginContext(call: RoutingCall, role: UserRole, targetId: String? = null): BaseModel {
-        val ctx = findLoginContext(call, role, targetId) ?: LoginContext().withUserRole(role)
+    fun withLoginContext(call: RoutingCall, role: UserRole): BaseModel {
+        val ctx = findLoginContext(call, role) ?: LoginContext().withUserRole(role)
         return withLoginContext(ctx)
     }
 
     fun withLoginContext(ctx: LoginContext): BaseModel {
-        loginContext = ctx
         this["${ctx.userRole.name.lowercase()}Auth"] = ctx
+        loginContexts[ctx.userRole] = ctx
         return this
     }
 }

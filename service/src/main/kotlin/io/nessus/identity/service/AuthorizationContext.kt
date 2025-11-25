@@ -1,6 +1,7 @@
 package io.nessus.identity.service
 
 import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadata
 
@@ -24,7 +25,7 @@ class AuthorizationContext(val loginContext: LoginContext? = null): AttachmentSu
 
     companion object {
         val EBSI32_AUTH_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE")
-        val EBSI32_AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<id.walt.oid4vc.requests.AuthorizationRequest>()
+        val EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>()
         val EBSI32_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("CODE_VERIFIER")
         val EBSI32_USER_PIN_ATTACHMENT_KEY = attachmentKey<String>("USER_PIN")
     }

@@ -1,10 +1,10 @@
 package io.nessus.identity.extend
 
-import id.walt.oid4vc.requests.AuthorizationRequest
 import io.nessus.identity.service.urlEncode
+import io.nessus.identity.types.AuthorizationRequestDraft11
 import kotlinx.serialization.json.*
 
-fun AuthorizationRequest.getQueryParameters(): String {
+fun AuthorizationRequestDraft11.getQueryParameters(): String {
     val sb = StringBuilder()
     sb.append("response_type=${responseType.first().value}")
     sb.append("&client_id=${clientId}")

@@ -33,13 +33,15 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
     companion object {
 
         val AUTH_CONTEXT_ATTACHMENT_KEY = attachmentKey<AuthorizationContext>()
-        val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequest>()
-        val AUTH_RESPONSE_ATTACHMENT_KEY = attachmentKey<TokenResponse>()
         val AUTH_TOKEN_ATTACHMENT_KEY = attachmentKey<String>("AUTH_TOKEN")
         val WALLET_INFO_ATTACHMENT_KEY = attachmentKey<WalletInfo>()
         val DID_INFO_ATTACHMENT_KEY = attachmentKey<DidInfo>()
         val USER_ROLE_ATTACHMENT_KEY = attachmentKey<UserRole>()
         val USER_ATTACHMENT_KEY = attachmentKey<User>()
+
+        // [TODO] Move these to the AuthorizationContext
+        val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequest>()
+        val AUTH_RESPONSE_ATTACHMENT_KEY = attachmentKey<TokenResponse>()
 
         suspend fun login(user: User): LoginContext {
             return login(user.toLoginParams()).also {

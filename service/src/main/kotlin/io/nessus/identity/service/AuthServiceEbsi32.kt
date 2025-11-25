@@ -9,7 +9,6 @@ import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialFormat
-import id.walt.oid4vc.requests.AuthorizationRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.nessus.identity.config.ConfigProvider
@@ -23,6 +22,7 @@ import io.nessus.identity.service.OIDContext.Companion.EBSI32_ACCESS_TOKEN_ATTAC
 import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.OIDContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.TokenRequest
@@ -73,7 +73,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         return authCodeRedirect
     }
 
-    suspend fun buildIDTokenRequest(authReq: AuthorizationRequest): SignedJWT {
+    suspend fun buildIDTokenRequest(authReq: AuthorizationRequestDraft11): SignedJWT {
 
         val issuerMetadata = ctx.issuerMetadata
         val authorizationServer = ctx.authorizationServer
@@ -120,7 +120,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
         return idTokenRedirectUrl
     }
 
-    suspend fun buildVPTokenRequest(authReq: AuthorizationRequest): SignedJWT {
+    suspend fun buildVPTokenRequest(authReq: AuthorizationRequestDraft11): SignedJWT {
 
         val issuerMetadata = ctx.issuerMetadata
         val authorizationServer = ctx.authorizationServer
@@ -255,7 +255,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
 
         val credOffer = credOfferRecord.credOffer as CredentialOfferDraft11
         val types = credOffer.credentialConfigurationIds
-        val authRequest = AuthorizationRequest(
+        val authRequest = AuthorizationRequestDraft11(
             clientId = subId ?: throw IllegalStateException("No subId"), authorizationDetails = listOf(
                 AuthorizationDetails(
                     format = CredentialFormat.jwt_vc, types = types
@@ -272,7 +272,7 @@ class AuthServiceEbsi32(val ctx: OIDContext) {
     /**
      * Handle AuthorizationRequest from remote Holder
      */
-    suspend fun validateAuthorizationRequest(authReq: AuthorizationRequest) {
+    suspend fun validateAuthorizationRequest(authReq: AuthorizationRequestDraft11) {
 
         // Attach issuer metadata (on demand)
         //

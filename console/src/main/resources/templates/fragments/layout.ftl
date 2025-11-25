@@ -10,7 +10,7 @@
                     <a href="/issuer" class="<#if activeTab == 'issuer'>active-role</#if>">Issuer</a>
                     <a href="/wallet" class="<#if activeTab == 'holder'>active-role</#if>">Holder</a>
                     <a href="/verifier" class="<#if activeTab == 'verifier'>active-role</#if>">Verifier</a>
-                    <a href="/ebsi" class="<#if activeTab == 'ebsi'>active-role</#if>">Conformance</a>
+                    <a href="/ebsi" class="<#if activeTab == 'ebsi'>active-role</#if>">EBSI</a>
                     <a href="/docs" class="<#if activeTab == 'docs'>active-role</#if>">Docs</a>
                 </div>
             </header>

@@ -5,10 +5,11 @@ import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.OpenIDClientMetadata
 import id.walt.oid4vc.data.dif.PresentationDefinition
-import id.walt.oid4vc.requests.AuthorizationRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.*
 import java.security.MessageDigest
+
+typealias AuthorizationRequestDraft11 = id.walt.oid4vc.requests.AuthorizationRequest
 
 class AuthorizationRequestDraft11Builder {
 
@@ -67,7 +68,7 @@ class AuthorizationRequestDraft11Builder {
         return this
     }
 
-    suspend fun buildFrom(credOffer: CredentialOfferDraft11): AuthorizationRequest {
+    suspend fun buildFrom(credOffer: CredentialOfferDraft11): AuthorizationRequestDraft11 {
         this.credOffer = credOffer
 
         if (metadata == null)
@@ -86,13 +87,13 @@ class AuthorizationRequestDraft11Builder {
         return buildInternal()
     }
 
-    fun build(): AuthorizationRequest {
+    fun build(): AuthorizationRequestDraft11 {
         return buildInternal()
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    private fun buildInternal(): AuthorizationRequest {
+    private fun buildInternal(): AuthorizationRequestDraft11 {
 
         // The Holder starts by requesting access for the desired credential from the Issuer's Authorisation Server.
         // The client_metadata.authorization_endpoint is used for the redirect location associated with the vp_token and id_token.
@@ -114,7 +115,7 @@ class AuthorizationRequestDraft11Builder {
 
         val issuerState = credOffer?.getAuthorizationCodeGrant()?.issuerState
 
-        val authRequest = AuthorizationRequest(
+        val authRequest = AuthorizationRequestDraft11(
             scope = scopes,
             clientId = clientId,
             state = clientState,

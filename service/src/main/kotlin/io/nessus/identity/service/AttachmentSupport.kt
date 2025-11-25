@@ -54,10 +54,6 @@ open class AttachmentSupport() {
         valueStore[key] = value
     }
 
-    fun putAttachments(values: Map<AttachmentKey<*>, Any>) {
-        valueStore.putAll(values)
-    }
-
     fun <T : Any> removeAttachment(key: AttachmentKey<T>): T? {
         return valueStore.remove(key) as? T
     }

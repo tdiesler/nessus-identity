@@ -2,7 +2,7 @@ package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.dif.PresentationSubmission
-import id.walt.oid4vc.requests.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.IssuerMetadataDraft11
 
@@ -43,7 +43,7 @@ open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
     companion object {
         val EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY = attachmentKey<SignedJWT>("ACCESS_TOKEN")
         val EBSI32_AUTH_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE")
-        val EBSI32_AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequest>()
+        val EBSI32_AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>()
         val EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE_VERIFIER")
         val EBSI32_CREDENTIAL_OFFER_ATTACHMENT_KEY = attachmentKey<CredentialOfferDraft11>()
         val EBSI32_ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<IssuerMetadataDraft11>()

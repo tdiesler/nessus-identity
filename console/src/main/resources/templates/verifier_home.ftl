@@ -8,6 +8,14 @@
     <div class="content" style="flex:1; padding:1rem;">
         <h1>OID4VC Verifier</h1>
 
+        <#if verifierAuth.hasAuthToken >
+            <h2>${verifierName}</h2>
+            <table>
+                <tr><td>VerifierDid&nbsp;</td><td><input type="text" class="bx--text-input" value="${verifierDid}" style="width: 600px;" readonly autofocus/></td></tr>
+                <tr><td>TargetUri&nbsp;</td><td><input type="text" class="bx--text-input" value="${verifierUri}" style="width: 600px;" readonly/></td></tr>
+            </table>
+        </#if>
+
         <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
             <p>This is the Verifier's main content area.</p>
             <p>

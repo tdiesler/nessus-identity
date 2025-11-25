@@ -132,9 +132,9 @@ open class AbstractConformanceTest {
         playwright.close()
     }
 
-    fun authEndpointUri(ctx: LoginContext): String {
+    fun verifierEndpointUri(ctx: LoginContext): String {
         val ebsiCfg = ConfigProvider.requireEbsiConfig()
-        val authUri = "${ebsiCfg.baseUrl}/auth/${ctx.targetId}"
+        val authUri = "${ebsiCfg.baseUrl}/verifier/${ctx.targetId}"
         return authUri
     }
 

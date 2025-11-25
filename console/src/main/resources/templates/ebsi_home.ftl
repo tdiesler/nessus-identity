@@ -9,8 +9,8 @@
         <h1>EBSI Conformance</h1>
 
         <#if holderAuth.hasAuthToken>
-            <h2>${holderName}</h2>
-            Subject DID: <input type="text" class="bx--text-input" value="${holderDid}" style="width: 400px;" readonly autofocus/>
+            <h2>${walletName}</h2>
+            Subject DID: <input type="text" class="bx--text-input" value="${walletDid}" style="width: 400px;" readonly autofocus/>
         </#if>
 
         <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">

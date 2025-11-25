@@ -10,7 +10,7 @@ class VerifierConformanceTest : AbstractVerifierConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startEBSIPortal()
+        startConsoleServer()
         startPlaywrightBrowser()
         prepareVerifierTests()
     }
@@ -18,7 +18,7 @@ class VerifierConformanceTest : AbstractVerifierConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopEBSIPortal()
+        stopConsoleServer()
     }
 
     @Test

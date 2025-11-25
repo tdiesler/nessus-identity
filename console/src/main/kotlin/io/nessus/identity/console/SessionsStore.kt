@@ -1,5 +1,6 @@
 package io.nessus.identity.console
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.service.LoginContext
@@ -13,8 +14,10 @@ import kotlinx.serialization.json.*
 
 object SessionsStore {
 
-    // Registry that allows us to restore a LoginContext from subjectId
-    val loginContexts = mutableMapOf<String, LoginContext>()
+    val log = KotlinLogging.logger {}
+
+    // Registry that allows us to restore a LoginContext from targetId
+    private val loginContexts = mutableSetOf<LoginContext>()
 
     fun cookieName(role: UserRole) = "${role.name}Cookie"
 
@@ -26,53 +29,72 @@ object SessionsStore {
             UserRole.Holder -> call.sessions.set(HolderCookie(wid, did))
             UserRole.Verifier -> call.sessions.set(VerifierCookie(wid, did))
         }
-        loginContexts[ctx.targetId] = ctx
+        loginContexts.add(ctx)
         return ctx
     }
 
-    fun findLoginContext(call: ApplicationCall, role: UserRole, targetId: String? = null): LoginContext? {
-        val cookie = getRoleCookieFromSession(call, role)
-        val cookieTargetId = cookie?.let { LoginContext.getTargetId(it.wid, it.did ?: "") }
-        var ctx = cookieTargetId
-            ?.takeIf { targetId == null || it == targetId }
-            ?.let { tid -> loginContexts[tid] }
-        if (ctx == null && targetId != null) {
-            ctx = loginContexts.values.firstOrNull { it.userRole == role && it.targetId == targetId }
+    /**
+     * Finds a LoginContext from the wallet's targetId
+     */
+    fun findLoginContext(call: ApplicationCall, targetId: String): LoginContext? {
+        val ctx = loginContexts.firstOrNull { it.targetId == targetId }
+        return ctx
+    }
+
+    /**
+     * Finds a LoginContext from session cookie
+     */
+    fun findLoginContext(call: ApplicationCall, role: UserRole): LoginContext? {
+        val cookie = getCookieFromSession(call, role)
+        val ctx = cookie?.let {
+            findLoginContext(call, it.targetId)
         }
         return ctx
     }
 
-    fun logout(call: ApplicationCall, role: UserRole) {
-        findLoginContext(call, role)?.also {
-            call.sessions.clear(cookieName(role))
-            loginContexts.remove(it.targetId)
-        }
+    fun requireLoginContext(call: ApplicationCall, role: UserRole): LoginContext {
+        return requireNotNull(findLoginContext(call, role)) { "No ${role.name} LoginContext" }
     }
 
-    fun requireLoginContext(call: ApplicationCall, role: UserRole, targetId: String? = null): LoginContext {
-        return requireNotNull(findLoginContext(call, role, targetId)) { "No ${role.name} LoginContext" }
+    fun logout(call: ApplicationCall, targetId: String) {
+        findLoginContext(call, targetId)?.also {
+            call.sessions.clear(cookieName(it.userRole))
+            loginContexts.removeIf { it.targetId == targetId }
+        }
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    private fun getRoleCookieFromSession(call: ApplicationCall, role: UserRole): BaseCookie? {
-        val roleCookie = call.request.cookies.rawCookies
+    private fun getCookieFromSession(call: ApplicationCall, role: UserRole): BaseCookie? {
+        val cookie = call.request.cookies.rawCookies
             .filter { (k, _) -> k == cookieName(role) }
             .map { (_, v) ->
                 when (role) {
                     UserRole.Holder -> Json.decodeFromString<HolderCookie>(urlDecode(v))
                     UserRole.Verifier -> Json.decodeFromString<VerifierCookie>(urlDecode(v))
                 }
-            }.firstOrNull()
-        return roleCookie
+            }
+            .onEach { log.info { "Found role cookie: [role=${it.role}, tid=${it.targetId}]" } }
+            .firstOrNull()
+        return cookie
+    }
+
+    private fun getCookieFromSession(call: ApplicationCall, targetId: String): BaseCookie? {
+        val cookie = call.request.cookies.rawCookies.map { (_, v) ->
+            Json.decodeFromString<BaseCookie>(urlDecode(v))
+        }.firstOrNull { it.targetId == targetId }
+        return cookie
     }
 }
 
 @Serializable(with = CookieSerializer::class)
-sealed class BaseCookie {
+sealed class BaseCookie() {
     abstract val role: UserRole
     abstract val wid: String
     abstract val did: String?
+
+    val targetId
+        get() = LoginContext.getTargetId(wid, did ?: "")
 }
 
 @Serializable

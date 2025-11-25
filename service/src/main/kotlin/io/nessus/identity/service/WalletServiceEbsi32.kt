@@ -13,7 +13,6 @@ import id.walt.oid4vc.data.dif.DescriptorMapping
 import id.walt.oid4vc.data.dif.InputDescriptor
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.oid4vc.data.dif.PresentationSubmission
-import id.walt.oid4vc.requests.AuthorizationRequest
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
 import id.walt.w3c.utils.VCFormat
@@ -36,6 +35,7 @@ import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_ATTAC
 import io.nessus.identity.service.OIDContext.Companion.EBSI32_AUTH_REQUEST_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.OIDContext.Companion.EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY
 import io.nessus.identity.service.OIDContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
+import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -175,7 +175,7 @@ class WalletServiceEbsi32() : AbstractWalletService() {
 
     suspend fun createVPToken(
         ctx: OIDContext,
-        authReq: AuthorizationRequest
+        authReq: AuthorizationRequestDraft11
     ): SignedJWT {
 
         log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(authReq)}" }
@@ -402,7 +402,7 @@ class WalletServiceEbsi32() : AbstractWalletService() {
 
     suspend fun sendAuthorizationRequest(
         ctx: OIDContext,
-        authRequest: AuthorizationRequest
+        authRequest: AuthorizationRequestDraft11
     ): String {
 
         val authReqUrl = URLBuilder("${ctx.authorizationServer}/authorize").apply {
@@ -447,7 +447,7 @@ class WalletServiceEbsi32() : AbstractWalletService() {
 
                     // Redirect location is expected to be an Authorization Request
                     val queryParamsExt = queryParams.mapValues { (_, v) -> listOf(v) }
-                    val authReq = AuthorizationRequest.fromHttpParameters(queryParamsExt)
+                    val authReq = AuthorizationRequestDraft11.fromHttpParameters(queryParamsExt)
 
                     // Store the AuthorizationRequest in memory
                     val reqObjectId = "${Uuid.random()}"
@@ -551,7 +551,7 @@ class WalletServiceEbsi32() : AbstractWalletService() {
         vpTokenJwt: SignedJWT
     ): String {
 
-        val reqObject = ctx.assertAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequest
+        val reqObject = ctx.assertAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY) as AuthorizationRequestDraft11
         val vpSubmission = ctx.assertAttachment(EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY, true)
 
         val redirectUri = reqObject.redirectUri

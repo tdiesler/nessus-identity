@@ -122,14 +122,12 @@ data class IssuerConfig(
 @Serializable
 data class VerifierConfig(
     val baseUrl: String,
-    val responseUri: String,
 )
 
 @Serializable
 data class WalletConfig(
     val baseUrl: String,
-    val authUri: String,
-    val redirectUri: String,
+    val callbackUri: String,
 )
 
 @Serializable

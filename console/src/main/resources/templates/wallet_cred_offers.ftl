@@ -7,7 +7,7 @@
     <!-- Main content -->
     <div class="content">
         <h1>OID4VC Holder</h1>
-        <h2>${holderName}</h2>
+        <h2>${walletName}</h2>
         <h3>Available Credential Offers</h3>
 
         <table class="bx--data-table bx--data-table--compact" style="width: auto; table-layout: auto;">
@@ -27,9 +27,9 @@
                             <#assign action = "accept">
                         </#if>
                         <td>
-                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/view?isUserPinRequired=${vco[4]}">view</a>
-                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/${action}?isUserPinRequired=${vco[4]}">accept</a>
-                            <a href="/wallet/${targetId}/credential-offer/${vco[0]}/delete">delete</a>
+                            <a href="/wallet/credential-offer/${vco[0]}/view?isUserPinRequired=${vco[4]}">view</a>
+                            <a href="/wallet/credential-offer/${vco[0]}/${action}?isUserPinRequired=${vco[4]}">accept</a>
+                            <a href="/wallet/credential-offer/${vco[0]}/delete">delete</a>
                         </td>
                     </tr>
                 </#list>
@@ -37,7 +37,7 @@
         </table>
         <#if credentialOffers?size gt 0>
             <div style="margin-top: 1em;">
-                <a href="/wallet/${targetId}/credential-offer/delete-all">delete all</a>
+                <a href="/wallet/credential-offer/delete-all">delete all</a>
             </div>
         </#if>
         <#assign initiateOfferUrl = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock/initiate-credential-offer">

@@ -7,14 +7,14 @@
     <!-- Main content -->
     <div class="content">
         <h1>OID4VC Holder</h1>
-        <h2>${holderName}</h2>
+        <h2>${walletName}</h2>
 
         <h3>Request Verifiable Presentation Consent</h3>
 
         <!-- Show textarea with the DCQLQuery -->
         <textarea class="height4" readonly>${dcqlQuery?html}</textarea>
 
-        <form action="/wallet/auth/flow/vp-token-consent" method="get" style="max-width:640px;">
+        <form action="/wallet/${targetId}/flow/vp-token-consent" method="get" style="max-width:640px;">
             <div style="display:flex; gap:0.5rem; margin-top:1rem;">
                 <button type="submit" name="state" value="accept" class="bx--btn bx--btn--primary" style="padding:0.5rem 1rem;">
                     Accept

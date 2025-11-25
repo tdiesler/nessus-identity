@@ -8,9 +8,12 @@
     <div class="content" style="flex:1; padding:1rem;">
         <h1>OID4VC Holder</h1>
 
-        <#if holderAuth.hasAuthToken>
-            <h2>${holderName}</h2>
-            Subject DID: <input type="text" class="bx--text-input" value="${holderDid}" style="width: 400px;" readonly autofocus/>
+        <#if holderAuth.hasAuthToken >
+            <h2>${walletName}</h2>
+            <table>
+                <tr><td>SubjectDid&nbsp;</td><td><input type="text" class="bx--text-input" value="${walletDid}" style="width: 600px;" readonly autofocus/></td></tr>
+                <tr><td>TargetUri&nbsp;</td><td><input type="text" class="bx--text-input" value="${walletUri}" style="width: 600px;" readonly/></td></tr>
+            </table>
         </#if>
 
         <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">

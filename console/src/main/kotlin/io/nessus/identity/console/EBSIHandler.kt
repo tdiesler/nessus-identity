@@ -7,7 +7,7 @@ import io.ktor.server.routing.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.ConfigProvider.requireWaltIdConfig
-import io.nessus.identity.console.SessionsStore.findLoginContext
+import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.UserRole
 import kotlinx.serialization.json.*
 
@@ -21,15 +21,17 @@ class EBSIHandler() {
         val ebsiConfig = requireEbsiConfig()
         val issuerConfig = requireIssuerConfig()
         val waltIdConfig = requireWaltIdConfig()
-        val model = BaseModel().withLoginContext(call, UserRole.Holder)
-        findLoginContext(call, UserRole.Holder)?.also {
-            model["holderName"] = it.walletInfo.name
-            model["holderDid"] = it.didInfo.did
-            model["walletUri"] = "${ebsiConfig.baseUrl}/wallet/${it.targetId}"
-            model["issuerUri"] = "${issuerConfig.baseUrl}/realms/${issuerConfig.realm}"
-            model["verifierUri"] = "${ebsiConfig.baseUrl}/verifier/${it.targetId}"
-            model["demoWalletUrl"] = "${waltIdConfig.demoWallet?.baseUrl}"
-        }
+        val model = BaseModel()
+            .withLoginContext(call, UserRole.Holder)
+            .withLoginContext(call, UserRole.Verifier)
+        val holder = model.loginContexts[UserRole.Holder] as LoginContext
+        val verifier = model.loginContexts[UserRole.Verifier] as LoginContext
+        model["walletName"] = holder.walletInfo.name
+        model["walletDid"] = holder.didInfo.did
+        model["walletUri"] = "${ebsiConfig.baseUrl}/wallet/${holder.targetId}"
+        model["issuerUri"] = "${issuerConfig.baseUrl}/realms/${issuerConfig.realm}"
+        model["verifierUri"] = "${ebsiConfig.baseUrl}/verifier/${verifier.targetId}"
+        model["demoWalletUrl"] = "${waltIdConfig.demoWallet?.baseUrl}"
         return model
     }
 

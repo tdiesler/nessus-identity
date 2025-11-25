@@ -3,13 +3,13 @@ package io.nessus.identity.ebsi
 import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.waltid.Alice
+import io.nessus.identity.waltid.Bob
 
 abstract class AbstractVerifierConformanceTest : AbstractConformanceTest() {
 
     fun prepareVerifierTests(): LoginContext {
 
-        val ctx = runBlocking { loginWithDid(Alice) }
+        val ctx = runBlocking { loginWithDid(Bob) }
         ctx.hasDidInfo.shouldBeTrue()
 
         val page = context.newPage()
@@ -21,8 +21,8 @@ abstract class AbstractVerifierConformanceTest : AbstractConformanceTest() {
         page.click("a[href='/wallet-conformance/verifier/flow']")
 
         // Enter the authUri
-        page.fill("input[name='clientId']", authEndpointUri(ctx))
-        log.info { "AuthUri: ${authEndpointUri(ctx)}" }
+        page.fill("input[name='clientId']", verifierEndpointUri(ctx))
+        log.info { "AuthUri: ${verifierEndpointUri(ctx)}" }
 
         // Click "Continue" button
         page.click("xpath=//button[@type='submit'][.//span[text()='Continue']]")

@@ -44,11 +44,9 @@ class IssuerHandler() {
         val issuerConfigUrl = issuerSvc.getIssuerMetadataUrl()
         val model = ctx?.let { BaseModel().withLoginContext(ctx) }
             ?: BaseModel().withLoginContext(call, UserRole.Holder)
-        model.also {
-            it["issuerUrl"] = issuerSvc.issuerBaseUrl
-            it["issuerConfigUrl"] = issuerConfigUrl
-            it["authConfigUrl"] = authConfigUrl
-        }
+        model["issuerUrl"] = issuerSvc.issuerBaseUrl
+        model["issuerConfigUrl"] = issuerConfigUrl
+        model["authConfigUrl"] = authConfigUrl
         return model
     }
 
@@ -146,10 +144,10 @@ class IssuerHandler() {
         val credOfferSendRes = http.get(walletUrl) {
             parameter("credential_offer", credOffer.toJson())
         }
-        if (credOfferSendRes.status.value != 200)
+        if (credOfferSendRes.status.value !in 200..202)
             error("Error sending credential Offer: ${credOfferSendRes.status.value} - ${credOfferSendRes.bodyAsText()}")
 
-        call.respondRedirect("$walletUrl/credential-offers")
+        call.respondRedirect("/wallet/credential-offers")
     }
 
     suspend fun showCredentialOffers(call: RoutingCall) {

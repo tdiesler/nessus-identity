@@ -1,8 +1,15 @@
 package io.nessus.identity.service
 
+import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.dif.PresentationSubmission
+import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
+import io.nessus.identity.config.ConfigProvider.requireWalletConfig
+import io.nessus.identity.config.FeatureProfile.EBSI_V32
+import io.nessus.identity.config.Features
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferV0
+import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.W3CCredentialJwt
 
@@ -12,8 +19,13 @@ const val KNOWN_ISSUER_EBSI_V3 = "https://api-conformance.ebsi.eu/conformance/v3
 
 interface WalletService: DeprecatedWalletService {
 
-    val authorizationSvc: WalletAuthorizationService
     val defaultClientId: String
+
+    val walletEndpointUri
+        get() = when(Features.getProfile()) {
+            EBSI_V32 -> "${requireEbsiConfig().baseUrl}/wallet"
+            else -> requireWalletConfig().baseUrl
+        }
 
     fun createAuthorizationContext(ctx: LoginContext? = null): AuthorizationContext
 
@@ -22,6 +34,11 @@ interface WalletService: DeprecatedWalletService {
         clientId: String = defaultClientId,
         redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
     ): AuthorizationRequest
+
+    suspend fun buildPresentationSubmission(
+        ctx: LoginContext,
+        dcql: DCQLQuery,
+    ): SubmissionBundle
 
     suspend fun getAuthorizationCode(
         authContext: AuthorizationContext,
@@ -70,3 +87,8 @@ interface WalletService: DeprecatedWalletService {
         }
     }
 }
+
+data class SubmissionBundle(
+    val credentials: List<SignedJWT>,
+    val submission: PresentationSubmission
+)

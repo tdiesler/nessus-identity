@@ -6,13 +6,9 @@
 
     <!-- Main content -->
     <div class="content">
-        <h1>OID4VC Holder</h1>
+        <h1>OID4VC Wallet</h1>
         <h2>${walletName}</h2>
-        <h3>Credential Details</h3>
-        <textarea readonly>${credData?html}</textarea>
-        <div style="margin-top: 1em;">
-            <a href="/wallet/credential/${credId}/delete">delete</a>
-        </div>
+        <p>Authorization Config URL: <a href="${authConfigUrl}" target="_blank">${authConfigUrl}</a></p>
+        <textarea readonly>${authConfigJson?html}</textarea>
     </div>
-
 </@layout.layout>
