@@ -21,6 +21,7 @@ import io.nessus.identity.service.KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.WalletAuthorizationService.Companion.buildAuthorizationMetadata
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlDecode
 import io.nessus.identity.service.urlEncode
@@ -129,7 +130,7 @@ class WalletHandler : AuthHandler() {
                 handleVPTokenRequest(call, ctx)
             }
             scopes.any { it.contains("id_token") } -> {
-                val authContext = walletSvc.createAuthorizationContext(ctx)
+                val authContext = AuthorizationContext.create(ctx)
                 val authRequest = AuthorizationRequestDraft11.fromHttpParameters(call.request.queryParameters.toMap())
                 authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
                 val idTokenReqJwt = buildIDTokenRequest(ctx, authRequest)
@@ -143,7 +144,7 @@ class WalletHandler : AuthHandler() {
 
     suspend fun handleAuthorizationMetadataRequest(call: RoutingCall, ctx: LoginContext) {
         val walletTargetUri = "${walletSvc.walletEndpointUri}/${ctx.targetId}"
-        val payload = Json.encodeToString(walletAuthSvc.buildAuthorizationMetadata(walletTargetUri))
+        val payload = Json.encodeToString(buildAuthorizationMetadata(walletTargetUri))
         call.respondText(
             status = HttpStatusCode.OK,
             contentType = ContentType.Application.Json,
@@ -161,7 +162,7 @@ class WalletHandler : AuthHandler() {
         // Accept a Credential Offer from EBSI CT
         //
         if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
-            val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
+            val authContext = AuthorizationContext.create(ctx).withCredentialOffer(credOffer)
             call.request.queryParameters["userPin"]?.also {
                 authContext.putAttachment(EBSI32_USER_PIN_ATTACHMENT_KEY, it)
             }
@@ -171,7 +172,7 @@ class WalletHandler : AuthHandler() {
 
         // Accept a Credential Offer from Keycloak
         //
-        val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
+        val authContext = AuthorizationContext.create(ctx).withCredentialOffer(credOffer)
         if (credOffer.isPreAuthorized) {
             val credJwt = walletSvc.getCredentialFromOffer(authContext, credOffer)
             return showCredentialDetails(call, ctx, credJwt.vcId)
@@ -222,7 +223,7 @@ class WalletHandler : AuthHandler() {
             walletSvc.addCredentialOffer(ctx, credOffer)
         }
         if (Features.isEnabled(CREDENTIAL_OFFER_AUTO_FETCH)) {
-            val authContext = walletSvc.createAuthorizationContext(ctx).withCredentialOffer(credOffer)
+            val authContext = AuthorizationContext.create(ctx).withCredentialOffer(credOffer)
             val credJwt = walletSvc.getCredentialFromOffer(authContext, credOffer)
             call.respondText(
                 status = HttpStatusCode.Accepted,
@@ -300,7 +301,7 @@ class WalletHandler : AuthHandler() {
 
     suspend fun showAuthConfig(call: RoutingCall, ctx: LoginContext) {
         val walletTargetUri = "${walletSvc.walletEndpointUri}/${ctx.targetId}"
-        val authConfig = walletAuthSvc.buildAuthorizationMetadata(walletTargetUri)
+        val authConfig = buildAuthorizationMetadata(walletTargetUri)
         val prettyJson = jsonPretty.encodeToString(authConfig)
         val authConfigUrl = "$walletTargetUri/.well-known/openid-configuration"
         val model = walletModel(call).also {

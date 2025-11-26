@@ -8,18 +8,19 @@
     <div class="content" style="flex:1; padding:1rem;">
         <h1>EBSI Conformance</h1>
 
-        <#if holderAuth.hasAuthToken>
-            <h2>${walletName}</h2>
-            Subject DID: <input type="text" class="bx--text-input" value="${walletDid}" style="width: 400px;" readonly autofocus/>
-        </#if>
-
         <div class="bx--type-body-long-01 bx--doc-text" style="max-width: 70ch; margin-top: 1rem;">
             <h2>Request and present Verifiable Credentials</h2>
 
             The Holder Wallet module checks the wallet's ability to handle credential requests, authentication and presentation to verifiers on demand.
+            <p/>
 
-            <h3>Wallet Endpoint</h3>
-            <input type="text" value="${walletUri}" size="80" readonly/>
+            <#if holderAuth.hasAuthToken>
+                <h3>${walletName}</h3>
+                <input type="text" value="${walletDid}" size="80" readonly/>
+                <h3>Wallet Endpoint</h3>
+                <input type="text" value="${walletUri}" size="80" readonly/>
+            </#if>
+
             <p/>
             Go to the <a href="https://hub.ebsi.eu/wallet-conformance/holder-wallet" target="_blank">start tests</a> page for holder wallets and
             <i>Insert your DID</i> and <i>Credential Offer Endpoint</i> from above. Then use "No" for QR code reading capabilities.
@@ -35,8 +36,16 @@
 
             The Issuer to Holder module checks the credential issuance process from an issuer to a Holder wallet
             <p/>
-            <h3>Issuer Endpoint</h3>
-            <input type="text" value="${issuerUri}" size="80" readonly/>
+
+            <#if issuerAuth.hasAuthToken>
+                <h3>${issuerName}</h3>
+                <input type="text" value="${issuerDid}" size="80" readonly/>
+                <h3>Issuer Endpoint</h3>
+                <input type="text" value="${issuerUri}" size="80" readonly/>
+                <p/>
+                Issuer Metadata: <a href="${issuerUri}/.well-known/openid-credential-issuer" target="_blank">${issuerUri}/.well-known/openid-credential-issuer"</a><br/>
+                Authorization Metadata: <a href="${issuerUri}/.well-known/openid-configuration" target="_blank">${issuerUri}/.well-known/openid-configuration"</a><br/>
+            </#if>
 
             <p/>
             Go to <a href="https://hub.ebsi.eu/wallet-conformance/issue-to-holder" target="_blank">Issue Verifiable Credentials</a>, start tests and
@@ -52,8 +61,12 @@
 
             The Verify module checks the capability to validate and verify Verifiable Credentials and Presentations.
             <p/>
-            <h3>Auhorization Endpoint (Client ID)</h3>
-            <input type="text" value="${verifierUri}" size="80" readonly/>
+            <#if verifierAuth.hasAuthToken>
+                <h3>${verifierName}</h3>
+                <input type="text" value="${verifierDid}" size="80" readonly/>
+                <h3>Verifier Endpoint</h3>
+                <input type="text" value="${verifierUri}" size="80" readonly/>
+            </#if>
 
             <p/>
             Go to <a href="https://hub.ebsi.eu/wallet-conformance/verifier" target="_blank">Request and verify Verifiable Credentials</a>, start tests and

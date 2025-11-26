@@ -37,9 +37,9 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
 
-// DefaultIssuerService ================================================================================================
+// IssuerServiceEbsi32 =================================================================================================
 
-class IssuerServiceEbsi32(val issuerUrl: String, val authUrl: String) : AbstractIssuerService<IssuerMetadataDraft11>() {
+class IssuerServiceEbsi32 : AbstractIssuerService() {
 
     /**
      * Creates a CredentialOffer for the given subject and credential types
@@ -237,13 +237,12 @@ class IssuerServiceEbsi32(val issuerUrl: String, val authUrl: String) : Abstract
     }
 
     fun getIssuerMetadataUrl(ctx: LoginContext): String {
-        val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerUrl/${ctx.targetId}")
+        val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerEndpointUri/${ctx.targetId}")
         return metadataUrl
     }
 
     fun getIssuerMetadata(ctx: LoginContext): IssuerMetadataDraft11 {
-        val authTargetUrl = "$authUrl/${ctx.targetId}"
-        val issuerTargetUrl = "$issuerUrl/${ctx.targetId}"
+        val issuerTargetUrl = "$issuerEndpointUri/${ctx.targetId}"
         val credentialSupported = mapOf(
             "CTWalletSameAuthorisedInTime" to CredentialSupported(
                 format = CredentialFormat.jwt_vc,
@@ -268,14 +267,14 @@ class IssuerServiceEbsi32(val issuerUrl: String, val authUrl: String) : Abstract
         )
         val waltDraft11 = OpenIDProviderMetadata.Draft11.create(
             issuer = issuerTargetUrl,
-            authorizationServer = authTargetUrl,
-            authorizationEndpoint = "$authTargetUrl/authorize",
-            pushedAuthorizationRequestEndpoint = "$authTargetUrl/par",
-            tokenEndpoint = "$authTargetUrl/token",
+            authorizationServer = issuerTargetUrl,
+            authorizationEndpoint = "$issuerTargetUrl/authorize",
+            pushedAuthorizationRequestEndpoint = "$issuerTargetUrl/par",
+            tokenEndpoint = "$issuerTargetUrl/token",
             credentialEndpoint = "$issuerTargetUrl/credential",
             batchCredentialEndpoint = "$issuerTargetUrl/batch_credential",
             deferredCredentialEndpoint = "$issuerTargetUrl/credential_deferred",
-            jwksUri = "$authTargetUrl/jwks",
+            jwksUri = "$issuerTargetUrl/jwks",
             grantTypesSupported = setOf(GrantType.authorization_code, GrantType.pre_authorized_code),
             requestUriParameterSupported = true,
             subjectTypesSupported = setOf(SubjectType.public),

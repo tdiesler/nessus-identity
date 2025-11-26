@@ -30,6 +30,7 @@ import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.Alice
 import io.nessus.identity.waltid.Bob
+import io.nessus.identity.waltid.Max
 import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 
@@ -82,6 +83,10 @@ class ConsoleServer(val config: ConsoleConfig) {
                     cookie.path = "/"
                     cookie.maxAgeInSeconds = 3600
                 }
+                cookie<IssuerCookie>(cookieName(UserRole.Issuer)) {
+                    cookie.path = "/"
+                    cookie.maxAgeInSeconds = 3600
+                }
                 cookie<VerifierCookie>(cookieName(UserRole.Verifier)) {
                     cookie.path = "/"
                     cookie.maxAgeInSeconds = 3600
@@ -99,13 +104,22 @@ class ConsoleServer(val config: ConsoleConfig) {
             }
             install(createApplicationPlugin("AutoLoginPlugin") {
                 onCall { call ->
+                    val requestPath = call.request.path()
                     if (config.autoLogin) {
-                        val requestPath = call.request.path()
+                        // Always login the Holder
                         if (!(autoLoginComplete[UserRole.Holder] ?: false)) {
                             createLoginContext(call, UserRole.Holder, Alice.toLoginParams())
                             autoLoginComplete[UserRole.Holder] = true
                         }
-                        if (requestPath.startsWith("/verifier") && !(autoLoginComplete[UserRole.Verifier] ?: false)) {
+                        // Login the Issuer on demand
+                        val wantIssuerLogin = listOf("/issuer", "/ebsi").any { requestPath.startsWith(it) }
+                        if (wantIssuerLogin && !(autoLoginComplete[UserRole.Issuer] ?: false)) {
+                            createLoginContext(call, UserRole.Issuer, Max.toLoginParams())
+                            autoLoginComplete[UserRole.Issuer] = true
+                        }
+                        // Login the Verifier on demand
+                        val wantVerifierLogin = listOf("/verifier", "/ebsi").any { requestPath.startsWith(it) }
+                        if (wantVerifierLogin && !(autoLoginComplete[UserRole.Verifier] ?: false)) {
                             createLoginContext(call, UserRole.Verifier, Bob.toLoginParams())
                             autoLoginComplete[UserRole.Verifier] = true
                         }
@@ -170,6 +184,51 @@ class ConsoleServer(val config: ConsoleConfig) {
                     get("/user-delete/{userId}") {
                         val userId = call.parameters["userId"] ?: error("No userId")
                         issuerHandler.handleUserDelete(call, userId)
+                    }
+
+                    // The Issuer's directed endpoints
+                    //
+                    route("/{targetId}") {
+                        get("/.well-known/openid-configuration") {
+                            requireTargetContext(call) { ctx ->
+                                issuerHandler.handleNativeAuthorizationMetadataRequest(call, ctx)
+                            }
+                        }
+                        get("/.well-known/openid-credential-issuer") {
+                            requireTargetContext(call) { ctx ->
+                                issuerHandler.handleNativeIssuerMetadataRequest(call, ctx)
+                            }
+                        }
+                        post("/credential") {
+                            requireTargetContext(call) { ctx ->
+                                issuerHandler.handleNativeCredentialRequest(call, ctx)
+                            }
+                        }
+                        post("/credential_deferred") {
+                            requireTargetContext(call) { ctx ->
+                                issuerHandler.handleNativeCredentialRequestDeferred(call, ctx)
+                            }
+                        }
+                        get("/authorize") {
+                            requireTargetContext(call) { ctx ->
+                                issuerHandler.handleNativeAuthorizationRequest(call, ctx)
+                            }
+                        }
+                        post("/direct_post") {
+                            requireTargetContext(call) { ctx ->
+                                issuerHandler.handleNativeDirectPost(call, ctx)
+                            }
+                        }
+                        get("/jwks") {
+                            requireTargetContext(call) { ctx ->
+                                issuerHandler.handleJwksRequest(call, ctx)
+                            }
+                        }
+                        post("/token") {
+                            requireTargetContext(call) { ctx ->
+                                issuerHandler.handleTokenRequest(call, ctx)
+                            }
+                        }
                     }
                 }
 
@@ -272,7 +331,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                                 walletHandler.handleAuthorization(call, ctx)
                             }
                         }
-                        get("/direct_post") {
+                        post("/direct_post") {
                             error ("Not implemented ${call.request.uri}")
                         }
                         get("/flow/{flowStep}") {
@@ -284,7 +343,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                         get("/jwks") {
                             error ("Not implemented ${call.request.uri}")
                         }
-                        get("/token") {
+                        post("/token") {
                             error ("Not implemented ${call.request.uri}")
                         }
                     }
@@ -359,7 +418,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                                 verifierHandler.handleJwksRequest(call, ctx)
                             }
                         }
-                        get("/token") {
+                        post("/token") {
                             error ("Not implemented ${call.request.uri}")
                         }
                     }

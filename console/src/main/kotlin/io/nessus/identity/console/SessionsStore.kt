@@ -27,6 +27,7 @@ object SessionsStore {
         val did = ctx.maybeDidInfo?.did
         when (role) {
             UserRole.Holder -> call.sessions.set(HolderCookie(wid, did))
+            UserRole.Issuer -> call.sessions.set(IssuerCookie(wid, did))
             UserRole.Verifier -> call.sessions.set(VerifierCookie(wid, did))
         }
         loginContexts.add(ctx)
@@ -71,6 +72,7 @@ object SessionsStore {
             .map { (_, v) ->
                 when (role) {
                     UserRole.Holder -> Json.decodeFromString<HolderCookie>(urlDecode(v))
+                    UserRole.Issuer -> Json.decodeFromString<IssuerCookie>(urlDecode(v))
                     UserRole.Verifier -> Json.decodeFromString<VerifierCookie>(urlDecode(v))
                 }
             }
@@ -106,6 +108,14 @@ data class HolderCookie(
 }
 
 @Serializable
+data class IssuerCookie(
+    override val wid: String,
+    override val did: String? = null
+) : BaseCookie() {
+    override val role: UserRole = UserRole.Issuer
+}
+
+@Serializable
 data class VerifierCookie(
     override val wid: String,
     override val did: String? = null
@@ -117,6 +127,7 @@ object CookieSerializer : JsonContentPolymorphicSerializer<BaseCookie>(BaseCooki
     override fun selectDeserializer(element: JsonElement): DeserializationStrategy<BaseCookie> {
         return when (element.jsonObject["role"]?.jsonPrimitive?.content) {
             "Holder" -> HolderCookie.serializer()
+            "Issuer" -> IssuerCookie.serializer()
             "Verifier" -> VerifierCookie.serializer()
             else -> throw SerializationException("Unknown role in cookie: $element")
         }

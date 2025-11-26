@@ -28,7 +28,7 @@ import java.net.URI
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService<IssuerMetadataV0>() {
+class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService() {
 
     val issuerBaseUrl = config.baseUrl
     val issuerUrl = "$issuerBaseUrl/realms/${config.realm}"

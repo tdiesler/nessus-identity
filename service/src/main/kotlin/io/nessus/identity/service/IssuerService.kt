@@ -1,11 +1,20 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.config.ConfigProvider
+import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
+import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
+import io.nessus.identity.config.FeatureProfile.EBSI_V32
+import io.nessus.identity.config.Features
 import io.nessus.identity.types.IssuerMetadata
 
 // IssuerService =======================================================================================================
 
-interface IssuerService<IMType : IssuerMetadata> {
+interface IssuerService {
+
+    val issuerEndpointUri
+        get() = when(Features.getProfile()) {
+            EBSI_V32 -> "${requireEbsiConfig().baseUrl}/issuer"
+            else -> requireIssuerConfig().baseUrl
+        }
 
     /**
      * Get the Issuer's metadata Url
@@ -15,18 +24,15 @@ interface IssuerService<IMType : IssuerMetadata> {
     /**
      * Get the IssuerMetadata
      */
-    suspend fun getIssuerMetadata(): IMType
+    suspend fun getIssuerMetadata(): IssuerMetadata
 
     companion object {
         fun createEbsi(): IssuerServiceEbsi32 {
-            val ebsi = ConfigProvider.requireEbsiConfig()
-            val authUrl = "${ebsi.baseUrl}/auth"
-            val issuerUrl = "${ebsi.baseUrl}/issuer"
-            return IssuerServiceEbsi32(issuerUrl, authUrl);
+            return IssuerServiceEbsi32();
         }
 
         fun createKeycloak(): IssuerServiceKeycloak {
-            val issuerCfg = ConfigProvider.requireIssuerConfig()
+            val issuerCfg = requireIssuerConfig()
             return IssuerServiceKeycloak(issuerCfg);
         }
     }

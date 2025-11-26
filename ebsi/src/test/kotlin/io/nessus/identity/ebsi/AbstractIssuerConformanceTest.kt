@@ -3,7 +3,7 @@ package io.nessus.identity.ebsi
 import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.waltid.Alice
+import io.nessus.identity.waltid.Max
 import kotlin.random.Random
 
 abstract class AbstractIssuerConformanceTest : AbstractConformanceTest() {
@@ -13,7 +13,7 @@ abstract class AbstractIssuerConformanceTest : AbstractConformanceTest() {
 
     fun prepareIssuerTests(): LoginContext {
 
-        val ctx = runBlocking { loginWithDid(Alice) }
+        val ctx = runBlocking { loginWithDid(Max) }
         ctx.hasDidInfo.shouldBeTrue()
 
         val page = context.newPage()

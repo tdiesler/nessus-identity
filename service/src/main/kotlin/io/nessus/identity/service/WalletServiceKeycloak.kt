@@ -26,7 +26,6 @@ import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZ
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_USER_PIN_ATTACHMENT_KEY
-import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.USER_ATTACHMENT_KEY
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.service.OIDContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
@@ -66,13 +65,6 @@ import kotlin.uuid.Uuid
 class WalletServiceKeycloak : AbstractWalletService(), WalletService {
 
     override val defaultClientId = requireIssuerConfig().clientId
-
-    override fun createAuthorizationContext(ctx: LoginContext?): AuthorizationContext {
-        // [TODO] explain why we can have an AuthorizationContext without LoginContext
-        val authContext = AuthorizationContext(ctx)
-        ctx?.also { it.putAttachment(AUTH_CONTEXT_ATTACHMENT_KEY, authContext) }
-        return authContext
-    }
 
     override suspend fun buildAuthorizationRequest(
         authContext: AuthorizationContext,

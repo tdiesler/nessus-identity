@@ -10,7 +10,7 @@ class IssuerConformanceTest : AbstractIssuerConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startEBSIPortal()
+        startConsoleServer()
         startPlaywrightBrowser()
         prepareIssuerTests()
     }
@@ -18,7 +18,7 @@ class IssuerConformanceTest : AbstractIssuerConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopEBSIPortal()
+        stopConsoleServer()
     }
 
     @Test

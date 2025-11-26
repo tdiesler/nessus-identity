@@ -32,9 +32,10 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
 
     val log = KotlinLogging.logger {}
 
-    fun buildAuthorizationMetadata(walletTargetUri: String): JsonObject {
-        return Json.parseToJsonElement(
-            """
+    companion object {
+        fun buildAuthorizationMetadata(walletTargetUri: String): JsonObject {
+            return Json.parseToJsonElement(
+                """
             {
               "authorization_endpoint": "$walletTargetUri/authorize",
               "grant_types_supported": [
@@ -115,7 +116,8 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
               }
             }            
         """.trimIndent()
-        ).jsonObject
+            ).jsonObject
+        }
     }
 
     fun buildAuthCodeRedirectUri(ctx: LoginContext, authCode: String): String {

@@ -46,7 +46,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             if (credJwt == null) {
                 val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
                 val credOffer = walletSvc.getCredentialOffer(offerUri)
-                val authContext = walletSvc.createAuthorizationContext(alice)
+                val authContext = AuthorizationContext.create(alice)
                 val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
                 walletSvc.getCredential(authContext, accessToken)
             }
@@ -108,7 +108,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             if (credJwt == null) {
                 val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
                 val credOffer = walletSvc.getCredentialOffer(offerUri)
-                val authContext = walletSvc.createAuthorizationContext(alice)
+                val authContext = AuthorizationContext.create(alice)
                 val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
                 walletSvc.getCredential(authContext, accessToken)
             }

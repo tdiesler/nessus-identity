@@ -1,5 +1,7 @@
 package io.nessus.identity.service
 
+import com.nimbusds.jwt.SignedJWT
+import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialOffer
@@ -24,10 +26,18 @@ class AuthorizationContext(val loginContext: LoginContext? = null): AttachmentSu
         get() = credentialConfigurationIds?.filter { it !in listOf("VerifiableAttestation", "VerifiableCredential")  }
 
     companion object {
+        val EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY = attachmentKey<SignedJWT>("ACCESS_TOKEN")
         val EBSI32_AUTH_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE")
         val EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>()
         val EBSI32_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("CODE_VERIFIER")
         val EBSI32_USER_PIN_ATTACHMENT_KEY = attachmentKey<String>("USER_PIN")
+
+        fun create(ctx: LoginContext?): AuthorizationContext {
+            // [TODO] explain why we can have an AuthorizationContext without LoginContext
+            val authContext = AuthorizationContext(ctx)
+            ctx?.also { it.putAttachment(AUTH_CONTEXT_ATTACHMENT_KEY, authContext) }
+            return authContext
+        }
     }
 
     suspend fun getIssuerMetadata(): IssuerMetadata {

@@ -15,13 +15,14 @@ import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.extend.signWithKey
+import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.AUTH_RESPONSE_ATTACHMENT_KEY
 import io.nessus.identity.service.VerifierService
+import io.nessus.identity.service.WalletAuthorizationService.Companion.buildAuthorizationMetadata
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.DCQLQuery
@@ -108,7 +109,7 @@ class VerifierHandler : AuthHandler() {
 
         when {
             scopes.any { it.contains("id_token") } -> {
-                val authContext = walletSvc.createAuthorizationContext(ctx)
+                val authContext = AuthorizationContext.create(ctx)
                 val authRequest = AuthorizationRequestDraft11.fromHttpParameters(call.request.queryParameters.toMap())
                 authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
                 val idTokenReqJwt = buildIDTokenRequest(ctx, authRequest)
@@ -117,7 +118,7 @@ class VerifierHandler : AuthHandler() {
                 return call.respondRedirect(redirectUrl)
             }
             scopes.any { it.contains("vp_token") } -> {
-                val authContext = walletSvc.createAuthorizationContext(ctx)
+                val authContext = AuthorizationContext.create(ctx)
                 val authRequest = AuthorizationRequestDraft11.fromHttpParameters(call.request.queryParameters.toMap())
                 authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
                 val vpTokenReqJwt = buildVPTokenRequest(ctx, authRequest)
@@ -130,7 +131,7 @@ class VerifierHandler : AuthHandler() {
 
     suspend fun handleAuthorizationMetadataRequest(call: RoutingCall, ctx: LoginContext) {
         val walletTargetUri = "${verifierSvc.verifierEndpointUri}/${ctx.targetId}"
-        val payload = Json.encodeToString(walletAuthSvc.buildAuthorizationMetadata(walletTargetUri))
+        val payload = Json.encodeToString(buildAuthorizationMetadata(walletTargetUri))
         call.respondText(
             status = HttpStatusCode.OK,
             contentType = ContentType.Application.Json,
@@ -224,7 +225,7 @@ class VerifierHandler : AuthHandler() {
 
     suspend fun showAuthConfig(call: RoutingCall, ctx: LoginContext) {
         val verifierTargetUri = "${verifierSvc.verifierEndpointUri}/${ctx.targetId}"
-        val authConfig = walletAuthSvc.buildAuthorizationMetadata(verifierTargetUri)
+        val authConfig = buildAuthorizationMetadata(verifierTargetUri)
         val prettyJson = jsonPretty.encodeToString(authConfig)
         val authConfigUrl = "$verifierTargetUri/.well-known/openid-configuration"
         val model = verifierModel(call).also {
@@ -404,9 +405,7 @@ class VerifierHandler : AuthHandler() {
         }
 
         if (validationError == null) {
-            val authCode = "${Uuid.random()}"
-            ctx.putAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY, authCode)
-            urlBuilder.parameters.append("code", authCode)
+            urlBuilder.parameters.append("code", "${Uuid.random()}")
         }
         if (authReq.state != null) {
             urlBuilder.parameters.append("state", "${authReq.state}")

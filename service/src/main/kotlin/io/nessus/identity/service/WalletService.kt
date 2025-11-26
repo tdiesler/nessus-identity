@@ -27,8 +27,6 @@ interface WalletService: DeprecatedWalletService {
             else -> requireWalletConfig().baseUrl
         }
 
-    fun createAuthorizationContext(ctx: LoginContext? = null): AuthorizationContext
-
     suspend fun buildAuthorizationRequest(
         authContext: AuthorizationContext,
         clientId: String = defaultClientId,

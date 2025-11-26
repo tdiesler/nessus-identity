@@ -5,7 +5,6 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
-import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.ConfigProvider.requireWaltIdConfig
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.UserRole
@@ -19,18 +18,30 @@ class EBSIHandler() {
 
     fun ebsiModel(call: RoutingCall): BaseModel {
         val ebsiConfig = requireEbsiConfig()
-        val issuerConfig = requireIssuerConfig()
         val waltIdConfig = requireWaltIdConfig()
         val model = BaseModel()
             .withLoginContext(call, UserRole.Holder)
+            .withLoginContext(call, UserRole.Issuer)
             .withLoginContext(call, UserRole.Verifier)
         val holder = model.loginContexts[UserRole.Holder] as LoginContext
+        val issuer = model.loginContexts[UserRole.Issuer] as LoginContext
         val verifier = model.loginContexts[UserRole.Verifier] as LoginContext
-        model["walletName"] = holder.walletInfo.name
-        model["walletDid"] = holder.didInfo.did
-        model["walletUri"] = "${ebsiConfig.baseUrl}/wallet/${holder.targetId}"
-        model["issuerUri"] = "${issuerConfig.baseUrl}/realms/${issuerConfig.realm}"
-        model["verifierUri"] = "${ebsiConfig.baseUrl}/verifier/${verifier.targetId}"
+        if (holder.hasAuthToken) {
+            model["walletName"] = holder.walletInfo.name
+            model["walletDid"] = holder.didInfo.did
+            model["walletUri"] = "${ebsiConfig.baseUrl}/wallet/${holder.targetId}"
+            model["issuerUri"] = "${ebsiConfig.baseUrl}/issuer/${holder.targetId}"
+        }
+        if (issuer.hasAuthToken) {
+            model["issuerName"] = issuer.walletInfo.name
+            model["issuerDid"] = issuer.didInfo.did
+            model["issuerUri"] = "${ebsiConfig.baseUrl}/issuer/${issuer.targetId}"
+        }
+        if (verifier.hasAuthToken) {
+            model["verifierName"] = verifier.walletInfo.name
+            model["verifierDid"] = verifier.didInfo.did
+            model["verifierUri"] = "${ebsiConfig.baseUrl}/verifier/${verifier.targetId}"
+        }
         model["demoWalletUrl"] = "${waltIdConfig.demoWallet?.baseUrl}"
         return model
     }
