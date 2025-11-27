@@ -16,6 +16,7 @@ import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.data.SubjectType
 import id.walt.oid4vc.requests.CredentialRequest
 import id.walt.oid4vc.responses.CredentialResponse
+import io.nessus.identity.config.User
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
@@ -39,12 +40,56 @@ import kotlin.uuid.Uuid
 
 // IssuerServiceEbsi32 =================================================================================================
 
-class IssuerServiceEbsi32 : AbstractIssuerService() {
+class IssuerServiceEbsi32 : AbstractIssuerService(), IssuerService {
+
+    override suspend fun createCredentialOfferUri(
+        configId: String,
+        preAuthorized: Boolean,
+        holder: User?
+    ): String {
+        error("Not implemented")
+    }
+
+    override fun getIssuerMetadataUrl(): String {
+        error("Not implemented")
+    }
+
+    override suspend fun getIssuerMetadata(): IssuerMetadataDraft11 {
+        error("Not implemented")
+    }
+
+    override fun createUser(
+        firstName: String,
+        lastName: String,
+        email: String,
+        username: String,
+        password: String
+    ): IssuerService.UserInfo {
+        error("Not implemented")
+    }
+
+    override fun findUser(predicate: (IssuerService.UserInfo) -> Boolean): IssuerService.UserInfo? {
+        error("Not implemented")
+    }
+
+    override fun findUserByEmail(email: String): IssuerService.UserInfo? {
+        error("Not implemented")
+    }
+
+    override fun getUsers(): List<IssuerService.UserInfo> {
+        error("Not implemented")
+    }
+
+    override fun deleteUser(userId: String) {
+        error("Not implemented")
+    }
+
+    // Private ---------------------------------------------------------------------------------------------------------
 
     /**
      * Creates a CredentialOffer for the given subject and credential types
      */
-    suspend fun createCredentialOffer(
+    private suspend fun createCredentialOffer(
         ctx: LoginContext,
         subjectId: String,
         types: List<String>,
@@ -102,7 +147,7 @@ class IssuerServiceEbsi32 : AbstractIssuerService() {
         return credOffer
     }
 
-    suspend fun getCredentialFromRequest(
+    private suspend fun getCredentialFromRequest(
         ctx: OIDContext,
         credReq: CredentialRequest,
         accessTokenJwt: SignedJWT,
@@ -129,7 +174,7 @@ class IssuerServiceEbsi32 : AbstractIssuerService() {
         return credentialResponse
     }
 
-    suspend fun getCredentialFromParameters(
+    private suspend fun getCredentialFromParameters(
         ctx: OIDContext,
         vcp: CredentialParameters
     ): CredentialResponse {
@@ -203,7 +248,7 @@ class IssuerServiceEbsi32 : AbstractIssuerService() {
         return credRes
     }
 
-    suspend fun getDeferredCredentialFromAcceptanceToken(
+    private suspend fun getDeferredCredentialFromAcceptanceToken(
         ctx: OIDContext,
         acceptanceTokenJwt: SignedJWT
     ): CredentialResponse {
@@ -228,20 +273,13 @@ class IssuerServiceEbsi32 : AbstractIssuerService() {
         return credentialResponse
     }
 
-    override fun getIssuerMetadataUrl(): String {
-        throw IllegalStateException("Not implemented")
-    }
 
-    override suspend fun getIssuerMetadata(): IssuerMetadataDraft11 {
-        throw IllegalStateException("Not implemented")
-    }
-
-    fun getIssuerMetadataUrl(ctx: LoginContext): String {
+    private fun getIssuerMetadataUrl(ctx: LoginContext): String {
         val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerEndpointUri/${ctx.targetId}")
         return metadataUrl
     }
 
-    fun getIssuerMetadata(ctx: LoginContext): IssuerMetadataDraft11 {
+    private fun getIssuerMetadata(ctx: LoginContext): IssuerMetadataDraft11 {
         val issuerTargetUrl = "$issuerEndpointUri/${ctx.targetId}"
         val credentialSupported = mapOf(
             "CTWalletSameAuthorisedInTime" to CredentialSupported(
@@ -292,8 +330,6 @@ class IssuerServiceEbsi32 : AbstractIssuerService() {
         return metadata
     }
 
-    // Private ---------------------------------------------------------------------------------------------------------
-
     private suspend fun credentialFromRequestDeferred(
         ctx: OIDContext,
         credReq: CredentialRequest,
@@ -340,7 +376,7 @@ class IssuerServiceEbsi32 : AbstractIssuerService() {
         return credentialResponse
     }
 
-    fun validateAccessToken(bearerToken: SignedJWT) {
+    private fun validateAccessToken(bearerToken: SignedJWT) {
 
         val claims = bearerToken.jwtClaimsSet
         val exp = claims.expirationTime?.toInstant()

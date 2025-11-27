@@ -26,32 +26,3 @@ enum class KeyType(val algorithm: String) {
 }
 
 data class Key(val id: String, val algorithm: String)
-
-// Users ----------------------------------------------------------------------------------------------------------------
-
-open class User(val name: String, val email: String, val password: String) {
-
-    private var explicitUsername: String? = null
-
-    val username get() =
-        if (explicitUsername.isNullOrEmpty())
-            name.split("\\s+".toRegex())[0].lowercase()
-        else
-            explicitUsername!!
-
-    fun withUsername(username: String) {
-        explicitUsername = username
-    }
-
-    fun toLoginParams(): LoginParams {
-        return LoginParams(LoginType.EMAIL, email, password)
-    }
-
-    fun toRegisterUserParams(): RegisterUserParams {
-        return RegisterUserParams(LoginType.EMAIL, name, email, password)
-    }
-}
-
-object Alice : User("Alice Wonderland", "alice@email.com", "password")
-object Bob : User("Bob Baumeister", "bob@email.com", "password")
-object Max : User("Max Mustermann", "user@email.com", "password")

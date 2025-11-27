@@ -23,9 +23,11 @@ import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT
 import io.nessus.identity.service.LoginContext.Companion.AUTH_RESPONSE_ATTACHMENT_KEY
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletAuthorizationService.Companion.buildAuthorizationMetadata
+import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.DCQLQuery
+import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserRole
@@ -40,10 +42,7 @@ import java.time.Instant
 import java.util.*
 import kotlin.uuid.Uuid
 
-class VerifierHandler : AuthHandler() {
-
-    val issuerSvc = IssuerService.createKeycloak()
-    val verifierSvc = VerifierService.create()
+class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, val verifierSvc: VerifierService) : AuthHandler(walletSvc) {
 
     override val endpointUri = verifierSvc.verifierEndpointUri
 
@@ -188,11 +187,12 @@ class VerifierHandler : AuthHandler() {
 
         val params = call.receiveParameters()
         val targetId = params["targetId"] ?: error("No targetId")
+        // [TODO] migrate ctype to configId
         val ctype = params["ctype"] ?: error("No ctype")
         val claims = params["claims"] ?: error("No claims")
 
-        val metadata = issuerSvc.getIssuerMetadata()
-        val credConfig = metadata.credentialConfigurationsSupported[ctype]
+        val issuerMetadata = issuerSvc.getIssuerMetadata()
+        val format = issuerMetadata.getCredentialFormat(ctype) ?: error("No format for: $ctype")
 
         val responseUri = "${verifierSvc.verifierEndpointUri}/auth/callback/${ctx.targetId}"
         val authReq = verifierSvc.buildAuthorizationRequestForPresentation(
@@ -204,7 +204,7 @@ class VerifierHandler : AuthHandler() {
                   "credentials": [
                     {
                       "id": "queryId",
-                      "format": "${credConfig!!.format}",
+                      "format": "${format.value}",
                       "meta": {
                         "vct_values": [ "$ctype" ]
                       },
@@ -238,10 +238,11 @@ class VerifierHandler : AuthHandler() {
     }
 
     suspend fun showPresentationRequest(call: RoutingCall, holderContext: LoginContext) {
+        val issuerMetadata = issuerSvc.getIssuerMetadata() as IssuerMetadataV0
         val model = verifierModel(call)
         model["targetId"] = holderContext.targetId
         model["subInfo"] = widWalletService.authUserInfo(holderContext.authToken) ?: error("No UserInfo")
-        model["vctValues"] = issuerSvc.getIssuerMetadata().credentialConfigurationsSupported.keys
+        model["vctValues"] = issuerMetadata.credentialConfigurationsSupported.keys
         model["claimsJson"] = jsonPretty.encodeToString(
             Json.decodeFromString<JsonArray>(
                 """

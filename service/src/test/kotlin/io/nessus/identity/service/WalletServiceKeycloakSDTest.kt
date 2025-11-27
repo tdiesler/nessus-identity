@@ -1,11 +1,11 @@
 package io.nessus.identity.service
 
 import io.kotest.matchers.equals.shouldBeEqual
+import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.W3CCredentialSdV11Jwt
-import io.nessus.identity.waltid.Alice
 
-class WalletServiceKeycloakSDTest : WalletServiceKeycloakBase() {
+class WalletServiceKeycloakSDTest : WalletServiceKeycloakBaseTest() {
 
     override val credentialConfigurationId = "oid4vc_natural_person"
 

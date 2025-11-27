@@ -6,12 +6,13 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.IssuerConfig
+import io.nessus.identity.config.User
+import io.nessus.identity.service.IssuerService.UserInfo
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.types.CredentialOfferUri
 import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.OfferUriType
 import io.nessus.identity.types.TokenRequest
-import io.nessus.identity.waltid.User
 import jakarta.ws.rs.core.HttpHeaders
 import kotlinx.serialization.json.*
 import org.keycloak.OAuth2Constants
@@ -28,7 +29,7 @@ import java.net.URI
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService() {
+class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService(), IssuerService {
 
     val issuerBaseUrl = config.baseUrl
     val issuerUrl = "$issuerBaseUrl/realms/${config.realm}"
@@ -47,15 +48,13 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService() 
     /**
      * Creates a CredentialOfferUri for the given credential configuration id
      */
-    suspend fun createCredentialOfferUri(
-        issuer: User,
-        credConfigId: String,
-        preAuthorized: Boolean = false,
-        holder: User? = null,
+    override suspend fun createCredentialOfferUri(
+        configId: String,
+        preAuthorized: Boolean,
+        holder: User?,
     ): String {
 
-        val credOfferUriRes = createCredentialOfferUriInternal(issuer, credConfigId, preAuthorized, holder,
-            OfferUriType.URI)
+        val credOfferUriRes = createCredentialOfferUriInternal(configId, preAuthorized, holder, OfferUriType.URI)
 
         val credOfferUriJson = handleApiResponse(credOfferUriRes) as JsonObject
         val issuerUrl = credOfferUriJson.getValue("issuer").jsonPrimitive.content
@@ -71,43 +70,47 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService() 
      * Creates a CredentialOfferUri QR Code
      */
     suspend fun createCredentialOfferUriQRCode(
-        issuer: User,
-        credConfigId: String,
+        configId: String,
         preAuthorized: Boolean = false,
         holder: User? = null,
     ): ByteArray {
 
-        val credOfferUriRes = createCredentialOfferUriInternal(issuer, credConfigId, preAuthorized, holder,
-            OfferUriType.QR_CODE)
+        val credOfferUriRes = createCredentialOfferUriInternal(
+            configId,
+            preAuthorized,
+            holder,
+            OfferUriType.QR_CODE
+        )
 
         return handleApiResponse(credOfferUriRes) as ByteArray
     }
 
-    fun findUserByEmail(email: String): UserRepresentation? {
-        val realm = config.realm
-        keycloakConnect(realm).use {
-            val usersResource = it.realm(realm).users()
-            val realmUsers = usersResource.searchByEmail(email, true)
-            return realmUsers.firstOrNull()
-        }
+    override fun findUser(predicate: (UserInfo) -> Boolean): UserInfo? {
+        val userInfo = getUsers().firstOrNull { predicate(it) }
+        return userInfo
     }
 
-    fun getUsers(): List<UserRepresentation> {
-        val realm = config.realm
-        keycloakConnect(realm).use {
-            val usersResource = it.realm(realm).users()
-            val realmUsers = usersResource.list()
-            return realmUsers
-        }
+    override fun findUserByEmail(email: String): UserInfo? {
+        val userInfo = findUser { it.email == email }
+        return userInfo
     }
 
-    fun createUser(
+    override fun getUsers(): List<UserInfo> {
+        val realm = config.realm
+        val uerInfos = keycloakConnect(realm).use { kc ->
+            val usersResource = kc.realm(realm).users()
+            usersResource.list().map { UserInfo.fromUserRepresentation(it) }
+        }
+        return uerInfos
+    }
+
+    override fun createUser(
         firstName: String,
         lastName: String,
         email: String,
         username: String,
         password: String
-    ): UserRepresentation {
+    ): UserInfo {
         val realm = config.realm
         val user = UserRepresentation().apply {
             this.username = username
@@ -136,11 +139,11 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService() 
             val user = users.get(userId)
             user.resetPassword(credential)
 
-            return user.toRepresentation()
+            return UserInfo.fromUserRepresentation(user.toRepresentation())
         }
     }
 
-    fun deleteUser(userId: String) {
+    override fun deleteUser(userId: String) {
         val realm = config.realm
         keycloakConnect(realm).use {
             it.realm(realm).users().delete(userId)
@@ -150,23 +153,23 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService() 
     // Private ---------------------------------------------------------------------------------------------------------
 
     private suspend fun createCredentialOfferUriInternal(
-        issuer: User,
-        credConfigId: String,
+        configId: String,
         preAuthorized: Boolean,
         holder: User?,
         type: OfferUriType?,
     ): HttpResponse {
 
         val issuerMetadata = getIssuerMetadata()
-        val scope = requireNotNull(issuerMetadata.getCredentialScope(credConfigId))
-        { "No credential scope for: $credConfigId" }
+        val scope = requireNotNull(issuerMetadata.getCredentialScope(configId))
+        { "No credential scope for: $configId" }
 
         val cfg = requireIssuerConfig()
 
+        val adminUser = config.adminUser
         val tokReq = TokenRequest.DirectAccess(
             clientId = cfg.clientId,
-            username = issuer.username,
-            password = issuer.password,
+            username = adminUser.username,
+            password = adminUser.password,
             scopes = listOf(scope)
         )
 
@@ -177,8 +180,7 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService() 
         val tokenJwt = SignedJWT.parse(accessToken)
         log.info { "AccessToken: ${tokenJwt.jwtClaimsSet}" }
 
-        val params = CredentialOfferUri(issuer, credConfigId)
-            .withPreAuthorized(preAuthorized)
+        val params = CredentialOfferUri(configId).withPreAuthorized(preAuthorized)
         holder?.also { params.withUserId(it.username) }
         type?.also { params.withType(it) }
 

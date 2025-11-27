@@ -49,10 +49,10 @@ data class IssuerMetadataDraft11(
         return credConfigId
     }
 
-    override fun getCredentialFormat(credType: String): CredentialFormat? {
+    override fun getCredentialFormat(configId: String): CredentialFormat? {
         val credConfig = credentialsSupported
-            .firstOrNull { it.types!!.contains(credType) }
-            ?: error("No credential configuration for: $credType")
+            .firstOrNull { it.types!!.contains(configId) }
+            ?: error("No credential configuration for: $configId")
         return CredentialFormat.fromValue(credConfig.format)
     }
 

@@ -9,7 +9,9 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
+import io.nessus.identity.config.ConfigProvider.Max
 import io.nessus.identity.service.AbstractServiceTest
+import io.nessus.identity.service.toLoginParams
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*

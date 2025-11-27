@@ -14,14 +14,16 @@ import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
 import io.nessus.identity.config.FeatureProfile
 import io.nessus.identity.config.Features
+import io.nessus.identity.config.User
 import io.nessus.identity.console.ConsoleServer
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.WALLET_INFO_ATTACHMENT_KEY
+import io.nessus.identity.service.toLoginParams
+import io.nessus.identity.service.toRegisterUserParams
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.KeyType
-import io.nessus.identity.waltid.User
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.serialization.json.*
 import org.junit.jupiter.api.TestInstance

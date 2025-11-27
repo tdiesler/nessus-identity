@@ -17,6 +17,10 @@ import kotlin.reflect.typeOf
 @OptIn(ExperimentalHoplite::class)
 object ConfigProvider {
 
+    lateinit var Max: User
+    lateinit var Alice: User
+    lateinit var Bob: User
+
     val root = run {
         val rootConfig = ConfigLoaderBuilder.default()
             .withExplicitSealedTypes()
@@ -25,6 +29,9 @@ object ConfigProvider {
             .addDecoder(FeatureProfileDecoder)
             .build().loadConfigOrThrow<RootConfig>()
         Features.initProfile(rootConfig.featureProfile)
+        Max = rootConfig.issuer!!.adminUser
+        Alice = rootConfig.wallet!!.testUser
+        Bob = rootConfig.verifier!!.testUser
         rootConfig
     }
 
@@ -92,15 +99,11 @@ data class DatabaseConfig(
 
 @Serializable
 data class EbsiConfig(
-    var host: String = "0.0.0.0",
-    val port: Int,
     val baseUrl: String,
     // Our Issuer needs to know the Requester's DID for the Pre-Authorized use cases
     // https://hub.ebsi.eu/wallet-conformance/issue-to-holder/flow
     val requesterDid: String?,
     var preAuthUserPin: String?,
-    val userEmail: String?,
-    val userPassword: String?,
 )
 
 @Serializable
@@ -117,17 +120,20 @@ data class IssuerConfig(
     val clientId: String,
     val serviceId: String,
     val serviceSecret: String,
+    val adminUser: User,
 )
 
 @Serializable
 data class VerifierConfig(
     val baseUrl: String,
+    val testUser: User,
 )
 
 @Serializable
 data class WalletConfig(
     val baseUrl: String,
     val callbackUri: String,
+    val testUser: User,
 )
 
 @Serializable
@@ -136,6 +142,14 @@ data class WaltIdConfig(
     val demoWallet: EndpointConfig?,
     val devWallet: EndpointConfig?,
     val vcRepo: EndpointConfig?,
+)
+
+@Serializable
+data class User(
+    val name: String,
+    val email: String,
+    val username: String,
+    val password: String,
 )
 
 object FeatureProfileDecoder : Decoder<FeatureProfile> {

@@ -16,8 +16,6 @@ import io.nessus.identity.types.W3CCredentialJwt
 
 // WalletService =======================================================================================================
 
-const val KNOWN_ISSUER_EBSI_V3 = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock"
-
 interface WalletService {
 
     val defaultClientId: String
@@ -27,6 +25,12 @@ interface WalletService {
             EBSI_V32 -> "${requireEbsiConfig().baseUrl}/wallet"
             else -> requireWalletConfig().baseUrl
         }
+
+    companion object {
+        fun create(): WalletService {
+            return DefaultWalletService()
+        }
+    }
 
     fun addCredentialOffer(ctx: LoginContext, credOffer: CredentialOffer): String
 
@@ -98,12 +102,6 @@ interface WalletService {
     suspend fun getCredential(authContext: AuthorizationContext, accessToken: TokenResponse): W3CCredentialJwt
 
     suspend fun getCredentialFromOffer(authContext: AuthorizationContext, credOffer: CredentialOffer): W3CCredentialJwt
-
-    companion object {
-        fun create(): DefaultWalletService {
-            return DefaultWalletService()
-        }
-    }
 }
 
 data class SubmissionBundle(

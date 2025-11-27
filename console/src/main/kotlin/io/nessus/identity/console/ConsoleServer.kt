@@ -19,6 +19,9 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.ktor.util.*
+import io.nessus.identity.config.ConfigProvider.Alice
+import io.nessus.identity.config.ConfigProvider.Bob
+import io.nessus.identity.config.ConfigProvider.Max
 import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
 import io.nessus.identity.config.ConsoleConfig
 import io.nessus.identity.config.getVersionInfo
@@ -26,11 +29,12 @@ import io.nessus.identity.console.SessionsStore.cookieName
 import io.nessus.identity.console.SessionsStore.createLoginContext
 import io.nessus.identity.console.SessionsStore.findLoginContext
 import io.nessus.identity.service.HttpStatusException
+import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.VerifierService
+import io.nessus.identity.service.WalletService
+import io.nessus.identity.service.toLoginParams
 import io.nessus.identity.types.UserRole
-import io.nessus.identity.waltid.Alice
-import io.nessus.identity.waltid.Bob
-import io.nessus.identity.waltid.Max
 import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 
@@ -38,12 +42,14 @@ class ConsoleServer(val config: ConsoleConfig) {
 
     val log = KotlinLogging.logger {}
 
-    val ebsiHandler = EBSIHandler()
-    val issuerHandler = IssuerHandler()
-    val walletHandler = WalletHandler()
-    val verifierHandler = VerifierHandler()
+    val issuerSvc = IssuerService.create()
+    val walletSvc = WalletService.create()
+    val verifierSvc = VerifierService.create()
 
-    val versionInfo = getVersionInfo()
+    val ebsiHandler = EBSIHandler()
+    val walletHandler = WalletHandler(walletSvc)
+    val issuerHandler = IssuerHandler(walletSvc, issuerSvc)
+    val verifierHandler = VerifierHandler(walletSvc, issuerSvc, verifierSvc)
 
     private val autoLoginComplete = mutableMapOf<UserRole, Boolean>()
 
@@ -56,6 +62,7 @@ class ConsoleServer(val config: ConsoleConfig) {
     }
 
     init {
+        val versionInfo = getVersionInfo()
         log.info { "Starting Console Server ..." }
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
     }

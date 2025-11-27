@@ -4,8 +4,7 @@ import io.kotest.common.runBlocking
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldEndWith
-import io.nessus.identity.waltid.Alice
-import io.nessus.identity.waltid.Max
+import io.nessus.identity.config.ConfigProvider.Alice
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -15,8 +14,8 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
 
     lateinit var alice: LoginContext
 
-    lateinit var issuerSvc: IssuerServiceKeycloak
-    lateinit var walletSvc: DefaultWalletService
+    lateinit var issuerSvc: IssuerService
+    lateinit var walletSvc: WalletService
 
     @BeforeEach
     fun setUp() {
@@ -50,7 +49,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     fun createCredentialOffer() {
         runBlocking {
             val credConfigId = "oid4vc_natural_person"
-            val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId)
+            val offerUri = issuerSvc.createCredentialOfferUri(credConfigId)
             val credOffer = walletSvc.getCredentialOffer(offerUri)
             credOffer.shouldNotBeNull()
         }
@@ -60,7 +59,8 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     fun createCredentialOfferQRCode() {
         runBlocking {
             val credConfigId = "oid4vc_natural_person"
-            val offerQrCode = issuerSvc.createCredentialOfferUriQRCode(Max, credConfigId)
+            val issuerKeycloak = issuerSvc as IssuerServiceKeycloak
+            val offerQrCode = issuerKeycloak.createCredentialOfferUriQRCode(credConfigId)
             offerQrCode.shouldNotBeNull()
         }
     }
@@ -69,7 +69,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     fun createCredentialOfferPreAuthorized() {
         runBlocking {
             val credConfigId = "oid4vc_natural_person"
-            val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
+            val offerUri = issuerSvc.createCredentialOfferUri(credConfigId, true, Alice)
             val credOffer = walletSvc.getCredentialOffer(offerUri)
             credOffer.shouldNotBeNull()
         }
@@ -79,7 +79,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     fun createCredentialOfferInvalidType() {
         runBlocking {
             assertThrows<IllegalArgumentException> {
-                issuerSvc.createCredentialOfferUri(Max, "oid4vc_unknown")
+                issuerSvc.createCredentialOfferUri("oid4vc_unknown")
             }
         }
     }
@@ -88,8 +88,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     fun getRealmUsers() {
         val realmUsers = issuerSvc.getUsers()
         realmUsers.forEach { usr ->
-            val did = usr.attributes?.get("did")?.firstOrNull()
-            log.info { "id=${usr.id}, name=${usr.firstName} ${usr.lastName}, username=${usr.username}, email=${usr.email}, did=$did" }
+            log.info { "id=${usr.id}, name=${usr.firstName} ${usr.lastName}, username=${usr.username}, email=${usr.email}, did=${usr.did}" }
         }
     }
 }

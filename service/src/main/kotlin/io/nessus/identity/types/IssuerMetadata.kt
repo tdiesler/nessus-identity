@@ -4,7 +4,6 @@ import id.walt.oid4vc.data.CredentialFormat
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.nessus.identity.service.http
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -28,31 +27,29 @@ sealed class IssuerMetadata {
     fun toJson() = Json.encodeToString(this)
     fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
 
-    fun getAuthorizationMetadata(): JsonObject {
+    suspend fun getAuthorizationMetadata(): JsonObject {
         if (!::authMetadata.isInitialized) {
             val authServerUrl = when(this) {
                 is IssuerMetadataDraft11 -> authorizationServer!!
                 is IssuerMetadataV0 -> authorizationServers!!.first()
             }
-            runBlocking {
-                val res = http.get("$authServerUrl/.well-known/openid-configuration")
-                authMetadata = res.body<JsonObject>()
-            }
+            val res = http.get("$authServerUrl/.well-known/openid-configuration")
+            authMetadata = res.body<JsonObject>()
         }
         return authMetadata
     }
 
-    fun getAuthorizationEndpointUri(): String {
+    suspend fun getAuthorizationEndpointUri(): String {
         return getAuthorizationMetadata().getValue("authorization_endpoint").jsonPrimitive.content
     }
 
-    fun getAuthorizationTokenEndpointUri(): String {
+    suspend fun getAuthorizationTokenEndpointUri(): String {
         return getAuthorizationMetadata().getValue("token_endpoint").jsonPrimitive.content
     }
 
-    abstract fun getCredentialScope(credType: String): String?
+    abstract fun getCredentialScope(configId: String): String?
 
-    abstract fun getCredentialFormat(credType: String): CredentialFormat?
+    abstract fun getCredentialFormat(configId: String): CredentialFormat?
 }
 
 object IssuerMetadataSerializer : JsonContentPolymorphicSerializer<IssuerMetadata>(IssuerMetadata::class) {

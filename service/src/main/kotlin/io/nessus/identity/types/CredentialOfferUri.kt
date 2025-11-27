@@ -1,14 +1,12 @@
 package io.nessus.identity.types
 
-import io.nessus.identity.waltid.User
-
 enum class OfferUriType(val value: String) {
     URI("uri"),
     QR_CODE("qr-code");
     override fun toString() = value
 }
 
-class CredentialOfferUri(val issuer: User, val configId: String) {
+class CredentialOfferUri(val configId: String) {
 
     var preAuthorized: Boolean? = null
     var userId: String? = null

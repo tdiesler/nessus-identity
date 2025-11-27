@@ -18,36 +18,37 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
+import io.nessus.identity.config.ConfigProvider.Alice
+import io.nessus.identity.config.ConfigProvider.Bob
+import io.nessus.identity.config.ConfigProvider.Max
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
+import io.nessus.identity.config.User
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AuthorizationContext
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.IssuerService
+import io.nessus.identity.service.IssuerServiceKeycloak
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.WalletAuthorizationService.Companion.buildAuthorizationMetadata
+import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.types.AuthorizationRequestDraft11
-import io.nessus.identity.types.CredentialConfiguration
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.CredentialSchema
+import io.nessus.identity.types.IssuerMetadataDraft11
+import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.VCDataV11JwtBuilder
 import io.nessus.identity.types.W3CCredentialV11Builder
-import io.nessus.identity.waltid.Alice
-import io.nessus.identity.waltid.Bob
 import io.nessus.identity.waltid.LoginType
-import io.nessus.identity.waltid.Max
 import io.nessus.identity.waltid.RegisterUserParams
-import io.nessus.identity.waltid.User
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import io.nessus.identity.waltid.authenticationId
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
-import org.keycloak.representations.idm.UserRepresentation
 import java.time.Instant
 import kotlin.io.encoding.Base64
 import kotlin.time.Clock
@@ -55,23 +56,20 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
 
 
-class IssuerHandler: AuthHandler() {
-
-    // [TODO] Remove hard-coded issuer user (Max)
-    val issuer = Max
-
-    val issuerSvc = IssuerService.createKeycloak()
-    val issuerMetadata get() = runBlocking { issuerSvc.getIssuerMetadata() }
+class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : AuthHandler(walletSvc) {
 
     override val endpointUri = issuerSvc.issuerEndpointUri
     
-    fun issuerModel(call: RoutingCall, ctx: LoginContext? = null): BaseModel {
-        val authServerUrl = issuerMetadata.authorizationServers?.first() ?: error("No AuthorizationServer")
+    suspend fun issuerModel(call: RoutingCall, ctx: LoginContext? = null): BaseModel {
+        val authServerUrl = when(val issuerMetadata = issuerSvc.getIssuerMetadata()) {
+            is IssuerMetadataV0 -> { issuerMetadata.authorizationServers?.firstOrNull() }
+            is IssuerMetadataDraft11 -> { issuerMetadata.authorizationServer }
+        } ?: error("No AuthorizationServer")
         val authConfigUrl = "$authServerUrl/.well-known/openid-configuration"
         val issuerConfigUrl = issuerSvc.getIssuerMetadataUrl()
         val model = ctx?.let { BaseModel().withLoginContext(ctx) }
             ?: BaseModel().withLoginContext(call, UserRole.Holder)
-        model["issuerUrl"] = issuerSvc.issuerBaseUrl
+        model["issuerUrl"] = endpointUri
         model["issuerConfigUrl"] = issuerConfigUrl
         model["authConfigUrl"] = authConfigUrl
         return model
@@ -85,6 +83,7 @@ class IssuerHandler: AuthHandler() {
     }
 
     suspend fun showAuthConfig(call: RoutingCall) {
+        val issuerMetadata = issuerSvc.getIssuerMetadata()
         val authConfig = issuerMetadata.getAuthorizationMetadata()
         val prettyJson = jsonPretty.encodeToString(authConfig)
         val model = issuerModel(call).also {
@@ -96,6 +95,7 @@ class IssuerHandler: AuthHandler() {
     }
 
     suspend fun showIssuerConfig(call: RoutingCall) {
+        val issuerMetadata = issuerSvc.getIssuerMetadata()
         val prettyJson = jsonPretty.encodeToString(issuerMetadata)
         val model = issuerModel(call).also {
             it["issuerConfigJson"] = prettyJson
@@ -197,7 +197,15 @@ class IssuerHandler: AuthHandler() {
     }
 
     suspend fun showCredentialConfig(call: RoutingCall, configId: String) {
-        val credConfig = issuerMetadata.credentialConfigurationsSupported[configId] as CredentialConfiguration
+        val issuerMetadata = issuerSvc.getIssuerMetadata()
+        val credConfig = when(issuerMetadata) {
+            is IssuerMetadataV0 -> {
+                requireNotNull(issuerMetadata.credentialConfigurationsSupported[configId])
+            }
+            is IssuerMetadataDraft11 -> {
+                issuerMetadata.credentialsSupported.first { it.types!!.contains(configId) }
+            }
+        }
         val prettyJson = jsonPretty.encodeToString(credConfig.toJsonObj())
         val model = issuerModel(call).also {
             it["configId"] = configId
@@ -211,8 +219,7 @@ class IssuerHandler: AuthHandler() {
     suspend fun showCredentialOfferCreate(call: RoutingCall) {
 
         val configId = call.request.queryParameters["configId"] ?: error("No configId")
-        val users = issuerSvc.getUsers().map { SubjectOption.fromUserRepresentation(it) }
-
+        val users = issuerSvc.getUsers()
         val model = issuerModel(call).also {
             it["configId"] = configId
             it["users"] = users
@@ -232,14 +239,16 @@ class IssuerHandler: AuthHandler() {
         val usersMap = listOf(Alice, Bob, Max).associateBy { usr -> usr.email }
         val holder = usersMap[userId]
 
-        val credOfferUri = issuerSvc.createCredentialOfferUri(issuer, configId, preAuthorized, holder)
-        val credOfferQRCode = issuerSvc.createCredentialOfferUriQRCode(issuer, configId, preAuthorized, holder)
+        val credOfferUri = issuerSvc.createCredentialOfferUri(configId, preAuthorized, holder)
 
         val model = issuerModel(call).also {
             it["configId"] = configId
-            it["holder"] = holder ?: User("Anonymous", "", "")
+            it["holder"] = holder ?: User("Anonymous", "", "", "")
             it["credOfferUri"] = credOfferUri
-            it["credOfferQRCode"] = Base64.encode(credOfferQRCode)
+        }
+        if (issuerSvc is IssuerServiceKeycloak) {
+            val credOfferQRCode = issuerSvc.createCredentialOfferUriQRCode(configId, preAuthorized, holder)
+            model["credOfferQRCode"] = Base64.encode(credOfferQRCode)
         }
 
         call.respond(
@@ -269,9 +278,14 @@ class IssuerHandler: AuthHandler() {
     }
 
     suspend fun showCredentialOffers(call: RoutingCall) {
-        val supported = issuerMetadata.credentialConfigurationsSupported
+        val issuerMetadata = issuerSvc.getIssuerMetadata()
+        val supported = when(issuerMetadata) {
+            is IssuerMetadataV0 -> issuerMetadata.credentialConfigurationsSupported.keys
+            is IssuerMetadataDraft11 -> issuerMetadata.credentialsSupported.
+                map { it.types!!.first { ct -> ct !in listOf("VerifiableAttestation", "VerifiableCredential") }}
+        }
         val model = issuerModel(call).also {
-            it["configIds"] = supported.keys
+            it["configIds"] = supported
         }
         call.respond(
             FreeMarkerContent("issuer_cred_offers.ftl", model)
@@ -279,7 +293,7 @@ class IssuerHandler: AuthHandler() {
     }
 
     suspend fun showUsers(call: RoutingCall) {
-        val users = issuerSvc.getUsers().map { SubjectOption.fromUserRepresentation(it) }
+        val users = issuerSvc.getUsers()
         val model = issuerModel(call).also {
             it["users"] = users
         }
@@ -519,17 +533,5 @@ class IssuerHandler: AuthHandler() {
 
         // [TODO #235] Properly validate the AccessToken
         // https://github.com/tdiesler/nessus-identity/issues/235
-    }
-}
-
-data class SubjectOption(
-    val id: String,
-    val name: String,
-    val email: String,
-) {
-    companion object {
-        fun fromUserRepresentation(it: UserRepresentation): SubjectOption {
-            return SubjectOption(it.id, "${it.firstName} ${it.lastName}", it.email)
-        }
     }
 }

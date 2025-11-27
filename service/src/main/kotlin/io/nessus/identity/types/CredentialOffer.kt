@@ -17,7 +17,7 @@ sealed class CredentialOffer {
     abstract val grants: Grants?
 
     val filteredConfigurationIds
-        get() = credentialConfigurationIds.filter { it !in listOf("VerifiableAttestation", "VerifiableCredential")  }
+        get() = credentialConfigurationIds.filter { it !in listOf("VerifiableAttestation", "VerifiableCredential") }
 
     val isPreAuthorized
         get() = grants?.preAuthorizedCode?.preAuthorizedCode != null

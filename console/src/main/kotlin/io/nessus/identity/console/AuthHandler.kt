@@ -54,13 +54,12 @@ import java.time.Instant
 import java.util.*
 import kotlin.uuid.Uuid
 
-abstract class AuthHandler {
+abstract class AuthHandler(val walletSvc: WalletService) {
 
     val log = KotlinLogging.logger {}
 
     val jsonPretty = Json { prettyPrint = true }
 
-    val walletSvc: WalletService = WalletService.create()
     val walletAuthSvc = WalletAuthorizationService(walletSvc)
 
     abstract val endpointUri: String

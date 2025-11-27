@@ -1,12 +1,11 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
+import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.types.CredentialParameters
 import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.types.W3CCredentialV11Jwt
-import io.nessus.identity.waltid.Alice
-import io.nessus.identity.waltid.Max
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -15,10 +14,10 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
 
     lateinit var alice: OIDContext
 
-    lateinit var issuerSvc: IssuerServiceKeycloak
-    lateinit var walletSvc: DefaultWalletService
+    lateinit var issuerSvc: IssuerService
+    lateinit var walletSvc: WalletService
     lateinit var walletAuthSvc: WalletAuthorizationService
-    lateinit var verifierSvc: DefaultVerifierService
+    lateinit var verifierSvc: VerifierService
 
     @BeforeEach
     fun setUp() {
@@ -44,7 +43,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Identity Credential on demand
             val credJwt = walletSvc.getCredentialByType(alice, ctype!!)
             if (credJwt == null) {
-                val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
+                val offerUri = issuerSvc.createCredentialOfferUri(credConfigId, true, Alice)
                 val credOffer = walletSvc.getCredentialOffer(offerUri)
                 val authContext = AuthorizationContext.create(alice)
                 val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
@@ -106,7 +105,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Identity Credential on demand
             val credJwt = walletSvc.getCredentialByType(alice, ctype!!)
             if (credJwt == null) {
-                val offerUri = issuerSvc.createCredentialOfferUri(Max, credConfigId, true, Alice)
+                val offerUri = issuerSvc.createCredentialOfferUri(credConfigId, true, Alice)
                 val credOffer = walletSvc.getCredentialOffer(offerUri)
                 val authContext = AuthorizationContext.create(alice)
                 val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)

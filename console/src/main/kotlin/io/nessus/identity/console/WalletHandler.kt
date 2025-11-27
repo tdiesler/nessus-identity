@@ -36,11 +36,12 @@ import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_REQUEST_
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_USER_PIN_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialMatcherDraft11
 import io.nessus.identity.service.HttpStatusException
-import io.nessus.identity.service.KNOWN_ISSUER_EBSI_V3
+import io.nessus.identity.service.IssuerService.Companion.KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.WalletAuthorizationService.Companion.buildAuthorizationMetadata
+import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlDecode
 import io.nessus.identity.service.urlEncode
@@ -61,7 +62,7 @@ import java.time.Instant
 import java.util.*
 import kotlin.uuid.Uuid
 
-class WalletHandler : AuthHandler() {
+class WalletHandler(walletSvc: WalletService) : AuthHandler(walletSvc) {
 
     override val endpointUri = walletSvc.walletEndpointUri
 

@@ -1,7 +1,7 @@
 package io.nessus.identity.ebsi
 
+import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
-import io.nessus.identity.waltid.Alice
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test

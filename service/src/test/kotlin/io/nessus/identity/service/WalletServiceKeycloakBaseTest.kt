@@ -1,18 +1,17 @@
 package io.nessus.identity.service
 
 import io.kotest.common.runBlocking
+import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.types.TokenResponse
-import io.nessus.identity.waltid.Alice
-import io.nessus.identity.waltid.Max
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
-abstract class WalletServiceKeycloakBase : AbstractServiceTest() {
+abstract class WalletServiceKeycloakBaseTest : AbstractServiceTest() {
 
     lateinit var alice: LoginContext
 
-    lateinit var issuerSvc: IssuerServiceKeycloak
-    lateinit var walletSvc: DefaultWalletService
+    lateinit var issuerSvc: IssuerService
+    lateinit var walletSvc: WalletService
 
     @BeforeEach
     fun setUp() {
@@ -54,7 +53,7 @@ abstract class WalletServiceKeycloakBase : AbstractServiceTest() {
         runBlocking {
             val configId = credentialConfigurationId
 
-            val offerUri = issuerSvc.createCredentialOfferUri(Max, configId)
+            val offerUri = issuerSvc.createCredentialOfferUri(configId)
             val credOffer = walletSvc.getCredentialOffer(offerUri)
             val authContext = AuthorizationContext.create(alice).withCredentialOffer(credOffer)
             val authCode = walletSvc.getAuthorizationCode(
@@ -73,7 +72,7 @@ abstract class WalletServiceKeycloakBase : AbstractServiceTest() {
         runBlocking {
             val configId = credentialConfigurationId
 
-            val offerUri = issuerSvc.createCredentialOfferUri(Max, configId, true, Alice)
+            val offerUri = issuerSvc.createCredentialOfferUri(configId, true, Alice)
             val credOffer = walletSvc.getCredentialOffer(offerUri)
 
             val authContext = AuthorizationContext.create(alice)

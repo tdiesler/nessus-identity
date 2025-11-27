@@ -1,5 +1,6 @@
 package io.nessus.identity.service
 
+import io.nessus.identity.config.User
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserRole
@@ -7,7 +8,8 @@ import io.nessus.identity.waltid.APIException
 import io.nessus.identity.waltid.DidInfo
 import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.LoginParams
-import io.nessus.identity.waltid.User
+import io.nessus.identity.waltid.LoginType
+import io.nessus.identity.waltid.RegisterUserParams
 import io.nessus.identity.waltid.WalletInfo
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import java.security.MessageDigest
@@ -113,4 +115,12 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
         removeAttachment(AUTH_TOKEN_ATTACHMENT_KEY)
         removeAttachment(DID_INFO_ATTACHMENT_KEY)
     }
+}
+
+fun User.toLoginParams(): LoginParams {
+    return LoginParams(LoginType.EMAIL, email, password)
+}
+
+fun User.toRegisterUserParams(): RegisterUserParams {
+    return RegisterUserParams(LoginType.EMAIL, name, email, password)
 }

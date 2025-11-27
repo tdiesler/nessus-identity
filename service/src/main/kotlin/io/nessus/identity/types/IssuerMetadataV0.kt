@@ -50,14 +50,14 @@ data class IssuerMetadataV0(
             .mapNotNull { (_, v) -> v.scope }
             .toSet()
 
-    override fun getCredentialScope(credType: String): String? {
-        val credConfig = credentialConfigurationsSupported[credType]
+    override fun getCredentialScope(configId: String): String? {
+        val credConfig = credentialConfigurationsSupported[configId]
         return credConfig?.scope
     }
 
-    override fun getCredentialFormat(credType: String): CredentialFormat? {
-        val credConfig = credentialConfigurationsSupported[credType]
-            ?: error("No credential_configurations_supported for: $credType")
+    override fun getCredentialFormat(configId: String): CredentialFormat? {
+        val credConfig = credentialConfigurationsSupported[configId]
+            ?: error("No credential_configurations_supported for: $configId")
         return CredentialFormat.fromValue(credConfig.format)
     }
 }
