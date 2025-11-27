@@ -16,19 +16,19 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
     lateinit var alice: OIDContext
 
     lateinit var issuerSvc: IssuerServiceKeycloak
-    lateinit var walletSvc: WalletServiceKeycloak
+    lateinit var walletSvc: DefaultWalletService
     lateinit var walletAuthSvc: WalletAuthorizationService
-    lateinit var verifierSvc: VerifierServiceKeycloak
+    lateinit var verifierSvc: DefaultVerifierService
 
     @BeforeEach
     fun setUp() {
         runBlocking {
             issuerSvc = IssuerService.createKeycloak()
-            verifierSvc = VerifierService.createKeycloak()
+            verifierSvc = VerifierService.create()
 
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = OIDContext(loginOrRegister(Alice).withDidInfo())
-            walletSvc = WalletService.createKeycloak()
+            walletSvc = WalletService.create()
             walletAuthSvc = WalletAuthorizationService(walletSvc)
         }
     }

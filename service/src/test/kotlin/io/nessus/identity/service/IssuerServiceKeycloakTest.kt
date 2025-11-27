@@ -16,7 +16,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     lateinit var alice: LoginContext
 
     lateinit var issuerSvc: IssuerServiceKeycloak
-    lateinit var walletSvc: WalletServiceKeycloak
+    lateinit var walletSvc: DefaultWalletService
 
     @BeforeEach
     fun setUp() {
@@ -25,7 +25,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
 
             // Create the Holders's OIDC context (Alice is the Holder)
             alice = login(Alice).withDidInfo()
-            walletSvc = WalletService.createKeycloak()
+            walletSvc = WalletService.create()
         }
     }
 

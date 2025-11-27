@@ -4,9 +4,9 @@ import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.DCQLQuery
 
-// VerifierService =====================================================================================================
+// DefaultVerifierService ==============================================================================================
 
-class VerifierServiceKeycloak : AbstractVerifierService() {
+class DefaultVerifierService : AbstractVerifierService() {
 
     /**
      * Verifier builds the AuthorizationRequest for Verifiable Presentation
@@ -37,6 +37,5 @@ class VerifierServiceKeycloak : AbstractVerifierService() {
         return authReq
     }
 
-    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
-
+    // Private ---------------------------------------------------------------------------------------------------------
 }

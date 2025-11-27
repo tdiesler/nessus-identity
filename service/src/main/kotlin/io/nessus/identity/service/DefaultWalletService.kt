@@ -25,10 +25,10 @@ import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_CODE_VERIFIER_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_USER_PIN_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.USER_ATTACHMENT_KEY
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
-import io.nessus.identity.service.OIDContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.AuthorizationRequestDraft11
@@ -60,9 +60,9 @@ import java.util.*
 import kotlin.random.Random
 import kotlin.uuid.Uuid
 
-// WalletServiceKeycloak ===============================================================================================
+// DefaultWalletService ===============================================================================================
 
-class WalletServiceKeycloak : AbstractWalletService(), WalletService {
+class DefaultWalletService : AbstractWalletService(), WalletService {
 
     override val defaultClientId = requireIssuerConfig().clientId
 
@@ -180,7 +180,6 @@ class WalletServiceKeycloak : AbstractWalletService(), WalletService {
                     code = authCode
                 )
             }
-
             else -> {
                 val authRequest = authContext.authRequest
                 TokenRequest.AuthorizationCode(

@@ -48,7 +48,7 @@ open class OIDContext(ctx: LoginContext) : LoginContext(ctx.getAttachments()) {
         val EBSI32_CREDENTIAL_OFFER_ATTACHMENT_KEY = attachmentKey<CredentialOfferDraft11>()
         val EBSI32_ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<IssuerMetadataDraft11>()
         val EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY = attachmentKey<PresentationSubmission>()
-        val EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<Any>("RequestUriObject")
+        val EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>("RequestUriObject")
     }
 }
 

@@ -43,7 +43,7 @@ import kotlin.uuid.Uuid
 class VerifierHandler : AuthHandler() {
 
     val issuerSvc = IssuerService.createKeycloak()
-    val verifierSvc = VerifierService.createKeycloak()
+    val verifierSvc = VerifierService.create()
 
     override val endpointUri = verifierSvc.verifierEndpointUri
 

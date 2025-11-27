@@ -6,7 +6,7 @@ import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 
-abstract class AbstractWalletService() : DeprecatedWalletService {
+abstract class AbstractWalletService() : WalletService {
 
     val log = KotlinLogging.logger {}
 

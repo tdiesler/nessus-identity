@@ -53,14 +53,12 @@ class OAuthClient {
 
     suspend fun sendTokenRequest(endpointUrl: String, tokenRequest: TokenRequest): TokenResponse {
         val authParams = tokenRequest.getParameters()
-        log.info { "AuthorizationUrl: $endpointUrl" }
-        log.info { "AuthorizationParams: ${redactedParams(authParams)}" }
+        log.info { "Send TokenRequest: $endpointUrl" }
         val res = http.post(endpointUrl) {
             contentType(ContentType.Application.FormUrlEncoded)
             setBody(Parameters.build {
-                tokenRequest.getParameters().forEach { (k, vals) ->
-                    vals.forEach { v -> append(k, v) }
-                }
+                authParams.forEach { (k, vals) -> log.info { "  $k=$vals" }}
+                authParams.forEach { (k, vals) -> append(k, vals.first()) }
             }.formUrlEncode())
         }
         val authRes = handleApiResponse(res) as TokenResponse

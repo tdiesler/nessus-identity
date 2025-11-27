@@ -20,11 +20,8 @@ interface VerifierService {
     fun validateVerifiableCredential(vpcJwt: W3CCredentialV11Jwt, vcp: CredentialParameters? = null)
 
     companion object {
-        fun createEbsi(): VerifierServiceEbsi32 {
-            return VerifierServiceEbsi32()
-        }
-        fun createKeycloak(): VerifierServiceKeycloak {
-            return VerifierServiceKeycloak()
+        fun create(): DefaultVerifierService {
+            return DefaultVerifierService()
         }
     }
 }

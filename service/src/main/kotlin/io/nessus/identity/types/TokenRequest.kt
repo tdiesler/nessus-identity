@@ -2,6 +2,7 @@ package io.nessus.identity.types
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
 
 @Serializable
 enum class GrantType(val value: String) {
@@ -43,6 +44,9 @@ sealed class TokenRequest {
             putAll(specificParameters())
         }
     }
+
+    fun toJson() = Json.encodeToString(this)
+    fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
 
     companion object {
         fun fromHttpParameters(parameters: Map<String, List<String>>): TokenRequest {

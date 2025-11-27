@@ -1,11 +1,13 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.dif.PresentationSubmission
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadata
+import io.nessus.identity.types.IssuerMetadataDraft11
 
 // AuthorizationContext ===============================================================================================
 
@@ -30,6 +32,9 @@ class AuthorizationContext(val loginContext: LoginContext? = null): AttachmentSu
         val EBSI32_AUTH_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE")
         val EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>()
         val EBSI32_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("CODE_VERIFIER")
+        val EBSI32_ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<IssuerMetadataDraft11>()
+        val EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY = attachmentKey<PresentationSubmission>()
+        val EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>("RequestUriObject")
         val EBSI32_USER_PIN_ATTACHMENT_KEY = attachmentKey<String>("USER_PIN")
 
         fun create(ctx: LoginContext?): AuthorizationContext {

@@ -2,6 +2,7 @@ package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.dif.PresentationSubmission
+import id.walt.webwallet.db.models.WalletCredential
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.config.FeatureProfile.EBSI_V32
@@ -17,7 +18,7 @@ import io.nessus.identity.types.W3CCredentialJwt
 
 const val KNOWN_ISSUER_EBSI_V3 = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock"
 
-interface WalletService: DeprecatedWalletService {
+interface WalletService {
 
     val defaultClientId: String
 
@@ -26,6 +27,28 @@ interface WalletService: DeprecatedWalletService {
             EBSI_V32 -> "${requireEbsiConfig().baseUrl}/wallet"
             else -> requireWalletConfig().baseUrl
         }
+
+    fun addCredentialOffer(ctx: LoginContext, credOffer: CredentialOffer): String
+
+    fun getCredentialOffers(ctx: LoginContext): Map<String, CredentialOffer>
+
+    fun getCredentialOffer(ctx: LoginContext, offerId: String): CredentialOffer?
+
+    fun deleteCredentialOffer(ctx: LoginContext, offerId: String): CredentialOffer?
+
+    fun deleteCredentialOffers(ctx: LoginContext, predicate: (CredentialOffer) -> Boolean)
+
+    suspend fun findCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): List<WalletCredential>
+
+    suspend fun findCredential(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): WalletCredential?
+
+    suspend fun getCredentialById(ctx: LoginContext, vcId: String): W3CCredentialJwt?
+
+    suspend fun getCredentialByType(ctx: LoginContext, ctype: String): W3CCredentialJwt?
+
+    suspend fun deleteCredential(ctx: LoginContext, vcId: String): W3CCredentialJwt?
+
+    suspend fun deleteCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean)
 
     suspend fun buildAuthorizationRequest(
         authContext: AuthorizationContext,
@@ -77,11 +100,8 @@ interface WalletService: DeprecatedWalletService {
     suspend fun getCredentialFromOffer(authContext: AuthorizationContext, credOffer: CredentialOffer): W3CCredentialJwt
 
     companion object {
-        fun createEbsi(): WalletServiceEbsi32 {
-            return WalletServiceEbsi32()
-        }
-        fun createKeycloak(): WalletServiceKeycloak {
-            return WalletServiceKeycloak()
+        fun create(): DefaultWalletService {
+            return DefaultWalletService()
         }
     }
 }

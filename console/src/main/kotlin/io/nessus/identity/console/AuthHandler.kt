@@ -7,6 +7,11 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialFormat
+import id.walt.oid4vc.data.CredentialSupported
+import id.walt.oid4vc.data.DisplayProperties
+import id.walt.oid4vc.data.GrantType
+import id.walt.oid4vc.data.OpenIDProviderMetadata
+import id.walt.oid4vc.data.SubjectType
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -27,17 +32,22 @@ import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedTyp
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
 import io.nessus.identity.service.HttpStatusException
-import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.WalletAuthorizationService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.AuthorizationRequestDraft11
+import io.nessus.identity.types.CredentialObject
 import io.nessus.identity.types.CredentialOfferDraft11
+import io.nessus.identity.types.Grants
+import io.nessus.identity.types.IssuerMetadataDraft11
+import io.nessus.identity.types.PreAuthorizedCodeGrant
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.TokenResponse
+import io.nessus.identity.waltid.authenticationId
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.*
 import java.time.Instant
@@ -50,7 +60,7 @@ abstract class AuthHandler {
 
     val jsonPretty = Json { prettyPrint = true }
 
-    val walletSvc: WalletService = WalletService.createKeycloak()
+    val walletSvc: WalletService = WalletService.create()
     val walletAuthSvc = WalletAuthorizationService(walletSvc)
 
     abstract val endpointUri: String
@@ -228,7 +238,60 @@ abstract class AuthHandler {
         return idTokenRedirect
     }
 
-    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+    // Protected -------------------------------------------------------------------------------------------------------
+
+    protected fun getIssuerMetadataDraft11(ctx: LoginContext): IssuerMetadataDraft11 {
+        val issuerTargetUrl = "$endpointUri/${ctx.targetId}"
+        val credentialSupported = mapOf(
+            "CTWalletSameAuthorisedInTime" to CredentialSupported(
+                format = CredentialFormat.jwt_vc,
+                display = listOf(DisplayProperties(locale = "en-GB", name = "CTWalletSameAuthorisedInTime")),
+                types = listOf("VerifiableCredential", "VerifiableAttestation", "CTWalletSameAuthorisedInTime")
+            ),
+            "CTWalletSameAuthorisedDeferred" to CredentialSupported(
+                format = CredentialFormat.jwt_vc,
+                display = listOf(DisplayProperties(locale = "en-GB", name = "CTWalletSameAuthorisedDeferred")),
+                types = listOf("VerifiableCredential", "VerifiableAttestation", "CTWalletSameAuthorisedDeferred")
+            ),
+            "CTWalletSamePreAuthorisedInTime" to CredentialSupported(
+                format = CredentialFormat.jwt_vc,
+                display = listOf(DisplayProperties(locale = "en-GB", name = "CTWalletSamePreAuthorisedInTime")),
+                types = listOf("VerifiableCredential", "VerifiableAttestation", "CTWalletSamePreAuthorisedInTime")
+            ),
+            "CTWalletSamePreAuthorisedDeferred" to CredentialSupported(
+                format = CredentialFormat.jwt_vc,
+                display = listOf(DisplayProperties(locale = "en-GB", name = "CTWalletSamePreAuthorisedDeferred")),
+                types = listOf("VerifiableCredential", "VerifiableAttestation", "CTWalletSamePreAuthorisedDeferred")
+            ),
+        )
+        val waltDraft11 = OpenIDProviderMetadata.Draft11.create(
+            issuer = issuerTargetUrl,
+            authorizationServer = issuerTargetUrl,
+            authorizationEndpoint = "$issuerTargetUrl/authorize",
+            pushedAuthorizationRequestEndpoint = "$issuerTargetUrl/par",
+            tokenEndpoint = "$issuerTargetUrl/token",
+            credentialEndpoint = "$issuerTargetUrl/credential",
+            batchCredentialEndpoint = "$issuerTargetUrl/batch_credential",
+            deferredCredentialEndpoint = "$issuerTargetUrl/credential_deferred",
+            jwksUri = "$issuerTargetUrl/jwks",
+            grantTypesSupported = setOf(GrantType.authorization_code, GrantType.pre_authorized_code),
+            requestUriParameterSupported = true,
+            subjectTypesSupported = setOf(SubjectType.public),
+            credentialIssuer = issuerTargetUrl,
+            responseTypesSupported = setOf(
+                "code",
+                "vp_token",
+                "id_token"
+            ),
+            idTokenSigningAlgValuesSupported = setOf("ES256"),
+            codeChallengeMethodsSupported = listOf("S256"),
+            credentialSupported = credentialSupported,
+        )
+        val metadata = IssuerMetadataDraft11.fromJson(waltDraft11.toJSONString())
+        return metadata
+    }
+
+    // Private ---------------------------------------------------------------------------------------------------------
 
     private suspend fun buildTokenResponse(ctx: LoginContext): TokenResponse {
 
@@ -241,7 +304,7 @@ abstract class AuthHandler {
 
         val nonce = "${Uuid.random()}"
 
-        val issuerMetadata = IssuerService.createEbsi().getIssuerMetadata(ctx)
+        val issuerMetadata = getIssuerMetadataDraft11(ctx)
         val tokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256).type(JOSEObjectType.JWT).keyID(kid).build()
 
         val claimsBuilder = JWTClaimsSet.Builder().issuer(issuerMetadata.credentialIssuer).issueTime(Date.from(iat))
@@ -279,6 +342,64 @@ abstract class AuthHandler {
             ctx.putAttachment(EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
         }
         return tokenRes
+    }
+
+    private suspend fun createCredentialOfferDraft11(
+        ctx: LoginContext,
+        subjectId: String,
+        types: List<String>,
+        userPin: String? = null
+    ): CredentialOfferDraft11 {
+
+        val metadata = getIssuerMetadataDraft11(ctx)
+        val issuerUri = metadata.credentialIssuer
+
+        // Build issuer state jwt
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(300) // 5min
+        val aud = metadata.authorizationServer
+        val kid = ctx.didInfo.authenticationId()
+
+        val header = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType.JWT)
+            .keyID(kid)
+            .build()
+
+        val offerClaims = JWTClaimsSet.Builder()
+            .subject(subjectId)
+            .audience(aud)
+            .issuer(ctx.did)
+            .issueTime(Date.from(iat))
+            .expirationTime(Date.from(exp))
+            .claim("client_id", subjectId)
+            .claim("credential_types", types)
+            .build()
+
+        val credOfferJwt = SignedJWT(header, offerClaims).signWithKey(ctx, kid)
+
+        // Build CredentialOffer
+        val credOffer = CredentialOfferDraft11(
+            credentialIssuer = issuerUri,
+            credentials = listOf(CredentialObject(types = types, format = "jwt_vc")),
+            grants = if (userPin != null) {
+                val preAuthCode = credOfferJwt.serialize()
+                Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
+            } else {
+                val issuerState = credOfferJwt.serialize()
+                Grants(authorizationCode = AuthorizationCodeGrant(issuerState = issuerState))
+            }
+        )
+
+        // Record the CredentialOffer with UserPin
+        //
+        val preAuthCodeGrant = credOffer.getPreAuthorizedCodeGrant()
+        if (preAuthCodeGrant != null) {
+            val authCode = preAuthCodeGrant.preAuthorizedCode
+            putCredentialOfferRecord(authCode, credOffer, userPin)
+        }
+
+        log.info { "Issued CredentialOffer: ${credOffer.toJson()}" }
+        return credOffer
     }
 
     private suspend fun handleTokenRequestAuthCode(ctx: LoginContext, tokenReq: TokenRequest): TokenResponse {
@@ -320,10 +441,9 @@ abstract class AuthHandler {
 
             // Issuing CredentialOffers (on-demand) for EBSI Conformance
             if (!hasCredentialOfferRecord(preAuthCode)) {
-                val issuerSvc = IssuerService.createEbsi()
                 log.info { "Issuing CredentialOffer $preAuthCode (on-demand) for EBSI Conformance" }
                 val types = listOf("VerifiableCredential", preAuthCode)
-                val credOffer = issuerSvc.createCredentialOffer(ctx, subId, types, userPin)
+                val credOffer = createCredentialOfferDraft11(ctx, subId, types, userPin)
                 putCredentialOfferRecord(preAuthCode, credOffer, userPin)
             }
         }

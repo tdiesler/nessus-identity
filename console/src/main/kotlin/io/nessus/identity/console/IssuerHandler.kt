@@ -57,7 +57,9 @@ import kotlin.uuid.Uuid
 
 class IssuerHandler: AuthHandler() {
 
+    // [TODO] Remove hard-coded issuer user (Max)
     val issuer = Max
+
     val issuerSvc = IssuerService.createKeycloak()
     val issuerMetadata get() = runBlocking { issuerSvc.getIssuerMetadata() }
 
@@ -185,7 +187,7 @@ class IssuerHandler: AuthHandler() {
     }
 
     suspend fun handleNativeIssuerMetadataRequest(call: RoutingCall, ctx: LoginContext) {
-        val issuerMetadata = IssuerService.createEbsi().getIssuerMetadata(ctx)
+        val issuerMetadata = getIssuerMetadataDraft11(ctx)
         val payload = Json.encodeToString(issuerMetadata)
         call.respondText(
             status = HttpStatusCode.OK,
@@ -365,7 +367,7 @@ class IssuerHandler: AuthHandler() {
 
         requireNotNull(credReq.types) { "No types in CredentialRequest" }
 
-        val metadata = IssuerService.createEbsi().getIssuerMetadata(ctx)
+        val metadata = getIssuerMetadataDraft11(ctx)
         val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = credReq.types!!.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())
@@ -454,7 +456,7 @@ class IssuerHandler: AuthHandler() {
             throw java.lang.IllegalStateException("No types")
 
         // Verify credential types i.e. every type must bve known to this issuer
-        val metadata = IssuerService.createEbsi().getIssuerMetadata(ctx)
+        val metadata = getIssuerMetadataDraft11(ctx)
         val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
         val unknownTypes = vcp.types.filterNot { it in supportedCredentials }
         if (unknownTypes.isNotEmpty())

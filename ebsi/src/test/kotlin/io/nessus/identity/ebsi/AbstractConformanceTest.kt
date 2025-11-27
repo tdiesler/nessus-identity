@@ -100,15 +100,6 @@ open class AbstractConformanceTest {
         embeddedServer.stop(3000, 5000)
     }
 
-    fun startEBSIPortal() {
-        embeddedServer = EBSIPortal().create()
-        embeddedServer.start(wait = false)
-    }
-
-    fun stopEBSIPortal() {
-        embeddedServer.stop(3000, 5000)
-    }
-
     fun startPlaywrightBrowser() {
         playwright = Playwright.create()
 

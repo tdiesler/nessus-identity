@@ -131,9 +131,9 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
             }
         }.buildString()
 
-        AuthServiceEbsi32.Companion.log.info { "AuthCode Redirect: $authCodeRedirect" }
+        log.info { "AuthCode Redirect: $authCodeRedirect" }
         urlQueryToMap(authCodeRedirect).also {
-            it.forEach { (k, v) -> AuthServiceEbsi32.Companion.log.info { "  $k=$v" } }
+            it.forEach { (k, v) -> log.info { "  $k=$v" } }
         }
 
         return authCodeRedirect
@@ -302,35 +302,6 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
         vpTokenJwt.verifyJwtSignature("VPToken", ctx.didInfo)
 
         return TokenResponse(vpToken = vpToken, presentationSubmission = vpSubmission)
-    }
-
-    fun validateIDToken(ctx: LoginContext, idTokenJwt: SignedJWT): String {
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-
-        log.info { "IDToken Header: ${idTokenJwt.header}" }
-        log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
-
-        // [TODO #233] Verify IDToken proof DID ownership
-        // https://github.com/tdiesler/nessus-identity/issues/233
-        // We should be able to use the Holder's public key to do that
-
-        val authCode = "${Uuid.random()}"
-        authContext.putAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY, authCode)
-
-        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
-        val idTokenRedirect = URLBuilder("${authReq.redirectUri}").apply {
-            parameters.append("code", authCode)
-            authReq.state?.also { state ->
-                parameters.append("state", state)
-            }
-        }.buildString()
-
-        log.info { "IDToken Response $idTokenRedirect" }
-        urlQueryToMap(idTokenRedirect).also {
-            it.forEach { (k, v) -> log.info { "  $k=$v" } }
-        }
-
-        return idTokenRedirect
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------

@@ -11,7 +11,7 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startEBSIPortal()
+        startConsoleServer()
         startPlaywrightBrowser()
         prepareWalletTests(false)
     }
@@ -19,7 +19,7 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopEBSIPortal()
+        stopConsoleServer()
     }
 
     @Test

@@ -96,9 +96,9 @@ data class AuthorizationRequest(
     }
 
     fun getAuthorizationRequestUrl(authEndpointUri: String): String {
-        val params = getParameters().map { (k, vals) ->
-            vals.joinToString("&") { v -> "$k=${urlEncode(v)}" }
-        }.joinToString( "&" )
+        val params = getParameters()
+            .map { (k, vals) -> vals.joinToString("&") { v -> "$k=${urlEncode(v)}" }}
+            .joinToString( "&" )
         return "$authEndpointUri?$params"
     }
 
