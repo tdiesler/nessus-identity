@@ -2,6 +2,9 @@ package io.nessus.identity.types
 
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.OpenIDProviderMetadata
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.nessus.identity.service.http
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -13,7 +16,7 @@ import kotlinx.serialization.json.*
 */
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class IssuerMetadataDraft11(
+class IssuerMetadataDraft11(
     @SerialName("credential_issuer")
     override val credentialIssuer: String,
 
@@ -36,17 +39,29 @@ data class IssuerMetadataDraft11(
     @SerialName("display")
     val display: List<IssuerDisplay>? = null
 ) : IssuerMetadata() {
+
     companion object {
         val jsonInst = Json { ignoreUnknownKeys = true}
         fun fromJson(json: String) = jsonInst.decodeFromString<IssuerMetadataDraft11>(json)
         fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<IssuerMetadataDraft11>(json)
     }
 
-    override val supportedCredentialScopes
-        get() = credentialsSupported.flatMap { it.types ?: emptyList() }.toSet()
+    override suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
+        if (authMetadata == null) {
+            requireNotNull(authorizationServer) { "No authorization_server" }
+            val res = http.get("$authorizationServer/.well-known/openid-configuration")
+            authMetadata = AuthorizationMetadata(res.body<JsonObject>())
+        }
+        return authMetadata as AuthorizationMetadata
+    }
 
-    override fun getCredentialScope(credConfigId: String): String? {
-        return credConfigId
+    override val supportedCredentialScopes
+        get() = credentialsSupported.flatMap { it.types ?: emptyList() }
+            .filter { it !in listOf("VerifiableAttestation", "VerifiableCredential") }
+            .toSet()
+
+    override fun getCredentialScope(configId: String): String {
+        return configId
     }
 
     override fun getCredentialFormat(configId: String): CredentialFormat? {

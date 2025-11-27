@@ -21,12 +21,13 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
+import io.nessus.identity.config.User
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.service.AuthorizationContext
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.ACCESS_TOKEN_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationService
 import io.nessus.identity.service.CredentialOfferRegistry.hasCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
@@ -34,40 +35,32 @@ import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferR
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
-import io.nessus.identity.service.WalletAuthorizationService
-import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.AuthorizationRequestDraft11
-import io.nessus.identity.types.CredentialObject
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
-import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataDraft11
-import io.nessus.identity.types.PreAuthorizedCodeGrant
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.TokenResponse
-import io.nessus.identity.waltid.authenticationId
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.*
 import java.time.Instant
 import java.util.*
 import kotlin.uuid.Uuid
 
-abstract class AuthHandler(val walletSvc: WalletService) {
+abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
 
     val log = KotlinLogging.logger {}
 
     val jsonPretty = Json { prettyPrint = true }
 
-    val walletAuthSvc = WalletAuthorizationService(walletSvc)
-
     abstract val endpointUri: String
 
     fun buildAuthCodeRedirectUri(ctx: LoginContext, authCode: String): String {
 
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+        val authContext = ctx.getAuthContext()
+        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
         val authCodeRedirect = URLBuilder("${authReq.redirectUri}").apply {
             parameters.append("code", authCode)
             authReq.state?.also { state ->
@@ -131,9 +124,17 @@ abstract class AuthHandler(val walletSvc: WalletService) {
         return idTokenRedirectUrl
     }
 
+    abstract suspend fun createCredentialOffer(
+        configId: String,
+        clientId: String? = null,
+        preAuthorized: Boolean = false,
+        userPin: String? = null,
+        targetUser: User? = null,
+    ): CredentialOffer
+
     suspend fun handleIDTokenRequest(call: RoutingCall, ctx: LoginContext) {
 
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
+        val authContext = ctx.getAuthContext()
 
         val reqParams = urlQueryToMap(call.request.uri).toMutableMap()
         val redirectUri = reqParams["redirect_uri"] as String
@@ -157,8 +158,8 @@ abstract class AuthHandler(val walletSvc: WalletService) {
             reqParams["response_type"] = "id_token"
         }
 
-        val idTokenJwt = walletAuthSvc.createIDToken(ctx, reqParams)
-        walletAuthSvc.sendIDToken(authContext, redirectUri, idTokenJwt)
+        val idTokenJwt = authorizationSvc.createIDToken(ctx, reqParams)
+        authorizationSvc.sendIDToken(authContext, redirectUri, idTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.Accepted,
@@ -218,10 +219,10 @@ abstract class AuthHandler(val walletSvc: WalletService) {
         // We should be able to use the Holder's public key to do that
 
         val authCode = "${Uuid.random()}"
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        authContext.putAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY, authCode)
+        val authContext = ctx.getAuthContext()
+        authContext.putAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY, authCode)
 
-        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
         val idTokenRedirect = URLBuilder("${authReq.redirectUri}").apply {
             parameters.append("code", authCode)
             authReq.state?.also { state ->
@@ -310,7 +311,7 @@ abstract class AuthHandler(val walletSvc: WalletService) {
             .expirationTime(Date.from(exp)).claim("nonce", nonce)
 
         val authContext = ctx.getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        val maybeAuthRequest = authContext?.getAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+        val maybeAuthRequest = authContext?.getAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
         maybeAuthRequest?.clientId?.also {
             claimsBuilder.subject(it)
         }
@@ -338,67 +339,9 @@ abstract class AuthHandler(val walletSvc: WalletService) {
 
         log.info { "Token Response: $tokenRespJson" }
         val tokenRes = TokenResponse.fromJson(tokenRespJson).also {
-            ctx.putAttachment(EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
+            ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
         }
         return tokenRes
-    }
-
-    private suspend fun createCredentialOfferDraft11(
-        ctx: LoginContext,
-        subjectId: String,
-        types: List<String>,
-        userPin: String? = null
-    ): CredentialOfferDraft11 {
-
-        val metadata = getIssuerMetadataDraft11(ctx)
-        val issuerUri = metadata.credentialIssuer
-
-        // Build issuer state jwt
-        val iat = Instant.now()
-        val exp = iat.plusSeconds(300) // 5min
-        val aud = metadata.authorizationServer
-        val kid = ctx.didInfo.authenticationId()
-
-        val header = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType.JWT)
-            .keyID(kid)
-            .build()
-
-        val offerClaims = JWTClaimsSet.Builder()
-            .subject(subjectId)
-            .audience(aud)
-            .issuer(ctx.did)
-            .issueTime(Date.from(iat))
-            .expirationTime(Date.from(exp))
-            .claim("client_id", subjectId)
-            .claim("credential_types", types)
-            .build()
-
-        val credOfferJwt = SignedJWT(header, offerClaims).signWithKey(ctx, kid)
-
-        // Build CredentialOffer
-        val credOffer = CredentialOfferDraft11(
-            credentialIssuer = issuerUri,
-            credentials = listOf(CredentialObject(types = types, format = "jwt_vc")),
-            grants = if (userPin != null) {
-                val preAuthCode = credOfferJwt.serialize()
-                Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
-            } else {
-                val issuerState = credOfferJwt.serialize()
-                Grants(authorizationCode = AuthorizationCodeGrant(issuerState = issuerState))
-            }
-        )
-
-        // Record the CredentialOffer with UserPin
-        //
-        val preAuthCodeGrant = credOffer.getPreAuthorizedCodeGrant()
-        if (preAuthCodeGrant != null) {
-            val authCode = preAuthCodeGrant.preAuthorizedCode
-            putCredentialOfferRecord(authCode, credOffer, userPin)
-        }
-
-        log.info { "Issued CredentialOffer: ${credOffer.toJson()}" }
-        return credOffer
     }
 
     private suspend fun handleTokenRequestAuthCode(ctx: LoginContext, tokenReq: TokenRequest): TokenResponse {
@@ -411,9 +354,9 @@ abstract class AuthHandler(val walletSvc: WalletService) {
 
         // Verify token request
         //
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
-        require (tokReq.clientId == authRequest.clientId) { "Invalid client_id: ${tokReq.clientId}" }
+        val authContext = ctx.getAuthContext()
+        val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
+        require(tokReq.clientId == authRequest.clientId) { "Invalid client_id: ${tokReq.clientId}" }
 
         // [TODO #230] Verify token request code challenge
         // https://github.com/tdiesler/nessus-identity/issues/230
@@ -424,7 +367,7 @@ abstract class AuthHandler(val walletSvc: WalletService) {
 
     private suspend fun handleTokenRequestPreAuthorized(ctx: LoginContext, tokenReq: TokenRequest): TokenResponse {
 
-        var subId = tokenReq.clientId
+        var clientId = tokenReq.clientId
         val preAuthTokenRequest = tokenReq as TokenRequest.PreAuthorizedCode
         val preAuthCode = preAuthTokenRequest.preAuthorizedCode
         val userPin = preAuthTokenRequest.userPin
@@ -433,16 +376,15 @@ abstract class AuthHandler(val walletSvc: WalletService) {
         // and the clientId associated with the TokenRequest is undefined
         if (isEBSIPreAuthorizedType(preAuthCode)) {
 
-            if (subId == null) {
+            if (clientId == null) {
                 val ebsiConfig = requireEbsiConfig()
-                subId = ebsiConfig.requesterDid as String
+                clientId = ebsiConfig.requesterDid as String
             }
 
             // Issuing CredentialOffers (on-demand) for EBSI Conformance
             if (!hasCredentialOfferRecord(preAuthCode)) {
                 log.info { "Issuing CredentialOffer $preAuthCode (on-demand) for EBSI Conformance" }
-                val types = listOf("VerifiableCredential", preAuthCode)
-                val credOffer = createCredentialOfferDraft11(ctx, subId, types, userPin)
+                val credOffer = createCredentialOffer(preAuthCode, clientId, preAuthorized = true, userPin = userPin)
                 putCredentialOfferRecord(preAuthCode, credOffer, userPin)
             }
         }
@@ -460,16 +402,18 @@ abstract class AuthHandler(val walletSvc: WalletService) {
         val credOffer = credOfferRecord.credOffer as CredentialOfferDraft11
         val types = credOffer.credentialConfigurationIds
         val authRequest = AuthorizationRequestDraft11(
-            clientId = subId ?: throw IllegalStateException("No subId"), authorizationDetails = listOf(
+            clientId = clientId ?: throw IllegalStateException("No subId"),
+            authorizationDetails = listOf(
                 AuthorizationDetails(
-                    format = CredentialFormat.jwt_vc, types = types
+                    format = CredentialFormat.jwt_vc,
+                    types = types
                 )
             )
         )
 
         // Create an AuthorizationContext on demand
-        val authContext = ctx.getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) ?: AuthorizationContext.create(ctx)
-        authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
+        val authContext = ctx.getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) ?: ctx.createAuthContext()
+        authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
 
         val tokenResponse = buildTokenResponse(ctx)
         return tokenResponse

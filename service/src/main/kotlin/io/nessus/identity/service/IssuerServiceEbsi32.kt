@@ -3,106 +3,83 @@ package io.nessus.identity.service
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
-import com.nimbusds.jose.util.JSONObjectUtils
-import com.nimbusds.jwt.JWTClaimNames
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.CredentialSupported
 import id.walt.oid4vc.data.DisplayProperties
 import id.walt.oid4vc.data.GrantType
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.data.SubjectType
-import id.walt.oid4vc.requests.CredentialRequest
-import id.walt.oid4vc.responses.CredentialResponse
+import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.config.User
 import io.nessus.identity.extend.signWithKey
-import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
+import io.nessus.identity.service.UserAccessService.UserInfo
 import io.nessus.identity.types.AuthorizationCodeGrant
+import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.CredentialObject
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
-import io.nessus.identity.types.CredentialParameters
-import io.nessus.identity.types.CredentialSchema
 import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.PreAuthorizedCodeGrant
-import io.nessus.identity.types.VCDataV11JwtBuilder
-import io.nessus.identity.types.W3CCredentialV11Builder
 import io.nessus.identity.waltid.authenticationId
-import kotlinx.serialization.json.*
+import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import java.util.*
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.hours
-import kotlin.uuid.Uuid
 
 // IssuerServiceEbsi32 =================================================================================================
 
-class IssuerServiceEbsi32 : AbstractIssuerService(), IssuerService {
+class IssuerServiceEbsi32(val config: IssuerConfig) : AbstractIssuerService(), IssuerService {
+
+    private var adminContext: LoginContext
+
+    override val authorizationSvc = AuthorizationService.create()
+
+    init {
+        runBlocking {
+            adminContext = LoginContext.login(config.adminUser).withDidInfo()
+        }
+    }
+
+    /**
+     * Get the authorization metadata
+     */
+    override suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
+        val targetUri = "$endpointUri/${adminContext.targetId}"
+        return authorizationSvc.buildAuthorizationMetadata(targetUri)
+    }
 
     override suspend fun createCredentialOfferUri(
         configId: String,
+        clientId: String?,
         preAuthorized: Boolean,
-        holder: User?
+        userPin: String?,
+        targetUser: User?,
     ): String {
         error("Not implemented")
     }
 
-    override fun getIssuerMetadataUrl(): String {
-        error("Not implemented")
-    }
+    override suspend fun createCredentialOffer(
+        configId: String,
+        clientId: String?,
+        preAuthorized: Boolean,
+        userPin: String?,
+        targetUser: User?,
+    ): CredentialOffer {
 
-    override suspend fun getIssuerMetadata(): IssuerMetadataDraft11 {
-        error("Not implemented")
-    }
+        val ctx = adminContext
+        val issuerMetadata = getIssuerMetadata()
+        val issuerUri = issuerMetadata.credentialIssuer
 
-    override fun createUser(
-        firstName: String,
-        lastName: String,
-        email: String,
-        username: String,
-        password: String
-    ): IssuerService.UserInfo {
-        error("Not implemented")
-    }
-
-    override fun findUser(predicate: (IssuerService.UserInfo) -> Boolean): IssuerService.UserInfo? {
-        error("Not implemented")
-    }
-
-    override fun findUserByEmail(email: String): IssuerService.UserInfo? {
-        error("Not implemented")
-    }
-
-    override fun getUsers(): List<IssuerService.UserInfo> {
-        error("Not implemented")
-    }
-
-    override fun deleteUser(userId: String) {
-        error("Not implemented")
-    }
-
-    // Private ---------------------------------------------------------------------------------------------------------
-
-    /**
-     * Creates a CredentialOffer for the given subject and credential types
-     */
-    private suspend fun createCredentialOffer(
-        ctx: LoginContext,
-        subjectId: String,
-        types: List<String>,
-        userPin: String? = null
-    ): CredentialOfferDraft11 {
-
-        val metadata = getIssuerMetadata(ctx)
-        val issuerUri = metadata.credentialIssuer
+        val credConfig = issuerMetadata.credentialsSupported.first { it.types!!.contains(configId) }
+        val ctypes = requireNotNull(credConfig.types) { "No types " }
 
         // Build issuer state jwt
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5min
-        val aud = metadata.authorizationServer
+        val aud = issuerMetadata.authorizationServer
         val kid = ctx.didInfo.authenticationId()
 
         val header = JWSHeader.Builder(JWSAlgorithm.ES256)
@@ -111,13 +88,13 @@ class IssuerServiceEbsi32 : AbstractIssuerService(), IssuerService {
             .build()
 
         val offerClaims = JWTClaimsSet.Builder()
-            .subject(subjectId)
+            .subject(clientId)
             .audience(aud)
             .issuer(ctx.did)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
-            .claim("client_id", subjectId)
-            .claim("credential_types", types)
+            .claim("client_id", clientId)
+            .claim("credential_types", ctypes)
             .build()
 
         val credOfferJwt = SignedJWT(header, offerClaims).signWithKey(ctx, kid)
@@ -125,8 +102,8 @@ class IssuerServiceEbsi32 : AbstractIssuerService(), IssuerService {
         // Build CredentialOffer
         val credOffer = CredentialOfferDraft11(
             credentialIssuer = issuerUri,
-            credentials = listOf(CredentialObject(types = types, format = "jwt_vc")),
-            grants = if (userPin != null) {
+            credentials = listOf(CredentialObject(types = ctypes, format = credConfig.format)),
+            grants = if (preAuthorized) {
                 val preAuthCode = credOfferJwt.serialize()
                 Grants(preAuthorizedCode = PreAuthorizedCodeGrant(preAuthorizedCode = preAuthCode))
             } else {
@@ -147,140 +124,46 @@ class IssuerServiceEbsi32 : AbstractIssuerService(), IssuerService {
         return credOffer
     }
 
-    private suspend fun getCredentialFromRequest(
-        ctx: OIDContext,
-        credReq: CredentialRequest,
-        accessTokenJwt: SignedJWT,
-        deferred: Boolean = false
-    ): CredentialResponse {
-
-        // Validate the AccessToken
-        validateAccessToken(accessTokenJwt)
-
-        log.info { "CredentialRequestV0: ${Json.encodeToString(credReq)}" }
-
-        // Derive the deferred case from the CredentialRequestV0 type
-        //
-        val deferredEBSIType = credReq.types?.any { it.startsWith("CT") && it.endsWith("Deferred") } == true
-        val credentialResponse = if (deferred || deferredEBSIType) {
-            credentialFromRequestDeferred(ctx, credReq)
-        } else {
-            val params = CredentialParameters()
-                .withIssuer(ctx.did)
-                .withSubject(ctx.authRequest.clientId)
-                .withTypes(credReq.types!!)
-            getCredentialFromParameters(ctx, params)
-        }
-        return credentialResponse
+    override fun getIssuerMetadataUrl(): String {
+        return "$endpointUri/${adminContext.targetId}/.well-known/openid-credential-issuer"
     }
 
-    private suspend fun getCredentialFromParameters(
-        ctx: OIDContext,
-        vcp: CredentialParameters
-    ): CredentialResponse {
-
-        // Init property defaults when not given
-        //
-        val id = vcp.id ?: "vc:nessus#${Uuid.random()}"
-        val iat = vcp.iat ?: Clock.System.now()
-        val nbf = vcp.nbf ?: iat
-        val exp = vcp.exp ?: (iat + 24.hours)
-        val iss = vcp.iss ?: ctx.did
-
-        // Verify required properties
-        //
-        val sub = vcp.sub ?: throw java.lang.IllegalStateException("No subject")
-        if (vcp.types.isEmpty())
-            throw java.lang.IllegalStateException("No types")
-
-        // Verify credential types i.e. every type must bve known to this issuer
-        val metadata = getIssuerMetadata(ctx)
-        val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
-        val unknownTypes = vcp.types.filterNot { it in supportedCredentials }
-        if (unknownTypes.isNotEmpty())
-            throw IllegalStateException("Unknown credential types: $unknownTypes")
-
-        val cred = VCDataV11JwtBuilder()
-            .withId(id)
-            .withIssuerId(ctx.did)
-            .withSubjectId(vcp.sub as String)
-            .withIssuedAt(iat)
-            .withValidFrom(nbf)
-            .withValidUntil(exp)
-            .withCredential(
-                W3CCredentialV11Builder()
-                    .withCredentialSchema(
-                        CredentialSchema(
-                            "https://api-conformance.ebsi.eu/trusted-schemas-registry/v3/schemas/zDpWGUBenmqXzurskry9Nsk6vq2R8thh9VSeoRqguoyMD",
-                            "FullJsonSchemaValidator2021"
-                        )
-                    )
-                    .withId(id)
-                    .withIssuer(iss)
-                    .withCredentialStatus(vcp.status)
-                    .withCredentialSubject(sub)
-                    .withIssuedAt(iat)
-                    .withValidFrom(nbf)
-                    .withValidUntil(exp)
-                    .withTypes(vcp.types)
-                    .build()
-            )
-            .build()
-
-        val kid = ctx.didInfo.authenticationId()
-        val credHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType.JWT)
-            .keyID(kid)
-            .build()
-
-        val credJson = Json.encodeToString(cred)
-        val credClaims = JWTClaimsSet.parse(JSONObjectUtils.parse(credJson))
-
-        val credJwt = SignedJWT(credHeader, credClaims).signWithKey(ctx, kid)
-        log.info { "Credential Header: ${credJwt.header}" }
-        log.info { "Credential Claims: ${credJwt.jwtClaimsSet}" }
-
-        credJwt.verifyJwtSignature("Credential", ctx.didInfo)
-
-        val credRes = CredentialResponse.success(CredentialFormat.jwt_vc, credJwt.serialize())
-        log.info { "CredentialResponseV0: ${Json.encodeToString(credRes)}" }
-
-        return credRes
+    override suspend fun getIssuerMetadata(): IssuerMetadataDraft11 {
+        val issuerMetadata = buildIssuerMetadata(adminContext)
+        
+        return issuerMetadata
     }
 
-    private suspend fun getDeferredCredentialFromAcceptanceToken(
-        ctx: OIDContext,
-        acceptanceTokenJwt: SignedJWT
-    ): CredentialResponse {
-
-        // Validate the AcceptanceTokenJwt
-        // [TODO #241] Validate the AcceptanceToken
-        // https://github.com/tdiesler/nessus-identity/issues/241
-
-        // Derive the deferred case from the CredentialRequestV0 type
-        //
-        log.info { "AcceptanceToken Header: ${acceptanceTokenJwt.header}" }
-        log.info { "AcceptanceToken Claims: ${acceptanceTokenJwt.jwtClaimsSet}" }
-
-        val credReqJson = acceptanceTokenJwt.jwtClaimsSet.getClaim("credential_request") as String
-        val credReq = Json.decodeFromString<CredentialRequest>(credReqJson)
-        val params = CredentialParameters()
-            .withIssuer(ctx.did)
-            .withSubject(ctx.authRequest.clientId)
-            .withTypes(credReq.types!!)
-        val credentialResponse = getCredentialFromParameters(ctx, params)
-
-        return credentialResponse
+    override fun createUser(
+        firstName: String,
+        lastName: String,
+        email: String,
+        username: String,
+        password: String
+    ): UserInfo {
+        error("Not implemented")
     }
 
-
-    private fun getIssuerMetadataUrl(ctx: LoginContext): String {
-        val metadataUrl = OpenID4VCI.getCIProviderMetadataUrl("$issuerEndpointUri/${ctx.targetId}")
-        return metadataUrl
+    override fun findUser(predicate: (UserInfo) -> Boolean): UserInfo? {
+        error("Not implemented")
     }
 
-    private fun getIssuerMetadata(ctx: LoginContext): IssuerMetadataDraft11 {
-        val issuerTargetUrl = "$issuerEndpointUri/${ctx.targetId}"
+    override fun findUserByEmail(email: String): UserInfo? {
+        error("Not implemented")
+    }
+
+    override fun getUsers(): List<UserInfo> {
+        error("Not implemented")
+    }
+
+    override fun deleteUser(userId: String) {
+        error("Not implemented")
+    }
+
+    // Private ---------------------------------------------------------------------------------------------------------
+
+    private fun buildIssuerMetadata(ctx: LoginContext): IssuerMetadataDraft11 {
+        val issuerTargetUrl = "$endpointUri/${ctx.targetId}"
         val credentialSupported = mapOf(
             "CTWalletSameAuthorisedInTime" to CredentialSupported(
                 format = CredentialFormat.jwt_vc,
@@ -328,62 +211,5 @@ class IssuerServiceEbsi32 : AbstractIssuerService(), IssuerService {
         )
         val metadata = IssuerMetadataDraft11.fromJson(waltDraft11.toJSONString())
         return metadata
-    }
-
-    private suspend fun credentialFromRequestDeferred(
-        ctx: OIDContext,
-        credReq: CredentialRequest,
-    ): CredentialResponse {
-
-        log.info { "CredentialRequestDeferred: ${Json.encodeToString(credReq)}" }
-
-        val types = credReq.types ?: throw IllegalArgumentException("No types in CredentialRequestV0")
-        val metadata = getIssuerMetadata(ctx)
-        val supportedCredentials = metadata.credentialsSupported.flatMap { it.types.orEmpty() }.toSet()
-        val unknownTypes = types.filterNot { it in supportedCredentials }
-        if (unknownTypes.isNotEmpty())
-            throw IllegalStateException("Unknown credential types: $unknownTypes")
-
-        val jti = "vc:nessus#${Uuid.random()}"
-        val sub = ctx.authRequest.clientId
-        val nbf = Instant.now().plusSeconds(5)
-
-        val kid = ctx.didInfo.authenticationId()
-        val acceptanceHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType.JWT)
-            .keyID(kid)
-            .build()
-
-        val acceptanceClaims = JWTClaimsSet.parse(
-            mapOf(
-                JWTClaimNames.JWT_ID to jti,
-                JWTClaimNames.ISSUER to ctx.did,
-                JWTClaimNames.SUBJECT to sub,
-                JWTClaimNames.NOT_BEFORE to nbf.epochSecond,
-                "credential_request" to Json.encodeToString(credReq)
-            )
-        )
-
-        val acceptanceTokenJwt = SignedJWT(acceptanceHeader, acceptanceClaims).signWithKey(ctx, kid)
-        log.info { "AcceptanceToken Header: ${acceptanceTokenJwt.header}" }
-        log.info { "AcceptanceToken Claims: ${acceptanceTokenJwt.jwtClaimsSet}" }
-
-        acceptanceTokenJwt.verifyJwtSignature("AcceptanceToken", ctx.didInfo)
-
-        val credentialResponse = CredentialResponse.deferred(CredentialFormat.jwt_vc, acceptanceTokenJwt.serialize())
-        log.info { "CredentialResponseDeferred: ${Json.encodeToString(credentialResponse)}" }
-
-        return credentialResponse
-    }
-
-    private fun validateAccessToken(bearerToken: SignedJWT) {
-
-        val claims = bearerToken.jwtClaimsSet
-        val exp = claims.expirationTime?.toInstant()
-        if (exp == null || exp.isBefore(Instant.now()))
-            throw IllegalStateException("Token expired")
-
-        // [TODO #235] Properly validate the AccessToken
-        // https://github.com/tdiesler/nessus-identity/issues/235
     }
 }

@@ -3,7 +3,6 @@ package io.nessus.identity.service
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -13,31 +12,24 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
-import io.nessus.identity.types.AuthorizationRequest
-import io.nessus.identity.types.TokenResponse
+import io.nessus.identity.service.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
+import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.*
 import java.time.Instant
 import java.util.*
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.minutes
-import kotlin.uuid.Uuid
 
-// WalletAuthorizationService ==========================================================================================
+// NativeAuthorizationService ================================================================================================
 
-class WalletAuthorizationService(val walletSvc: WalletService) {
+class NativeAuthorizationService(): AuthorizationService {
 
     val log = KotlinLogging.logger {}
 
-    companion object {
-        fun buildAuthorizationMetadata(walletTargetUri: String): JsonObject {
-            return Json.parseToJsonElement(
-                """
+    override fun buildAuthorizationMetadata(targetUri: String): AuthorizationMetadata {
+        val jsonObj = Json.parseToJsonElement("""
             {
-              "authorization_endpoint": "$walletTargetUri/authorize",
+              "authorization_endpoint": "$targetUri/authorize",
               "grant_types_supported": [
                 "authorization_code"
               ],
@@ -48,10 +40,10 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
                 "subject_signed_id_token",
                 "attester_signed_id_token"
               ],
-              "issuer": "$walletTargetUri",
-              "jwks_uri": "$walletTargetUri/jwks",
+              "issuer": "$targetUri",
+              "jwks_uri": "$targetUri/jwks",
               "redirect_uris": [
-                "$walletTargetUri/direct_post"
+                "$targetUri/direct_post"
               ],
               "request_authentication_methods_supported": {
                 "authorization_endpoint": [
@@ -88,7 +80,7 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
               "subject_types_supported": [
                 "public"
               ],
-              "token_endpoint": "$walletTargetUri/token",
+              "token_endpoint": "$targetUri/token",
               "token_endpoint_auth_methods_supported": [
                 "private_key_jwt"
               ],
@@ -115,15 +107,14 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
                 }
               }
             }            
-        """.trimIndent()
-            ).jsonObject
-        }
+        """.trimIndent()).jsonObject
+        return AuthorizationMetadata(jsonObj)
     }
 
-    fun buildAuthCodeRedirectUri(ctx: LoginContext, authCode: String): String {
+    override fun buildAuthCodeRedirectUri(ctx: LoginContext, authCode: String): String {
 
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+        val authContext = ctx.getAuthContext()
+        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
         val authCodeRedirect = URLBuilder("${authReq.redirectUri}").apply {
             parameters.append("code", authCode)
             authReq.state?.also { state ->
@@ -139,7 +130,7 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
         return authCodeRedirect
     }
 
-    suspend fun createIDToken(
+    override suspend fun createIDToken(
         ctx: LoginContext,
         reqParams: Map<String, String>
     ): SignedJWT {
@@ -192,7 +183,7 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
         return idTokenJwt
     }
 
-    suspend fun sendIDToken(
+    override suspend fun sendIDToken(
         authContext: AuthorizationContext,
         redirectUri: String,
         idTokenJwt: SignedJWT
@@ -222,86 +213,10 @@ class WalletAuthorizationService(val walletSvc: WalletService) {
         } ?: throw IllegalStateException("Cannot find 'location' in headers")
 
         val authCode = urlQueryToMap(location)["code"]?.also {
-            authContext.putAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY, it)
+            authContext.putAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY, it)
         } ?: throw IllegalStateException("No authorization code")
 
         return authCode
-    }
-
-    /**
-     * The Authorization Request parameter contains a DCQL query that describes the requirements of the Credential(s) that the Verifier is requesting to be presented.
-     * Such requirements could include what type of Credential(s), in what format(s), which individual Claims within those Credential(s) (Selective Disclosure), etc.
-     * The Wallet processes the Request Object and determines what Credentials are available matching the Verifier's request.
-     * The Wallet also authenticates the End-User and gathers their consent to present the requested Credentials.
-     *
-     * The Wallet prepares the Presentation(s) of the Credential(s) that the End-User has consented to.
-     * It then sends to the Verifier an Authorization Response where the Presentation(s) are contained in the vp_token parameter.
-     *
-     * https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#section-3
-     */
-    suspend fun handleVPTokenRequest(ctx: LoginContext, authReq: AuthorizationRequest): TokenResponse {
-
-        log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(authReq)}" }
-
-        val clientId = authReq.clientId
-        val nonce = authReq.nonce
-        val state = authReq.state
-
-        val dcql = authReq.dcqlQuery ?: error("No dcql_query in: $authReq")
-        log.info { "VPToken DCQLQuery: ${dcql.toJson()}" }
-
-        // Build the list of Credentials and associated PresentationSubmission
-        //
-        val (credJwts, vpSubmission) = walletSvc.buildPresentationSubmission(ctx, dcql)
-
-        // Build the VPToken JWT
-        //
-        val jti = "${Uuid.random()}"
-        val iat = Clock.System.now()
-        val exp = iat + 5.minutes // 5 mins expiry
-
-        val kid = ctx.didInfo.authenticationId()
-        val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType.JWT)
-            .keyID(kid)
-            .build()
-
-        // Parse VPToken template with Jose to a MutableMap
-        //
-        val vpJson = """{
-            "@context": [ "https://www.w3.org/2018/credentials/v1" ],
-            "id": "$jti",
-            "type": [ "VerifiablePresentation" ],
-            "holder": "${ctx.did}",
-            "verifiableCredential": ${credJwts.map { "\"${it.serialize()}\"" }}
-        }"""
-        val vpObj = JSONObjectUtils.parse(vpJson)
-
-        val claimsBuilder = JWTClaimsSet.Builder()
-            .jwtID(jti)
-            .issuer(ctx.did)
-            .subject(ctx.did)
-            .audience(clientId)
-            .issueTime(Date(iat.toEpochMilliseconds()))
-            .notBeforeTime(Date(iat.toEpochMilliseconds()))
-            .expirationTime(Date(exp.toEpochMilliseconds()))
-            .claim("vp", vpObj)
-
-        nonce?.also { claimsBuilder.claim("nonce", it) }
-        state?.also { claimsBuilder.claim("state", it) }
-        val vpTokenClaims = claimsBuilder.build()
-
-        val vpTokenJwt = SignedJWT(vpTokenHeader, vpTokenClaims).signWithKey(ctx, kid)
-        log.info { "VPToken Header: ${vpTokenJwt.header}" }
-        log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
-
-        val vpToken = vpTokenJwt.serialize()
-        log.info { "VPToken: $vpToken" }
-        log.info { "VPSubmission: ${vpSubmission.toJSON()}" }
-
-        vpTokenJwt.verifyJwtSignature("VPToken", ctx.didInfo)
-
-        return TokenResponse(vpToken = vpToken, presentationSubmission = vpSubmission)
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------

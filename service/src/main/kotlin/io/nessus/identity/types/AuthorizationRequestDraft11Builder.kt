@@ -2,18 +2,17 @@ package io.nessus.identity.types
 
 import com.nimbusds.jose.util.Base64URL
 import id.walt.oid4vc.OpenID4VCI
-import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.OpenIDClientMetadata
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.*
 import java.security.MessageDigest
 
-typealias AuthorizationRequestDraft11 = id.walt.oid4vc.requests.AuthorizationRequest
-
 class AuthorizationRequestDraft11Builder {
 
     val log = KotlinLogging.logger {}
+
+    var responseType = "code"
 
     lateinit var clientId: String
     lateinit var redirectUri: String
@@ -21,11 +20,11 @@ class AuthorizationRequestDraft11Builder {
 
     private var clientState: String? = null
     private var codeChallengeMethod: String? = null
-    private var metadata: IssuerMetadataDraft11? = null
+    private var issuerMetadata: IssuerMetadataDraft11? = null
     private var presentationDefinition: PresentationDefinition? = null
 
     // Internal props
-    private val authDetails = mutableListOf<AuthorizationDetails>()
+    private val authDetails = mutableListOf<AuthorizationDetailsDraft11>()
     private var credOffer: CredentialOfferDraft11? = null
     private var scopes = mutableSetOf("openid")
 
@@ -54,7 +53,7 @@ class AuthorizationRequestDraft11Builder {
     }
 
     fun withIssuerMetadata(metadata: IssuerMetadataDraft11): AuthorizationRequestDraft11Builder {
-        this.metadata = metadata
+        this.issuerMetadata = metadata
         return this
     }
 
@@ -68,26 +67,31 @@ class AuthorizationRequestDraft11Builder {
         return this
     }
 
+    fun withResponseType(type: String): AuthorizationRequestDraft11Builder {
+        this.responseType = type
+        return this
+    }
+
     suspend fun buildFrom(credOffer: CredentialOfferDraft11): AuthorizationRequestDraft11 {
         this.credOffer = credOffer
 
-        if (metadata == null)
-            metadata = credOffer.resolveIssuerMetadata()
+        if (issuerMetadata == null)
+            issuerMetadata = credOffer.resolveIssuerMetadata()
 
         val waltIdOffer = credOffer.toWaltIdCredentialOffer()
-        val waltIdMetadata = metadata!!.toWaltIdIssuerMetadata()
+        val waltIdMetadata = issuerMetadata!!.toWaltIdIssuerMetadata()
         val offeredCredentials = OpenID4VCI.resolveOfferedCredentials(waltIdOffer, waltIdMetadata)
 
         log.info { "Offered Credentials: ${Json.encodeToString(offeredCredentials)}" }
         if (offeredCredentials.size > 1) log.warn { "Multiple offered credentials, using first" }
         val offeredCred = offeredCredentials.first()
 
-        authDetails.add(AuthorizationDetails.fromOfferedCredential(offeredCred, credOffer.credentialIssuer))
+        authDetails.add(AuthorizationDetailsDraft11.fromOfferedCredential(offeredCred, credOffer.credentialIssuer))
 
         return buildInternal()
     }
 
-    fun build(): AuthorizationRequestDraft11 {
+    suspend fun build(): AuthorizationRequestDraft11 {
         return buildInternal()
     }
 
@@ -116,7 +120,8 @@ class AuthorizationRequestDraft11Builder {
         val issuerState = credOffer?.getAuthorizationCodeGrant()?.issuerState
 
         val authRequest = AuthorizationRequestDraft11(
-            scope = scopes,
+            responseType = responseType,
+            scope = scopes.joinToString(" "),
             clientId = clientId,
             state = clientState,
             clientMetadata = clientMetadata,

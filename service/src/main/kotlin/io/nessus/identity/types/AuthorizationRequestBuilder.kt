@@ -104,7 +104,7 @@ class AuthorizationRequestBuilder {
         return this
     }
 
-    suspend fun build(): AuthorizationRequest {
+    suspend fun build(): AuthorizationRequestV0 {
 
         require(clientId.isNotBlank()) { "No client_id" }
 
@@ -155,7 +155,7 @@ class AuthorizationRequestBuilder {
             scopes.add("openid")
         }
 
-        val authReq = AuthorizationRequest(
+        val authReq = AuthorizationRequestV0(
             clientId = clientId,
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,

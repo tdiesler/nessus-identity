@@ -26,15 +26,12 @@ import io.nessus.identity.config.User
 import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.service.AuthorizationContext
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.IssuerServiceKeycloak
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
-import io.nessus.identity.service.WalletAuthorizationService.Companion.buildAuthorizationMetadata
-import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.http
+import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialParameters
@@ -56,9 +53,9 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
 
 
-class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : AuthHandler(walletSvc) {
+class IssuerHandler(val issuerSvc: IssuerService) : AuthHandler(issuerSvc.authorizationSvc) {
 
-    override val endpointUri = issuerSvc.issuerEndpointUri
+    override val endpointUri = issuerSvc.endpointUri
     
     suspend fun issuerModel(call: RoutingCall, ctx: LoginContext? = null): BaseModel {
         val authServerUrl = when(val issuerMetadata = issuerSvc.getIssuerMetadata()) {
@@ -107,13 +104,13 @@ class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : Au
 
     suspend fun handleNativeAuthorizationRequest(call: RoutingCall, ctx: LoginContext) {
 
-        val queryParams = call.parameters.toMap()
+        val queryParams = urlQueryToMap(call.request.uri)
         val authRequest = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
         log.info { "Issuer receives Authorization Request: ${Json.encodeToString(authRequest)}" }
         queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val authContext = AuthorizationContext.create(ctx)
-        authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
+        val authContext = ctx.createAuthContext()
+        authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
         val idTokenReqJwt = buildIDTokenRequest(ctx, authRequest)
         val authRequestRedirectUri = authRequest.redirectUri as String
         val redirectUrl = buildIDTokenRedirectUrl(authRequestRedirectUri, idTokenReqJwt)
@@ -176,9 +173,8 @@ class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : Au
         )
     }
 
-    suspend fun handleNativeAuthorizationMetadataRequest(call: RoutingCall, ctx: LoginContext) {
-        val issuerTargetUri = "${issuerSvc.issuerEndpointUri}/${ctx.targetId}"
-        val payload = Json.encodeToString(buildAuthorizationMetadata(issuerTargetUri))
+    suspend fun handleNativeAuthorizationMetadataRequest(call: RoutingCall) {
+        val payload = Json.encodeToString(issuerSvc.getAuthorizationMetadata())
         call.respondText(
             status = HttpStatusCode.OK,
             contentType = ContentType.Application.Json,
@@ -186,8 +182,8 @@ class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : Au
         )
     }
 
-    suspend fun handleNativeIssuerMetadataRequest(call: RoutingCall, ctx: LoginContext) {
-        val issuerMetadata = getIssuerMetadataDraft11(ctx)
+    suspend fun handleNativeIssuerMetadataRequest(call: RoutingCall) {
+        val issuerMetadata = issuerSvc.getIssuerMetadata()
         val payload = Json.encodeToString(issuerMetadata)
         call.respondText(
             status = HttpStatusCode.OK,
@@ -237,17 +233,17 @@ class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : Au
         val preAuthorized = params["preAuthorized"].toBoolean()
 
         val usersMap = listOf(Alice, Bob, Max).associateBy { usr -> usr.email }
-        val holder = usersMap[userId]
+        val targetUser = usersMap[userId]
 
-        val credOfferUri = issuerSvc.createCredentialOfferUri(configId, preAuthorized, holder)
+        val credOfferUri = issuerSvc.createCredentialOfferUri(configId, preAuthorized = preAuthorized, targetUser = targetUser)
 
         val model = issuerModel(call).also {
             it["configId"] = configId
-            it["holder"] = holder ?: User("Anonymous", "", "", "")
+            it["holder"] = targetUser ?: User("Anonymous", "", "", "")
             it["credOfferUri"] = credOfferUri
         }
         if (issuerSvc is IssuerServiceKeycloak) {
-            val credOfferQRCode = issuerSvc.createCredentialOfferUriQRCode(configId, preAuthorized, holder)
+            val credOfferQRCode = issuerSvc.createCredentialOfferUriQRCode(configId, preAuthorized, targetUser)
             model["credOfferQRCode"] = Base64.encode(credOfferQRCode)
         }
 
@@ -341,6 +337,16 @@ class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : Au
         call.respondRedirect("/issuer/users")
     }
 
+    override suspend fun createCredentialOffer(
+        configId: String,
+        clientId: String?,
+        preAuthorized: Boolean,
+        userPin: String?,
+        targetUser: User?,
+    ): CredentialOffer {
+        return issuerSvc.createCredentialOffer(configId, clientId, preAuthorized, userPin, targetUser)
+    }
+
     // Private ---------------------------------------------------------------------------------------------------------
 
     private suspend fun getNativeCredentialFromRequest(
@@ -361,8 +367,8 @@ class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : Au
         val credentialResponse = if (deferred || deferredEBSIType) {
             getNativeCredentialFromRequestDeferred(ctx, credReq)
         } else {
-            val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-            val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+            val authContext = ctx.getAuthContext()
+            val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
             val params = CredentialParameters()
                 .withIssuer(ctx.did)
                 .withSubject(authRequest.clientId)
@@ -387,8 +393,8 @@ class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : Au
         if (unknownTypes.isNotEmpty())
             throw IllegalStateException("Unknown credential types: $unknownTypes")
 
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+        val authContext = ctx.getAuthContext()
+        val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
 
         val jti = "vc:nessus#${Uuid.random()}"
         val sub = authRequest.clientId
@@ -436,8 +442,8 @@ class IssuerHandler(walletSvc: WalletService, val issuerSvc: IssuerService) : Au
         log.info { "AcceptanceToken Header: ${acceptanceTokenJwt.header}" }
         log.info { "AcceptanceToken Claims: ${acceptanceTokenJwt.jwtClaimsSet}" }
 
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+        val authContext = ctx.getAuthContext()
+        val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
 
         val credReqJson = acceptanceTokenJwt.jwtClaimsSet.getClaim("credential_request") as String
         val credReq = Json.decodeFromString<CredentialRequest>(credReqJson)

@@ -7,8 +7,10 @@ import io.ktor.client.statement.*
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.config.User
-import io.nessus.identity.service.IssuerService.UserInfo
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
+import io.nessus.identity.service.UserAccessService.UserInfo
+import io.nessus.identity.types.AuthorizationMetadata
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferUri
 import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.OfferUriType
@@ -22,17 +24,32 @@ import org.keycloak.representations.idm.CredentialRepresentation
 import org.keycloak.representations.idm.UserRepresentation
 import java.net.URI
 
-// KeycloakIssuerService =======================================================================================================================================
+// KeycloakIssuerService ===============================================================================================
 
 /**
  * Keycloak as OID4VC Issuer
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService(), IssuerService {
+class IssuerServiceKeycloak(val config: IssuerConfig): AbstractIssuerService(), IssuerService {
 
     val issuerBaseUrl = config.baseUrl
     val issuerUrl = "$issuerBaseUrl/realms/${config.realm}"
+
+    override val authorizationSvc = AuthorizationService.create()
+
+    // ExperimentalVerifierService -------------------------------------------------------------------------------------
+
+    // VerifierService -------------------------------------------------------------------------------------------------
+
+    /**
+     * Get the authorization metadata
+     */
+    override suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
+        return getIssuerMetadata().getAuthorizationMetadata()
+    }
+
+    // LegacyVerifierService -------------------------------------------------------------------------------------------
 
     override fun getIssuerMetadataUrl(): String {
         val metadataUrl = "$issuerBaseUrl/.well-known/openid-credential-issuer/realms/${config.realm}"
@@ -45,16 +62,25 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService(),
         return http.get(metadataUrl).body<IssuerMetadataV0>()
     }
 
-    /**
-     * Creates a CredentialOfferUri for the given credential configuration id
-     */
+    override suspend fun createCredentialOffer(
+        configId: String,
+        clientId: String?,
+        preAuthorized: Boolean,
+        userPin: String?,
+        targetUser: User?,
+    ): CredentialOffer {
+        error("Not implemented")
+    }
+
     override suspend fun createCredentialOfferUri(
         configId: String,
+        clientId: String?,
         preAuthorized: Boolean,
-        holder: User?,
+        userPin: String?,
+        targetUser: User?,
     ): String {
 
-        val credOfferUriRes = createCredentialOfferUriInternal(configId, preAuthorized, holder, OfferUriType.URI)
+        val credOfferUriRes = createCredentialOfferUriInternal(configId, preAuthorized, targetUser, OfferUriType.URI)
 
         val credOfferUriJson = handleApiResponse(credOfferUriRes) as JsonObject
         val issuerUrl = credOfferUriJson.getValue("issuer").jsonPrimitive.content
@@ -173,7 +199,7 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService(),
             scopes = listOf(scope)
         )
 
-        val tokenEndpointUri = issuerMetadata.getAuthorizationTokenEndpointUri()
+        val tokenEndpointUri = getAuthorizationMetadata().getAuthorizationTokenEndpointUri()
         val tokRes = OAuthClient().sendTokenRequest(tokenEndpointUri, tokReq)
         val accessToken = tokRes.accessToken
 

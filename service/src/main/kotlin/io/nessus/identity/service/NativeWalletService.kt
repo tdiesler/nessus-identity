@@ -6,6 +6,7 @@ import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.util.Base64URL
+import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.CredentialFormat
@@ -22,18 +23,20 @@ import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.extend.signWithKey
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTH_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_CODE_VERIFIER_ATTACHMENT_KEY
+import io.nessus.identity.extend.verifyJwtSignature
+import io.nessus.identity.service.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.CODE_VERIFIER_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_USER_PIN_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.USER_PIN_ATTACHMENT_KEY
 import io.nessus.identity.service.IssuerService.Companion.KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.service.LoginContext.Companion.USER_ATTACHMENT_KEY
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
-import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
+import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.CredentialOfferV0
@@ -59,19 +62,217 @@ import kotlinx.serialization.json.*
 import java.time.Instant
 import java.util.*
 import kotlin.random.Random
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
-// DefaultWalletService ===============================================================================================
+// NativeWalletService =================================================================================================
 
-class DefaultWalletService : AbstractWalletService(), WalletService {
+class NativeWalletService : AbstractWalletService() {
 
+    override val authorizationSvc = AuthorizationService.create()
     override val defaultClientId = requireIssuerConfig().clientId
+
+    // Experimental ----------------------------------------------------------------------------------------------------
+
+    override suspend fun buildAuthorizationRequestFromOffer(ctx: LoginContext, credOffer: CredentialOffer): AuthorizationRequestDraft11 {
+
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+        val issuerMetadata = authContext.getIssuerMetadata()
+
+        val rndBytes = Random.nextBytes(32)
+        val codeVerifier = Base64URL.encode(rndBytes).toString()
+        val redirectUri = "${authorizationCallbackUri}/${ctx.targetId}"
+        val authRequest = when(issuerMetadata) {
+            is IssuerMetadataV0 -> { error("[TODO] Not implemented") }
+            is IssuerMetadataDraft11 -> {
+                AuthorizationRequestDraft11Builder()
+                    .withClientId(ctx.did)
+                    .withClientState(ctx.walletId)
+                    .withCodeChallengeMethod("S256")
+                    .withCodeVerifier(codeVerifier)
+                    .withIssuerMetadata(issuerMetadata)
+                    .withRedirectUri(redirectUri)
+                    .buildFrom(credOffer as CredentialOfferDraft11)
+            }
+        }
+        authContext.putAttachment(CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
+        authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
+        return authRequest
+    }
+
+    // WalletService ---------------------------------------------------------------------------------------------------
+
+    /**
+     * Get the authorization metadata
+     */
+    override fun getAuthorizationMetadata(ctx: LoginContext): AuthorizationMetadata {
+        val targetUri = "$endpointUri/${ctx.targetId}"
+        return authorizationSvc.buildAuthorizationMetadata(targetUri) as AuthorizationMetadata
+    }
+
+    override suspend fun getAccessTokenFromCredentialOffer(
+        ctx: LoginContext,
+        credOffer: CredentialOffer,
+        clientId: String,
+    ): TokenResponse {
+
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+        val issuerMetadata = authContext.getIssuerMetadata()
+
+        if (credOffer.isPreAuthorized) {
+            val authMetadata = authContext.getAuthorizationMetadata()
+            val preAuthorizedCodeGrant = credOffer.getPreAuthorizedCodeGrant()!!
+            val code = preAuthorizedCodeGrant.preAuthorizedCode
+            val tokenEndpointUrl = authMetadata.getAuthorizationTokenEndpointUri()
+            var userPin = authContext.getAttachment(USER_PIN_ATTACHMENT_KEY)
+            if (credOffer.isUserPinRequired && userPin == null) {
+                userPin = requireEbsiConfig().preAuthUserPin
+            }
+            val tokReq = TokenRequest.PreAuthorizedCode(
+                clientId = clientId,
+                preAuthorizedCode = code,
+                userPin = userPin
+            )
+            val tokenRes = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokReq)
+            log.info { "TokenResponse: ${tokenRes.toJson()}" }
+            return tokenRes
+        }
+
+        if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
+
+            issuerMetadata as IssuerMetadataDraft11
+            credOffer as CredentialOfferDraft11
+
+            val rndBytes = Random.nextBytes(32)
+            val codeVerifier = Base64URL.encode(rndBytes).toString()
+            val redirectUri = "${endpointUri}/${ctx.targetId}/authorize"
+            val authRequest = AuthorizationRequestDraft11Builder()
+                .withClientId(ctx.did)
+                .withClientState(ctx.walletId)
+                .withCodeChallengeMethod("S256")
+                .withCodeVerifier(codeVerifier)
+                .withIssuerMetadata(issuerMetadata)
+                .withRedirectUri(redirectUri)
+                .buildFrom(credOffer)
+
+            authContext.putAttachment(CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
+            authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
+            val authEndpointUri = issuerMetadata.getAuthorizationMetadata().getAuthorizationEndpointUri()
+            val authCode = sendAuthorizationRequestDraft11(authContext, authRequest, authEndpointUri)
+            val tokenRes = getAccessTokenFromAuthorizationCode(ctx, authCode)
+            return tokenRes
+        }
+
+        error("Cannot get AccessToken from CredentialOffer")
+    }
+
+    /**
+     * Get the CredentialOffer for the given credential offer uri
+     */
+    override suspend fun getCredentialOfferFromUri(offerUri: String): CredentialOfferV0 {
+        val credOfferRes = http.get(offerUri)
+        val credOffer = (handleApiResponse(credOfferRes) as CredentialOfferV0)
+        log.info { "CredentialOffer: ${credOffer.toJson()}" }
+        return credOffer
+    }
+
+    /**
+     * Holder gets a Credential from an Issuer
+     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
+     */
+    override suspend fun getCredential(
+        ctx: LoginContext,
+        accessToken: TokenResponse
+    ): W3CCredentialJwt {
+
+        val authContext = ctx.getAuthContext()
+        val credConfigIds = authContext.credentialConfigurationIds
+        val credResponse = sendCredentialRequest(authContext, accessToken, null, credConfigIds)
+
+        // Validate the Credential
+        //
+        val signedJwt = extractCredentialFromResponse(credResponse)
+        val (_, format) = W3CCredentialValidator.validateCredential(authContext, signedJwt)
+
+        // Store the Credential
+        //
+        storeCredential(authContext, format, signedJwt)
+
+        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
+        return credJwt
+    }
+
+    override suspend fun getCredentialFromOffer(ctx: LoginContext, credOffer: CredentialOffer): W3CCredentialJwt {
+
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+
+        val issuerMetadata = authContext.getIssuerMetadata()
+        val accessToken = getAccessTokenFromCredentialOffer(ctx, credOffer)
+
+        var cNonce = accessToken.cNonce
+        if (cNonce == null && issuerMetadata is IssuerMetadataV0) {
+            val res = http.post(issuerMetadata.nonceEndpoint!!)
+            if (res.status != HttpStatusCode.OK)
+                throw HttpStatusException(res.status, res.bodyAsText())
+            val jsonObj = Json.decodeFromString<JsonObject>(res.bodyAsText())
+            cNonce = jsonObj.getValue("c_nonce").jsonPrimitive.content
+        }
+
+        val credConfigIds = credOffer.credentialConfigurationIds
+        val credRequest = buildCredentialRequest(authContext, cNonce, null, credConfigIds)
+
+        val res = http.post(issuerMetadata.credentialEndpoint) {
+            header(HttpHeaders.Authorization, "Bearer ${accessToken.accessToken}")
+            contentType(ContentType.Application.Json)
+            setBody(credRequest.toJson())
+        }
+        val credResJson = res.bodyAsText()
+        if (res.status != HttpStatusCode.OK)
+            throw HttpStatusException(res.status, credResJson)
+
+        log.info { "CredentialResponse: $credResJson" }
+        var credResponse = CredentialResponse.fromJson(credResJson)
+
+        var numRetry = 0
+        val maxRetries = 10
+        while (credResponse is CredentialResponseDraft11 && credResponse.acceptanceToken != null && numRetry < maxRetries) {
+            delay(5500)
+
+            val deferredCredentialEndpoint = issuerMetadata.deferredCredentialEndpoint ?: error("No credential_endpoint")
+            log.info { "${++numRetry}/$maxRetries fetching deferred credential from: $deferredCredentialEndpoint" }
+
+            val res = http.post(deferredCredentialEndpoint) {
+                header(HttpHeaders.Authorization, "Bearer ${credResponse.acceptanceToken}")
+            }
+            val credResJson = res.bodyAsText()
+            if (res.status != HttpStatusCode.OK)
+                throw HttpStatusException(res.status, credResJson)
+
+            log.info { "CredentialResponse: $credResJson" }
+            credResponse = CredentialResponse.fromJson(credResJson)
+        }
+
+        // Validate the Credential
+        //
+        val signedJwt = extractCredentialFromResponse(credResponse)
+        val (_, format) = W3CCredentialValidator.validateCredential(authContext, signedJwt)
+
+        // Store the Credential
+        //
+        storeCredential(authContext, format, signedJwt)
+
+        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
+        return credJwt
+    }
+
+    // LegacyWalletService ---------------------------------------------------------------------------------------------
 
     override suspend fun buildAuthorizationRequest(
         authContext: AuthorizationContext,
         clientId: String,
         redirectUri: String
-    ): AuthorizationRequest {
+    ): AuthorizationRequestV0 {
 
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
@@ -145,16 +346,17 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
     }
 
     override suspend fun getAuthorizationCode(
-        authContext: AuthorizationContext,
+        ctx: LoginContext,
         clientId: String,
         username: String,
         password: String,
         redirectUri: String
     ): String {
 
-        val issuerMetadata = authContext.getIssuerMetadata()
+        val authContext = ctx.getAuthContext()
+        val authMetadata = authContext.getAuthorizationMetadata()
+        val authEndpointUrl = authMetadata.getAuthorizationEndpointUri()
         val authRequest = buildAuthorizationRequest(authContext, clientId, redirectUri)
-        val authEndpointUrl = issuerMetadata.getAuthorizationEndpointUri()
 
         val authCode = OAuthClient()
             .withLoginCredentials(username, password)
@@ -164,16 +366,17 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
     }
 
     override suspend fun getAccessTokenFromAuthorizationCode(
-        authContext: AuthorizationContext,
+        ctx: LoginContext,
         authCode: String,
         clientId: String,
     ): TokenResponse {
 
+        val authContext = ctx.getAuthContext()
         val credentialIssuer = authContext.getIssuerMetadata().credentialIssuer
         val tokenRequest = when (credentialIssuer) {
             KNOWN_ISSUER_EBSI_V3 -> {
-                val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
-                val codeVerifier = authContext.assertAttachment(EBSI32_CODE_VERIFIER_ATTACHMENT_KEY)
+                val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
+                val codeVerifier = authContext.assertAttachment(CODE_VERIFIER_ATTACHMENT_KEY)
                 TokenRequest.AuthorizationCode(
                     clientId = authRequest.clientId,
                     redirectUri = authRequest.redirectUri,
@@ -192,23 +395,23 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
             }
         }
 
-        val issuerMetadata = authContext.getIssuerMetadata()
-        val tokenEndpointUrl = issuerMetadata.getAuthorizationTokenEndpointUri()
-
+        val authMetadata = authContext.getAuthorizationMetadata()
+        val tokenEndpointUrl = authMetadata.getAuthorizationTokenEndpointUri()
         val tokenResponse = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokenRequest)
         log.info { "TokenResponse: ${tokenResponse.toJson()}" }
+
         return tokenResponse
     }
 
     override suspend fun getAccessTokenFromDirectAccess(
-        authContext: AuthorizationContext,
+        ctx: LoginContext,
         clientId: String,
     ): TokenResponse {
 
-        val issuerMetadata = authContext.getIssuerMetadata()
-        val tokenEndpointUrl = issuerMetadata.getAuthorizationTokenEndpointUri()
+        val tokenEndpointUrl = getAuthorizationMetadata(ctx).getAuthorizationTokenEndpointUri()
         val scopes = mutableListOf("openid")
 
+        val authContext = ctx.getAuthContext()
         authContext.credentialConfigurationIds?.also {
             scopes.addAll(it)
         }
@@ -228,173 +431,80 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
         return tokRes
     }
 
-    override suspend fun getAccessTokenFromCredentialOffer(
-        authContext: AuthorizationContext,
-        credOffer: CredentialOffer,
-        clientId: String,
-    ): TokenResponse {
-        val ctx = requireNotNull(authContext.loginContext)
-
-        authContext.withCredentialOffer(credOffer)
-        val issuerMetadata = authContext.getIssuerMetadata()
-
-        if (credOffer.isPreAuthorized) {
-            val preAuthorizedCodeGrant = credOffer.getPreAuthorizedCodeGrant()!!
-            val code = preAuthorizedCodeGrant.preAuthorizedCode
-            val tokenEndpointUrl = issuerMetadata.getAuthorizationTokenEndpointUri()
-            var userPin = authContext.getAttachment(EBSI32_USER_PIN_ATTACHMENT_KEY)
-            if (credOffer.isUserPinRequired && userPin == null) {
-               userPin = requireEbsiConfig().preAuthUserPin
-            }
-            val tokReq = TokenRequest.PreAuthorizedCode(
-                clientId = clientId,
-                preAuthorizedCode = code,
-                userPin = userPin
-            )
-            val tokenRes = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokReq)
-            log.info { "TokenResponse: ${tokenRes.toJson()}" }
-            return tokenRes
-        }
-
-        if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
-
-            issuerMetadata as IssuerMetadataDraft11
-            credOffer as CredentialOfferDraft11
-
-            val rndBytes = Random.nextBytes(32)
-            val codeVerifier = Base64URL.encode(rndBytes).toString()
-            val redirectUri = "${walletEndpointUri}/${ctx.targetId}/authorize"
-            val authRequest = AuthorizationRequestDraft11Builder()
-                .withClientId(ctx.did)
-                .withClientState(ctx.walletId)
-                .withCodeChallengeMethod("S256")
-                .withCodeVerifier(codeVerifier)
-                .withIssuerMetadata(issuerMetadata)
-                .withRedirectUri(redirectUri)
-                .buildFrom(credOffer)
-
-            authContext.putAttachment(EBSI32_CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
-            authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
-            val authEndpointUri = issuerMetadata.getAuthorizationEndpointUri()
-            val authCode = sendAuthorizationRequestDraft11(authContext, authRequest, authEndpointUri)
-            val tokenRes = getAccessTokenFromAuthorizationCode(authContext, authCode)
-            return tokenRes
-        }
-
-        error("Cannot get AccessToken from CredentialOffer")
-    }
-
     /**
-     * Get the CredentialOffer for the given credential offer uri
+     * The Authorization Request parameter contains a DCQL query that describes the requirements of the Credential(s) that the Verifier is requesting to be presented.
+     * Such requirements could include what type of Credential(s), in what format(s), which individual Claims within those Credential(s) (Selective Disclosure), etc.
+     * The Wallet processes the Request Object and determines what Credentials are available matching the Verifier's request.
+     * The Wallet also authenticates the End-User and gathers their consent to present the requested Credentials.
+     *
+     * The Wallet prepares the Presentation(s) of the Credential(s) that the End-User has consented to.
+     * It then sends to the Verifier an Authorization Response where the Presentation(s) are contained in the vp_token parameter.
+     *
+     * https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#section-3
      */
-    override suspend fun getCredentialOffer(offerUri: String): CredentialOfferV0 {
-        val credOfferRes = http.get(offerUri)
-        val credOffer = (handleApiResponse(credOfferRes) as CredentialOfferV0)
-        log.info { "CredentialOffer: ${credOffer.toJson()}" }
-        return credOffer
-    }
+    override suspend fun handleVPTokenRequest(ctx: LoginContext, authReq: AuthorizationRequestV0): TokenResponse {
 
-    /**
-     * Holder gets a Credential from an Issuer
-     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
-     */
-    override suspend fun getCredential(
-        authContext: AuthorizationContext,
-        accessToken: TokenResponse
-    ): W3CCredentialJwt {
+        log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(authReq)}" }
 
-        val credConfigIds = authContext.credentialConfigurationIds
-        val credResponse = sendCredentialRequest(authContext, accessToken, null, credConfigIds)
+        val clientId = authReq.clientId
+        val nonce = authReq.nonce
+        val state = authReq.state
 
-        // Validate the Credential
+        val dcql = authReq.dcqlQuery ?: error("No dcql_query in: $authReq")
+        log.info { "VPToken DCQLQuery: ${dcql.toJson()}" }
+
+        // Build the list of Credentials and associated PresentationSubmission
         //
-        val signedJwt = extractCredentialFromResponse(credResponse)
-        val (_, format) = W3CCredentialValidator.validateCredential(authContext, signedJwt)
+        val (credJwts, vpSubmission) = buildPresentationSubmission(ctx, dcql)
 
-        // Store the Credential
+        // Build the VPToken JWT
         //
-        storeCredential(authContext, format, signedJwt)
+        val jti = "${Uuid.random()}"
+        val iat = Clock.System.now()
+        val exp = iat + 5.minutes // 5 mins expiry
 
-        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
-        return credJwt
-    }
+        val kid = ctx.didInfo.authenticationId()
+        val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType.JWT)
+            .keyID(kid)
+            .build()
 
-    override suspend fun getCredentialFromOffer(authContext: AuthorizationContext, credOffer: CredentialOffer): W3CCredentialJwt {
-
-        val issuerMetadata = authContext.getIssuerMetadata()
-
-        val accessToken = getAccessTokenFromCredentialOffer(authContext, credOffer)
-
-        var cNonce = accessToken.cNonce
-        if (cNonce == null && issuerMetadata is IssuerMetadataV0) {
-            val res = http.post(issuerMetadata.nonceEndpoint!!)
-            if (res.status != HttpStatusCode.OK)
-                throw HttpStatusException(res.status, res.bodyAsText())
-            val jsonObj = Json.decodeFromString<JsonObject>(res.bodyAsText())
-            cNonce = jsonObj.getValue("c_nonce").jsonPrimitive.content
-        }
-
-        val credConfigIds = credOffer.credentialConfigurationIds
-        val credRequest = buildCredentialRequest(authContext, cNonce, null, credConfigIds)
-
-        val res = http.post(issuerMetadata.credentialEndpoint) {
-            header(HttpHeaders.Authorization, "Bearer ${accessToken.accessToken}")
-            contentType(ContentType.Application.Json)
-            setBody(credRequest.toJson())
-        }
-        val credResJson = res.bodyAsText()
-        if (res.status != HttpStatusCode.OK)
-            throw HttpStatusException(res.status, credResJson)
-
-        log.info { "CredentialResponse: $credResJson" }
-        var credResponse = CredentialResponse.fromJson(credResJson)
-
-        var numRetry = 0
-        val maxRetries = 10
-        while (credResponse is CredentialResponseDraft11 && credResponse.acceptanceToken != null && numRetry < maxRetries) {
-            delay(5500)
-
-            val deferredCredentialEndpoint = issuerMetadata.deferredCredentialEndpoint ?: error("No credential_endpoint")
-            log.info { "${++numRetry}/$maxRetries fetching deferred credential from: $deferredCredentialEndpoint" }
-
-            val res = http.post(deferredCredentialEndpoint) {
-                header(HttpHeaders.Authorization, "Bearer ${credResponse.acceptanceToken}")
-            }
-            val credResJson = res.bodyAsText()
-            if (res.status != HttpStatusCode.OK)
-                throw HttpStatusException(res.status, credResJson)
-
-            log.info { "CredentialResponse: $credResJson" }
-            credResponse = CredentialResponse.fromJson(credResJson)
-        }
-
-        // Validate the Credential
+        // Parse VPToken template with Jose to a MutableMap
         //
-        val signedJwt = extractCredentialFromResponse(credResponse)
-        val (_, format) = W3CCredentialValidator.validateCredential(authContext, signedJwt)
+        val vpJson = """{
+            "@context": [ "https://www.w3.org/2018/credentials/v1" ],
+            "id": "$jti",
+            "type": [ "VerifiablePresentation" ],
+            "holder": "${ctx.did}",
+            "verifiableCredential": ${credJwts.map { "\"${it.serialize()}\"" }}
+        }"""
+        val vpObj = JSONObjectUtils.parse(vpJson)
 
-        // Store the Credential
-        //
-        storeCredential(authContext, format, signedJwt)
+        val claimsBuilder = JWTClaimsSet.Builder()
+            .jwtID(jti)
+            .issuer(ctx.did)
+            .subject(ctx.did)
+            .audience(clientId)
+            .issueTime(Date(iat.toEpochMilliseconds()))
+            .notBeforeTime(Date(iat.toEpochMilliseconds()))
+            .expirationTime(Date(exp.toEpochMilliseconds()))
+            .claim("vp", vpObj)
 
-        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
-        return credJwt
-    }
+        nonce?.also { claimsBuilder.claim("nonce", it) }
+        state?.also { claimsBuilder.claim("state", it) }
+        val vpTokenClaims = claimsBuilder.build()
 
-    suspend fun findMatchingCredentials(
-        ctx: LoginContext,
-        dcql: DCQLQuery
-    ): List<Triple<WalletCredential, String, List<QueryClaim>?>> {
-        val matcher = CredentialMatcherV10()
-        val credentials = findCredentials(ctx) { true } // cache all credentials to avoid multiple API calls
-        val res = dcql.credentials.mapNotNull { cq ->
-            matcher.matchCredential(cq, credentials.asSequence())?.let { (wc, claims) ->
-                Triple(wc, cq.id, claims)
-            }
-        }.onEach {
-            log.info { "Matched: ${it.first.parsedDocument}" }
-        }
-        return res
+        val vpTokenJwt = SignedJWT(vpTokenHeader, vpTokenClaims).signWithKey(ctx, kid)
+        log.info { "VPToken Header: ${vpTokenJwt.header}" }
+        log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
+
+        val vpToken = vpTokenJwt.serialize()
+        log.info { "VPToken: $vpToken" }
+        log.info { "VPSubmission: ${vpSubmission.toJSON()}" }
+
+        vpTokenJwt.verifyJwtSignature("VPToken", ctx.didInfo)
+
+        return TokenResponse(vpToken = vpToken, presentationSubmission = vpSubmission)
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -405,7 +515,7 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
         clientId: String,
         redirectUri: String,
         codeVerifier: String? = null
-    ): AuthorizationRequest {
+    ): AuthorizationRequestV0 {
 
         val issuerMetadata = authContext.getIssuerMetadata() as IssuerMetadataV0
 
@@ -435,7 +545,7 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
         clientId: String,
         redirectUri: String,
         codeVerifier: String? = null
-    ): AuthorizationRequest {
+    ): AuthorizationRequestV0 {
         val ctx = requireNotNull(authContext.loginContext)
 
         val clientState = ctx.walletId
@@ -503,8 +613,7 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
                 if (queryParams["request"] != null) {
 
                     // Redirect location is expected to be an Authorization Request
-                    val queryParamsExt = queryParams.mapValues { (_, v) -> listOf(v) }
-                    val authReq = AuthorizationRequestDraft11.fromHttpParameters(queryParamsExt)
+                    val authReq = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
 
                     // Store the AuthorizationRequest in memory
                     val reqObjectId = "${Uuid.random()}"
@@ -529,7 +638,7 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
             throw HttpStatusException(res.status, res.bodyAsText())
         }
 
-        val authCode = authContext.assertAttachment(EBSI32_AUTH_CODE_ATTACHMENT_KEY)
+        val authCode = authContext.assertAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY)
         log.info { "AuthorizationCode: $authCode" }
         return authCode
     }
@@ -562,7 +671,7 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
                     .expirationTime(Date.from(exp))
                     .claim("nonce", cNonce)
 
-                val authRequest = authContext.getAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+                val authRequest = authContext.getAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
                 authRequest?.also { proofClaimsBuilder.claim("state", it.state) }
 
                 val proofClaims = proofClaimsBuilder.build()
@@ -621,6 +730,48 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
         return credRequest
     }
 
+    /**
+     * Extract the Credential from the CredentialResponse
+     */
+    private fun extractCredentialFromResponse(credResponse: CredentialResponse): SignedJWT {
+
+        val signedJwts = when (credResponse) {
+            is CredentialResponseDraft11 -> {
+                listOf(SignedJWT.parse(credResponse.credential))
+            }
+            is CredentialResponseV0 -> {
+                credResponse.credentials?.map { SignedJWT.parse(it.credential) }.orEmpty()
+            }
+        }
+        if (signedJwts.isEmpty()) error("No credential in response")
+        if (signedJwts.size > 1) error("Multiple credentials not supported")
+
+        val signedJwt: SignedJWT = signedJwts[0]
+        log.info { "CredentialJwt Header: ${signedJwt.header}" }
+        log.info { "CredentialJwt Claims: ${signedJwt.jwtClaimsSet}" }
+
+        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
+        log.info { "Credential: ${credJwt.toJson()}" }
+
+        return signedJwt
+    }
+
+    private suspend fun findMatchingCredentials(
+        ctx: LoginContext,
+        dcql: DCQLQuery
+    ): List<Triple<WalletCredential, String, List<QueryClaim>?>> {
+        val matcher = CredentialMatcherV10()
+        val credentials = findCredentials(ctx) { true } // cache all credentials to avoid multiple API calls
+        val res = dcql.credentials.mapNotNull { cq ->
+            matcher.matchCredential(cq, credentials.asSequence())?.let { (wc, claims) ->
+                Triple(wc, cq.id, claims)
+            }
+        }.onEach {
+            log.info { "Matched: ${it.first.parsedDocument}" }
+        }
+        return res
+    }
+
     private suspend fun sendCredentialRequest(
         authContext: AuthorizationContext,
         accessToken: TokenResponse,
@@ -654,32 +805,6 @@ class DefaultWalletService : AbstractWalletService(), WalletService {
         log.info { "CredentialResponse: ${credResponse.toJson()}" }
 
         return credResponse
-    }
-
-    /**
-     * Extract the Credential from the CredentialResponse
-     */
-    private fun extractCredentialFromResponse(credResponse: CredentialResponse): SignedJWT {
-
-        val signedJwts = when (credResponse) {
-            is CredentialResponseDraft11 -> {
-                listOf(SignedJWT.parse(credResponse.credential))
-            }
-            is CredentialResponseV0 -> {
-                credResponse.credentials?.map { SignedJWT.parse(it.credential) }.orEmpty()
-            }
-        }
-        if (signedJwts.isEmpty()) error("No credential in response")
-        if (signedJwts.size > 1) error("Multiple credentials not supported")
-
-        val signedJwt: SignedJWT = signedJwts[0]
-        log.info { "CredentialJwt Header: ${signedJwt.header}" }
-        log.info { "CredentialJwt Claims: ${signedJwt.jwtClaimsSet}" }
-
-        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
-        log.info { "Credential: ${credJwt.toJson()}" }
-
-        return signedJwt
     }
 
     /**
