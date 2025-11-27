@@ -6,18 +6,14 @@
 
     <parent>
         <groupId>io.nessus.identity</groupId>
-        <artifactId>nessus-identity</artifactId>
+        <artifactId>nessus-identity-testsuite</artifactId>
         <version>25.5.0-SNAPSHOT</version>
     </parent>
 
     <name>Nessus Identity :: EBSI Conformance</name>
 
-    <artifactId>nessus-identity-ebsi-portal</artifactId>
+    <artifactId>nessus-identity-ebsi</artifactId>
     <packaging>jar</packaging>
-
-    <properties>
-        <projectMainClass>io.nessus.identity.ebsi.EBSIPortal</projectMainClass>
-    </properties>
 
     <dependencies>
         <dependency>

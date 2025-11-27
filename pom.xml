@@ -75,6 +75,7 @@
     <modules>
         <module>console</module>
         <module>service</module>
+        <module>testsuite</module>
     </modules>
 
     <dependencyManagement>
@@ -487,12 +488,4 @@
         </repository>
     </repositories>
 
-    <profiles>
-        <profile>
-            <id>ebsi</id>
-            <modules>
-                <module>ebsi</module>
-            </modules>
-        </profile>
-    </profiles>
 </project>
