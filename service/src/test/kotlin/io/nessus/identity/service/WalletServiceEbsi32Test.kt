@@ -1,5 +1,6 @@
 package io.nessus.identity.service
 
+import com.nimbusds.jwt.SignedJWT
 import io.kotest.common.runBlocking
 import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.config.ConfigProvider.Max
@@ -60,9 +61,12 @@ class WalletServiceEbsi32Test : AbstractServiceTest() {
 
             val tokenRequest = walletSvc.getTokenRequestFromAuthorizationCode(holder, authCode)
 
-            val accessToken = issuerSvc.getTokenResponse(issuer, tokenRequest)
+            val tokenResponse = issuerSvc.getTokenResponse(issuer, tokenRequest)
 
             val credRequest = walletSvc.buildCredentialRequest(holder, authRequest)
+
+            val accessTokenJwt = SignedJWT.parse(tokenResponse.accessToken)
+            issuerSvc.getNativeCredentialFromRequest(issuer, credRequest, accessTokenJwt)
         }
     }
 }

@@ -42,5 +42,5 @@ interface ExperimentalAuthorizationService {
         tokenRequest: TokenRequest
     ): TokenResponse
 
-    fun validateAccessToken(accessToken: TokenResponse)
+    fun validateAccessToken(accessToken: SignedJWT)
 }

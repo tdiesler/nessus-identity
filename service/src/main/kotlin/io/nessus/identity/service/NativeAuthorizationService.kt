@@ -360,10 +360,9 @@ class NativeAuthorizationService(): AuthorizationService {
     }
 
 
-    override fun validateAccessToken(accessToken: TokenResponse) {
+    override fun validateAccessToken(accessToken: SignedJWT) {
 
-        val bearerToken = SignedJWT.parse(accessToken.accessToken)
-        val claims = bearerToken.jwtClaimsSet
+        val claims = accessToken.jwtClaimsSet
         val exp = claims.expirationTime?.toInstant()
         if (exp == null || exp.isBefore(Instant.now()))
             throw IllegalStateException("Token expired")

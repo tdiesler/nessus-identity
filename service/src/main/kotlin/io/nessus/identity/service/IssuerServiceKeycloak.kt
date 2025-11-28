@@ -13,6 +13,8 @@ import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferUri
+import io.nessus.identity.types.CredentialRequest
+import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.OfferUriType
 import io.nessus.identity.types.TokenRequest
@@ -53,6 +55,21 @@ class IssuerServiceKeycloak(val config: IssuerConfig): AbstractIssuerService(), 
         ctx: LoginContext,
         tokenRequest: TokenRequest
     ): TokenResponse {
+        error("Not implemented")
+    }
+
+    override suspend fun getNativeCredentialFromRequest(
+        ctx: LoginContext,
+        credReq: CredentialRequest,
+        accessTokenJwt: SignedJWT,
+        deferred: Boolean,
+    ): CredentialResponse {
+        error("Not implemented")
+    }
+
+    override suspend fun getNativeCredentialFromAcceptanceToken(
+        ctx: LoginContext, acceptanceTokenJwt: SignedJWT
+    ): CredentialResponse {
         error("Not implemented")
     }
 
