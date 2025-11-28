@@ -23,8 +23,9 @@ class WalletServiceEbsi32Test : AbstractServiceTest() {
         // Holder creates AuthorizationRequest
         //
         // Issuer receives AuthorizationRequest
-        //  - Issuer creates IDTokenRequest
-        //  - Holder sends IDToken Response
+        //  - Issuer creates IDToken AuthorizationRequest (response_type=id_token, response_mode=direct_post)
+        //  - Holder receives IDToken AuthorizationRequest
+        //  - Holder responds with the requested IDToken
         // Issuer sends AuthorizationResponse (code)
         //
         // Holder sends TokenRequest
@@ -50,11 +51,13 @@ class WalletServiceEbsi32Test : AbstractServiceTest() {
             holder.getAuthContext().withIssuerMetadata(issuerMetadata)
             val authRequest = walletSvc.buildAuthorizationRequestFromOffer(holder, credOffer)
 
-            // Issuer receives AuthorizationRequest and creates a IDTokenRequest
+            // Issuer receives AuthorizationRequest and creates a IDToken AuthorizationRequest
             //
-            val issuerEndpointUri = "${issuerSvc.endpointUri})/${issuer.targetId}"
-            val idTokenRequestJwt = authorizationSvc.buildIDTokenRequestJwt(issuer, issuerEndpointUri, authRequest)
+            val idTokenRequest = issuerSvc.createIDTokenRequest(issuer, authRequest)
 
+            val idTokenJwt = walletSvc.createIDToken(holder, idTokenRequest)
+
+            val authCode = issuerSvc.getAuthCodeFromIDToken(issuer, idTokenJwt)
         }
     }
 }

@@ -329,6 +329,12 @@ class ConsoleServer(val config: ConsoleConfig) {
                                 walletHandler.handleAuthorizationMetadataRequest(call, ctx)
                             }
                         }
+                        get("/flow/{flowStep}") {
+                            requireTargetContext(call) { ctx ->
+                                val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
+                                walletHandler.handleAuthFlow(call, ctx, flowStep)
+                            }
+                        }
                         get("/authorize") {
                             requireTargetContext(call) { ctx ->
                                 walletHandler.handleAuthorization(call, ctx)
@@ -336,12 +342,6 @@ class ConsoleServer(val config: ConsoleConfig) {
                         }
                         post("/direct_post") {
                             error ("Not implemented ${call.request.uri}")
-                        }
-                        get("/flow/{flowStep}") {
-                            requireTargetContext(call) { ctx ->
-                                val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
-                                walletHandler.handleAuthFlow(call, ctx, flowStep)
-                            }
                         }
                         get("/jwks") {
                             error ("Not implemented ${call.request.uri}")

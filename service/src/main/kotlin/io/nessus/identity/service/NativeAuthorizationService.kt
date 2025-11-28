@@ -17,6 +17,7 @@ import io.nessus.identity.service.AuthorizationContext.Companion.AUTHORIZATION_C
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.waltid.authenticationId
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.*
@@ -24,7 +25,7 @@ import java.time.Instant
 import java.util.*
 import kotlin.uuid.Uuid
 
-// NativeAuthorizationService ================================================================================================
+// NativeAuthorizationService ==========================================================================================
 
 class NativeAuthorizationService(): AuthorizationService {
 
@@ -115,26 +116,7 @@ class NativeAuthorizationService(): AuthorizationService {
         return AuthorizationMetadata(jsonObj)
     }
 
-    override fun buildAuthCodeRedirectUri(ctx: LoginContext, authCode: String): String {
-
-        val authContext = ctx.getAuthContext()
-        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
-        val authCodeRedirect = URLBuilder("${authReq.redirectUri}").apply {
-            parameters.append("code", authCode)
-            authReq.state?.also { state ->
-                parameters.append("state", state)
-            }
-        }.buildString()
-
-        log.info { "AuthCode Redirect: $authCodeRedirect" }
-        urlQueryToMap(authCodeRedirect).also {
-            it.forEach { (k, v) -> log.info { "  $k=$v" } }
-        }
-
-        return authCodeRedirect
-    }
-
-    override suspend fun buildIDTokenRequestJwt(
+    override suspend fun createIDTokenRequestJwt(
         ctx: LoginContext,
         targetEndpointUri: String,
         authReq: AuthorizationRequest
@@ -160,51 +142,50 @@ class NativeAuthorizationService(): AuthorizationService {
                 .claim("nonce", "${Uuid.random()}").build()
 
         val idTokenJwt = SignedJWT(idTokenHeader, idTokenClaims).signWithKey(ctx, kid)
-        log.info { "IDToken Request Header: ${idTokenJwt.header}" }
-        log.info { "IDToken Request Claims: ${idTokenJwt.jwtClaimsSet}" }
-
         return idTokenJwt
     }
 
-    override fun buildIDTokenRequestRedirectUrl(authRequest: AuthorizationRequest, idTokenRequestJwt: SignedJWT): String {
+    override fun buildIDTokenAuthorizationRequest(redirectUri: String, idTokenRequestJwt: SignedJWT): AuthorizationRequest {
 
         val claims = idTokenRequestJwt.jwtClaimsSet
-        val idTokenRedirectUrl = URLBuilder(authRequest.redirectUri!!).apply {
-            for (k in listOf("client_id", "nonce", "scope", "redirect_uri", "response_mode", "response_type")) {
-                val v = claims.getClaim(k) as String
-                parameters.append(k, v)
-            }
-            parameters.append("request", "${idTokenRequestJwt.serialize()}")
-        }.buildString()
-
-        log.info { "IDToken Redirect $idTokenRedirectUrl" }
-        urlQueryToMap(idTokenRedirectUrl).also {
-            it.forEach { (k, v) -> log.info { "  $k=$v" } }
+        val queryParams = buildMap {
+            listOf("client_id", "nonce", "scope", "redirect_uri", "response_mode", "response_type")
+                .forEach { k -> put(k, claims.getClaim(k) as String) }
+           put("request", idTokenRequestJwt.serialize())
         }
 
-        return idTokenRedirectUrl
+        val authRequest = AuthorizationRequestV0.fromHttpParameters(queryParams)
+        log.info { "IDToken Request: ${authRequest.toRequestUrl(redirectUri)}" }
+        queryParams.forEach { (k, v) -> log.info { "  $k=$v" } }
+
+        return authRequest
     }
 
-    override suspend fun createIDToken(
+    override suspend fun createIDTokenJwt(
         ctx: LoginContext,
-        reqParams: Map<String, String>
+        authRequest: AuthorizationRequest,
+        idTokenRequestJwt: SignedJWT
     ): SignedJWT {
 
-        // Verify required query params
-        for (key in listOf("client_id", "redirect_uri", "response_type")) {
-            requireNotNull(reqParams[key]) { "Cannot find $key" }
+        val reqParams = authRequest.toRequestParameters().mapValues{ (_, vs) -> vs.first() }.toMutableMap()
+        for ((k, v) in idTokenRequestJwt.jwtClaimsSet.claims) {
+            reqParams[k] = "$v"
         }
 
         // The Wallet answers the ID Token Request by providing the id_token in the redirect_uri as instructed by response_mode of direct_post.
         // The id_token must be signed with the DID document's authentication key.
 
-        val clientId = reqParams["client_id"] as String
+        // Verify required query params
+        for (key in listOf("client_id", "nonce", "redirect_uri", "response_type")) {
+            requireNotNull(reqParams[key]) { "No $key" }
+        }
 
-        val responseType = reqParams["response_type"] as String
-        require(responseType == "id_token") { "Unexpected response_type: $responseType" }
-
-        val nonce = reqParams["nonce"]
+        val clientId = requireNotNull(reqParams["client_id"])
+        val nonce = requireNotNull(reqParams["nonce"])
         val state = reqParams["state"]
+
+        val responseType = reqParams["response_type"]
+        require(reqParams["response_type"] == "id_token") { "Unexpected response_type: $responseType" }
 
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
@@ -224,13 +205,10 @@ class NativeAuthorizationService(): AuthorizationService {
             .expirationTime(Date.from(exp))
             .claim("nonce", nonce)
 
-        nonce?.also { jwtBuilder.claim("nonce", it) }
         state?.also { jwtBuilder.claim("state", it) }
         val idTokenClaims = jwtBuilder.build()
 
         val idTokenJwt = SignedJWT(idTokenHeader, idTokenClaims).signWithKey(ctx, kid)
-        log.info { "IDToken Header: ${idTokenJwt.header}" }
-        log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
 
         log.info { "IDToken: ${idTokenJwt.serialize()}" }
         idTokenJwt.verifyJwtSignature("IDToken", ctx.didInfo)
@@ -240,9 +218,11 @@ class NativeAuthorizationService(): AuthorizationService {
 
     override suspend fun sendIDToken(
         ctx: LoginContext,
-        redirectUri: String,
+        authRequest: AuthorizationRequest,
         idTokenJwt: SignedJWT
     ): String {
+
+        val redirectUri = requireNotNull(authRequest.redirectUri) { "No redirect_uri" }
 
         log.info { "Send IDToken: $redirectUri" }
         val formData = mutableMapOf(
@@ -273,6 +253,31 @@ class NativeAuthorizationService(): AuthorizationService {
         } ?: error("No authorization code")
 
         return authCode
+    }
+
+    override fun getIDTokenRedirectUrl(ctx: LoginContext, idTokenJwt: SignedJWT): String {
+
+        // [TODO #233] Verify IDToken proof DID ownership
+        // https://github.com/tdiesler/nessus-identity/issues/233
+        // We should be able to use the Holder's public key to do that
+
+        val authCode = "${Uuid.random()}"
+        val authContext = ctx.getAuthContext()
+        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
+        val idTokenRedirect = URLBuilder("${authReq.redirectUri}").apply {
+            parameters.append("code", authCode)
+            authReq.state?.also { state ->
+                parameters.append("state", state)
+            }
+        }.buildString()
+        authContext.putAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY, authCode)
+
+        log.info { "IDToken Response $idTokenRedirect" }
+        urlQueryToMap(idTokenRedirect).also {
+            it.forEach { (k, v) -> log.info { "  $k=$v" } }
+        }
+
+        return idTokenRedirect
     }
 
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------

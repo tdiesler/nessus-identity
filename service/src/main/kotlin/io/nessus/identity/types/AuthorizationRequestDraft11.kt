@@ -22,6 +22,9 @@ data class AuthorizationRequestDraft11(
     @SerialName("response_mode")
     override val responseMode: String? = null,
 
+    @SerialName("request")
+    override val request: String? = null,
+
     @SerialName("request_uri")
     override val requestUri: String? = null,
 
@@ -65,7 +68,6 @@ data class AuthorizationRequestDraft11(
 
 //    val walletIssuer: String? = null,
 //    val userHint: String? = null,
-//    val request: String? = null,
 //    val clientIdScheme: ClientIdScheme? = null,
 //    val claims: JsonObject? = null,
 //    val idTokenHint: String? = null,
@@ -109,6 +111,7 @@ data class AuthorizationRequestDraft11(
                 redirectUri = params["redirect_uri"],
                 responseType = params["response_type"] ?: error("No response_type"),
                 responseMode = params["response_mode"],
+                request = params["request"],
                 requestUri = params["request_uri"],
                 responseUri = params["response_uri"],
                 scope = params["scope"],

@@ -76,7 +76,10 @@ class NativeWalletService : AbstractWalletService() {
 
     // Experimental ----------------------------------------------------------------------------------------------------
 
-    override suspend fun buildAuthorizationRequestFromOffer(ctx: LoginContext, credOffer: CredentialOffer): AuthorizationRequestDraft11 {
+    override suspend fun buildAuthorizationRequestFromOffer(
+        ctx: LoginContext,
+        credOffer: CredentialOffer
+    ): AuthorizationRequestDraft11 {
 
         val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
         val issuerMetadata = authContext.getIssuerMetadata()
@@ -84,8 +87,11 @@ class NativeWalletService : AbstractWalletService() {
         val rndBytes = Random.nextBytes(32)
         val codeVerifier = Base64URL.encode(rndBytes).toString()
         val redirectUri = "${endpointUri}/${ctx.targetId}/authorize"
-        val authRequest = when(issuerMetadata) {
-            is IssuerMetadataV0 -> { error("[TODO] Not implemented") }
+        val authRequest = when (issuerMetadata) {
+            is IssuerMetadataV0 -> {
+                error("[TODO] Not implemented")
+            }
+
             is IssuerMetadataDraft11 -> {
                 AuthorizationRequestDraft11Builder()
                     .withClientId(ctx.did)
@@ -131,6 +137,34 @@ class NativeWalletService : AbstractWalletService() {
             }
         }
         return tokenRequest
+    }
+
+    override suspend fun createIDToken(ctx: LoginContext, authRequest: AuthorizationRequest): SignedJWT {
+
+        val request = authRequest.request
+        val requestUri = authRequest.requestUri
+        require(requestUri != null || request != null) { "No 'request_uri' nor 'request'" }
+
+        val idTokenRequestJwt = when {
+            requestUri != null -> {
+                log.info { "IDTokenRequest from: $requestUri" }
+
+                val res = http.get(requestUri)
+                if (res.status != HttpStatusCode.OK)
+                    throw HttpStatusException(res.status, res.bodyAsText())
+
+                val encodedJwt = res.bodyAsText()
+                log.info { "IDTokenRequest: $encodedJwt" }
+
+                SignedJWT.parse(encodedJwt)
+            }
+            else -> {
+                log.info { "IDTokenRequest: $request" }
+                SignedJWT.parse(request)
+            }
+        }
+        val idTokenJwt = authorizationSvc.createIDTokenJwt(ctx, authRequest, idTokenRequestJwt)
+        return idTokenJwt
     }
 
     override suspend fun getAccessTokenFromAuthorizationCode(
@@ -354,7 +388,8 @@ class NativeWalletService : AbstractWalletService() {
         while (credResponse is CredentialResponseDraft11 && credResponse.acceptanceToken != null && numRetry < maxRetries) {
             delay(5500)
 
-            val deferredCredentialEndpoint = issuerMetadata.deferredCredentialEndpoint ?: error("No credential_endpoint")
+            val deferredCredentialEndpoint =
+                issuerMetadata.deferredCredentialEndpoint ?: error("No credential_endpoint")
             log.info { "${++numRetry}/$maxRetries fetching deferred credential from: $deferredCredentialEndpoint" }
 
             val res = http.post(deferredCredentialEndpoint) {
@@ -676,6 +711,7 @@ class NativeWalletService : AbstractWalletService() {
                 val proofClaims = proofClaimsBuilder.build()
                 SignedJWT(proofHeader, proofClaims).signWithKey(ctx, kid)
             }
+
             else -> {
                 val kid = ctx.didInfo.keyId
                 val ecKeyJson = widWalletService.exportKey(ctx, kid)
@@ -709,6 +745,7 @@ class NativeWalletService : AbstractWalletService() {
                     )
                 )
             }
+
             else -> {
                 val credConfigId = credConfigIds?.firstOrNull()
                 require(credIdentifier != null || credConfigId != null)
@@ -738,6 +775,7 @@ class NativeWalletService : AbstractWalletService() {
             is CredentialResponseDraft11 -> {
                 listOf(SignedJWT.parse(credResponse.credential))
             }
+
             is CredentialResponseV0 -> {
                 credResponse.credentials?.map { SignedJWT.parse(it.credential) }.orEmpty()
             }

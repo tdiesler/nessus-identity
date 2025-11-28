@@ -19,6 +19,9 @@ data class AuthorizationRequestV0(
     @SerialName("response_mode")
     override val responseMode: String? = null,
 
+    @SerialName("request")
+    override val request: String? = null,
+
     @SerialName("request_uri")
     override val requestUri: String? = null,
 
@@ -91,6 +94,7 @@ data class AuthorizationRequestV0(
                 redirectUri = params["redirect_uri"],
                 responseType = params["response_type"] ?: error("No response_type"),
                 responseMode = params["response_mode"],
+                request = params["request"],
                 requestUri = params["request_uri"],
                 responseUri = params["response_uri"],
                 nonce = params["nonce"],

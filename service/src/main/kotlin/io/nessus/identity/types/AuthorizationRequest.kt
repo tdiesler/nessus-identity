@@ -12,6 +12,7 @@ sealed class AuthorizationRequest {
     abstract val redirectUri: String?
     abstract val responseType: String?
     abstract val responseMode: String?
+    abstract val request: String?
     abstract val requestUri: String?
     abstract val responseUri: String?
     abstract val scope: String?
@@ -26,6 +27,7 @@ sealed class AuthorizationRequest {
             redirectUri?.also { put("redirect_uri", listOf(it)) }
             responseType?.also { put("response_type", listOf(it)) }
             responseMode?.also { put("response_mode", listOf(it)) }
+            request?.also { put("request", listOf(it)) }
             requestUri?.also { put("request_uri", listOf(it)) }
             responseUri?.also { put("response_uri", listOf(it)) }
             scope?.also { put("scope", listOf(it)) }

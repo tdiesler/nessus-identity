@@ -104,18 +104,14 @@ class IssuerHandler(val issuerSvc: IssuerService) : AuthHandler(issuerSvc.author
 
     suspend fun handleNativeAuthorization(call: RoutingCall, ctx: LoginContext) {
 
+        log.info { "Issuer receives Authorization Request: ${call.request.uri}" }
         val queryParams = urlQueryToMap(call.request.uri)
-        val authRequest = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
-        log.info { "Issuer receives Authorization Request: ${Json.encodeToString(authRequest)}" }
-        queryParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
+        queryParams.forEach { (k, v) -> log.info { "  $k=$v" } }
 
-        val authContext = ctx.createAuthContext()
-        authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
-
-        val targetEndpointUri = "$endpointUri/${ctx.targetId}"
-        val idTokenRequestJwt = authorizationSvc.buildIDTokenRequestJwt(ctx, targetEndpointUri, authRequest)
-        val redirectUrl = authorizationSvc.buildIDTokenRequestRedirectUrl(authRequest, idTokenRequestJwt)
-        return call.respondRedirect(redirectUrl)
+        val authRequestIn = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
+        val redirectUri = requireNotNull(authRequestIn.redirectUri) { "No redirect_uri" }
+        val authRequestOut = issuerSvc.createIDTokenRequest(ctx, authRequestIn)
+        return call.respondRedirect(authRequestOut.toRequestUrl(redirectUri))
     }
 
     suspend fun handleNativeCredentialRequest(call: RoutingCall, ctx: LoginContext) {
@@ -162,8 +158,7 @@ class IssuerHandler(val issuerSvc: IssuerService) : AuthHandler(issuerSvc.author
         if (postParams["id_token"] != null) {
             val idToken = postParams["id_token"]?.first()
             val idTokenJwt = SignedJWT.parse(idToken)
-            val authCode = validateIDToken(ctx, idTokenJwt)
-            val redirectUrl = buildAuthCodeRedirectUri(ctx, authCode)
+            val redirectUrl = authorizationSvc.getIDTokenRedirectUrl(ctx, idTokenJwt)
             return call.respondRedirect(redirectUrl)
         }
 

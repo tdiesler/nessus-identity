@@ -14,10 +14,13 @@ import id.walt.oid4vc.data.SubjectType
 import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.config.User
 import io.nessus.identity.extend.signWithKey
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.UserAccessService.UserInfo
 import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.AuthorizationMetadata
+import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialObject
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -122,6 +125,29 @@ class IssuerServiceEbsi32(val config: IssuerConfig) : AbstractIssuerService(), I
 
         log.info { "Issued CredentialOffer: ${credOffer.toJson()}" }
         return credOffer
+    }
+
+    override suspend fun createIDTokenRequest(ctx: LoginContext, authRequest: AuthorizationRequest): AuthorizationRequest {
+
+        val authContext = ctx.getAuthContext()
+        authRequest as AuthorizationRequestDraft11
+        authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
+
+        val targetEndpointUri = "${endpointUri}/${adminContext.targetId}"
+        val redirectUri = requireNotNull(authRequest.redirectUri) { "No redirect_uri" }
+        val idTokenRequestJwt = authorizationSvc.createIDTokenRequestJwt(ctx, targetEndpointUri, authRequest)
+        val authRequestOut = authorizationSvc.buildIDTokenAuthorizationRequest(redirectUri, idTokenRequestJwt)
+
+        return authRequestOut
+    }
+
+    override fun getAuthCodeFromIDToken(
+        ctx: LoginContext,
+        idTokenJwt: SignedJWT,
+    ): String {
+        val redirectUrl = authorizationSvc.getIDTokenRedirectUrl(ctx, idTokenJwt)
+        val authCode = getAuthCodeFromRedirectUrl(redirectUrl)
+        return authCode
     }
 
     override fun getIssuerMetadataUrl(): String {

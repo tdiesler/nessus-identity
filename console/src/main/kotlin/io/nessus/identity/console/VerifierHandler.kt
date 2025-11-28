@@ -110,13 +110,14 @@ class VerifierHandler(val walletSvc: WalletService, val issuerSvc: IssuerService
                 val authContext = ctx.createAuthContext()
                 val queryParams = urlQueryToMap(call.request.uri)
 
-                val authRequest = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
-                authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
+                val authRequestIn = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
+                authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequestIn)
 
                 val targetEndpointUri = "$endpointUri/${ctx.targetId}"
-                val idTokenRequestJwt = authorizationSvc.buildIDTokenRequestJwt(ctx, targetEndpointUri, authRequest)
-                val redirectUrl = authorizationSvc.buildIDTokenRequestRedirectUrl(authRequest, idTokenRequestJwt)
-                return call.respondRedirect(redirectUrl)
+                val redirectUri = requireNotNull(authRequestIn.redirectUri) { "No redirect_uri" }
+                val idTokenRequestJwt = authorizationSvc.createIDTokenRequestJwt(ctx, targetEndpointUri, authRequestIn)
+                val authRequestOut = authorizationSvc.buildIDTokenAuthorizationRequest(redirectUri, idTokenRequestJwt)
+                return call.respondRedirect(authRequestOut.toRequestUrl(redirectUri))
             }
             scopes.any { it.contains("vp_token") } -> {
                 val authContext = ctx.createAuthContext()
@@ -151,8 +152,7 @@ class VerifierHandler(val walletSvc: WalletService, val issuerSvc: IssuerService
         if (postParams["id_token"] != null) {
             val idToken = postParams["id_token"]?.first()
             val idTokenJwt = SignedJWT.parse(idToken)
-            val authCode = validateIDToken(ctx, idTokenJwt)
-            val redirectUrl = buildAuthCodeRedirectUri(ctx, authCode)
+            val redirectUrl = authorizationSvc.getIDTokenRedirectUrl(ctx, idTokenJwt)
             return call.respondRedirect(redirectUrl)
         }
 

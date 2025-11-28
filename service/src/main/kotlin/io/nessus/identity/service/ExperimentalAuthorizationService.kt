@@ -7,15 +7,31 @@ import io.nessus.identity.types.AuthorizationRequest
 
 interface ExperimentalAuthorizationService {
 
-    suspend fun buildIDTokenRequestJwt(
+    suspend fun createIDTokenRequestJwt(
         ctx: LoginContext,
         targetEndpointUri: String,
         authReq: AuthorizationRequest
     ): SignedJWT
 
-    fun buildIDTokenRequestRedirectUrl(
+    fun buildIDTokenAuthorizationRequest(
+        redirectUri: String,
+        idTokenRequestJwt: SignedJWT
+    ): AuthorizationRequest
+
+    suspend fun createIDTokenJwt(
+        ctx: LoginContext,
         authRequest: AuthorizationRequest,
         idTokenRequestJwt: SignedJWT
+    ): SignedJWT
+
+    suspend fun sendIDToken(
+        ctx: LoginContext,
+        authRequest: AuthorizationRequest,
+        idTokenJwt: SignedJWT
     ): String
 
+    fun getIDTokenRedirectUrl(
+        ctx: LoginContext,
+        idTokenJwt: SignedJWT
+    ): String
 }

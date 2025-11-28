@@ -29,7 +29,6 @@ import io.nessus.identity.config.User
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.USER_PIN_ATTACHMENT_KEY
@@ -39,8 +38,8 @@ import io.nessus.identity.service.IssuerService.Companion.KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.service.LoginContext
 import io.nessus.identity.service.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.WalletService
+import io.nessus.identity.service.getAuthCodeFromRedirectUrl
 import io.nessus.identity.service.http
-import io.nessus.identity.service.urlDecode
 import io.nessus.identity.service.urlEncode
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestDraft11
@@ -111,14 +110,7 @@ class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.author
         log.info { "Authorization Callback: ${call.request.uri}" }
         urlQueryToMap(call.request.uri).entries.forEach { (k, v) -> log.info { "  $k=$v" } }
 
-        val error = call.parameters["error"]
-        if (error != null) {
-            val errorMessage = call.parameters["error_description"]
-                ?.let { urlDecode(it) }
-            error("Authentication Error: $errorMessage")
-        }
-
-        val authCode = call.parameters["code"] ?: error("No authorization code")
+        val authCode = getAuthCodeFromRedirectUrl(call.request.uri)
 
         // [TODO] Do we really always want to fetch the credential in the auth callback
         val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(ctx, authCode)
@@ -135,38 +127,35 @@ class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.author
 
     suspend fun handleAuthorization(call: RoutingCall, ctx: LoginContext) {
 
-        log.info { "Wallet receives AuthorizationRequest: ${call.request.uri}" }
         val queryParams = urlQueryToMap(call.request.uri)
-        queryParams.entries.forEach { (k, v) -> log.info { "  $k=$v" } }
-
         val authRequest = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
-        val scopes = authRequest.scope?.split(" ") ?: listOf()
 
-        when {
-            authRequest.responseType == "id_token" -> {
-                val idTokenJwt = createIDTokenJwt(ctx, authRequest)
-                val redirectUri = requireNotNull(authRequest.redirectUri)
-                authorizationSvc.sendIDToken(ctx, redirectUri, idTokenJwt)
+        when (authRequest.responseType) {
+
+            // Issuer creates IDToken AuthorizationRequest (response_type=id_token, response_mode=direct_post)
+            // Note, this may come in with request_uri
+
+            "id_token" -> {
+                log.info { "Wallet receives IDToken AuthorizationRequest: ${call.request.uri}" }
+                queryParams.entries.forEach { (k, v) -> log.info { "  $k=$v" } }
+
+                val idTokenJwt = walletSvc.createIDToken(ctx, authRequest)
+                authorizationSvc.sendIDToken(ctx, authRequest, idTokenJwt)
                 call.respondText(
                     status = HttpStatusCode.Accepted,
                     contentType = ContentType.Text.Plain,
                     text = "Accepted"
                 )
             }
-            authRequest.responseType == "vp_token" -> {
+
+            "vp_token" -> {
+                log.info { "Wallet receives VPToken AuthorizationRequest: ${call.request.uri}" }
+                queryParams.entries.forEach { (k, v) -> log.info { "  $k=$v" } }
+
                 handleVPTokenRequest(call, ctx)
             }
-            scopes.any { it.contains("id_token") } -> {
 
-                val authContext = ctx.createAuthContext()
-                authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
-
-                val targetEndpointUri = "$endpointUri/${ctx.targetId}"
-                val idTokenRequestJwt = authorizationSvc.buildIDTokenRequestJwt(ctx, targetEndpointUri, authRequest)
-                val redirectUrl = authorizationSvc.buildIDTokenRequestRedirectUrl(authRequest, idTokenRequestJwt)
-                call.respondRedirect(redirectUrl)
-            }
-            else -> error{ "Unknown authorization request" }
+            else -> error{ "Unknown AuthorizationRequest: ${call.request.uri}" }
         }
     }
 

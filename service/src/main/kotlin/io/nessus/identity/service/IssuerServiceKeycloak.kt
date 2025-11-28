@@ -10,6 +10,7 @@ import io.nessus.identity.config.User
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.service.UserAccessService.UserInfo
 import io.nessus.identity.types.AuthorizationMetadata
+import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferUri
 import io.nessus.identity.types.IssuerMetadataV0
@@ -38,9 +39,16 @@ class IssuerServiceKeycloak(val config: IssuerConfig): AbstractIssuerService(), 
 
     override val authorizationSvc = AuthorizationService.create()
 
-    // ExperimentalVerifierService -------------------------------------------------------------------------------------
+    // ExperimentalIssuerService ---------------------------------------------------------------------------------------
 
-    // VerifierService -------------------------------------------------------------------------------------------------
+    override fun getAuthCodeFromIDToken(
+        ctx: LoginContext,
+        idTokenJwt: SignedJWT,
+    ): String {
+        error("Not implemented")
+    }
+
+    // IssuerService ---------------------------------------------------------------------------------------------------
 
     /**
      * Get the authorization metadata
@@ -49,7 +57,7 @@ class IssuerServiceKeycloak(val config: IssuerConfig): AbstractIssuerService(), 
         return getIssuerMetadata().getAuthorizationMetadata()
     }
 
-    // LegacyVerifierService -------------------------------------------------------------------------------------------
+    // LegacyIssuerService ---------------------------------------------------------------------------------------------
 
     override fun getIssuerMetadataUrl(): String {
         val metadataUrl = "$issuerBaseUrl/.well-known/openid-credential-issuer/realms/${config.realm}"
@@ -109,6 +117,10 @@ class IssuerServiceKeycloak(val config: IssuerConfig): AbstractIssuerService(), 
         )
 
         return handleApiResponse(credOfferUriRes) as ByteArray
+    }
+
+    override suspend fun createIDTokenRequest(ctx: LoginContext, authRequest: AuthorizationRequest): AuthorizationRequest {
+        error("Not implemented")
     }
 
     override fun findUser(predicate: (UserInfo) -> Boolean): UserInfo? {

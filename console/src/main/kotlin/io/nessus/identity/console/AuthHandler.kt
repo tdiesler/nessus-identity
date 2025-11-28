@@ -13,8 +13,6 @@ import id.walt.oid4vc.data.GrantType
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.data.SubjectType
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -25,18 +23,13 @@ import io.nessus.identity.config.User
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AuthorizationContext.Companion.ACCESS_TOKEN_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationService
 import io.nessus.identity.service.CredentialOfferRegistry.hasCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
-import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.http
-import io.nessus.identity.service.urlQueryToMap
-import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -57,25 +50,6 @@ abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
 
     abstract val endpointUri: String
 
-    fun buildAuthCodeRedirectUri(ctx: LoginContext, authCode: String): String {
-
-        val authContext = ctx.getAuthContext()
-        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
-        val authCodeRedirect = URLBuilder("${authReq.redirectUri}").apply {
-            parameters.append("code", authCode)
-            authReq.state?.also { state ->
-                parameters.append("state", state)
-            }
-        }.buildString()
-
-        log.info { "AuthCode Redirect: $authCodeRedirect" }
-        urlQueryToMap(authCodeRedirect).also {
-            it.forEach { (k, v) -> log.info { "  $k=$v" } }
-        }
-
-        return authCodeRedirect
-    }
-
     abstract suspend fun createCredentialOffer(
         configId: String,
         clientId: String? = null,
@@ -83,33 +57,6 @@ abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
         userPin: String? = null,
         targetUser: User? = null,
     ): CredentialOffer
-
-    suspend fun createIDTokenJwt(ctx: LoginContext, authRequest: AuthorizationRequest): SignedJWT {
-
-        val reqParams = authRequest.toRequestParameters().mapValues{ (_, vs) -> vs.first() }.toMutableMap()
-        val requestUri = authRequest.requestUri
-
-        // Replace IDToken request params with the response from request_uri
-        if (requestUri != null) {
-            log.info { "IDToken params from: $requestUri" }
-            val res = http.get(requestUri)
-            if (res.status != HttpStatusCode.OK)
-                throw HttpStatusException(res.status, res.bodyAsText())
-            val uriRes = res.bodyAsText()
-            log.info { "UriResponse: $uriRes" }
-            val resJwt = SignedJWT.parse(uriRes)
-            log.info { "UriResponse Header: ${resJwt.header}" }
-            log.info { "UriResponse Claims: ${resJwt.jwtClaimsSet}" }
-            for ((k, v) in resJwt.jwtClaimsSet.claims) {
-                reqParams[k] = "$v"
-            }
-        } else {
-            reqParams["response_type"] = "id_token"
-        }
-
-        val idTokenRequestJwt = authorizationSvc.createIDToken(ctx, reqParams)
-        return idTokenRequestJwt
-    }
 
     suspend fun handleJwksRequest(call: RoutingCall, ctx: LoginContext) {
 
@@ -132,17 +79,17 @@ abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
         log.info { "Token Request: ${call.request.uri}" }
         postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val tokenReq = TokenRequest.fromHttpParameters(postParams)
-        val tokRes = when (tokenReq) {
+        val tokenRequest = TokenRequest.fromHttpParameters(postParams)
+        val tokRes = when (tokenRequest) {
             is TokenRequest.AuthorizationCode -> {
-                handleTokenRequestAuthCode(ctx, tokenReq)
+                handleTokenRequestAuthCode(ctx, tokenRequest)
             }
 
             is TokenRequest.PreAuthorizedCode -> {
-                handleTokenRequestPreAuthorized(ctx, tokenReq)
+                handleTokenRequestPreAuthorized(ctx, tokenRequest)
             }
 
-            else -> error("Unsupported grant_type: ${tokenReq.grantType}")
+            else -> error("Unsupported grant_type: ${tokenRequest.grantType}")
         }
 
         call.respondText(
@@ -150,35 +97,6 @@ abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
             contentType = ContentType.Application.Json,
             text = Json.encodeToString(tokRes)
         )
-    }
-
-    fun validateIDToken(ctx: LoginContext, idTokenJwt: SignedJWT): String {
-
-        log.info { "IDToken Header: ${idTokenJwt.header}" }
-        log.info { "IDToken Claims: ${idTokenJwt.jwtClaimsSet}" }
-
-        // [TODO #233] Verify IDToken proof DID ownership
-        // https://github.com/tdiesler/nessus-identity/issues/233
-        // We should be able to use the Holder's public key to do that
-
-        val authCode = "${Uuid.random()}"
-        val authContext = ctx.getAuthContext()
-        authContext.putAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY, authCode)
-
-        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
-        val idTokenRedirect = URLBuilder("${authReq.redirectUri}").apply {
-            parameters.append("code", authCode)
-            authReq.state?.also { state ->
-                parameters.append("state", state)
-            }
-        }.buildString()
-
-        log.info { "IDToken Response $idTokenRedirect" }
-        urlQueryToMap(idTokenRedirect).also {
-            it.forEach { (k, v) -> log.info { "  $k=$v" } }
-        }
-
-        return idTokenRedirect
     }
 
     // Protected -------------------------------------------------------------------------------------------------------

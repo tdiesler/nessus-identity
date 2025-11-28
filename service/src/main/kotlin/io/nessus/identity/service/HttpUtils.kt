@@ -36,6 +36,18 @@ fun urlQueryToMap(url: String): Map<String, String> {
     } ?: mapOf()
 }
 
+fun getAuthCodeFromRedirectUrl(redirectUrl: String): String {
+    val authCodeUrl = Url(redirectUrl)
+    val error = authCodeUrl.parameters["error"]
+    if (error != null) {
+        val errorMessage = authCodeUrl.parameters["error_description"]
+            ?.let { urlDecode(it) }
+        error("Authentication Error: $errorMessage")
+    }
+    val authCode = authCodeUrl.parameters["code"] ?: error("No authorization code")
+    return authCode
+}
+
 class HttpStatusException(val status: HttpStatusCode, override val message: String) : RuntimeException(message) {
     override fun toString(): String {
         val s = "${javaClass.getName()}[code=$status]"
