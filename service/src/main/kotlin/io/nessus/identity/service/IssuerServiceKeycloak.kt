@@ -16,6 +16,7 @@ import io.nessus.identity.types.CredentialOfferUri
 import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.OfferUriType
 import io.nessus.identity.types.TokenRequest
+import io.nessus.identity.types.TokenResponse
 import jakarta.ws.rs.core.HttpHeaders
 import kotlinx.serialization.json.*
 import org.keycloak.OAuth2Constants
@@ -45,6 +46,13 @@ class IssuerServiceKeycloak(val config: IssuerConfig): AbstractIssuerService(), 
         ctx: LoginContext,
         idTokenJwt: SignedJWT,
     ): String {
+        error("Not implemented")
+    }
+
+    override suspend fun getTokenResponse(
+        ctx: LoginContext,
+        tokenRequest: TokenRequest
+    ): TokenResponse {
         error("Not implemented")
     }
 

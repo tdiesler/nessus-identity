@@ -80,8 +80,8 @@ data class AuthorizationRequestV0(
         }
     }
 
-    fun toJson() = Json.encodeToString(this)
-    fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
+    override fun toJson() = Json.encodeToString(this)
+    override fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
 
     companion object {
         val jsonInst = Json { ignoreUnknownKeys = true }

@@ -21,6 +21,9 @@ sealed class AuthorizationRequest {
     abstract val codeChallenge: String?
     abstract val codeChallengeMethod: String?
 
+    abstract fun toJson(): String
+    abstract fun toJsonObj(): JsonObject
+
     open fun toRequestParameters(): Map<String, List<String>> {
         return buildMap {
             put("client_id", listOf(clientId))

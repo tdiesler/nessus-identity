@@ -108,19 +108,74 @@ class NativeWalletService : AbstractWalletService() {
         return authRequest
     }
 
-    override suspend fun buildTokenRequestFromAuthorizationCode(
+    override suspend fun buildCredentialRequest(
+        ctx: LoginContext,
+        authRequest: AuthorizationRequest
+    ): CredentialRequest {
+
+        val authContext = ctx.getAuthContext()
+        val issuerMetadata = authContext.getIssuerMetadata()
+        val credentialIssuer = issuerMetadata.credentialIssuer
+
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(300) // 5 mins expiry
+
+        val kid = ctx.didInfo.authenticationId()
+        val proofHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType("openid4vci-proof+jwt"))
+            .keyID(kid)
+            .build()
+        val proofClaimsBuilder = JWTClaimsSet.Builder()
+            .issuer(ctx.did)
+            .audience(credentialIssuer)
+            .issueTime(Date.from(iat))
+            .expirationTime(Date.from(exp))
+        //.claim("nonce", cNonce)
+
+        authRequest.state?.also { proofClaimsBuilder.claim("state", it) }
+
+        val proofClaims = proofClaimsBuilder.build()
+        val proofJwt = SignedJWT(proofHeader, proofClaims).signWithKey(ctx, kid)
+
+        log.info { "ProofHeader: ${proofJwt.header}" }
+        log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
+
+        val credRequest = when(authRequest) {
+            is AuthorizationRequestDraft11 -> {
+                val authorizationDetails = authRequest.authorizationDetails
+                require(authorizationDetails?.isNotEmpty() ?: false) { "No authorization_details" }
+                require(authorizationDetails.size == 1) { "Multiple authorization_details" }
+
+                val types = authorizationDetails[0].types
+                val format = requireNotNull(authorizationDetails[0].format?.value) { "No authorization_details.format" }
+                CredentialRequestDraft11(
+                    format = format,
+                    types = types,
+                    proof = CredentialRequestDraft11.Proof(
+                        proofType = "jwt",
+                        jwt = proofJwt.serialize()
+                    )
+                )
+            }
+            else -> error("Unsupported AuthorizationRequest: ${authRequest.toJson()}")
+        }
+
+        log.info { "CredentialRequest: ${credRequest.toJson()}" }
+        return credRequest
+    }
+
+    override suspend fun getTokenRequestFromAuthorizationCode(
         ctx: LoginContext,
         authCode: String
     ): TokenRequest {
         val authContext = ctx.getAuthContext()
-        val credentialIssuer = authContext.getIssuerMetadata().credentialIssuer
-        val tokenRequest = when (credentialIssuer) {
-            KNOWN_ISSUER_EBSI_V3 -> {
-                val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
+        val authRequestDraft11 = authContext.getAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
+        val tokenRequest = when {
+            authRequestDraft11 != null -> {
                 val codeVerifier = authContext.assertAttachment(CODE_VERIFIER_ATTACHMENT_KEY)
                 TokenRequest.AuthorizationCode(
-                    clientId = authRequest.clientId,
-                    redirectUri = authRequest.redirectUri,
+                    clientId = authRequestDraft11.clientId,
+                    redirectUri = authRequestDraft11.redirectUri,
                     codeVerifier = codeVerifier,
                     code = authCode
                 )
@@ -171,7 +226,7 @@ class NativeWalletService : AbstractWalletService() {
         ctx: LoginContext,
         authCode: String,
     ): TokenResponse {
-        val tokenRequest = buildTokenRequestFromAuthorizationCode(ctx, authCode)
+        val tokenRequest = getTokenRequestFromAuthorizationCode(ctx, authCode)
         val tokenResponse = sendTokenRequest(ctx, tokenRequest)
         return tokenResponse
     }

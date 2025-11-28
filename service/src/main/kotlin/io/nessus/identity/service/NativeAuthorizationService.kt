@@ -5,6 +5,8 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
+import id.walt.oid4vc.data.AuthorizationDetails
+import id.walt.oid4vc.data.CredentialFormat
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
@@ -13,11 +15,18 @@ import io.ktor.http.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
+import io.nessus.identity.service.AuthorizationContext.Companion.ACCESS_TOKEN_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
 import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestV0
+import io.nessus.identity.types.CredentialOfferDraft11
+import io.nessus.identity.types.TokenRequest
+import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.waltid.authenticationId
 import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.*
@@ -280,6 +289,140 @@ class NativeAuthorizationService(): AuthorizationService {
         return idTokenRedirect
     }
 
+    override suspend fun getTokenResponse(ctx: LoginContext, tokenRequest: TokenRequest): TokenResponse {
+        val tokenResponse = when (tokenRequest) {
+            is TokenRequest.AuthorizationCode -> {
+                getTokenResponseAuthCode(ctx, tokenRequest)
+            }
+            is TokenRequest.PreAuthorizedCode -> {
+                getTokenResponsePreAuthorized(ctx, tokenRequest)
+            }
+            else -> error("Unsupported grant_type: ${tokenRequest.grantType}")
+        }
+        return tokenResponse
+    }
+
+    private suspend fun getTokenResponseAuthCode(ctx: LoginContext, tokenReq: TokenRequest): TokenResponse {
+
+        val tokReq = tokenReq as TokenRequest.AuthorizationCode
+        val grantType = tokReq.grantType
+        val codeVerifier = tokReq.codeVerifier
+        val redirectUri = tokReq.redirectUri
+        val code = tokReq.code
+
+        // Verify token request
+        //
+        val authContext = ctx.getAuthContext()
+        val authRequest = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
+        require(tokReq.clientId == authRequest.clientId) { "Invalid client_id: ${tokReq.clientId}" }
+
+        // [TODO #230] Verify token request code challenge
+        // https://github.com/tdiesler/nessus-identity/issues/230
+
+        val tokenRes = buildTokenResponse(ctx)
+        return tokenRes
+    }
+
+    private suspend fun getTokenResponsePreAuthorized(ctx: LoginContext, tokenReq: TokenRequest): TokenResponse {
+
+        val clientId = tokenReq.clientId
+        val preAuthTokenRequest = tokenReq as TokenRequest.PreAuthorizedCode
+        val preAuthCode = preAuthTokenRequest.preAuthorizedCode
+        val userPin = preAuthTokenRequest.userPin
+
+        // Verify pre-authorized user PIN
+        //
+        val credOfferRecord = removeCredentialOfferRecord(preAuthCode)
+            ?: throw IllegalStateException("No CredentialOffer registered")
+        val expUserPin = credOfferRecord.userPin
+            ?: throw IllegalStateException("No UserPin")
+
+        if (userPin != expUserPin)
+            throw IllegalStateException("Invalid UserPin")
+
+        val credOffer = credOfferRecord.credOffer as CredentialOfferDraft11
+        val types = credOffer.credentialConfigurationIds
+        val authRequest = AuthorizationRequestDraft11(
+            clientId = clientId ?: throw IllegalStateException("No subId"),
+            authorizationDetails = listOf(
+                AuthorizationDetails(
+                    format = CredentialFormat.jwt_vc,
+                    types = types
+                )
+            )
+        )
+
+        val authContext = ctx.getAuthContext()
+        authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
+
+        val tokenResponse = buildTokenResponse(ctx)
+        return tokenResponse
+    }
+
+
+    override fun validateAccessToken(accessToken: TokenResponse) {
+
+        val bearerToken = SignedJWT.parse(accessToken.accessToken)
+        val claims = bearerToken.jwtClaimsSet
+        val exp = claims.expirationTime?.toInstant()
+        if (exp == null || exp.isBefore(Instant.now()))
+            throw IllegalStateException("Token expired")
+
+        // [TODO #235] Properly validate the AccessToken
+        // https://github.com/tdiesler/nessus-identity/issues/235
+    }
+
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+
+    private suspend fun buildTokenResponse(ctx: LoginContext): TokenResponse {
+
+        val keyJwk = ctx.didInfo.publicKeyJwk()
+        val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
+
+        val iat = Instant.now()
+        val expiresIn: Long = 86400
+        val exp = iat.plusSeconds(expiresIn)
+
+        val nonce = "${Uuid.random()}"
+
+        val authContext = ctx.getAuthContext()
+        val issuerMetadata = authContext.assertAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY)
+        val tokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256).type(JOSEObjectType.JWT).keyID(kid).build()
+
+        val claimsBuilder = JWTClaimsSet.Builder().issuer(issuerMetadata.credentialIssuer).issueTime(Date.from(iat))
+            .expirationTime(Date.from(exp)).claim("nonce", nonce)
+
+        val maybeAuthRequest = authContext.getAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
+        maybeAuthRequest?.clientId?.also {
+            claimsBuilder.subject(it)
+        }
+        maybeAuthRequest?.authorizationDetails?.also {
+            val authorizationDetails: List<JsonObject> = it.map { ad -> ad.toJSON() }
+            claimsBuilder.claim("authorization_details", authorizationDetails)
+        }
+        val tokenClaims = claimsBuilder.build()
+
+        val accessTokenJwt = SignedJWT(tokenHeader, tokenClaims).signWithKey(ctx, kid)
+        log.info { "Token Header: ${accessTokenJwt.header}" }
+        log.info { "Token Claims: ${accessTokenJwt.jwtClaimsSet}" }
+
+        accessTokenJwt.verifyJwtSignature("AccessToken", ctx.didInfo)
+
+        val tokenRespJson = """
+            {
+              "access_token": "${accessTokenJwt.serialize()}",
+              "token_type": "bearer",
+              "expires_in": $expiresIn,
+              "c_nonce": "$nonce",
+              "c_nonce_expires_in": $expiresIn
+            }            
+        """.trimIndent()
+
+        log.info { "Token Response: $tokenRespJson" }
+        val tokenRes = TokenResponse.fromJson(tokenRespJson).also {
+            ctx.putAttachment(ACCESS_TOKEN_ATTACHMENT_KEY, accessTokenJwt)
+        }
+        return tokenRes
+    }
 }
 

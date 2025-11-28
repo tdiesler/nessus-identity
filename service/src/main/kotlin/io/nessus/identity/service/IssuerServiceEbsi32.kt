@@ -15,6 +15,7 @@ import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.config.User
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
 import io.nessus.identity.service.UserAccessService.UserInfo
 import io.nessus.identity.types.AuthorizationCodeGrant
@@ -27,6 +28,8 @@ import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.PreAuthorizedCodeGrant
+import io.nessus.identity.types.TokenRequest
+import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.waltid.authenticationId
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
@@ -131,6 +134,7 @@ class IssuerServiceEbsi32(val config: IssuerConfig) : AbstractIssuerService(), I
 
         val authContext = ctx.getAuthContext()
         authRequest as AuthorizationRequestDraft11
+        authContext.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, getIssuerMetadata())
         authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
 
         val targetEndpointUri = "${endpointUri}/${adminContext.targetId}"
@@ -148,6 +152,15 @@ class IssuerServiceEbsi32(val config: IssuerConfig) : AbstractIssuerService(), I
         val redirectUrl = authorizationSvc.getIDTokenRedirectUrl(ctx, idTokenJwt)
         val authCode = getAuthCodeFromRedirectUrl(redirectUrl)
         return authCode
+    }
+
+    override suspend fun getTokenResponse(
+        ctx: LoginContext,
+        tokenRequest: TokenRequest
+    ): TokenResponse {
+        val issuerMetadata = getIssuerMetadata()
+        ctx.getAuthContext().putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+        return authorizationSvc.getTokenResponse(ctx, tokenRequest)
     }
 
     override fun getIssuerMetadataUrl(): String {

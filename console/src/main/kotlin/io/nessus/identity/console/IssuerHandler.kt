@@ -27,6 +27,8 @@ import io.nessus.identity.console.SessionsStore.requireLoginContext
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.IssuerServiceKeycloak
 import io.nessus.identity.service.LoginContext
@@ -188,14 +190,27 @@ class IssuerHandler(val issuerSvc: IssuerService) : AuthHandler(issuerSvc.author
         )
     }
 
+    override suspend fun handleTokenRequest(call: RoutingCall, ctx: LoginContext) {
+        val authContext = ctx.getAuthContext()
+        when(val issuerMetadata = issuerSvc.getIssuerMetadata()) {
+            is IssuerMetadataDraft11 -> {
+                authContext.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+            }
+            is IssuerMetadataV0 -> {
+                authContext.putAttachment(ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
+            }
+        }
+        super.handleTokenRequest(call, ctx)
+    }
+
     suspend fun showCredentialConfig(call: RoutingCall, configId: String) {
         val issuerMetadata = issuerSvc.getIssuerMetadata()
         val credConfig = when(issuerMetadata) {
-            is IssuerMetadataV0 -> {
-                requireNotNull(issuerMetadata.credentialConfigurationsSupported[configId])
-            }
             is IssuerMetadataDraft11 -> {
                 issuerMetadata.credentialsSupported.first { it.types!!.contains(configId) }
+            }
+            is IssuerMetadataV0 -> {
+                requireNotNull(issuerMetadata.credentialConfigurationsSupported[configId])
             }
         }
         val prettyJson = jsonPretty.encodeToString(credConfig.toJsonObj())

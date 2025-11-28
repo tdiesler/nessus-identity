@@ -3,6 +3,7 @@ package io.nessus.identity.service
 import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialRequest
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.TokenResponse
 
@@ -15,7 +16,12 @@ interface ExperimentalWalletService {
         credOffer: CredentialOffer
     ): AuthorizationRequest
 
-    suspend fun buildTokenRequestFromAuthorizationCode(
+    suspend fun buildCredentialRequest(
+        ctx: LoginContext,
+        authRequest: AuthorizationRequest
+    ): CredentialRequest
+
+    suspend fun getTokenRequestFromAuthorizationCode(
         ctx: LoginContext,
         authCode: String
     ): TokenRequest

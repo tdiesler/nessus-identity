@@ -9,7 +9,6 @@ class WalletServiceEbsi32Test : AbstractServiceTest() {
 
     val walletSvc = WalletService.create()
     val issuerSvc = IssuerService.createEbsi()
-    val authorizationSvc = AuthorizationService.create()
 
     @Test
     fun getCredentialInTime() {
@@ -58,6 +57,12 @@ class WalletServiceEbsi32Test : AbstractServiceTest() {
             val idTokenJwt = walletSvc.createIDToken(holder, idTokenRequest)
 
             val authCode = issuerSvc.getAuthCodeFromIDToken(issuer, idTokenJwt)
+
+            val tokenRequest = walletSvc.getTokenRequestFromAuthorizationCode(holder, authCode)
+
+            val accessToken = issuerSvc.getTokenResponse(issuer, tokenRequest)
+
+            val credRequest = walletSvc.buildCredentialRequest(holder, authRequest)
         }
     }
 }
