@@ -102,7 +102,7 @@ class IssuerHandler(val issuerSvc: IssuerService) : AuthHandler(issuerSvc.author
         )
     }
 
-    suspend fun handleNativeAuthorizationRequest(call: RoutingCall, ctx: LoginContext) {
+    suspend fun handleNativeAuthorization(call: RoutingCall, ctx: LoginContext) {
 
         val queryParams = urlQueryToMap(call.request.uri)
         val authRequest = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
@@ -111,9 +111,10 @@ class IssuerHandler(val issuerSvc: IssuerService) : AuthHandler(issuerSvc.author
 
         val authContext = ctx.createAuthContext()
         authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
-        val idTokenReqJwt = buildIDTokenRequest(ctx, authRequest)
-        val authRequestRedirectUri = authRequest.redirectUri as String
-        val redirectUrl = buildIDTokenRedirectUrl(authRequestRedirectUri, idTokenReqJwt)
+
+        val targetEndpointUri = "$endpointUri/${ctx.targetId}"
+        val idTokenRequestJwt = authorizationSvc.buildIDTokenRequestJwt(ctx, targetEndpointUri, authRequest)
+        val redirectUrl = authorizationSvc.buildIDTokenRequestRedirectUrl(authRequest, idTokenRequestJwt)
         return call.respondRedirect(redirectUrl)
     }
 

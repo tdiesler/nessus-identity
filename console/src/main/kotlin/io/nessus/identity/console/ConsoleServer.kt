@@ -214,7 +214,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                         }
                         get("/authorize") {
                             requireTargetContext(call) { ctx ->
-                                issuerHandler.handleNativeAuthorizationRequest(call, ctx)
+                                issuerHandler.handleNativeAuthorization(call, ctx)
                             }
                         }
                         post("/direct_post") {

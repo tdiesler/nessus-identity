@@ -14,7 +14,7 @@ interface LegacyAuthorizationService {
     ): SignedJWT
 
     suspend fun sendIDToken(
-        authContext: AuthorizationContext,
+        ctx: LoginContext,
         redirectUri: String,
         idTokenJwt: SignedJWT
     ): String

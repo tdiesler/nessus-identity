@@ -30,12 +30,6 @@ interface LegacyWalletService {
         redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
     ): String
 
-    suspend fun getAccessTokenFromAuthorizationCode(
-        ctx: LoginContext,
-        authCode: String,
-        clientId: String = defaultClientId,
-    ): TokenResponse
-
     suspend fun getAccessTokenFromDirectAccess(
         ctx: LoginContext,
         clientId: String = defaultClientId,

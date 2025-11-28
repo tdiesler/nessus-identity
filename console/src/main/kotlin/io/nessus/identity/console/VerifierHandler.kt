@@ -109,11 +109,13 @@ class VerifierHandler(val walletSvc: WalletService, val issuerSvc: IssuerService
             scopes.any { it.contains("id_token") } -> {
                 val authContext = ctx.createAuthContext()
                 val queryParams = urlQueryToMap(call.request.uri)
+
                 val authRequest = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
                 authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
-                val idTokenReqJwt = buildIDTokenRequest(ctx, authRequest)
-                val authRequestRedirectUri = authRequest.redirectUri as String
-                val redirectUrl = buildIDTokenRedirectUrl(authRequestRedirectUri, idTokenReqJwt)
+
+                val targetEndpointUri = "$endpointUri/${ctx.targetId}"
+                val idTokenRequestJwt = authorizationSvc.buildIDTokenRequestJwt(ctx, targetEndpointUri, authRequest)
+                val redirectUrl = authorizationSvc.buildIDTokenRequestRedirectUrl(authRequest, idTokenRequestJwt)
                 return call.respondRedirect(redirectUrl)
             }
             scopes.any { it.contains("vp_token") } -> {
@@ -218,9 +220,9 @@ class VerifierHandler(val walletSvc: WalletService, val issuerSvc: IssuerService
         )
 
         val walletTargetUri = "${walletSvc.endpointUri}/$targetId"
-        val redirectUrl = authReq.getAuthorizationRequestUrl("$walletTargetUri/authorize")
+        val redirectUrl = authReq.toRequestUrl("$walletTargetUri/authorize")
         log.info { "Verifier sends AuthorizationRequest: $redirectUrl" }
-        authReq.toHttpParameters().entries.forEach { (k, v) -> log.info { "  $k=$v" } }
+        authReq.toRequestParameters().entries.forEach { (k, v) -> log.info { "  $k=$v" } }
 
         call.respondRedirect(redirectUrl)
     }

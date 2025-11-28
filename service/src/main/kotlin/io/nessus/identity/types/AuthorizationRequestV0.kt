@@ -1,6 +1,5 @@
 package io.nessus.identity.types
 
-import io.nessus.identity.service.urlEncode
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
@@ -19,6 +18,9 @@ data class AuthorizationRequestV0(
 
     @SerialName("response_mode")
     override val responseMode: String? = null,
+
+    @SerialName("request_uri")
+    override val requestUri: String? = null,
 
     @SerialName("response_uri")
     override val responseUri: String? = null,
@@ -61,9 +63,9 @@ data class AuthorizationRequestV0(
 
 ): AuthorizationRequest() {
 
-    override fun toHttpParameters(): Map<String, List<String>> {
+    override fun toRequestParameters(): Map<String, List<String>> {
         return buildMap {
-            putAll(super.toHttpParameters())
+            putAll(super.toRequestParameters())
             authorizationDetails?.also {
                 val json = Json.encodeToString(it)
                 put("authorization_details", listOf(json))
@@ -73,13 +75,6 @@ data class AuthorizationRequestV0(
                 put("dcql_query", listOf(json))
             }
         }
-    }
-
-    fun getAuthorizationRequestUrl(authEndpointUri: String): String {
-        val params = toHttpParameters()
-            .map { (k, vals) -> vals.joinToString("&") { v -> "$k=${urlEncode(v)}" }}
-            .joinToString( "&" )
-        return "$authEndpointUri?$params"
     }
 
     fun toJson() = Json.encodeToString(this)
@@ -96,6 +91,7 @@ data class AuthorizationRequestV0(
                 redirectUri = params["redirect_uri"],
                 responseType = params["response_type"] ?: error("No response_type"),
                 responseMode = params["response_mode"],
+                requestUri = params["request_uri"],
                 responseUri = params["response_uri"],
                 nonce = params["nonce"],
                 scope = params["scope"],

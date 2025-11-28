@@ -10,15 +10,19 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.extend.signWithKey
 import io.nessus.identity.extend.verifyJwtSignature
 import io.nessus.identity.service.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.types.AuthorizationMetadata
+import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.waltid.authenticationId
+import io.nessus.identity.waltid.publicKeyJwk
 import kotlinx.serialization.json.*
 import java.time.Instant
 import java.util.*
+import kotlin.uuid.Uuid
 
 // NativeAuthorizationService ================================================================================================
 
@@ -130,6 +134,57 @@ class NativeAuthorizationService(): AuthorizationService {
         return authCodeRedirect
     }
 
+    override suspend fun buildIDTokenRequestJwt(
+        ctx: LoginContext,
+        targetEndpointUri: String,
+        authReq: AuthorizationRequest
+    ): SignedJWT {
+
+        val requesterDid = requireEbsiConfig().requesterDid
+
+        val keyJwk = ctx.didInfo.publicKeyJwk()
+        val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
+
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(300) // 5 mins expiry
+
+        val idTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256).type(JOSEObjectType.JWT).keyID(kid).build()
+
+        val idTokenClaims =
+            JWTClaimsSet.Builder().issuer(requesterDid).audience(authReq.clientId)
+                .issueTime(Date.from(iat)).expirationTime(Date.from(exp)).claim("response_type", "id_token")
+                .claim("response_mode", "direct_post")
+                .claim("client_id", requesterDid)
+                .claim("redirect_uri", "$targetEndpointUri/direct_post")
+                .claim("scope", "openid")
+                .claim("nonce", "${Uuid.random()}").build()
+
+        val idTokenJwt = SignedJWT(idTokenHeader, idTokenClaims).signWithKey(ctx, kid)
+        log.info { "IDToken Request Header: ${idTokenJwt.header}" }
+        log.info { "IDToken Request Claims: ${idTokenJwt.jwtClaimsSet}" }
+
+        return idTokenJwt
+    }
+
+    override fun buildIDTokenRequestRedirectUrl(authRequest: AuthorizationRequest, idTokenRequestJwt: SignedJWT): String {
+
+        val claims = idTokenRequestJwt.jwtClaimsSet
+        val idTokenRedirectUrl = URLBuilder(authRequest.redirectUri!!).apply {
+            for (k in listOf("client_id", "nonce", "scope", "redirect_uri", "response_mode", "response_type")) {
+                val v = claims.getClaim(k) as String
+                parameters.append(k, v)
+            }
+            parameters.append("request", "${idTokenRequestJwt.serialize()}")
+        }.buildString()
+
+        log.info { "IDToken Redirect $idTokenRedirectUrl" }
+        urlQueryToMap(idTokenRedirectUrl).also {
+            it.forEach { (k, v) -> log.info { "  $k=$v" } }
+        }
+
+        return idTokenRedirectUrl
+    }
+
     override suspend fun createIDToken(
         ctx: LoginContext,
         reqParams: Map<String, String>
@@ -184,7 +239,7 @@ class NativeAuthorizationService(): AuthorizationService {
     }
 
     override suspend fun sendIDToken(
-        authContext: AuthorizationContext,
+        ctx: LoginContext,
         redirectUri: String,
         idTokenJwt: SignedJWT
     ): String {
@@ -210,11 +265,12 @@ class NativeAuthorizationService(): AuthorizationService {
 
         val location = res.headers["location"]?.also {
             log.info { "IDToken Response: $it" }
-        } ?: throw IllegalStateException("Cannot find 'location' in headers")
+        } ?: error("Cannot find 'location' in headers")
 
         val authCode = urlQueryToMap(location)["code"]?.also {
+            val authContext = ctx.getAuthContext()
             authContext.putAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY, it)
-        } ?: throw IllegalStateException("No authorization code")
+        } ?: error("No authorization code")
 
         return authCode
     }

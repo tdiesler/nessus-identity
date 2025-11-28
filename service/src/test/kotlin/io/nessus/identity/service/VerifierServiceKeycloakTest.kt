@@ -68,7 +68,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 """.trimIndent())
             )
 
-            log.info { authReq.toHttpParameters() }
+            log.info { authReq.toRequestParameters() }
 
             val authRes = walletSvc.handleVPTokenRequest(alice, authReq)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
@@ -128,7 +128,7 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 """.trimIndent())
             )
 
-            log.info { authReq.toHttpParameters() }
+            log.info { authReq.toRequestParameters() }
 
             val authRes = walletSvc.handleVPTokenRequest(alice, authReq)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)

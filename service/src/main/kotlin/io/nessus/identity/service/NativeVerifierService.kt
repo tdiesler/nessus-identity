@@ -20,7 +20,7 @@ class NativeVerifierService : AbstractVerifierService(), VerifierService {
      */
     override fun getAuthorizationMetadata(ctx: LoginContext): AuthorizationMetadata {
         val targetUri = "$endpointUri/${ctx.targetId}"
-        return authorizationSvc.buildAuthorizationMetadata(targetUri) as AuthorizationMetadata
+        return authorizationSvc.buildAuthorizationMetadata(targetUri)
     }
 
     // LegacyVerifierService -------------------------------------------------------------------------------------------

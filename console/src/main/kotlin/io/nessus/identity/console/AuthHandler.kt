@@ -34,9 +34,9 @@ import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferReco
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
 import io.nessus.identity.service.HttpStatusException
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.http
 import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -76,54 +76,6 @@ abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
         return authCodeRedirect
     }
 
-    suspend fun buildIDTokenRequest(ctx: LoginContext, authReq: AuthorizationRequestDraft11): SignedJWT {
-
-        val requesterDid = requireEbsiConfig().requesterDid
-        val targetEndpointUri = "$endpointUri/${ctx.targetId}"
-
-        val keyJwk = ctx.didInfo.publicKeyJwk()
-        val kid = keyJwk["kid"]?.jsonPrimitive?.content as String
-
-        val iat = Instant.now()
-        val exp = iat.plusSeconds(300) // 5 mins expiry
-
-        val idTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256).type(JOSEObjectType.JWT).keyID(kid).build()
-
-        val idTokenClaims =
-            JWTClaimsSet.Builder().issuer(requesterDid).audience(authReq.clientId)
-                .issueTime(Date.from(iat)).expirationTime(Date.from(exp)).claim("response_type", "id_token")
-                .claim("response_mode", "direct_post")
-                .claim("client_id", requesterDid)
-                .claim("redirect_uri", "$targetEndpointUri/direct_post")
-                .claim("scope", "openid")
-                .claim("nonce", "${Uuid.random()}").build()
-
-        val idTokenJwt = SignedJWT(idTokenHeader, idTokenClaims).signWithKey(ctx, kid)
-        log.info { "IDToken Request Header: ${idTokenJwt.header}" }
-        log.info { "IDToken Request Claims: ${idTokenJwt.jwtClaimsSet}" }
-
-        return idTokenJwt
-    }
-
-    fun buildIDTokenRedirectUrl(redirectUri: String, idTokenReqJwt: SignedJWT): String {
-
-        val claims = idTokenReqJwt.jwtClaimsSet
-        val idTokenRedirectUrl = URLBuilder(redirectUri).apply {
-            for (k in listOf("client_id", "nonce", "scope", "redirect_uri", "response_mode", "response_type")) {
-                val v = claims.getClaim(k) as String
-                parameters.append(k, v)
-            }
-            parameters.append("request", "${idTokenReqJwt.serialize()}")
-        }.buildString()
-
-        log.info { "IDToken Redirect $idTokenRedirectUrl" }
-        urlQueryToMap(idTokenRedirectUrl).also {
-            it.forEach { (k, v) -> log.info { "  $k=$v" } }
-        }
-
-        return idTokenRedirectUrl
-    }
-
     abstract suspend fun createCredentialOffer(
         configId: String,
         clientId: String? = null,
@@ -132,13 +84,10 @@ abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
         targetUser: User? = null,
     ): CredentialOffer
 
-    suspend fun handleIDTokenRequest(call: RoutingCall, ctx: LoginContext) {
+    suspend fun createIDTokenJwt(ctx: LoginContext, authRequest: AuthorizationRequest): SignedJWT {
 
-        val authContext = ctx.getAuthContext()
-
-        val reqParams = urlQueryToMap(call.request.uri).toMutableMap()
-        val redirectUri = reqParams["redirect_uri"] as String
-        val requestUri = reqParams["request_uri"]
+        val reqParams = authRequest.toRequestParameters().mapValues{ (_, vs) -> vs.first() }.toMutableMap()
+        val requestUri = authRequest.requestUri
 
         // Replace IDToken request params with the response from request_uri
         if (requestUri != null) {
@@ -158,14 +107,8 @@ abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
             reqParams["response_type"] = "id_token"
         }
 
-        val idTokenJwt = authorizationSvc.createIDToken(ctx, reqParams)
-        authorizationSvc.sendIDToken(authContext, redirectUri, idTokenJwt)
-
-        call.respondText(
-            status = HttpStatusCode.Accepted,
-            contentType = ContentType.Text.Plain,
-            text = "Accepted"
-        )
+        val idTokenRequestJwt = authorizationSvc.createIDToken(ctx, reqParams)
+        return idTokenRequestJwt
     }
 
     suspend fun handleJwksRequest(call: RoutingCall, ctx: LoginContext) {
@@ -310,8 +253,8 @@ abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
         val claimsBuilder = JWTClaimsSet.Builder().issuer(issuerMetadata.credentialIssuer).issueTime(Date.from(iat))
             .expirationTime(Date.from(exp)).claim("nonce", nonce)
 
-        val authContext = ctx.getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        val maybeAuthRequest = authContext?.getAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
+        val authContext = ctx.getAuthContext()
+        val maybeAuthRequest = authContext.getAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
         maybeAuthRequest?.clientId?.also {
             claimsBuilder.subject(it)
         }
@@ -411,8 +354,7 @@ abstract class AuthHandler(val authorizationSvc: AuthorizationService) {
             )
         )
 
-        // Create an AuthorizationContext on demand
-        val authContext = ctx.getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) ?: ctx.createAuthContext()
+        val authContext = ctx.getAuthContext()
         authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
 
         val tokenResponse = buildTokenResponse(ctx)

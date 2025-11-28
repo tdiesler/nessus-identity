@@ -22,6 +22,9 @@ data class AuthorizationRequestDraft11(
     @SerialName("response_mode")
     override val responseMode: String? = null,
 
+    @SerialName("request_uri")
+    override val requestUri: String? = null,
+
     @SerialName("response_uri")
     override val responseUri: String? = null,
 
@@ -71,9 +74,9 @@ data class AuthorizationRequestDraft11(
 
 ): AuthorizationRequest() {
 
-    override fun toHttpParameters(): Map<String, List<String>> {
+    override fun toRequestParameters(): Map<String, List<String>> {
         return buildMap {
-            putAll(super.toHttpParameters())
+            putAll(super.toRequestParameters())
             authorizationDetails?.also {
                 val json = Json.encodeToString(it)
                 put("authorization_details", listOf(json))
@@ -106,6 +109,7 @@ data class AuthorizationRequestDraft11(
                 redirectUri = params["redirect_uri"],
                 responseType = params["response_type"] ?: error("No response_type"),
                 responseMode = params["response_mode"],
+                requestUri = params["request_uri"],
                 responseUri = params["response_uri"],
                 scope = params["scope"],
                 nonce = params["nonce"],

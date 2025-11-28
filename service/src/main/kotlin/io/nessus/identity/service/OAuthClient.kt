@@ -22,7 +22,7 @@ class OAuthClient {
     }
 
     fun sendAuthorizationRequest(endpointUrl: String, authReq: AuthorizationRequestV0): String {
-        val authParams = authReq.toHttpParameters()
+        val authParams = authReq.toRequestParameters()
         log.info { "AuthorizationParams: $authParams" }
         val authCode = Playwright.create().use { plw ->
             val browser = plw.firefox().launch(
@@ -31,7 +31,7 @@ class OAuthClient {
             val page = browser.newPage()
 
             // Navigate to Keycloak Authorization Endpoint
-            val authRequestUrl = authReq.getAuthorizationRequestUrl(endpointUrl)
+            val authRequestUrl = authReq.toRequestUrl(endpointUrl)
             page.navigate(authRequestUrl)
 
             // Fill in login form (adjust selectors if your Keycloak theme differs)
