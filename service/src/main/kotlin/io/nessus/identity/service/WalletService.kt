@@ -2,90 +2,50 @@ package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.dif.PresentationSubmission
-import id.walt.webwallet.db.models.WalletCredential
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.config.FeatureProfile.EBSI_V32
 import io.nessus.identity.config.Features
-import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.CredentialOfferV0
-import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.W3CCredentialJwt
 
 // WalletService =======================================================================================================
 
-interface WalletService {
+interface WalletService: CredentialAccessService, ExperimentalWalletService, LegacyWalletService {
 
-    val defaultClientId: String
+    /**
+     * The AuthorizationService
+     */
+    val authorizationSvc: AuthorizationService
 
-    val walletEndpointUri
+    /**
+     * The endpoint for this service
+     */
+    val endpointUri
         get() = when(Features.getProfile()) {
             EBSI_V32 -> "${requireEbsiConfig().baseUrl}/wallet"
             else -> requireWalletConfig().baseUrl
         }
 
-    companion object {
-        fun create(): WalletService {
-            return DefaultWalletService()
-        }
-    }
+    /** The Wallet authorization callback Uri */
+    val authorizationCallbackUri
+        get() = "$endpointUri/auth/callback"
 
-    fun addCredentialOffer(ctx: LoginContext, credOffer: CredentialOffer): String
+    /**
+     * Get the authorization metadata
+     */
+    fun getAuthorizationMetadata(ctx: LoginContext): AuthorizationMetadata
 
-    fun getCredentialOffers(ctx: LoginContext): Map<String, CredentialOffer>
-
-    fun getCredentialOffer(ctx: LoginContext, offerId: String): CredentialOffer?
-
-    fun deleteCredentialOffer(ctx: LoginContext, offerId: String): CredentialOffer?
-
-    fun deleteCredentialOffers(ctx: LoginContext, predicate: (CredentialOffer) -> Boolean)
-
-    suspend fun findCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): List<WalletCredential>
-
-    suspend fun findCredential(ctx: LoginContext, predicate: (WalletCredential) -> Boolean): WalletCredential?
-
-    suspend fun getCredentialById(ctx: LoginContext, vcId: String): W3CCredentialJwt?
-
-    suspend fun getCredentialByType(ctx: LoginContext, ctype: String): W3CCredentialJwt?
-
-    suspend fun deleteCredential(ctx: LoginContext, vcId: String): W3CCredentialJwt?
-
-    suspend fun deleteCredentials(ctx: LoginContext, predicate: (WalletCredential) -> Boolean)
-
-    suspend fun buildAuthorizationRequest(
-        authContext: AuthorizationContext,
-        clientId: String = defaultClientId,
-        redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
-    ): AuthorizationRequest
-
-    suspend fun buildPresentationSubmission(
-        ctx: LoginContext,
-        dcql: DCQLQuery,
-    ): SubmissionBundle
-
-    suspend fun getAuthorizationCode(
-        authContext: AuthorizationContext,
-        clientId: String = defaultClientId,
-        username: String,
-        password: String,
-        redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
-    ): String
-
-    suspend fun getAccessTokenFromAuthorizationCode(
-        authContext: AuthorizationContext,
-        authCode: String,
-        clientId: String = defaultClientId,
-    ): TokenResponse
-
-    suspend fun getAccessTokenFromDirectAccess(
-        authContext: AuthorizationContext,
-        clientId: String = defaultClientId,
-    ): TokenResponse
-
+    /**
+     * Gets an AccessToken for the offered Credential.
+     *
+     * This is a high-level entry method that involves the necessary authorization steps.
+     * The CredentialOffer may be pre-authorized.
+     */
     suspend fun getAccessTokenFromCredentialOffer(
-        authContext: AuthorizationContext,
+        ctx: LoginContext,
         credOffer: CredentialOffer,
         clientId: String = defaultClientId,
     ): TokenResponse
@@ -93,18 +53,30 @@ interface WalletService {
     /**
      * Fetch the CredentialOffer for the given CredentialOfferUri
      */
-    suspend fun getCredentialOffer(offerUri: String): CredentialOfferV0
+    suspend fun getCredentialOfferFromUri(offerUri: String): CredentialOffer
 
     /**
-     * Holder gets a Credential from an Issuer
-     * https://hub.ebsi.eu/conformance/build-solutions/issue-to-holder-functional-flows#in-time-issuance
+     * The Wallet fetches a Credential for the given AccessToken
      */
-    suspend fun getCredential(authContext: AuthorizationContext, accessToken: TokenResponse): W3CCredentialJwt
+    suspend fun getCredential(ctx: LoginContext, accessToken: TokenResponse): W3CCredentialJwt
 
-    suspend fun getCredentialFromOffer(authContext: AuthorizationContext, credOffer: CredentialOffer): W3CCredentialJwt
+    /**
+     * The Wallet gets the Credential for the given CredentialOffer
+     *
+     * This is a high-level entry method that involves the necessary authorization steps.
+     * The CredentialOffer may be pre-authorized.
+     */
+    suspend fun getCredentialFromOffer(ctx: LoginContext, credOffer: CredentialOffer): W3CCredentialJwt
+
+    companion object {
+        fun create(): WalletService {
+            return NativeWalletService()
+        }
+    }
 }
 
 data class SubmissionBundle(
     val credentials: List<SignedJWT>,
     val submission: PresentationSubmission
 )
+

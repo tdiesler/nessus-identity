@@ -1,7 +1,7 @@
 package io.nessus.identity.service
 
 import io.nessus.identity.config.User
-import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.APIException
@@ -42,7 +42,7 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
         val USER_ATTACHMENT_KEY = attachmentKey<User>()
 
         // [TODO] Move these to the AuthorizationContext
-        val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequest>()
+        val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestV0>()
         val AUTH_RESPONSE_ATTACHMENT_KEY = attachmentKey<TokenResponse>()
 
         suspend fun login(user: User): LoginContext {
@@ -111,9 +111,14 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
         return this
     }
 
-    open fun close() {
-        removeAttachment(AUTH_TOKEN_ATTACHMENT_KEY)
-        removeAttachment(DID_INFO_ATTACHMENT_KEY)
+    fun createAuthContext(): AuthorizationContext {
+        val authContext = AuthorizationContext(this)
+        putAttachment(AUTH_CONTEXT_ATTACHMENT_KEY, authContext)
+        return authContext
+    }
+
+    fun getAuthContext(): AuthorizationContext {
+        return getAttachment(AUTH_CONTEXT_ATTACHMENT_KEY) ?: createAuthContext()
     }
 }
 

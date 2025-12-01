@@ -28,15 +28,16 @@ class OAuthClientTest : AbstractServiceTest() {
     fun testAuthenticationRequest() {
         val cfg = requireIssuerConfig()
         runBlocking {
-            val issMetadata = issuerSvc.getIssuerMetadata()
-            val authEndpointUrl = issMetadata.getAuthorizationEndpointUri()
+            val issuerMetadata = issuerSvc.getIssuerMetadata()
+            val authMetadata = issuerSvc.getAuthorizationMetadata()
+            val authEndpointUrl = authMetadata.getAuthorizationEndpointUri()
 
             val rndBytes = Random.nextBytes(32)
             val codeVerifier = Base64URL.encode(rndBytes).toString()
 
             val authReq = AuthorizationRequestBuilder()
                 .withClientId(cfg.clientId)
-                .withIssuerMetadata(issMetadata)
+                .withIssuerMetadata(issuerMetadata)
                 .withRedirectUri("urn:ietf:wg:oauth:2.0:oob")
                 .withScopes(listOf("oid4vc_natural_person"))
                 .withCodeChallengeMethod("S256")
@@ -54,8 +55,8 @@ class OAuthClientTest : AbstractServiceTest() {
     fun testTokenRequest() {
         val cfg = requireIssuerConfig()
         runBlocking {
-            val issMetadata = issuerSvc.getIssuerMetadata()
-            val tokenEndpointUrl = issMetadata.getAuthorizationTokenEndpointUri()
+            val authMetadata = issuerSvc.getAuthorizationMetadata()
+            val tokenEndpointUrl = authMetadata.getAuthorizationTokenEndpointUri()
             val tokReq = TokenRequest.ClientCredentials(
                 clientId = cfg.serviceId,
                 clientSecret = cfg.serviceSecret,

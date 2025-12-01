@@ -14,18 +14,17 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
+import io.nessus.identity.config.User
 import io.nessus.identity.extend.signWithKey
-import io.nessus.identity.service.AuthorizationContext
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
 import io.nessus.identity.service.LoginContext.Companion.AUTH_RESPONSE_ATTACHMENT_KEY
 import io.nessus.identity.service.VerifierService
-import io.nessus.identity.service.WalletAuthorizationService.Companion.buildAuthorizationMetadata
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestDraft11
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.PresentationDefinitionBuilder
@@ -42,9 +41,9 @@ import java.time.Instant
 import java.util.*
 import kotlin.uuid.Uuid
 
-class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, val verifierSvc: VerifierService) : AuthHandler(walletSvc) {
+class VerifierHandler(val walletSvc: WalletService, val issuerSvc: IssuerService, val verifierSvc: VerifierService) : AuthHandler(issuerSvc.authorizationSvc) {
 
-    override val endpointUri = verifierSvc.verifierEndpointUri
+    override val endpointUri = verifierSvc.endpointUri
 
     fun verifierModel(call: RoutingCall, ctx: LoginContext? = null): BaseModel {
         val model = ctx?.let { BaseModel().withLoginContext(ctx) } ?: BaseModel().withLoginContext(call, UserRole.Verifier)
@@ -52,7 +51,7 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
         if (verifier.hasAuthToken) {
             model["verifierName"] = verifier.walletInfo.name
             model["verifierDid"] = verifier.didInfo.did
-            model["verifierUri"] = "${verifierSvc.verifierEndpointUri}/${verifier.targetId}"
+            model["verifierUri"] = "${verifierSvc.endpointUri}/${verifier.targetId}"
         }
         return model
     }
@@ -94,7 +93,7 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
         // If the Response URI has successfully processed the Authorization Response or Authorization Error Response,
         // it MUST respond with an HTTP status code of 200 with Content-Type of application/json and a JSON object in the response body.
 
-        val responseUri = "${verifierSvc.verifierEndpointUri}/presentation-response"
+        val responseUri = "${verifierSvc.endpointUri}/presentation-response"
         call.respond(mapOf("redirect_uri" to responseUri))
     }
 
@@ -108,18 +107,23 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
 
         when {
             scopes.any { it.contains("id_token") } -> {
-                val authContext = AuthorizationContext.create(ctx)
-                val authRequest = AuthorizationRequestDraft11.fromHttpParameters(call.request.queryParameters.toMap())
-                authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
-                val idTokenReqJwt = buildIDTokenRequest(ctx, authRequest)
-                val authRequestRedirectUri = authRequest.redirectUri as String
-                val redirectUrl = buildIDTokenRedirectUrl(authRequestRedirectUri, idTokenReqJwt)
-                return call.respondRedirect(redirectUrl)
+                val authContext = ctx.createAuthContext()
+                val queryParams = urlQueryToMap(call.request.uri)
+
+                val authRequestIn = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
+                authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequestIn)
+
+                val targetEndpointUri = "$endpointUri/${ctx.targetId}"
+                val redirectUri = requireNotNull(authRequestIn.redirectUri) { "No redirect_uri" }
+                val idTokenRequestJwt = authorizationSvc.createIDTokenRequestJwt(ctx, targetEndpointUri, authRequestIn)
+                val authRequestOut = authorizationSvc.buildIDTokenAuthorizationRequest(redirectUri, idTokenRequestJwt)
+                return call.respondRedirect(authRequestOut.toRequestUrl(redirectUri))
             }
             scopes.any { it.contains("vp_token") } -> {
-                val authContext = AuthorizationContext.create(ctx)
-                val authRequest = AuthorizationRequestDraft11.fromHttpParameters(call.request.queryParameters.toMap())
-                authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
+                val authContext = ctx.createAuthContext()
+                val queryParams = urlQueryToMap(call.request.uri)
+                val authRequest = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
+                authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
                 val vpTokenReqJwt = buildVPTokenRequest(ctx, authRequest)
                 val redirectUrl = buildVPTokenRedirectUrl(ctx, authRequest, vpTokenReqJwt)
                 return call.respondRedirect(redirectUrl)
@@ -129,8 +133,9 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
     }
 
     suspend fun handleAuthorizationMetadataRequest(call: RoutingCall, ctx: LoginContext) {
-        val walletTargetUri = "${verifierSvc.verifierEndpointUri}/${ctx.targetId}"
-        val payload = Json.encodeToString(buildAuthorizationMetadata(walletTargetUri))
+        val walletTargetUri = "${verifierSvc.endpointUri}/${ctx.targetId}"
+        val authMetadata = verifierSvc.authorizationSvc.buildAuthorizationMetadata(walletTargetUri)
+        val payload = Json.encodeToString(authMetadata)
         call.respondText(
             status = HttpStatusCode.OK,
             contentType = ContentType.Application.Json,
@@ -147,8 +152,7 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
         if (postParams["id_token"] != null) {
             val idToken = postParams["id_token"]?.first()
             val idTokenJwt = SignedJWT.parse(idToken)
-            val authCode = validateIDToken(ctx, idTokenJwt)
-            val redirectUrl = buildAuthCodeRedirectUri(ctx, authCode)
+            val redirectUrl = authorizationSvc.getIDTokenRedirectUrl(ctx, idTokenJwt)
             return call.respondRedirect(redirectUrl)
         }
 
@@ -194,7 +198,7 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
         val issuerMetadata = issuerSvc.getIssuerMetadata()
         val format = issuerMetadata.getCredentialFormat(ctype) ?: error("No format for: $ctype")
 
-        val responseUri = "${verifierSvc.verifierEndpointUri}/auth/callback/${ctx.targetId}"
+        val responseUri = "${verifierSvc.endpointUri}/auth/callback/${ctx.targetId}"
         val authReq = verifierSvc.buildAuthorizationRequestForPresentation(
             clientId = "oid4vcp",
             responseUri = responseUri,
@@ -215,18 +219,18 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
             )
         )
 
-        val walletTargetUri = "${walletSvc.walletEndpointUri}/$targetId"
-        val redirectUrl = authReq.getAuthorizationRequestUrl("$walletTargetUri/authorize")
+        val walletTargetUri = "${walletSvc.endpointUri}/$targetId"
+        val redirectUrl = authReq.toRequestUrl("$walletTargetUri/authorize")
         log.info { "Verifier sends AuthorizationRequest: $redirectUrl" }
-        authReq.getParameters().entries.forEach { (k, v) -> log.info { "  $k=$v" } }
+        authReq.toRequestParameters().entries.forEach { (k, v) -> log.info { "  $k=$v" } }
 
         call.respondRedirect(redirectUrl)
     }
 
     suspend fun showAuthConfig(call: RoutingCall, ctx: LoginContext) {
-        val verifierTargetUri = "${verifierSvc.verifierEndpointUri}/${ctx.targetId}"
-        val authConfig = buildAuthorizationMetadata(verifierTargetUri)
-        val prettyJson = jsonPretty.encodeToString(authConfig)
+        val verifierTargetUri = "${verifierSvc.endpointUri}/${ctx.targetId}"
+        val authMetadata = verifierSvc.authorizationSvc.buildAuthorizationMetadata(verifierTargetUri)
+        val prettyJson = jsonPretty.encodeToString(authMetadata)
         val authConfigUrl = "$verifierTargetUri/.well-known/openid-configuration"
         val model = verifierModel(call).also {
             it["authConfigJson"] = prettyJson
@@ -282,6 +286,16 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
         )
     }
 
+    override suspend fun createCredentialOffer(
+        configId: String,
+        clientId: String?,
+        preAuthorized: Boolean,
+        userPin: String?,
+        targetUser: User?,
+    ): CredentialOffer {
+        error("Not available on Verifier")
+    }
+
     // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 
     private suspend fun buildVPTokenRequest(ctx: LoginContext, authReq: AuthorizationRequestDraft11): SignedJWT {
@@ -294,13 +308,12 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
 
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
-        val scopes = authReq.scope.joinToString(" ")
 
         val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256).type(JOSEObjectType.JWT).keyID(kid).build()
 
         val presentationDefinition = authReq.presentationDefinition ?: run {
 
-            require(authReq.scope == setOf("openid", "ver_test:vp_token")) { "No PresentationDefinition" }
+            require(authReq.scope?.contains("vp_token") ?: false) { "No PresentationDefinition" }
 
             // EBSI wants exactly three InputDescriptor(s)
             // Authorization endpoint's response doesn't contain a valid JWT payload in the VP Token request
@@ -319,7 +332,7 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
                 .claim("response_mode", "direct_post")
                 .claim("client_id", requesterDid)
                 .claim("redirect_uri", "$targetEndpointUri/direct_post")
-                .claim("scope", scopes)
+                .claim("scope", authReq.scope)
                 .claim("nonce", "${Uuid.random()}")
                 .claim("presentation_definition", JSONObjectUtils.parse(presentationDefinitionJson)).build()
 
@@ -332,16 +345,16 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
 
     private fun buildVPTokenRedirectUrl(ctx: LoginContext, authReq: AuthorizationRequestDraft11, vpTokenReqJwt: SignedJWT): String {
 
-        val scopes = authReq.scope.joinToString(" ")
+        requireNotNull(authReq.scope) { "No scope" }
         val targetEndpointUri = "$endpointUri/${ctx.targetId}"
 
-        // Is VPTokenRequest payload an AuthorizationRequest?
+        // Is VPTokenRequest payload an AuthorizationRequestV0?
         // https://github.com/tdiesler/nessus-identity/issues/226
         val vpTokenRedirectUrl = URLBuilder("${authReq.redirectUri}").apply {
             parameters.append("client_id", authReq.clientId) // Holder Did
             parameters.append("response_type", "vp_token")
             parameters.append("response_mode", "direct_post")
-            parameters.append("scope", scopes)
+            parameters.append("scope", authReq.scope!!)
             parameters.append("redirect_uri", "$targetEndpointUri/direct_post")
             // [TODO #227] May need to use request_uri for VPToken Request redirect url
             // https://github.com/tdiesler/nessus-identity/issues/227
@@ -378,8 +391,8 @@ class VerifierHandler(walletSvc: WalletService, val issuerSvc: IssuerService, va
             }
         }
 
-        val authContext = ctx.assertAttachment(AUTH_CONTEXT_ATTACHMENT_KEY)
-        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+        val authContext = ctx.getAuthContext()
+        val authReq = authContext.assertAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
         val urlBuilder = URLBuilder("${authReq.redirectUri}")
 
         val vcArray = vpClaims.getClaim("vp").toJsonElement().jsonObject["verifiableCredential"]?.jsonArray

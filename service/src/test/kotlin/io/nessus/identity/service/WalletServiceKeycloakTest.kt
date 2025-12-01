@@ -10,14 +10,15 @@ class WalletServiceKeycloakTest : WalletServiceKeycloakBaseTest() {
 
     override val credentialConfigurationId = "oid4vc_identity_credential"
 
-    override suspend fun getCredential(authContext: AuthorizationContext, accessToken: TokenResponse) {
+    override suspend fun getCredential(ctx: LoginContext, accessToken: TokenResponse) {
 
+        val authContext = ctx.getAuthContext()
         val issuerMetadata = authContext.getIssuerMetadata()
         val expScopes = authContext.credentialConfigurationIds
             ?.mapNotNull { issuerMetadata.getCredentialScope(it) }
             ?: error { "No scopes from credential configuration ids: ${authContext.credentialConfigurationIds}"}
 
-        val credJwt = walletSvc.getCredential(authContext, accessToken) as W3CCredentialV11Jwt
+        val credJwt = walletSvc.getCredential(alice, accessToken) as W3CCredentialV11Jwt
         credJwt.types shouldBeEqual expScopes
 
         val subject = credJwt.vc.credentialSubject

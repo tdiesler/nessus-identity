@@ -1,12 +1,10 @@
 package io.nessus.identity.types
 
 import id.walt.oid4vc.data.CredentialFormat
-import io.ktor.client.call.*
-import io.ktor.client.request.*
-import io.nessus.identity.service.http
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.*
 
 @Serializable(with = IssuerMetadataSerializer::class)
@@ -17,8 +15,6 @@ sealed class IssuerMetadata {
     abstract val deferredCredentialEndpoint: String?
     abstract val supportedCredentialScopes: Set<String>
 
-    private lateinit var authMetadata: JsonObject
-
     companion object {
         val jsonInst = Json { ignoreUnknownKeys = true}
         fun fromJson(json: String) = jsonInst.decodeFromString<IssuerMetadata>(json)
@@ -27,25 +23,15 @@ sealed class IssuerMetadata {
     fun toJson() = Json.encodeToString(this)
     fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
 
-    suspend fun getAuthorizationMetadata(): JsonObject {
-        if (!::authMetadata.isInitialized) {
-            val authServerUrl = when(this) {
-                is IssuerMetadataDraft11 -> authorizationServer!!
-                is IssuerMetadataV0 -> authorizationServers!!.first()
-            }
-            val res = http.get("$authServerUrl/.well-known/openid-configuration")
-            authMetadata = res.body<JsonObject>()
-        }
-        return authMetadata
+    @Transient
+    protected var authMetadata: AuthorizationMetadata? = null
+
+    fun withAuthorizationMetadata(authMetadata: AuthorizationMetadata): IssuerMetadata {
+        this.authMetadata = authMetadata
+        return this
     }
 
-    suspend fun getAuthorizationEndpointUri(): String {
-        return getAuthorizationMetadata().getValue("authorization_endpoint").jsonPrimitive.content
-    }
-
-    suspend fun getAuthorizationTokenEndpointUri(): String {
-        return getAuthorizationMetadata().getValue("token_endpoint").jsonPrimitive.content
-    }
+    abstract suspend fun getAuthorizationMetadata(): AuthorizationMetadata
 
     abstract fun getCredentialScope(configId: String): String?
 

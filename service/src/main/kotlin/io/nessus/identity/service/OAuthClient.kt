@@ -7,7 +7,7 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.TokenResponse
 import kotlinx.serialization.json.*
@@ -21,8 +21,8 @@ class OAuthClient {
         return this
     }
 
-    fun sendAuthorizationRequest(endpointUrl: String, authReq: AuthorizationRequest): String {
-        val authParams = authReq.getParameters()
+    fun sendAuthorizationRequest(endpointUrl: String, authReq: AuthorizationRequestV0): String {
+        val authParams = authReq.toRequestParameters()
         log.info { "AuthorizationParams: $authParams" }
         val authCode = Playwright.create().use { plw ->
             val browser = plw.firefox().launch(
@@ -31,7 +31,7 @@ class OAuthClient {
             val page = browser.newPage()
 
             // Navigate to Keycloak Authorization Endpoint
-            val authRequestUrl = authReq.getAuthorizationRequestUrl(endpointUrl)
+            val authRequestUrl = authReq.toRequestUrl(endpointUrl)
             page.navigate(authRequestUrl)
 
             // Fill in login form (adjust selectors if your Keycloak theme differs)

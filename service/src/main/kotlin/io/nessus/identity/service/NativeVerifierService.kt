@@ -1,12 +1,29 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.AuthorizationRequestBuilder
+import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.DCQLQuery
 
-// DefaultVerifierService ==============================================================================================
+// NativeVerifierService ==============================================================================================
 
-class DefaultVerifierService : AbstractVerifierService(), VerifierService {
+class NativeVerifierService : AbstractVerifierService(), VerifierService {
+
+    override val authorizationSvc = AuthorizationService.create()
+
+    // ExperimentalVerifierService -------------------------------------------------------------------------------------
+
+    // VerifierService -------------------------------------------------------------------------------------------------
+
+    /**
+     * Get the authorization metadata
+     */
+    override fun getAuthorizationMetadata(ctx: LoginContext): AuthorizationMetadata {
+        val targetUri = "$endpointUri/${ctx.targetId}"
+        return authorizationSvc.buildAuthorizationMetadata(targetUri)
+    }
+
+    // LegacyVerifierService -------------------------------------------------------------------------------------------
 
     /**
      * Verifier builds the AuthorizationRequest for Verifiable Presentation
@@ -17,7 +34,7 @@ class DefaultVerifierService : AbstractVerifierService(), VerifierService {
         dcql: DCQLQuery,
         redirectUri: String?,
         responseUri: String?,
-    ): AuthorizationRequest {
+    ): AuthorizationRequestV0 {
 
         val builder = AuthorizationRequestBuilder()
             .withResponseType("vp_token")

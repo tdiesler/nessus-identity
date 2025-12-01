@@ -7,12 +7,18 @@ import io.ktor.client.statement.*
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.config.User
-import io.nessus.identity.service.IssuerService.UserInfo
 import io.nessus.identity.service.OAuthClient.Companion.handleApiResponse
+import io.nessus.identity.service.UserAccessService.UserInfo
+import io.nessus.identity.types.AuthorizationMetadata
+import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferUri
+import io.nessus.identity.types.CredentialRequest
+import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.OfferUriType
 import io.nessus.identity.types.TokenRequest
+import io.nessus.identity.types.TokenResponse
 import jakarta.ws.rs.core.HttpHeaders
 import kotlinx.serialization.json.*
 import org.keycloak.OAuth2Constants
@@ -22,17 +28,61 @@ import org.keycloak.representations.idm.CredentialRepresentation
 import org.keycloak.representations.idm.UserRepresentation
 import java.net.URI
 
-// KeycloakIssuerService =======================================================================================================================================
+// KeycloakIssuerService ===============================================================================================
 
 /**
  * Keycloak as OID4VC Issuer
  *
  * https://www.keycloak.org/docs/latest/server_admin/index.html#_oid4vci
  */
-class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService(), IssuerService {
+class IssuerServiceKeycloak(val config: IssuerConfig): AbstractIssuerService(), IssuerService {
 
     val issuerBaseUrl = config.baseUrl
     val issuerUrl = "$issuerBaseUrl/realms/${config.realm}"
+
+    override val authorizationSvc = AuthorizationService.create()
+
+    // ExperimentalIssuerService ---------------------------------------------------------------------------------------
+
+    override fun getAuthCodeFromIDToken(
+        ctx: LoginContext,
+        idTokenJwt: SignedJWT,
+    ): String {
+        error("Not implemented")
+    }
+
+    override suspend fun getTokenResponse(
+        ctx: LoginContext,
+        tokenRequest: TokenRequest
+    ): TokenResponse {
+        error("Not implemented")
+    }
+
+    override suspend fun getNativeCredentialFromRequest(
+        ctx: LoginContext,
+        credReq: CredentialRequest,
+        accessTokenJwt: SignedJWT,
+        deferred: Boolean,
+    ): CredentialResponse {
+        error("Not implemented")
+    }
+
+    override suspend fun getNativeCredentialFromAcceptanceToken(
+        ctx: LoginContext, acceptanceTokenJwt: SignedJWT
+    ): CredentialResponse {
+        error("Not implemented")
+    }
+
+    // IssuerService ---------------------------------------------------------------------------------------------------
+
+    /**
+     * Get the authorization metadata
+     */
+    override suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
+        return getIssuerMetadata().getAuthorizationMetadata()
+    }
+
+    // LegacyIssuerService ---------------------------------------------------------------------------------------------
 
     override fun getIssuerMetadataUrl(): String {
         val metadataUrl = "$issuerBaseUrl/.well-known/openid-credential-issuer/realms/${config.realm}"
@@ -45,16 +95,25 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService(),
         return http.get(metadataUrl).body<IssuerMetadataV0>()
     }
 
-    /**
-     * Creates a CredentialOfferUri for the given credential configuration id
-     */
+    override suspend fun createCredentialOffer(
+        configId: String,
+        clientId: String?,
+        preAuthorized: Boolean,
+        userPin: String?,
+        targetUser: User?,
+    ): CredentialOffer {
+        error("Not implemented")
+    }
+
     override suspend fun createCredentialOfferUri(
         configId: String,
+        clientId: String?,
         preAuthorized: Boolean,
-        holder: User?,
+        userPin: String?,
+        targetUser: User?,
     ): String {
 
-        val credOfferUriRes = createCredentialOfferUriInternal(configId, preAuthorized, holder, OfferUriType.URI)
+        val credOfferUriRes = createCredentialOfferUriInternal(configId, preAuthorized, targetUser, OfferUriType.URI)
 
         val credOfferUriJson = handleApiResponse(credOfferUriRes) as JsonObject
         val issuerUrl = credOfferUriJson.getValue("issuer").jsonPrimitive.content
@@ -83,6 +142,10 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService(),
         )
 
         return handleApiResponse(credOfferUriRes) as ByteArray
+    }
+
+    override suspend fun createIDTokenRequest(ctx: LoginContext, authRequest: AuthorizationRequest): AuthorizationRequest {
+        error("Not implemented")
     }
 
     override fun findUser(predicate: (UserInfo) -> Boolean): UserInfo? {
@@ -173,7 +236,7 @@ class IssuerServiceKeycloak(val config: IssuerConfig) : AbstractIssuerService(),
             scopes = listOf(scope)
         )
 
-        val tokenEndpointUri = issuerMetadata.getAuthorizationTokenEndpointUri()
+        val tokenEndpointUri = getAuthorizationMetadata().getAuthorizationTokenEndpointUri()
         val tokRes = OAuthClient().sendTokenRequest(tokenEndpointUri, tokReq)
         val accessToken = tokRes.accessToken
 

@@ -1,6 +1,9 @@
 package io.nessus.identity.types
 
 import id.walt.oid4vc.data.CredentialFormat
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.nessus.identity.service.http
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -43,6 +46,15 @@ data class IssuerMetadataV0(
         val jsonInst = Json { ignoreUnknownKeys = true}
         fun fromJson(json: String) = jsonInst.decodeFromString<IssuerMetadataV0>(json)
         fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<IssuerMetadataV0>(json)
+    }
+
+    override suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
+        if (authMetadata == null) {
+            requireNotNull(authorizationServers) { "No authorization_servers" }
+            val res = http.get("${authorizationServers.first()}/.well-known/openid-configuration")
+            authMetadata = AuthorizationMetadata(res.body<JsonObject>())
+        }
+        return authMetadata as AuthorizationMetadata
     }
 
     override val supportedCredentialScopes

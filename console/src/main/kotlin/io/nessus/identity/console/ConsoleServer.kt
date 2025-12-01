@@ -48,7 +48,7 @@ class ConsoleServer(val config: ConsoleConfig) {
 
     val ebsiHandler = EBSIHandler()
     val walletHandler = WalletHandler(walletSvc)
-    val issuerHandler = IssuerHandler(walletSvc, issuerSvc)
+    val issuerHandler = IssuerHandler(issuerSvc)
     val verifierHandler = VerifierHandler(walletSvc, issuerSvc, verifierSvc)
 
     private val autoLoginComplete = mutableMapOf<UserRole, Boolean>()
@@ -197,14 +197,10 @@ class ConsoleServer(val config: ConsoleConfig) {
                     //
                     route("/{targetId}") {
                         get("/.well-known/openid-configuration") {
-                            requireTargetContext(call) { ctx ->
-                                issuerHandler.handleNativeAuthorizationMetadataRequest(call, ctx)
-                            }
+                            issuerHandler.handleNativeAuthorizationMetadataRequest(call)
                         }
                         get("/.well-known/openid-credential-issuer") {
-                            requireTargetContext(call) { ctx ->
-                                issuerHandler.handleNativeIssuerMetadataRequest(call, ctx)
-                            }
+                            issuerHandler.handleNativeIssuerMetadataRequest(call)
                         }
                         post("/credential") {
                             requireTargetContext(call) { ctx ->
@@ -218,7 +214,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                         }
                         get("/authorize") {
                             requireTargetContext(call) { ctx ->
-                                issuerHandler.handleNativeAuthorizationRequest(call, ctx)
+                                issuerHandler.handleNativeAuthorization(call, ctx)
                             }
                         }
                         post("/direct_post") {
@@ -333,6 +329,12 @@ class ConsoleServer(val config: ConsoleConfig) {
                                 walletHandler.handleAuthorizationMetadataRequest(call, ctx)
                             }
                         }
+                        get("/flow/{flowStep}") {
+                            requireTargetContext(call) { ctx ->
+                                val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
+                                walletHandler.handleAuthFlow(call, ctx, flowStep)
+                            }
+                        }
                         get("/authorize") {
                             requireTargetContext(call) { ctx ->
                                 walletHandler.handleAuthorization(call, ctx)
@@ -340,12 +342,6 @@ class ConsoleServer(val config: ConsoleConfig) {
                         }
                         post("/direct_post") {
                             error ("Not implemented ${call.request.uri}")
-                        }
-                        get("/flow/{flowStep}") {
-                            requireTargetContext(call) { ctx ->
-                                val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
-                                walletHandler.handleAuthFlow(call, ctx, flowStep)
-                            }
                         }
                         get("/jwks") {
                             error ("Not implemented ${call.request.uri}")

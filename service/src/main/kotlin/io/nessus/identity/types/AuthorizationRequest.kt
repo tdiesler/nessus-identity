@@ -1,246 +1,92 @@
 package io.nessus.identity.types
 
 import io.nessus.identity.service.urlEncode
-import kotlinx.serialization.SerialName
+import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.*
 
-@Serializable
-data class AuthorizationRequest(
+@Serializable(with = AuthorizationRequestSerializer::class)
+sealed class AuthorizationRequest {
+    abstract val clientId: String
+    abstract val redirectUri: String?
+    abstract val responseType: String?
+    abstract val responseMode: String?
+    abstract val request: String?
+    abstract val requestUri: String?
+    abstract val responseUri: String?
+    abstract val scope: String?
+    abstract val nonce: String?
+    abstract val state: String?
+    abstract val codeChallenge: String?
+    abstract val codeChallengeMethod: String?
 
-    @SerialName("client_id")
-    val clientId: String,
+    abstract fun toJson(): String
+    abstract fun toJsonObj(): JsonObject
 
-    @SerialName("redirect_uri")
-    val redirectUri: String? = null,
-
-    @SerialName("response_type")
-    val responseType: String? = null,
-
-    @SerialName("response_mode")
-    val responseMode: String? = null,
-
-    @SerialName("response_uri")
-    val responseUri: String? = null,
-
-    @SerialName("nonce")
-    val nonce: String? = null,
-
-    @SerialName("scope")
-    val scope: String? = null,
-
-    @SerialName("state")
-    val state: String? = null,
-
-    @SerialName("authorization_details")
-    val authorizationDetails: List<AuthorizationDetail>? = null,
-
-    @SerialName("code_challenge")
-    val codeChallenge: String? = null,
-
-    @SerialName("code_challenge_method")
-    val codeChallengeMethod: String? = null,
-
-    // Request Parameters defined in "OpenID for Verifiable Presentations 1.0"
-    // https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-new-parameters
-
-    @SerialName("client_metadata")
-    val clientMetadata: ClientMetadata? = null,
-
-    @SerialName("dcql_query")
-    val dcqlQuery: DCQLQuery? = null,
-
-    @SerialName("request_uri_method")
-    val requestUriMethod: String? = null,
-
-    @SerialName("transaction_data")
-    val transactionData: List<String>? = null,
-
-    @SerialName("verifier_info")
-    val verifierInfo: JsonObject? = null,
-) {
-
-    fun getParameters(): Map<String, List<String>> {
-        val params = mutableMapOf<String, List<String>>()
-        params["client_id"] = listOf(clientId)
-        redirectUri?.also {
-            params["redirect_uri"] = listOf(it)
+    open fun toRequestParameters(): Map<String, List<String>> {
+        return buildMap {
+            put("client_id", listOf(clientId))
+            redirectUri?.also { put("redirect_uri", listOf(it)) }
+            responseType?.also { put("response_type", listOf(it)) }
+            responseMode?.also { put("response_mode", listOf(it)) }
+            request?.also { put("request", listOf(it)) }
+            requestUri?.also { put("request_uri", listOf(it)) }
+            responseUri?.also { put("response_uri", listOf(it)) }
+            scope?.also { put("scope", listOf(it)) }
+            nonce?.also { put("nonce", listOf(it)) }
+            state?.also { put("state", listOf(it)) }
+            codeChallenge?.also { put("code_challenge", listOf(it)) }
+            codeChallengeMethod?.also { put("code_challenge_method", listOf(it)) }
         }
-        responseMode?.also {
-            params["response_mode"] = listOf(it)
-        }
-        responseType?.also {
-            params["response_type"] = listOf(it)
-        }
-        responseUri?.also {
-            params["response_uri"] = listOf(it)
-        }
-        scope?.also {
-            params["scope"] = listOf(it)
-        }
-        authorizationDetails?.also {
-            val json = Json.encodeToString(it)
-            params["authorization_details"] = listOf(json)
-        }
-        dcqlQuery?.also {
-            val json = Json.encodeToString(it)
-            params["dcql_query"] = listOf(json)
-        }
-        codeChallenge?.also {
-            params["code_challenge"] = listOf(it)
-        }
-        codeChallengeMethod?.also {
-            params["code_challenge_method"] = listOf(it)
-        }
-        return params
     }
 
-    fun getAuthorizationRequestUrl(authEndpointUri: String): String {
-        val params = getParameters()
+    fun toRequestUrl(authEndpointUri: String): String {
+        val params = toRequestParameters()
             .map { (k, vals) -> vals.joinToString("&") { v -> "$k=${urlEncode(v)}" }}
             .joinToString( "&" )
         return "$authEndpointUri?$params"
     }
+}
 
-    fun toJson() = Json.encodeToString(this)
-    fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
+object AuthorizationRequestSerializer :
+    JsonContentPolymorphicSerializer<AuthorizationRequest>(AuthorizationRequest::class) {
+    override fun selectDeserializer(element: JsonElement): DeserializationStrategy<AuthorizationRequest> {
+        val jsonObj = element.jsonObject
 
-    companion object {
-        val jsonInst = Json { ignoreUnknownKeys = true }
-        fun fromJson(json: String) = jsonInst.decodeFromString<AuthorizationRequest>(json)
-        fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<AuthorizationRequest>(json)
+        // AuthorizationDetails discrimination
+        //
+        if (jsonObj.containsKey("authorization_details")) {
+            val ads = jsonObj.getValue("authorization_details").jsonObject
+            val isAuthDetailsDraft11 = (ads.containsKey("vct")
+                    || ads.containsKey("types")
+                    || ads.containsKey("credential_definition"))
+            val isAuthDetailsV0 = (ads.containsKey("credential_configuration_id")
+                    || ads.containsKey("credential_identifiers")
+                    || ads.containsKey("credential_type"))
+            if (isAuthDetailsDraft11 && isAuthDetailsV0)
+                throw SerializationException("Ambiguous AuthorizationDetails: $element")
+            return when {
+                isAuthDetailsV0 -> AuthorizationRequestV0.serializer()
+                isAuthDetailsDraft11 -> AuthorizationRequestDraft11.serializer()
+                else -> throw SerializationException("Unknown AuthorizationDetails: $element")
+            }
+        }
 
-        fun fromHttpParameters(params: Map<String, String>): AuthorizationRequest {
-            val authReq = AuthorizationRequest(
-                clientId = params["client_id"] ?: error("No client_id"),
-                redirectUri = params["redirect_uri"],
-                responseType = params["response_type"] ?: error("No response_type"),
-                responseMode = params["response_mode"],
-                responseUri = params["response_uri"],
-                nonce = params["nonce"],
-                scope = params["scope"],
-                state = params["state"],
-                authorizationDetails = params["authorization_details"]?.let {
-                    Json.decodeFromString<List<AuthorizationDetail>>(it)
-                },
-                codeChallenge = params["code_challenge"],
-                codeChallengeMethod = params["code_challenge_method"],
-                clientMetadata = params["client_metadata"]?.let {
-                    Json.decodeFromString<ClientMetadata>(it)
-                },
-                dcqlQuery = params["dcql_query"]?.let {
-                    Json.decodeFromString<DCQLQuery>(it)
-                },
-                requestUriMethod = params["request_uri_method"],
-                transactionData = params["transaction_data"]?.let {
-                    Json.decodeFromString<List<String>>(it)
-                },
-                verifierInfo = params["verifier_info"]?.let {
-                    Json.decodeFromString<JsonObject>(it)
-                },
-            )
-            return authReq
+        // AuthorizationRequest discrimination
+        //
+        val isAuthorizationRequestDraft11 = (jsonObj.containsKey("presentation_definition")
+                || jsonObj.containsKey("presentation_definition_uri")
+                || jsonObj.containsKey("issuer_state"))
+        val isAuthorizationRequestV0 = (jsonObj.containsKey("dcql_query")
+                || jsonObj.containsKey("request_uri_method")
+                || jsonObj.containsKey("transaction_data"))
+        if (isAuthorizationRequestDraft11 && isAuthorizationRequestV0)
+            throw SerializationException("Ambiguous AuthorizationRequest: $element")
+        return when {
+            isAuthorizationRequestV0 -> AuthorizationRequestV0.serializer()
+            isAuthorizationRequestDraft11 -> AuthorizationRequestDraft11.serializer()
+            else -> throw SerializationException("Unknown AuthorizationRequest: $element")
         }
     }
-
-    @Serializable
-    data class ClientMetadata(
-        val type: String,  // must be "openid_credential"
-        @SerialName("credential_configuration_id")
-        val credentialConfigurationId: String,
-        val format: String? = null,
-        val types: List<String>? = null,
-        val locations: List<String>? = null,
-    )
 }
-
-// AuthorizationDetails ================================================================================================
-
-@Serializable
-data class AuthorizationDetail(
-
-    /** Always "openid_credential" for credential issuance */
-    val type: String,
-
-    /** Optional: the credential configuration that this access token authorizes */
-    @SerialName("credential_configuration_id")
-    val credentialConfigurationId: String? = null,
-
-    /** Optional: array of credential identifiers available under this token */
-    @SerialName("credential_identifiers")
-    val credentialIdentifiers: List<String>? = null,
-
-    /** Optional: credential format (e.g. "jwt_vc_json") */
-    val format: String? = null,
-
-    /** Optional: where to send subsequent credential requests */
-    val locations: List<String>? = null,
-
-    /** Optional: human-readable or UI display data */
-    val display: JsonElement? = null,
-
-    /** Optional: credential type (e.g. "UniversityDegreeCredential") */
-    @SerialName("credential_type")
-    val credentialType: String? = null,
-)
-
-// DCQLQuery ===========================================================================================================
-
-/**
- * A Credential Query is an object representing a request for a presentation of one or more matching Credentials.
- * https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-credential-query
- */
-@Serializable
-data class DCQLQuery(
-    val credentials: List<CredentialQuery>,
-    @SerialName("credential_sets")
-    val credentialSets: List<CredentialSet>? = null,
-) {
-    fun toJson() = Json.encodeToString(this)
-    fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
-
-    companion object {
-        val jsonInst = Json { ignoreUnknownKeys = true }
-        fun fromJson(json: String): DCQLQuery = jsonInst.decodeFromString(json)
-        fun fromJson(json: JsonObject): DCQLQuery = jsonInst.decodeFromJsonElement(json)
-    }
-}
-
-@Serializable
-data class CredentialSet(
-    val options: List<List<String>>,
-    val required: Boolean? = null,
-)
-
-@Serializable
-data class CredentialQuery(
-    val id: String,
-    val format: String,
-    val multiple: Boolean? = null,
-    val meta: QueryMeta,
-    @SerialName("trusted_authorities")
-    val trustedAuthorities: List<TrustedAuthority>? = null,
-    @SerialName("require_cryptographic_holder_binding")
-    val requireCryptographicHolderBinding: Boolean? = null,
-    val claims: List<QueryClaim>? = null,
-    @SerialName("claim_sets")
-    val claimSets: List<List<String>>? = null,
-)
-
-@Serializable
-data class QueryClaim(
-    val path: List<String>,
-    val values: List<JsonElement>,
-)
-
-@Serializable
-data class QueryMeta(
-    @SerialName("vct_values")
-    val vctValues: List<String>,
-)
-
-@Serializable
-data class TrustedAuthority(
-    val type: String,
-    val values: List<String>,
-)

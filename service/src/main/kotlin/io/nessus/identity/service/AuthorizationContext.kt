@@ -2,18 +2,21 @@ package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.dif.PresentationSubmission
-import io.nessus.identity.service.LoginContext.Companion.AUTH_CONTEXT_ATTACHMENT_KEY
-import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.AuthorizationRequestDraft11
+import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft11
+import io.nessus.identity.types.IssuerMetadataV0
 
 // AuthorizationContext ===============================================================================================
 
-class AuthorizationContext(val loginContext: LoginContext? = null): AttachmentSupport() {
+// [TODO] Migrate to attachments only
 
-    lateinit var authRequest: AuthorizationRequest
+class AuthorizationContext(val loginContext: LoginContext) : AttachmentSupport() {
+
+    lateinit var authRequest: AuthorizationRequestV0
 
     var codeVerifier: String? = null
     var credOffer: CredentialOffer? = null
@@ -21,28 +24,23 @@ class AuthorizationContext(val loginContext: LoginContext? = null): AttachmentSu
     private var explicitCredentialConfigurationIds: List<String>? = null
     private var explicitIssuerMetadata: IssuerMetadata? = null
 
-    val credentialConfigurationIds get() =
-        explicitCredentialConfigurationIds ?: credOffer?.credentialConfigurationIds
-
-    val filteredConfigurationIds
-        get() = credentialConfigurationIds?.filter { it !in listOf("VerifiableAttestation", "VerifiableCredential")  }
+    val credentialConfigurationIds
+        get() =
+            explicitCredentialConfigurationIds ?: credOffer?.credentialConfigurationIds
 
     companion object {
-        val EBSI32_ACCESS_TOKEN_ATTACHMENT_KEY = attachmentKey<SignedJWT>("ACCESS_TOKEN")
-        val EBSI32_AUTH_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTH_CODE")
-        val EBSI32_AUTHORIZATION_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>()
-        val EBSI32_CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("CODE_VERIFIER")
+        val ACCESS_TOKEN_ATTACHMENT_KEY = attachmentKey<SignedJWT>("ACCESS_TOKEN")
+        val AUTHORIZATION_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTHORIZATION_CODE")
+        val AUTHORIZATION_METADATA_ATTACHMENT_KEY = attachmentKey<AuthorizationMetadata>()
+        val CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("CODE_VERIFIER")
+        val ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<IssuerMetadataV0>()
+
+        val EBSI32_AUTHORIZATION_METADATA_ATTACHMENT_KEY = attachmentKey<AuthorizationMetadata>()
+        val EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>()
         val EBSI32_ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<IssuerMetadataDraft11>()
         val EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY = attachmentKey<PresentationSubmission>()
         val EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>("RequestUriObject")
-        val EBSI32_USER_PIN_ATTACHMENT_KEY = attachmentKey<String>("USER_PIN")
-
-        fun create(ctx: LoginContext?): AuthorizationContext {
-            // [TODO] explain why we can have an AuthorizationContext without LoginContext
-            val authContext = AuthorizationContext(ctx)
-            ctx?.also { it.putAttachment(AUTH_CONTEXT_ATTACHMENT_KEY, authContext) }
-            return authContext
-        }
+        val USER_PIN_ATTACHMENT_KEY = attachmentKey<String>("USER_PIN")
     }
 
     suspend fun getIssuerMetadata(): IssuerMetadata {
@@ -50,7 +48,11 @@ class AuthorizationContext(val loginContext: LoginContext? = null): AttachmentSu
         { "No credential offer nor explicit issuer metadata" }
     }
 
-    fun withAuthorizationRequest(authRequest: AuthorizationRequest): AuthorizationContext {
+    suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
+        return getIssuerMetadata().getAuthorizationMetadata()
+    }
+
+    fun withAuthorizationRequest(authRequest: AuthorizationRequestV0): AuthorizationContext {
         this.authRequest = authRequest
         return this
     }

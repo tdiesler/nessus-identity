@@ -26,25 +26,24 @@ abstract class WalletServiceKeycloakBaseTest : AbstractServiceTest() {
 
     abstract val credentialConfigurationId: String
 
-    abstract suspend fun getCredential(authContext: AuthorizationContext, accessToken: TokenResponse)
+    abstract suspend fun getCredential(ctx: LoginContext, accessToken: TokenResponse)
 
     @Test
     fun getCredentialWithoutOffer() {
         runBlocking {
             val configId = credentialConfigurationId
 
-            val authContext = AuthorizationContext.create(alice)
+            alice.createAuthContext()
                 .withIssuerMetadata(issuerSvc.getIssuerMetadata())
                 .withCredentialConfigurationId(configId)
 
-            val authCode = walletSvc.getAuthorizationCode(
-                authContext,
+            val authCode = walletSvc.getAuthorizationCode(alice,
                 username = Alice.username,
                 password = Alice.password
             )
-            val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(authContext, authCode)
+            val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(alice, authCode)
 
-            getCredential(authContext, accessToken)
+            getCredential(alice, accessToken)
         }
     }
 
@@ -54,16 +53,16 @@ abstract class WalletServiceKeycloakBaseTest : AbstractServiceTest() {
             val configId = credentialConfigurationId
 
             val offerUri = issuerSvc.createCredentialOfferUri(configId)
-            val credOffer = walletSvc.getCredentialOffer(offerUri)
-            val authContext = AuthorizationContext.create(alice).withCredentialOffer(credOffer)
-            val authCode = walletSvc.getAuthorizationCode(
-                authContext,
+            val credOffer = walletSvc.getCredentialOfferFromUri(offerUri)
+            alice.createAuthContext().withCredentialOffer(credOffer)
+            val authCode = walletSvc.getAuthorizationCode(alice,
+
                 username = Alice.username,
                 password = Alice.password
             )
-            val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(authContext, authCode)
+            val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(alice, authCode)
 
-            getCredential(authContext, accessToken)
+            getCredential(alice, accessToken)
         }
     }
 
@@ -72,13 +71,11 @@ abstract class WalletServiceKeycloakBaseTest : AbstractServiceTest() {
         runBlocking {
             val configId = credentialConfigurationId
 
-            val offerUri = issuerSvc.createCredentialOfferUri(configId, true, Alice)
-            val credOffer = walletSvc.getCredentialOffer(offerUri)
+            val offerUri = issuerSvc.createCredentialOfferUri(configId, preAuthorized = true, targetUser = Alice)
+            val credOffer = walletSvc.getCredentialOfferFromUri(offerUri)
 
-            val authContext = AuthorizationContext.create(alice)
-            val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
-
-            getCredential(authContext, accessToken)
+            val accessToken = walletSvc.getAccessTokenFromCredentialOffer(alice, credOffer)
+            getCredential(alice, accessToken)
         }
     }
 }

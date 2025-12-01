@@ -12,11 +12,10 @@ import org.junit.jupiter.api.Test
 
 class VerifierServiceKeycloakTest : AbstractServiceTest() {
 
-    lateinit var alice: OIDContext
+    lateinit var alice: LoginContext
 
     lateinit var issuerSvc: IssuerService
     lateinit var walletSvc: WalletService
-    lateinit var walletAuthSvc: WalletAuthorizationService
     lateinit var verifierSvc: VerifierService
 
     @BeforeEach
@@ -25,10 +24,9 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             issuerSvc = IssuerService.createKeycloak()
             verifierSvc = VerifierService.create()
 
-            // Create the Holders's OIDC context (Alice is the Holder)
-            alice = OIDContext(loginOrRegister(Alice).withDidInfo())
+            // Create the Holders's LoginContext (Alice is the Holder)
+            alice = LoginContext.loginOrRegister(Alice).withDidInfo()
             walletSvc = WalletService.create()
-            walletAuthSvc = WalletAuthorizationService(walletSvc)
         }
     }
 
@@ -43,11 +41,10 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Identity Credential on demand
             val credJwt = walletSvc.getCredentialByType(alice, ctype!!)
             if (credJwt == null) {
-                val offerUri = issuerSvc.createCredentialOfferUri(credConfigId, true, Alice)
-                val credOffer = walletSvc.getCredentialOffer(offerUri)
-                val authContext = AuthorizationContext.create(alice)
-                val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
-                walletSvc.getCredential(authContext, accessToken)
+                val offerUri = issuerSvc.createCredentialOfferUri(credConfigId, preAuthorized = true, targetUser = Alice)
+                val credOffer = walletSvc.getCredentialOfferFromUri(offerUri)
+                val accessToken = walletSvc.getAccessTokenFromCredentialOffer(alice, credOffer)
+                walletSvc.getCredential(alice, accessToken)
             }
 
             val authReq = verifierSvc.buildAuthorizationRequestForPresentation(
@@ -71,9 +68,9 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 """.trimIndent())
             )
 
-            log.info { authReq.getParameters() }
+            log.info { authReq.toRequestParameters() }
 
-            val authRes = walletAuthSvc.handleVPTokenRequest(alice, authReq)
+            val authRes = walletSvc.handleVPTokenRequest(alice, authReq)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
 
             // Verifier validates the VPToken
@@ -105,11 +102,9 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
             // Create the Identity Credential on demand
             val credJwt = walletSvc.getCredentialByType(alice, ctype!!)
             if (credJwt == null) {
-                val offerUri = issuerSvc.createCredentialOfferUri(credConfigId, true, Alice)
-                val credOffer = walletSvc.getCredentialOffer(offerUri)
-                val authContext = AuthorizationContext.create(alice)
-                val accessToken = walletSvc.getAccessTokenFromCredentialOffer(authContext, credOffer)
-                walletSvc.getCredential(authContext, accessToken)
+                val offerUri = issuerSvc.createCredentialOfferUri(credConfigId, preAuthorized = true, targetUser = Alice)
+                val credOffer = walletSvc.getCredentialOfferFromUri(offerUri)
+                walletSvc.getCredentialFromOffer(alice, credOffer)
             }
 
             val authReq = verifierSvc.buildAuthorizationRequestForPresentation(
@@ -133,9 +128,9 @@ class VerifierServiceKeycloakTest : AbstractServiceTest() {
                 """.trimIndent())
             )
 
-            log.info { authReq.getParameters() }
+            log.info { authReq.toRequestParameters() }
 
-            val authRes = walletAuthSvc.handleVPTokenRequest(alice, authReq)
+            val authRes = walletSvc.handleVPTokenRequest(alice, authReq)
             val vpTokenJwt = SignedJWT.parse(authRes.vpToken)
 
             // Verifier validates the VPToken
