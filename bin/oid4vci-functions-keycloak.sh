@@ -209,7 +209,6 @@ kc_create_oid4vci_service_client() {
   local realm="$1"
   local client_id="$2"
   local client_secret="$3"
-  local credential_id="$4"
 
   echo "Create service client: ${client_id} ..."
   ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
@@ -227,7 +226,14 @@ kc_create_oid4vci_service_client() {
     "attributes": {
       "oid4vci.enabled": "true"
     },
-    "optionalClientScopes": ["oid4vc_natural_person", "${credential_id}"]
+    "optionalClientScopes": [
+      "oid4vc_natural_person",
+      "oid4vc_identity_credential",
+      "CTWalletSameAuthorisedInTime",
+      "CTWalletSameAuthorisedDeferred",
+      "CTWalletSamePreAuthorisedInTime",
+      "CTWalletSamePreAuthorisedDeferred"
+    ]
   }
 EOF
 
@@ -253,12 +259,12 @@ EOF
   ${KCADM} get-roles -r "${realm}" --uusername "service-account-${client_id}" --cclientid realm-management
 }
 
-kc_create_oid4vc_identity_credential() {
+kc_create_oid4vc_credential_configurations() {
   local realm="$1"
-  local credential_id="$2"
 
   # Configure oid4vci client scopes
   #
+  local credential_id="oid4vc_identity_credential"
   echo "Create Credential config for: ${credential_id}"
   ${KCADM} create "realms/${realm}/client-scopes" -f - <<EOF
   {
@@ -316,14 +322,30 @@ EOF
   local client_scope_id
   client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_id}\") | .id")
   echo "Client Scope Id for ${credential_id}: ${client_scope_id}"
+  ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
 
-  # ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
+  for credential_id in "CTWalletSameAuthorisedInTime" "CTWalletSameAuthorisedDeferred" "CTWalletSamePreAuthorisedInTime" "CTWalletSamePreAuthorisedDeferred"; do
+    echo "Create Credential config for: ${credential_id}"
+    ${KCADM} create "realms/${realm}/client-scopes" -f - <<EOF
+    {
+      "name": "${credential_id}",
+      "protocol": "oid4vc",
+      "attributes": {
+        "vc.issuer_did": "${issuer_did}",
+        "vc.format": "jwt_vc"
+      }
+     }
+EOF
+
+    client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_id}\") | .id")
+    echo "Client Scope Id for ${credential_id}: ${client_scope_id}"
+    ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
+  done
 }
 
 kc_create_oid4vci_client() {
   local realm="$1"
   local client_id="$2"
-  local credential_id="$3"
 
   echo "Create OID4VCI Issuance client: ${client_id} ..."
   ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
@@ -336,7 +358,14 @@ kc_create_oid4vci_client() {
     "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${AUTH_REDIRECT_URI}"],
     "directAccessGrantsEnabled": true,
     "defaultClientScopes": ["profile"],
-    "optionalClientScopes": ["oid4vc_natural_person", "${credential_id}"],
+    "optionalClientScopes": [
+      "oid4vc_natural_person",
+      "oid4vc_identity_credential",
+      "CTWalletSameAuthorisedInTime",
+      "CTWalletSameAuthorisedDeferred",
+      "CTWalletSamePreAuthorisedInTime",
+      "CTWalletSamePreAuthorisedDeferred"
+    ],
     "baseUrl": "${AUTH_SERVER_URL}/realms/${realm}/.well-known/openid-credential-issuer",
     "attributes": {
       "client.introspection.response.allow.jwt.claim.enabled": "false",

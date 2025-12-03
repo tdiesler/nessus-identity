@@ -2,8 +2,8 @@ package io.nessus.identity.ebsi
 
 import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.Max
-import io.nessus.identity.service.LoginContext
 import kotlin.random.Random
 
 abstract class AbstractIssuerConformanceTest : AbstractConformanceTest() {

@@ -1,6 +1,7 @@
 package io.nessus.identity.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.nessus.identity.LoginContext
 import io.nessus.identity.config.User
 import kotlinx.serialization.json.*
 import java.nio.file.Files
@@ -9,7 +10,6 @@ import java.nio.file.Paths
 abstract class AbstractServiceTest {
 
     val log = KotlinLogging.logger {}
-
     val jsonPretty = Json { prettyPrint = true }
 
     companion object {
@@ -18,7 +18,7 @@ abstract class AbstractServiceTest {
 
     suspend fun login(user: User): LoginContext {
         val ctx = sessions[user.email] ?: run {
-            LoginContext.login(user).also {
+            LoginContext.Companion.login(user).also {
                 sessions[user.email] = it
             }
         }
@@ -27,7 +27,7 @@ abstract class AbstractServiceTest {
 
     suspend fun loginOrRegister(user: User): LoginContext {
         val ctx = sessions[user.email] ?: run {
-            LoginContext.loginOrRegister(user).also {
+            LoginContext.Companion.loginOrRegister(user).also {
                 sessions[user.email] = it
             }
         }

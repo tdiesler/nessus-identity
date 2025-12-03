@@ -4,10 +4,10 @@ import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
 import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.Alice
-import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.urlEncode
-import io.nessus.identity.service.urlQueryToMap
+import io.nessus.identity.utils.urlEncode
+import io.nessus.identity.utils.urlQueryToMap
 import java.net.URI
 
 abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {

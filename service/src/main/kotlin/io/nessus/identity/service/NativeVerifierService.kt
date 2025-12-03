@@ -1,27 +1,31 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.types.AuthorizationMetadata
+import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
+import io.nessus.identity.config.ConfigProvider.requireVerifierConfig
+import io.nessus.identity.config.FeatureProfile.EBSI_V32
+import io.nessus.identity.config.Features
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.DCQLQuery
 
-// NativeVerifierService ==============================================================================================
+// NativeVerifierService ===============================================================================================
 
-class NativeVerifierService : AbstractVerifierService(), VerifierService {
+class NativeVerifierService: VerifierService {
 
-    override val authorizationSvc = AuthorizationService.create()
+    /**
+     * The endpoint for this service
+     */
+    override val endpointUri
+        get() = when(Features.getProfile()) {
+            EBSI_V32 -> "${requireEbsiConfig().baseUrl}/verifier"
+            else -> requireVerifierConfig().baseUrl
+        }
 
-    // ExperimentalVerifierService -------------------------------------------------------------------------------------
+    override val authorizationSvc = NativeAuthorizationService(endpointUri)
 
     // VerifierService -------------------------------------------------------------------------------------------------
 
-    /**
-     * Get the authorization metadata
-     */
-    override fun getAuthorizationMetadata(ctx: LoginContext): AuthorizationMetadata {
-        val targetUri = "$endpointUri/${ctx.targetId}"
-        return authorizationSvc.buildAuthorizationMetadata(targetUri)
-    }
+    // ExperimentalVerifierService -------------------------------------------------------------------------------------
 
     // LegacyVerifierService -------------------------------------------------------------------------------------------
 

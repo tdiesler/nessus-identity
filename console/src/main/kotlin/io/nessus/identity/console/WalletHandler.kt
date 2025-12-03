@@ -12,6 +12,7 @@ import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.w3c.utils.VCFormat
 import id.walt.webwallet.db.models.WalletCredential
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
@@ -20,47 +21,48 @@ import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
+import io.nessus.identity.AuthorizationContext.Companion.EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY
+import io.nessus.identity.AuthorizationContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
+import io.nessus.identity.AuthorizationContext.Companion.USER_PIN_ATTACHMENT_KEY
+import io.nessus.identity.LoginContext
+import io.nessus.identity.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
-import io.nessus.identity.config.Features
-import io.nessus.identity.config.Features.CREDENTIAL_OFFER_AUTO_FETCH
-import io.nessus.identity.config.Features.CREDENTIAL_OFFER_STORE
-import io.nessus.identity.config.User
-import io.nessus.identity.extend.signWithKey
-import io.nessus.identity.extend.verifyJwtSignature
-import io.nessus.identity.service.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
-import io.nessus.identity.service.AuthorizationContext.Companion.USER_PIN_ATTACHMENT_KEY
-import io.nessus.identity.service.CredentialMatcherDraft11
-import io.nessus.identity.service.HttpStatusException
+import io.nessus.identity.console.SessionsStore.createLoginContext
+import io.nessus.identity.console.SessionsStore.logout
 import io.nessus.identity.service.IssuerService.Companion.KNOWN_ISSUER_EBSI_V3
-import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.service.WalletService
-import io.nessus.identity.service.getAuthCodeFromRedirectUrl
-import io.nessus.identity.service.http
-import io.nessus.identity.service.urlEncode
-import io.nessus.identity.service.urlQueryToMap
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestV0
-import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialMatcherDraft11
+import io.nessus.identity.types.LoginParams
+import io.nessus.identity.types.LoginType
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.types.W3CCredentialSdV11Jwt
 import io.nessus.identity.types.W3CCredentialV11Jwt
-import io.nessus.identity.waltid.LoginParams
-import io.nessus.identity.waltid.LoginType
+import io.nessus.identity.types.authenticationId
+import io.nessus.identity.utils.HttpStatusException
+import io.nessus.identity.utils.getAuthCodeFromRedirectUrl
+import io.nessus.identity.utils.http
+import io.nessus.identity.utils.signWithKey
+import io.nessus.identity.utils.urlEncode
+import io.nessus.identity.utils.urlQueryToMap
+import io.nessus.identity.utils.verifyJwtSignature
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
-import io.nessus.identity.waltid.authenticationId
 import kotlinx.serialization.json.*
 import java.time.Instant
 import java.util.*
 import kotlin.uuid.Uuid
 
-class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.authorizationSvc) {
+class WalletHandler(val walletSvc: WalletService) {
 
-    override val endpointUri = walletSvc.endpointUri
+    val log = KotlinLogging.logger {}
+    val jsonPretty = Json { prettyPrint = true }
+
+    val endpointUri = walletSvc.endpointUri
 
     fun walletModel(call: RoutingCall, ctx: LoginContext? = null): BaseModel {
         val model =
@@ -93,12 +95,12 @@ class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.author
         val email = params["email"] ?: error("No email")
         val password = params["password"] ?: error("No password")
         val loginParams = LoginParams(LoginType.EMAIL, email, password)
-        SessionsStore.createLoginContext(call, UserRole.Holder, loginParams)
+        createLoginContext(call, UserRole.Holder, loginParams)
         call.respondRedirect("/wallet")
     }
 
     suspend fun handleLogout(call: RoutingCall, ctx: LoginContext) {
-        SessionsStore.logout(call, ctx.targetId)
+        logout(call, ctx.targetId)
         call.respondRedirect("/wallet")
     }
 
@@ -123,50 +125,6 @@ class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.author
             "vp-token-consent" -> handleVPTokenConsent(call, ctx)
             else -> error("Unknown flow step: $flowStep")
         }
-    }
-
-    suspend fun handleAuthorization(call: RoutingCall, ctx: LoginContext) {
-
-        val queryParams = urlQueryToMap(call.request.uri)
-        val authRequest = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
-
-        when (authRequest.responseType) {
-
-            // Issuer creates IDToken AuthorizationRequest (response_type=id_token, response_mode=direct_post)
-            // Note, this may come in with request_uri
-
-            "id_token" -> {
-                log.info { "Wallet receives IDToken AuthorizationRequest: ${call.request.uri}" }
-                queryParams.entries.forEach { (k, v) -> log.info { "  $k=$v" } }
-
-                val idTokenJwt = walletSvc.createIDToken(ctx, authRequest)
-                authorizationSvc.sendIDToken(ctx, authRequest, idTokenJwt)
-                call.respondText(
-                    status = HttpStatusCode.Accepted,
-                    contentType = ContentType.Text.Plain,
-                    text = "Accepted"
-                )
-            }
-
-            "vp_token" -> {
-                log.info { "Wallet receives VPToken AuthorizationRequest: ${call.request.uri}" }
-                queryParams.entries.forEach { (k, v) -> log.info { "  $k=$v" } }
-
-                handleVPTokenRequest(call, ctx)
-            }
-
-            else -> error{ "Unknown AuthorizationRequest: ${call.request.uri}" }
-        }
-    }
-
-    suspend fun handleAuthorizationMetadataRequest(call: RoutingCall, ctx: LoginContext) {
-        val walletTargetUri = "${walletSvc.endpointUri}/${ctx.targetId}"
-        val payload = Json.encodeToString(authorizationSvc.buildAuthorizationMetadata(walletTargetUri))
-        call.respondText(
-            status = HttpStatusCode.OK,
-            contentType = ContentType.Application.Json,
-            text = payload
-        )
     }
 
     suspend fun handleCredentialOfferAccept(call: RoutingCall, ctx: LoginContext, offerId: String) {
@@ -215,42 +173,6 @@ class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.author
         call.respondRedirect("/wallet/credential-offers")
     }
 
-    suspend fun handleCredentialOfferReceive(call: RoutingCall, ctx: LoginContext) {
-
-        var credOfferJson = call.request.queryParameters["credential_offer"]
-        val credOfferUri = call.request.queryParameters["credential_offer_uri"]
-
-        if (credOfferUri != null) {
-
-            log.info { "Received CredentialOfferUri: $credOfferUri" }
-            val credOfferUriRes = http.get(credOfferUri)
-
-            credOfferJson = credOfferUriRes.bodyAsText()
-            if (credOfferUriRes.status.value !in 200..202) {
-                error("Error sending credential Offer: ${credOfferUriRes.status.value} - $credOfferJson")
-            }
-        }
-
-        requireNotNull(credOfferJson) { "No credential_offer" }
-
-        log.info { "Received CredentialOffer: $credOfferJson" }
-        val credOffer = CredentialOffer.fromJson(credOfferJson)
-
-        if (Features.isEnabled(CREDENTIAL_OFFER_STORE)) {
-            walletSvc.addCredentialOffer(ctx, credOffer)
-        }
-        if (Features.isEnabled(CREDENTIAL_OFFER_AUTO_FETCH)) {
-            val credJwt = walletSvc.getCredentialFromOffer(ctx, credOffer)
-            call.respondText(
-                status = HttpStatusCode.Accepted,
-                contentType = ContentType.Application.Json,
-                text = "${credJwt.toJson()}"
-            )
-        } else {
-            call.respondRedirect("${walletSvc.endpointUri}/credential-offers")
-        }
-    }
-
     suspend fun handleCredentialDelete(call: RoutingCall, ctx: LoginContext, vcId: String) {
         walletSvc.deleteCredential(ctx, vcId)
         call.respondRedirect("/wallet/credentials")
@@ -268,7 +190,7 @@ class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.author
         // Final Qualification Credential use case ...
         //
         //  - EBSI offers the CTWalletQualificationCredential
-        //  - Holder sends an AuthorizationRequest, EBSI responds with an 302 Redirect (WalletService.sendAuthorizationRequest)
+        //  - Holder sends an AuthorizationRequest, EBSI responds with an 302 Redirect (WalletBackend.sendAuthorizationRequest)
         //  - Cloudflare may deny that redirect URL because of a very large 'request' query parameter
         //  - The content of that request parameter is a serialized AuthorizationRequest object
         //  - We rewrite the redirect URL using a request_uri parameter, which resolves to that AuthorizationRequest
@@ -350,9 +272,9 @@ class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.author
 
     suspend fun showAuthConfig(call: RoutingCall, ctx: LoginContext) {
         val walletTargetUri = "${walletSvc.endpointUri}/${ctx.targetId}"
-        val authConfig = authorizationSvc.buildAuthorizationMetadata(walletTargetUri)
+        val authConfig = walletSvc.authorizationSvc.getAuthorizationMetadata(ctx)
         val prettyJson = jsonPretty.encodeToString(authConfig)
-        val authConfigUrl = "$walletTargetUri/.well-known/openid-configuration"
+        val authConfigUrl = "$walletTargetUri/$WELL_KNOWN_OPENID_CONFIGURATION"
         val model = walletModel(call).also {
             it["authConfigJson"] = prettyJson
             it["authConfigUrl"] = authConfigUrl
@@ -599,7 +521,7 @@ class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.author
     }
 
     /**
-     * For every InputDescriptor iterate over all CredentialAccessService and match all constraints.
+     * For every InputDescriptor iterate over all WalletCredentialsService and match all constraints.
      */
     suspend fun findCredentialsByPresentationDefinition(ctx: LoginContext, vpdef: PresentationDefinition): List<Pair<InputDescriptor, WalletCredential>> {
         val foundCredentials = mutableListOf<Pair<InputDescriptor, WalletCredential>>()
@@ -614,15 +536,5 @@ class WalletHandler(val walletSvc: WalletService) : AuthHandler(walletSvc.author
             }
         }
         return foundCredentials
-    }
-
-    override suspend fun createCredentialOffer(
-        configId: String,
-        clientId: String?,
-        preAuthorized: Boolean,
-        userPin: String?,
-        targetUser: User?,
-    ): CredentialOffer {
-        error("Not available on Wallet")
     }
 }

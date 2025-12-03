@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 
-import static io.nessus.identity.service.HttpUtilsKt.base64UrlDecode;
+import static io.nessus.identity.utils.HttpUtilsKt.base64UrlDecode;
 
 class DidGeneratorTest {
 

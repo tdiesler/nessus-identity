@@ -11,7 +11,7 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startConsoleServer()
+        startMiniServer()
         startPlaywrightBrowser()
         prepareWalletTests(false)
     }
@@ -19,7 +19,7 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopConsoleServer()
+        stopMiniServer()
     }
 
     @Test

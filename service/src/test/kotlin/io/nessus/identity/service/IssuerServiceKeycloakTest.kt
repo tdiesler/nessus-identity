@@ -2,44 +2,32 @@ package io.nessus.identity.service
 
 import io.kotest.common.runBlocking
 import io.kotest.matchers.nulls.shouldNotBeNull
-import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldEndWith
 import io.nessus.identity.config.ConfigProvider.Alice
-import org.junit.jupiter.api.BeforeEach
+import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertThrows
 
 
-class IssuerServiceKeycloakTest : AbstractServiceTest() {
-
-    lateinit var alice: LoginContext
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class IssuerServiceKeycloakTest: AbstractServiceTest() {
 
     lateinit var issuerSvc: IssuerService
-    lateinit var walletSvc: WalletService
 
-    @BeforeEach
+    @BeforeAll
     fun setUp() {
-        kotlinx.coroutines.runBlocking {
+        runBlocking {
             issuerSvc = IssuerService.createKeycloak()
-
-            // Create the Holders's OIDC context (Alice is the Holder)
-            alice = login(Alice).withDidInfo()
-            walletSvc = WalletService.create()
         }
     }
 
-    /**
-     * Credential Issuer Metadata
-     * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
-     */
     @Test
     fun getIssuerMetadata() {
         runBlocking {
-
             val metadataUrl = issuerSvc.getIssuerMetadataUrl()
-            metadataUrl.shouldContain("/.well-known/openid-credential-issuer")
-            metadataUrl.shouldEndWith("/realms/oid4vci")
-
+            metadataUrl.shouldEndWith("/$WELL_KNOWN_OPENID_CREDENTIAL_ISSUER")
             val metadata = issuerSvc.getIssuerMetadata()
             metadata.shouldNotBeNull()
         }
@@ -49,19 +37,8 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     fun createCredentialOffer() {
         runBlocking {
             val credConfigId = "oid4vc_natural_person"
-            val offerUri = issuerSvc.createCredentialOfferUri(credConfigId)
-            val credOffer = walletSvc.getCredentialOfferFromUri(offerUri)
+            val credOffer = issuerSvc.createCredentialOffer(credConfigId)
             credOffer.shouldNotBeNull()
-        }
-    }
-
-    @Test
-    fun createCredentialOfferQRCode() {
-        runBlocking {
-            val credConfigId = "oid4vc_natural_person"
-            val issuerKeycloak = issuerSvc as IssuerServiceKeycloak
-            val offerQrCode = issuerKeycloak.createCredentialOfferUriQRCode(credConfigId)
-            offerQrCode.shouldNotBeNull()
         }
     }
 
@@ -69,8 +46,7 @@ class IssuerServiceKeycloakTest : AbstractServiceTest() {
     fun createCredentialOfferPreAuthorized() {
         runBlocking {
             val credConfigId = "oid4vc_natural_person"
-            val offerUri = issuerSvc.createCredentialOfferUri(credConfigId, preAuthorized = true, targetUser = Alice)
-            val credOffer = walletSvc.getCredentialOfferFromUri(offerUri)
+            val credOffer = issuerSvc.createCredentialOffer(credConfigId, preAuthorized = true, targetUser = Alice)
             credOffer.shouldNotBeNull()
         }
     }

@@ -3,10 +3,10 @@ package io.nessus.identity.console
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.*
 import io.ktor.server.sessions.*
-import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.urlDecode
+import io.nessus.identity.LoginContext
+import io.nessus.identity.types.LoginParams
 import io.nessus.identity.types.UserRole
-import io.nessus.identity.waltid.LoginParams
+import io.nessus.identity.utils.urlDecode
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException

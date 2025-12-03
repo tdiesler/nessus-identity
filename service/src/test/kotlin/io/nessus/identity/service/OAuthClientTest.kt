@@ -3,6 +3,7 @@ package io.nessus.identity.service
 import com.nimbusds.jose.util.Base64URL
 import io.kotest.common.runBlocking
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.nessus.identity.OAuthClient
 import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.types.AuthorizationRequestBuilder
@@ -11,15 +12,13 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-class OAuthClientTest : AbstractServiceTest() {
+class OAuthClientTest: AbstractServiceTest() {
 
-    lateinit var alice: LoginContext
     lateinit var issuerSvc: IssuerService
 
     @BeforeEach
     fun setUp() {
         kotlinx.coroutines.runBlocking {
-            alice = login(Alice).withDidInfo()
             issuerSvc = IssuerService.createKeycloak()
         }
     }

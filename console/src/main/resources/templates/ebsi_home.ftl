@@ -43,8 +43,8 @@
                 <h3>Issuer Endpoint</h3>
                 <input type="text" value="${issuerUri}" size="80" readonly/>
                 <p/>
-                Issuer Metadata: <a href="${issuerUri}/.well-known/openid-credential-issuer" target="_blank">${issuerUri}/.well-known/openid-credential-issuer"</a><br/>
-                Authorization Metadata: <a href="${issuerUri}/.well-known/openid-configuration" target="_blank">${issuerUri}/.well-known/openid-configuration"</a><br/>
+                Issuer Metadata: <a href="${issuerUri}/.well-known/openid-credential-issuer" target="_blank">well-known/openid-credential-issuer</a><br/>
+                Authorization Metadata: <a href="${issuerUri}/.well-known/openid-configuration" target="_blank">well-known/openid-configuration</a><br/>
             </#if>
 
             <p/>

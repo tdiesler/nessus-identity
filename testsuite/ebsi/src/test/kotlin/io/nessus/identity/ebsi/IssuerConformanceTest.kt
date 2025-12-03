@@ -10,7 +10,7 @@ class IssuerConformanceTest : AbstractIssuerConformanceTest() {
 
     @BeforeAll
     fun setup() {
-        startConsoleServer()
+        startMiniServer()
         startPlaywrightBrowser()
         prepareIssuerTests()
     }
@@ -18,7 +18,7 @@ class IssuerConformanceTest : AbstractIssuerConformanceTest() {
     @AfterAll
     fun tearDown() {
         stopPlaywrightBrowser()
-        stopConsoleServer()
+        stopMiniServer()
     }
 
     @Test

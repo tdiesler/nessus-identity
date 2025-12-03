@@ -1,9 +1,9 @@
 package io.nessus.identity.console
 
 import io.ktor.server.routing.*
+import io.nessus.identity.LoginContext
 import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.console.SessionsStore.findLoginContext
-import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.UserRole
 
 class BaseModel() : HashMap<String, Any>() {

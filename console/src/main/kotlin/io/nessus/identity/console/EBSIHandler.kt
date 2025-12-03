@@ -4,9 +4,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.freemarker.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWaltIdConfig
-import io.nessus.identity.service.LoginContext
 import io.nessus.identity.types.UserRole
 import kotlinx.serialization.json.*
 

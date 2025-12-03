@@ -17,127 +17,20 @@
 
     <dependencies>
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.jayway.jsonpath</groupId>
-            <artifactId>json-path</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.nimbusds</groupId>
-            <artifactId>nimbus-jose-jwt</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.sksamuel.hoplite</groupId>
-            <artifactId>hoplite-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.sksamuel.hoplite</groupId>
-            <artifactId>hoplite-hocon</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.typesafe</groupId>
-            <artifactId>config</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>id.walt</groupId>
-            <artifactId>waltid-wallet-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>id.walt.credentials</groupId>
-            <artifactId>waltid-w3c-credentials-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>id.walt.openid4vc</groupId>
-            <artifactId>waltid-openid4vc-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>id.walt.sdjwt</groupId>
-            <artifactId>waltid-sdjwt-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.oshai</groupId>
-            <artifactId>kotlin-logging-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-client-core-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-client-cio-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-client-content-negotiation-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-serialization-kotlinx-json-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-server-core-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-server-netty-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-server-sessions-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-server-status-pages-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-server-content-negotiation-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.cose</groupId>
-            <artifactId>cose-java</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.exposed</groupId>
-            <artifactId>exposed-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.exposed</groupId>
-            <artifactId>exposed-java-time</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.exposed</groupId>
-            <artifactId>exposed-jdbc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlinx</groupId>
-            <artifactId>kotlinx-io-core-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlinx</groupId>
-            <artifactId>kotlinx-datetime-jvm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.microsoft.playwright</groupId>
-            <artifactId>playwright</artifactId>
+            <groupId>io.nessus.identity</groupId>
+            <artifactId>nessus-identity-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- Runtime -->
         <dependency>
-            <groupId>org.jetbrains.exposed</groupId>
-            <artifactId>exposed-dao</artifactId>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.exposed</groupId>
-            <artifactId>exposed-json</artifactId>
+            <artifactId>exposed-dao</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -147,6 +40,11 @@
         </dependency>
 
         <!-- Test -->
+        <dependency>
+            <groupId>io.kotest</groupId>
+            <artifactId>kotest-assertions-core</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.bitcoinj</groupId>
             <artifactId>bitcoinj-core</artifactId>
@@ -163,43 +61,10 @@
             <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>io.kotest</groupId>
-            <artifactId>kotest-assertions-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-admin-client</artifactId>
-        </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>buildnumber-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>create</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <artifactId>maven-jar-plugin</artifactId>
-                <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <Build-Version>${project.version}</Build-Version>
-                            <Build-Revision>${buildNumber}</Build-Revision>
-                            <Build-Timestamp>${timestamp}</Build-Timestamp>
-                        </manifestEntries>
-                    </archive>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

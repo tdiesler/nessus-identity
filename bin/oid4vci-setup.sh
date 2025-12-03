@@ -91,7 +91,6 @@ oid4vciPass=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.OID4VCI_
 #
 realm="oid4vci"
 client_id="oid4vci-client"
-credential_id="oid4vc_identity_credential"
 
 kc_admin_login "${adminUser}" "${adminPass}"
 
@@ -99,17 +98,17 @@ if kc_create_realm "${realm}" "${force}"; then
 
   ## Setup Keycloak OID4VCI Service Client -------------------------------------------------------------------------------
   #
-  kc_create_oid4vci_service_client "${realm}" "${oid4vciUser}" "${oid4vciPass}" "${credential_id}"
+  kc_create_oid4vci_service_client "${realm}" "${oid4vciUser}" "${oid4vciPass}"
 
   kc_oid4vci_login "${realm}" "${oid4vciUser}" "${oid4vciPass}"
 
   ## Setup OID4VCI Identity Credential -----------------------------------------------------------------------------------
   #
-  kc_create_oid4vc_identity_credential "${realm}" "${credential_id}"
+  kc_create_oid4vc_credential_configurations "${realm}"
 
   ## Setup Keycloak OID4VCI Issuance Client ------------------------------------------------------------------------------
   #
-  kc_create_oid4vci_client "${realm}" "${client_id}" "${credential_id}"
+  kc_create_oid4vci_client "${realm}" "${client_id}"
 fi
 
 ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
@@ -120,6 +119,7 @@ kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
 # Fetch the Credential from a Pre-Authorized Offer -----------------------------------------------------------------------
 #
 if [[ ${skip_verify} == "false" ]]; then
+  credential_id="oid4vc_identity_credential"
   # credential_id="oid4vc_natural_person"
 
   kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"
@@ -132,6 +132,7 @@ fi
 # Fetch the Credential from an unauthorized Offer ----------------------------------------------------------------------
 #
 if [[ ${verify_oauth} == "true" ]]; then
+  credential_id="oid4vc_identity_credential"
   # credential_id="oid4vc_natural_person"
 
   kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"

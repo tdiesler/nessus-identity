@@ -10,20 +10,20 @@ import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.common.runBlocking
 import io.ktor.server.engine.*
+import io.nessus.identity.LoginContext
+import io.nessus.identity.LoginContext.Companion.DID_INFO_ATTACHMENT_KEY
+import io.nessus.identity.LoginContext.Companion.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.config.ConfigProvider
 import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
 import io.nessus.identity.config.FeatureProfile
 import io.nessus.identity.config.Features
 import io.nessus.identity.config.User
-import io.nessus.identity.console.ConsoleServer
-import io.nessus.identity.service.LoginContext
-import io.nessus.identity.service.LoginContext.Companion.DID_INFO_ATTACHMENT_KEY
-import io.nessus.identity.service.LoginContext.Companion.WALLET_INFO_ATTACHMENT_KEY
-import io.nessus.identity.service.toLoginParams
-import io.nessus.identity.service.toRegisterUserParams
+import io.nessus.identity.minisrv.MiniServer
+import io.nessus.identity.toLoginParams
+import io.nessus.identity.toRegisterUserParams
+import io.nessus.identity.types.KeyType
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.waltid.APIException
-import io.nessus.identity.waltid.KeyType
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.serialization.json.*
 import org.junit.jupiter.api.TestInstance
@@ -91,14 +91,14 @@ open class AbstractConformanceTest {
         return ctx
     }
 
-    fun startConsoleServer() {
+    fun startMiniServer() {
         val config = requireConsoleConfig()
         Features.initProfile(FeatureProfile.EBSI_V32)
-        embeddedServer = ConsoleServer(config).create()
+        embeddedServer = MiniServer(config).create()
         embeddedServer.start(wait = false)
     }
 
-    fun stopConsoleServer() {
+    fun stopMiniServer() {
         embeddedServer.stop(3000, 5000)
     }
 

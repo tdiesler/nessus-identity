@@ -1,51 +1,52 @@
 package io.nessus.identity.service
 
+import com.nimbusds.jwt.SignedJWT
+import io.nessus.identity.Experimental
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.FeatureProfile.EBSI_V32
 import io.nessus.identity.config.Features
 import io.nessus.identity.config.User
 import io.nessus.identity.types.AuthorizationMetadata
+import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialRequest
+import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.IssuerMetadata
+import io.nessus.identity.types.TokenRequest
+import io.nessus.identity.types.TokenResponse
+import io.nessus.identity.types.UserInfo
 
-// IssuerService =======================================================================================================
-
-interface IssuerService: UserAccessService, ExperimentalIssuerService, LegacyIssuerService {
-
-    /**
-     * The AuthorizationService
-     */
-    val authorizationSvc: AuthorizationService
+interface IssuerService {
 
     /**
-     * The endpoint for this service
+     * The endpoint uri for this service
      */
-    val endpointUri
-        get() = when(this) {
-            is IssuerServiceEbsi32 -> "${requireEbsiConfig().baseUrl}/issuer"
-            else -> requireIssuerConfig().baseUrl
-        }
+    val endpointUri: String
 
     companion object {
-
         const val KNOWN_ISSUER_EBSI_V3 = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock"
+        const val WELL_KNOWN_OPENID_CONFIGURATION = ".well-known/openid-configuration"
+        const val WELL_KNOWN_OPENID_CREDENTIAL_ISSUER = ".well-known/openid-credential-issuer"
 
-        fun create(): IssuerService {
-            return when(Features.getProfile()) {
-                EBSI_V32 -> createEbsi()
-                else -> createKeycloak()
-            }
-        }
-        fun createEbsi(): IssuerService {
+        fun createNative(): IssuerService {
             val issuerCfg = requireIssuerConfig()
-            return IssuerServiceEbsi32(issuerCfg);
+            if(Features.isProfile(EBSI_V32)) {
+                val baseUrl = requireEbsiConfig().baseUrl
+                issuerCfg.baseUrl = "$baseUrl/issuer"
+            }
+            return NativeIssuerService(issuerCfg)
         }
         fun createKeycloak(): IssuerService {
             val issuerCfg = requireIssuerConfig()
-            return IssuerServiceKeycloak(issuerCfg);
+            return KeycloakIssuerService(issuerCfg)
         }
     }
+
+    /**
+     * Get the Issuer's authorization metadata Url
+     */
+    fun getAuthorizationMetadataUrl(): String
 
     /**
      * Get the Issuer's authorization metadata
@@ -59,6 +60,7 @@ interface IssuerService: UserAccessService, ExperimentalIssuerService, LegacyIss
 
     /**
      * Get the IssuerMetadata
+     * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata
      */
     suspend fun getIssuerMetadata(): IssuerMetadata
 
@@ -83,4 +85,66 @@ interface IssuerService: UserAccessService, ExperimentalIssuerService, LegacyIss
         userPin: String? = null,
         targetUser: User? = null,
     ): String
+
+    // ExperimentalIssuerService ---------------------------------------------------------------------------------------
+
+    @Experimental
+    suspend fun createIDTokenRequest(
+        authRequest: AuthorizationRequest
+    ): AuthorizationRequest
+
+    @Experimental
+    fun getAuthCodeFromIDToken(
+        idTokenJwt: SignedJWT,
+    ): String
+
+    @Experimental
+    suspend fun getCredentialFromAcceptanceToken(
+        acceptanceTokenJwt: SignedJWT
+    ): CredentialResponse
+
+    @Experimental
+    suspend fun getCredentialFromRequest(
+        credReq: CredentialRequest,
+        accessTokenJwt: SignedJWT,
+        deferred: Boolean = false
+    ): CredentialResponse
+
+    @Experimental
+    suspend fun getTokenResponse(
+        tokenRequest: TokenRequest
+    ): TokenResponse
+
+    // UserAccess ------------------------------------------------------------------------------------------------------
+
+    /**
+     * Create a new user
+     */
+    fun createUser(
+        firstName: String,
+        lastName: String,
+        email: String,
+        username: String,
+        password: String
+    ): UserInfo
+
+    /**
+     * Delete new user
+     */
+    fun deleteUser(userId: String)
+
+    /**
+     * Find a user by email
+     */
+    fun findUser(predicate: (UserInfo) -> Boolean): UserInfo?
+
+    /**
+     * Find a user by email
+     */
+    fun findUserByEmail(email: String): UserInfo?
+
+    /**
+     * Get registered users
+     */
+    fun getUsers(): List<UserInfo>
 }

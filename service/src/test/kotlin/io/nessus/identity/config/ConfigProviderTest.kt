@@ -2,7 +2,7 @@ package io.nessus.identity.config
 
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
-import org.junit.jupiter.api.Test
+import kotlin.test.Test
 
 class ConfigProviderTest {
 

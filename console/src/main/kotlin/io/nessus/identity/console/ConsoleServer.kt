@@ -18,7 +18,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
-import io.ktor.util.*
+import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.config.ConfigProvider.Bob
 import io.nessus.identity.config.ConfigProvider.Max
@@ -28,13 +28,18 @@ import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.console.SessionsStore.cookieName
 import io.nessus.identity.console.SessionsStore.createLoginContext
 import io.nessus.identity.console.SessionsStore.findLoginContext
-import io.nessus.identity.service.HttpStatusException
+import io.nessus.identity.minisrv.IssuerApiHandler
+import io.nessus.identity.minisrv.VerifierApiHandler
+import io.nessus.identity.minisrv.WalletApiHandler
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.LoginContext
+import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
+import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
+import io.nessus.identity.service.NativeIssuerService
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
-import io.nessus.identity.service.toLoginParams
+import io.nessus.identity.toLoginParams
 import io.nessus.identity.types.UserRole
+import io.nessus.identity.utils.HttpStatusException
 import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 
@@ -42,14 +47,18 @@ class ConsoleServer(val config: ConsoleConfig) {
 
     val log = KotlinLogging.logger {}
 
-    val issuerSvc = IssuerService.create()
-    val walletSvc = WalletService.create()
-    val verifierSvc = VerifierService.create()
+    private val issuerSvc: IssuerService
+    private val walletSvc: WalletService
+    private val verifierSvc: VerifierService
 
-    val ebsiHandler = EBSIHandler()
-    val walletHandler = WalletHandler(walletSvc)
-    val issuerHandler = IssuerHandler(issuerSvc)
-    val verifierHandler = VerifierHandler(walletSvc, issuerSvc, verifierSvc)
+    private val ebsiHandler: EBSIHandler
+    private val walletHandler: WalletHandler
+    private val issuerHandler: IssuerHandler
+    private val verifierHandler: VerifierHandler
+
+    private val issuerApiHandler: IssuerApiHandler
+    private val walletApiHandler: WalletApiHandler
+    private val verifierApiHandler: VerifierApiHandler
 
     private val autoLoginComplete = mutableMapOf<UserRole, Boolean>()
 
@@ -65,6 +74,18 @@ class ConsoleServer(val config: ConsoleConfig) {
         val versionInfo = getVersionInfo()
         log.info { "Starting Console Server ..." }
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
+        issuerSvc = IssuerService.createNative() as NativeIssuerService
+        walletSvc = WalletService.createNative()
+        verifierSvc = VerifierService.createNative()
+        issuerApiHandler = IssuerApiHandler(issuerSvc)
+        walletApiHandler = WalletApiHandler(walletSvc)
+        verifierApiHandler = VerifierApiHandler(verifierSvc)
+        ebsiHandler = EBSIHandler()
+        walletHandler = WalletHandler(walletSvc)
+        issuerHandler = IssuerHandler(issuerSvc)
+        verifierHandler = VerifierHandler(walletSvc, issuerSvc, verifierSvc)
+        log.info { "Issuer Metadata: ${issuerSvc.getIssuerMetadataUrl()}" }
+        log.info { "Issuer Authorization: ${issuerSvc.getAuthorizationMetadataUrl()}" }
     }
 
     fun create(): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
@@ -196,41 +217,29 @@ class ConsoleServer(val config: ConsoleConfig) {
                     // The Issuer's directed endpoints
                     //
                     route("/{targetId}") {
-                        get("/.well-known/openid-configuration") {
-                            issuerHandler.handleNativeAuthorizationMetadataRequest(call)
-                        }
-                        get("/.well-known/openid-credential-issuer") {
-                            issuerHandler.handleNativeIssuerMetadataRequest(call)
+                        get("/$WELL_KNOWN_OPENID_CREDENTIAL_ISSUER") {
+                            issuerApiHandler.handleIssuerMetadataRequest(call)
                         }
                         post("/credential") {
-                            requireTargetContext(call) { ctx ->
-                                issuerHandler.handleNativeCredentialRequest(call, ctx)
-                            }
+                            issuerApiHandler.handleCredentialRequest(call)
                         }
                         post("/credential_deferred") {
-                            requireTargetContext(call) { ctx ->
-                                issuerHandler.handleNativeCredentialRequestDeferred(call, ctx)
-                            }
+                            issuerApiHandler.handleCredentialRequestDeferred(call)
+                        }
+                        get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
+                            issuerApiHandler.handleAuthorizationMetadataRequest(call)
                         }
                         get("/authorize") {
-                            requireTargetContext(call) { ctx ->
-                                issuerHandler.handleNativeAuthorization(call, ctx)
-                            }
+                            issuerApiHandler.handleAuthorize(call)
                         }
                         post("/direct_post") {
-                            requireTargetContext(call) { ctx ->
-                                issuerHandler.handleNativeDirectPost(call, ctx)
-                            }
+                            issuerApiHandler.handleDirectPost(call)
                         }
                         get("/jwks") {
-                            requireTargetContext(call) { ctx ->
-                                issuerHandler.handleJwksRequest(call, ctx)
-                            }
+                            issuerApiHandler.handleJwksRequest(call)
                         }
                         post("/token") {
-                            requireTargetContext(call) { ctx ->
-                                issuerHandler.handleTokenRequest(call, ctx)
-                            }
+                            issuerApiHandler.handleTokenRequest(call)
                         }
                     }
                 }
@@ -321,12 +330,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                     route("/{targetId}") {
                         get {
                             requireTargetContext(call) { ctx ->
-                                walletHandler.handleCredentialOfferReceive(call, ctx)
-                            }
-                        }
-                        get("/.well-known/openid-configuration") {
-                            requireTargetContext(call) { ctx ->
-                                walletHandler.handleAuthorizationMetadataRequest(call, ctx)
+                                walletApiHandler.handleCredentialOfferReceive(call, ctx)
                             }
                         }
                         get("/flow/{flowStep}") {
@@ -335,19 +339,30 @@ class ConsoleServer(val config: ConsoleConfig) {
                                 walletHandler.handleAuthFlow(call, ctx, flowStep)
                             }
                         }
+                        get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
+                            requireTargetContext(call) { ctx ->
+                                walletApiHandler.handleAuthorizationMetadataRequest(call, ctx)
+                            }
+                        }
                         get("/authorize") {
                             requireTargetContext(call) { ctx ->
-                                walletHandler.handleAuthorization(call, ctx)
+                                walletApiHandler.handleAuthorize(call, ctx)
                             }
                         }
                         post("/direct_post") {
-                            error ("Not implemented ${call.request.uri}")
+                            requireTargetContext(call) { ctx ->
+                                walletApiHandler.handleDirectPost(call, ctx)
+                            }
                         }
                         get("/jwks") {
-                            error ("Not implemented ${call.request.uri}")
+                            requireTargetContext(call) { ctx ->
+                                walletApiHandler.handleJwksRequest(call, ctx)
+                            }
                         }
                         post("/token") {
-                            error ("Not implemented ${call.request.uri}")
+                            requireTargetContext(call) { ctx ->
+                                walletApiHandler.handleTokenRequest(call, ctx)
+                            }
                         }
                     }
                 }
@@ -401,28 +416,30 @@ class ConsoleServer(val config: ConsoleConfig) {
                     // The Verifier's directed endpoints
                     //
                     route("/{targetId}") {
-                        get("/.well-known/openid-configuration") {
+                        get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
                             requireTargetContext(call) { ctx ->
-                                verifierHandler.handleAuthorizationMetadataRequest(call, ctx)
+                                verifierApiHandler.handleAuthorizationMetadataRequest(call, ctx)
                             }
                         }
                         get("/authorize") {
                             requireTargetContext(call) { ctx ->
-                                verifierHandler.handleAuthorization(call, ctx)
+                                verifierApiHandler.handleAuthorize(call, ctx)
                             }
                         }
                         post("/direct_post") {
                             requireTargetContext(call) { ctx ->
-                                verifierHandler.handleDirectPost(call, ctx)
+                                verifierApiHandler.handleDirectPost(call, ctx)
                             }
                         }
                         get("/jwks") {
                             requireTargetContext(call) { ctx ->
-                                verifierHandler.handleJwksRequest(call, ctx)
+                                verifierApiHandler.handleJwksRequest(call, ctx)
                             }
                         }
                         post("/token") {
-                            error ("Not implemented ${call.request.uri}")
+                            requireTargetContext(call) { ctx ->
+                                verifierApiHandler.handleTokenRequest(call, ctx)
+                            }
                         }
                     }
                 }
@@ -432,28 +449,6 @@ class ConsoleServer(val config: ConsoleConfig) {
         val host = config.host
         val port = config.port
         return embeddedServer(Netty, host = host, port = port, module = Application::module)
-    }
-
-    private suspend fun handleDirectPost(call: RoutingCall, ctx: LoginContext) {
-
-        val postParams = call.receiveParameters().toMap()
-        log.info { "DirectPost: ${call.request.uri}" }
-        postParams.forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
-
-//        if (postParams["id_token"] != null) {
-//            val ctx = requireLoginContext(call, UserRole.Holder)
-//            return authHandler.handleDirectPost(call, ctx, postParams)
-//        }
-//        if (postParams["vp_token"] != null) {
-//            val ctx = requireLoginContext(call, UserRole.Verifier)
-//            return verifierHandler.handleDirectPost(call, ctx, postParams)
-//        }
-
-        call.respondText(
-            status = HttpStatusCode.InternalServerError,
-            contentType = ContentType.Text.Plain,
-            text = "Not Implemented"
-        )
     }
 
     private suspend fun requireTargetContext(call: RoutingCall, block: suspend (LoginContext) -> Unit) {
