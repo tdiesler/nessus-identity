@@ -10,7 +10,7 @@ import io.nessus.identity.types.TokenResponse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
-abstract class KeycloakCredentialTestBase : AbstractServiceTest() {
+abstract class KeycloakIssuerServiceBase : AbstractServiceTest() {
 
     lateinit var alice: LoginContext
 

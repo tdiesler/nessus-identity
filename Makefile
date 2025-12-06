@@ -73,9 +73,10 @@ keycloak-run:
 		$${KC_HOME}/bin/kc.sh start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin \
 		  --log-console-color=false # --log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
 
+# -Pauth-server-quarkus
 keycloak-tests:
 	@cd ../keycloak/testsuite/integration-arquillian/tests/base && \
-		mvn test -Dtest='org.keycloak.testsuite.oid4vc.**'
+		mvn clean test -Pauth-server-quarkus -Dtest='org.keycloak.testsuite.oid4vc.**'
 
 run-services: package
 	trap 'kill 0' INT TERM; \

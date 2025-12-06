@@ -4,12 +4,11 @@ import io.kotest.matchers.equals.shouldBeEqual
 import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.types.TokenResponse
-import io.nessus.identity.types.W3CCredentialV11Jwt
-import kotlinx.serialization.json.*
+import io.nessus.identity.types.W3CCredentialSdV11Jwt
 
-class KeycloakCredentialTest : KeycloakCredentialTestBase() {
+class KeycloakIssuerServiceSDTest : KeycloakIssuerServiceBase() {
 
-    override val credentialConfigurationId = "oid4vc_identity_credential"
+    override val credentialConfigurationId = "oid4vc_natural_person"
 
     override suspend fun getCredential(ctx: LoginContext, accessToken: TokenResponse) {
 
@@ -19,11 +18,10 @@ class KeycloakCredentialTest : KeycloakCredentialTestBase() {
             ?.mapNotNull { issuerMetadata.getCredentialScope(it) }
             ?: error { "No scopes from credential configuration ids: ${authContext.credentialConfigurationIds}"}
 
-        val credJwt = walletSvc.getCredential(alice, accessToken) as W3CCredentialV11Jwt
+        val credJwt = walletSvc.getCredential(alice, accessToken) as W3CCredentialSdV11Jwt
         credJwt.types shouldBeEqual expScopes
 
-        val subject = credJwt.vc.credentialSubject
-        subject.claims.getValue("email").jsonPrimitive.content shouldBeEqual Alice.email
-        subject.id!! shouldBeEqual alice.did
+        credJwt.disclosedValue("sub") shouldBeEqual alice.did
+        credJwt.disclosedValue("email") shouldBeEqual Alice.email
     }
 }

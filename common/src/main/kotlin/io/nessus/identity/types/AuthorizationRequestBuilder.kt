@@ -128,7 +128,7 @@ class AuthorizationRequestBuilder {
         }
 
         val authorizationDetails = mutableListOf<AuthorizationDetail>()
-        if (buildAuthorizationDetails) {
+        if (buildAuthorizationDetails && !credentialConfigurationIds.isEmpty()) {
             val issuerMetadata = getIssuerMetadata()
             val issuerUri = issuerMetadata.credentialIssuer
             credentialConfigurationIds.forEach {
