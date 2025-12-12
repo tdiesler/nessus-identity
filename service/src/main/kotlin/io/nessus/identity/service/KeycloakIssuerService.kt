@@ -164,7 +164,7 @@ class KeycloakIssuerService(val config: IssuerConfig): IssuerService {
         username: String,
         password: String
     ): UserInfo {
-        val realm = config.realm
+        val realm = config.realm as String
         val user = UserRepresentation().apply {
             this.username = username
             this.email = email
@@ -197,7 +197,7 @@ class KeycloakIssuerService(val config: IssuerConfig): IssuerService {
     }
 
     override fun deleteUser(userId: String) {
-        val realm = config.realm
+        val realm = config.realm as String
         keycloakConnect(realm).use {
             it.realm(realm).users().delete(userId)
         }
@@ -214,7 +214,7 @@ class KeycloakIssuerService(val config: IssuerConfig): IssuerService {
     }
 
     override fun getUsers(): List<UserInfo> {
-        val realm = config.realm
+        val realm = config.realm as String
         val uerInfos = keycloakConnect(realm).use { kc ->
             val usersResource = kc.realm(realm).users()
             usersResource.list().map { UserInfo.fromUserRepresentation(it) }
@@ -227,7 +227,7 @@ class KeycloakIssuerService(val config: IssuerConfig): IssuerService {
     private suspend fun createCredentialOfferUriInternal(
         configId: String,
         preAuthorized: Boolean,
-        holder: User?,
+        targetUser: User?,
         type: OfferUriType?,
     ): HttpResponse {
 
@@ -239,7 +239,7 @@ class KeycloakIssuerService(val config: IssuerConfig): IssuerService {
 
         val adminUser = config.adminUser
         val tokReq = TokenRequest.DirectAccess(
-            clientId = cfg.clientId,
+            clientId = cfg.clientId as String,
             username = adminUser.username,
             password = adminUser.password,
             scopes = listOf(scope)
@@ -253,7 +253,7 @@ class KeycloakIssuerService(val config: IssuerConfig): IssuerService {
         log.info { "AccessToken: ${tokenJwt.jwtClaimsSet}" }
 
         val params = CredentialOfferUri(configId).withPreAuthorized(preAuthorized)
-        holder?.also { params.withUserId(it.username) }
+        targetUser?.also { params.withTargetUser(it.username) }
         type?.also { params.withType(it) }
 
         val credOfferUriUrl = "$endpointUri/protocol/oid4vc/credential-offer-uri"

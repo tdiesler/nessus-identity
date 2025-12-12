@@ -143,8 +143,7 @@ class AuthorizationRequestBuilder {
                 )
                 // [TODO #264] Keycloak requires credential id in scope although already given in authorizationDetails
                 // https://github.com/tdiesler/nessus-identity/issues/264
-                if (!Features.isProfile(EBSI_V32)) {
-                    issuerMetadata as IssuerMetadataV0
+                if (!Features.isProfile(EBSI_V32) && issuerMetadata is IssuerMetadataV0) {
                     issuerMetadata.credentialConfigurationsSupported[it]?.scope
                         ?.also { sc -> scopes.add(sc) }
                 }

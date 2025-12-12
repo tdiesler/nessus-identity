@@ -18,8 +18,19 @@ object Features: AttachmentSupport() {
 
     private lateinit var currentProfile: FeatureProfile
 
-    fun initProfile(profile: FeatureProfile) {
-        currentProfile = profile
+    init {
+        setProfile(ConfigProvider.root.profile);
+    }
+
+    fun isEnabled(key: AttachmentKey<Boolean>): Boolean {
+        return getAttachment(key) ?: false
+    }
+
+    fun getProfile(): FeatureProfile {
+        return currentProfile
+    }
+
+    fun setProfile(profile: FeatureProfile) {
         when(profile) {
             EBSI_V32 -> {
                 putAttachment(CREDENTIAL_OFFER_AUTO_FETCH, true)
@@ -30,14 +41,7 @@ object Features: AttachmentSupport() {
                 putAttachment(CREDENTIAL_OFFER_STORE, true)
             }
         }
-    }
-
-    fun isEnabled(key: AttachmentKey<Boolean>): Boolean {
-        return getAttachment(key) ?: false
-    }
-
-    fun getProfile(): FeatureProfile {
-        return currentProfile
+        currentProfile = profile
     }
 
     fun isProfile(profile: FeatureProfile): Boolean {

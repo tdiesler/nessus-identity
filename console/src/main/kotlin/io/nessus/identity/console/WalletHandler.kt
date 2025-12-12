@@ -115,7 +115,7 @@ class WalletHandler(val walletSvc: WalletService) {
         val authCode = getAuthCodeFromRedirectUrl(call.request.uri)
 
         // [TODO] Do we really always want to fetch the credential in the auth callback
-        val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(ctx, authCode)
+        val accessToken = walletSvc.getAccessTokenFromCode(ctx, authCode)
         val credJwt = walletSvc.getCredential(ctx, accessToken)
         return call.respondRedirect("/wallet/credential/${credJwt.vcId}")
     }
@@ -153,7 +153,8 @@ class WalletHandler(val walletSvc: WalletService) {
             return showCredentialDetails(call, ctx, credJwt.vcId)
         }
 
-        val redirectUri = "${requireWalletConfig().callbackUri}/${ctx.targetId}"
+        val walletConfig = requireWalletConfig()
+        val redirectUri = "${walletSvc.endpointUri}${walletConfig.callbackPath}/${ctx.targetId}"
         val authEndpointUrl = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
         val authRequest = walletSvc.buildAuthorizationRequest(authContext, redirectUri = redirectUri)
         val authRequestUrl = authRequest.toRequestUrl(authEndpointUrl)
@@ -315,7 +316,7 @@ class WalletHandler(val walletSvc: WalletService) {
         val model = walletModel(call, ctx).also {
             it["credentialOffers"] = credOfferData
             it["userDid"] = ctx.did
-            it["credentialOfferEndpoint"] = "${requireEbsiConfig().baseUrl}/wallet/${ctx.targetId}"
+            it["credentialOfferEndpoint"] = "${walletSvc.endpointUri}/${ctx.targetId}"
         }
 
         call.respond(

@@ -43,30 +43,28 @@ import io.nessus.identity.utils.HttpStatusException
 import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 
-class ConsoleServer(val config: ConsoleConfig) {
+class ConsoleServer(
+    val config: ConsoleConfig,
+    val issuerSvc: IssuerService,
+    val walletSvc: WalletService,
+    val verifierSvc: VerifierService,
+) {
 
     val log = KotlinLogging.logger {}
-
-    private val issuerSvc: IssuerService
-    private val walletSvc: WalletService
-    private val verifierSvc: VerifierService
 
     private val ebsiHandler: EBSIHandler
     private val walletHandler: WalletHandler
     private val issuerHandler: IssuerHandler
     private val verifierHandler: VerifierHandler
 
-    private val issuerApiHandler: IssuerApiHandler
-    private val walletApiHandler: WalletApiHandler
-    private val verifierApiHandler: VerifierApiHandler
-
     private val autoLoginComplete = mutableMapOf<UserRole, Boolean>()
 
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
-            val config = requireConsoleConfig()
-            ConsoleServer(config).create().start(wait = true)
+            ConsoleServerBuilder()
+                .withIssuerService(IssuerService.createKeycloak())
+                .build().create().start(wait = true)
         }
     }
 
@@ -74,16 +72,10 @@ class ConsoleServer(val config: ConsoleConfig) {
         val versionInfo = getVersionInfo()
         log.info { "Starting Console Server ..." }
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
-        issuerSvc = IssuerService.createNative() as NativeIssuerService
-        walletSvc = WalletService.createNative()
-        verifierSvc = VerifierService.createNative()
-        issuerApiHandler = IssuerApiHandler(issuerSvc)
-        walletApiHandler = WalletApiHandler(walletSvc)
-        verifierApiHandler = VerifierApiHandler(verifierSvc)
-        ebsiHandler = EBSIHandler()
-        walletHandler = WalletHandler(walletSvc)
+        ebsiHandler = EBSIHandler(issuerSvc, walletSvc, verifierSvc)
         issuerHandler = IssuerHandler(issuerSvc)
-        verifierHandler = VerifierHandler(walletSvc, issuerSvc, verifierSvc)
+        walletHandler = WalletHandler(walletSvc)
+        verifierHandler = VerifierHandler(issuerSvc, walletSvc, verifierSvc)
         log.info { "Issuer Metadata: ${issuerSvc.getIssuerMetadataUrl()}" }
         log.info { "Issuer Authorization: ${issuerSvc.getAuthorizationMetadataUrl()}" }
     }
@@ -218,28 +210,31 @@ class ConsoleServer(val config: ConsoleConfig) {
                     //
                     route("/{targetId}") {
                         get("/$WELL_KNOWN_OPENID_CREDENTIAL_ISSUER") {
-                            issuerApiHandler.handleIssuerMetadataRequest(call)
+                            IssuerApiHandler.handleIssuerMetadataRequest(call, issuerSvc)
                         }
-                        post("/credential") {
-                            issuerApiHandler.handleCredentialRequest(call)
-                        }
-                        post("/credential_deferred") {
-                            issuerApiHandler.handleCredentialRequestDeferred(call)
-                        }
-                        get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
-                            issuerApiHandler.handleAuthorizationMetadataRequest(call)
-                        }
-                        get("/authorize") {
-                            issuerApiHandler.handleAuthorize(call)
-                        }
-                        post("/direct_post") {
-                            issuerApiHandler.handleDirectPost(call)
-                        }
-                        get("/jwks") {
-                            issuerApiHandler.handleJwksRequest(call)
-                        }
-                        post("/token") {
-                            issuerApiHandler.handleTokenRequest(call)
+                        if (issuerSvc is NativeIssuerService) {
+                            val issuerApiHandler = IssuerApiHandler(issuerSvc)
+                            post("/credential") {
+                                issuerApiHandler.handleCredentialRequest(call)
+                            }
+                            post("/credential_deferred") {
+                                issuerApiHandler.handleCredentialRequestDeferred(call)
+                            }
+                            get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
+                                issuerApiHandler.handleAuthorizationMetadataRequest(call)
+                            }
+                            get("/authorize") {
+                                issuerApiHandler.handleAuthorize(call)
+                            }
+                            post("/direct_post") {
+                                issuerApiHandler.handleDirectPost(call)
+                            }
+                            get("/jwks") {
+                                issuerApiHandler.handleJwksRequest(call)
+                            }
+                            post("/token") {
+                                issuerApiHandler.handleTokenRequest(call)
+                            }
                         }
                     }
                 }
@@ -328,6 +323,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                     // The Wallet's directed endpoints
                     //
                     route("/{targetId}") {
+                        val walletApiHandler = WalletApiHandler(walletSvc)
                         get {
                             requireTargetContext(call) { ctx ->
                                 walletApiHandler.handleCredentialOfferReceive(call, ctx)
@@ -416,6 +412,7 @@ class ConsoleServer(val config: ConsoleConfig) {
                     // The Verifier's directed endpoints
                     //
                     route("/{targetId}") {
+                        val verifierApiHandler = VerifierApiHandler(verifierSvc)
                         get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
                             requireTargetContext(call) { ctx ->
                                 verifierApiHandler.handleAuthorizationMetadataRequest(call, ctx)
@@ -446,9 +443,8 @@ class ConsoleServer(val config: ConsoleConfig) {
             }
         }
 
-        val host = config.host
-        val port = config.port
-        return embeddedServer(Netty, host = host, port = port, module = Application::module)
+        val config = requireConsoleConfig()
+        return embeddedServer(Netty, host = config.host, port = config.port, module = Application::module)
     }
 
     private suspend fun requireTargetContext(call: RoutingCall, block: suspend (LoginContext) -> Unit) {

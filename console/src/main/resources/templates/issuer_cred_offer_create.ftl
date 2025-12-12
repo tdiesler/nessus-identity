@@ -19,7 +19,7 @@
                     <option value=""></option>
                     <#list users as usr>
                         <option value="${usr.email}" <#if usr?index == 0>selected</#if>>
-                            ${usr.name} - ${usr.email}
+                            ${usr.name}
                         </option>
                     </#list>
                 </select>

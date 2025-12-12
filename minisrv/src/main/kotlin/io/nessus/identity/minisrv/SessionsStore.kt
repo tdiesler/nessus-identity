@@ -30,8 +30,13 @@ object SessionsStore {
             UserRole.Issuer -> call.sessions.set(IssuerCookie(wid, did))
             UserRole.Verifier -> call.sessions.set(VerifierCookie(wid, did))
         }
-        loginContexts.add(ctx)
+        putLoginContext(ctx)
         return ctx
+    }
+
+    fun putLoginContext(ctx: LoginContext) {
+        loginContexts.removeIf { it.targetId == ctx.targetId }
+        loginContexts.add(ctx)
     }
 
     /**
@@ -47,8 +52,10 @@ object SessionsStore {
      */
     fun findLoginContext(call: ApplicationCall, role: UserRole): LoginContext? {
         val cookie = getCookieFromSession(call, role)
-        val ctx = cookie?.let {
-            findLoginContext(call, it.targetId)
+        val ctx = if (cookie != null) {
+            findLoginContext(call, cookie.targetId)
+        } else {
+            loginContexts.firstOrNull { it.userRole == role }
         }
         return ctx
     }
@@ -58,7 +65,7 @@ object SessionsStore {
     }
 
     fun logout(call: ApplicationCall, targetId: String) {
-        findLoginContext(call, targetId)?.also {
+        findLoginContext(call, targetId)?.also { it ->
             call.sessions.clear(cookieName(it.userRole))
             loginContexts.removeIf { it.targetId == targetId }
         }

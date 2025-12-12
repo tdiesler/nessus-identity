@@ -3,9 +3,9 @@ package io.nessus.identity.minisrv
 import io.nessus.identity.service.IssuerService
 
 
-class KeycloakIssuerServiceTest : AbstractServiceTest() {
+class KeycloakIssuerServiceTest : AbstractIssuerServiceTest() {
 
-    override suspend fun createIssuerService(): IssuerService {
+    override fun createIssuerService(): IssuerService {
         return IssuerService.createKeycloak()
     }
 }

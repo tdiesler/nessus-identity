@@ -2,17 +2,20 @@ package io.nessus.identity.minisrv
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.common.runBlocking
-import io.kotest.matchers.nulls.shouldNotBeNull
-import io.kotest.matchers.string.shouldEndWith
+import io.ktor.server.engine.*
+import io.nessus.identity.LoginContext
+import io.nessus.identity.LoginContext.Companion.USER_ROLE_ATTACHMENT_KEY
+import io.nessus.identity.LoginContext.Companion.login
 import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
+import io.nessus.identity.service.NativeIssuerService
 import io.nessus.identity.service.WalletService
+import io.nessus.identity.types.UserRole
 import kotlinx.serialization.json.*
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.TestInstance
-import kotlin.test.Ignore
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class AbstractServiceTest {
@@ -20,54 +23,57 @@ abstract class AbstractServiceTest {
     val log = KotlinLogging.logger {}
     val jsonPretty = Json { prettyPrint = true }
 
+    lateinit var embeddedServer: EmbeddedServer<*, *>
     lateinit var issuerSvc: IssuerService
     lateinit var walletSvc: WalletService
 
-    abstract suspend fun createIssuerService(): IssuerService
+    lateinit var alice: LoginContext
 
     @BeforeAll
+    fun beforeAll() {
+        runBlocking {
+            startMiniServer()
+        }
+    }
+
+    @AfterAll
+    fun afterAll() {
+        stopMiniServer()
+    }
+
+    fun startMiniServer() {
+        val miniServer = buildMiniServer()
+        issuerSvc = miniServer.issuerSvc
+        walletSvc = miniServer.walletSvc
+        embeddedServer = miniServer.create()
+        embeddedServer.start(wait = false)
+    }
+
+    fun stopMiniServer() {
+        embeddedServer.stop(3000, 5000)
+    }
+
+    @BeforeEach
     fun setUp() {
         runBlocking {
-            issuerSvc = createIssuerService()
-            walletSvc = WalletService.createNative()
+            if (issuerSvc is NativeIssuerService) {
+                // [TODO] can we really reuse this context
+                val issuerContext = (issuerSvc as NativeIssuerService).adminContext
+                issuerContext.putAttachment(USER_ROLE_ATTACHMENT_KEY, UserRole.Issuer)
+                SessionsStore.putLoginContext(issuerContext)
+            }
+            alice = login(Alice).withDidInfo()
+            alice.putAttachment(USER_ROLE_ATTACHMENT_KEY, UserRole.Holder)
+            SessionsStore.putLoginContext(alice)
         }
     }
 
-    @Test
-    fun getIssuerMetadata() {
-        runBlocking {
-            val metadataUrl = issuerSvc.getIssuerMetadataUrl()
-            metadataUrl.shouldEndWith("/$WELL_KNOWN_OPENID_CREDENTIAL_ISSUER")
-            val metadata = issuerSvc.getIssuerMetadata()
-            metadata.shouldNotBeNull()
-        }
-    }
+    abstract fun createIssuerService(): IssuerService
 
-    @Test
-    fun createCredentialOffer() {
-        runBlocking {
-            val credConfigId = "CTWalletSameAuthorisedInTime"
-            val credOffer = issuerSvc.createCredentialOffer(credConfigId)
-            credOffer.shouldNotBeNull()
-        }
-    }
-
-    @Test
-    fun createCredentialOfferPreAuthorized() {
-        runBlocking {
-            val credConfigId = "CTWalletSamePreAuthorisedInTime"
-            val credOffer = issuerSvc.createCredentialOffer(credConfigId, preAuthorized = true, targetUser = Alice)
-            credOffer.shouldNotBeNull()
-        }
-    }
-
-    @Test
-    @Ignore
-    fun getCredentialAuthorisedInTime() {
-        runBlocking {
-            val credConfigId = "CTWalletSameAuthorisedInTime"
-            val credOffer = issuerSvc.createCredentialOffer(credConfigId, preAuthorized = true, targetUser = Alice)
-            credOffer.shouldNotBeNull()
-        }
+    open fun buildMiniServer(): MiniServer {
+        val issuerSvc = createIssuerService()
+        return MiniServerBuilder()
+            .withIssuerService(issuerSvc)
+            .build()
     }
 }

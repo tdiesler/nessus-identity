@@ -14,11 +14,10 @@ import io.nessus.identity.LoginContext
 import io.nessus.identity.LoginContext.Companion.DID_INFO_ATTACHMENT_KEY
 import io.nessus.identity.LoginContext.Companion.WALLET_INFO_ATTACHMENT_KEY
 import io.nessus.identity.config.ConfigProvider
-import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
 import io.nessus.identity.config.FeatureProfile
 import io.nessus.identity.config.Features
 import io.nessus.identity.config.User
-import io.nessus.identity.minisrv.MiniServer
+import io.nessus.identity.minisrv.MiniServerBuilder
 import io.nessus.identity.toLoginParams
 import io.nessus.identity.toRegisterUserParams
 import io.nessus.identity.types.KeyType
@@ -92,9 +91,8 @@ open class AbstractConformanceTest {
     }
 
     fun startMiniServer() {
-        val config = requireConsoleConfig()
-        Features.initProfile(FeatureProfile.EBSI_V32)
-        embeddedServer = MiniServer(config).create()
+        Features.setProfile(FeatureProfile.EBSI_V32)
+        embeddedServer = MiniServerBuilder().build().create()
         embeddedServer.start(wait = false)
     }
 
@@ -125,22 +123,21 @@ open class AbstractConformanceTest {
         playwright.close()
     }
 
-    fun verifierEndpointUri(ctx: LoginContext): String {
-        val ebsiCfg = ConfigProvider.requireEbsiConfig()
-        val authUri = "${ebsiCfg.baseUrl}/verifier/${ctx.targetId}"
-        return authUri
+    fun issuerEndpointUri(ctx: LoginContext): String {
+        val config = ConfigProvider.requireIssuerConfig("proxy")
+        val issuerUri = "${config.baseUrl}/${ctx.targetId}"
+        return issuerUri
     }
-
     fun walletEndpointUri(ctx: LoginContext): String {
-        val ebsiCfg = ConfigProvider.requireEbsiConfig()
-        val walletUri = "${ebsiCfg.baseUrl}/wallet/${ctx.targetId}"
+        val config = ConfigProvider.requireWalletConfig("proxy")
+        val walletUri = "${config.baseUrl}/${ctx.targetId}"
         return walletUri
     }
 
-    fun issuerEndpointUri(ctx: LoginContext): String {
-        val ebsiCfg = ConfigProvider.requireEbsiConfig()
-        val issuerUri = "${ebsiCfg.baseUrl}/issuer/${ctx.targetId}"
-        return issuerUri
+    fun verifierEndpointUri(ctx: LoginContext): String {
+        val config = ConfigProvider.requireVerifierConfig("proxy")
+        val authUri = "${config.baseUrl}/${ctx.targetId}"
+        return authUri
     }
 
     fun assertCheckboxResult(page: Page, checkboxId: String, buttonText: String) {

@@ -458,12 +458,10 @@ open class NativeAuthorizationService(override val endpointUri: String): Authori
         // Verify pre-authorized user PIN
         //
         val credOfferRecord = removeCredentialOfferRecord(preAuthCode)
-            ?: throw IllegalStateException("No CredentialOffer registered")
-        val expUserPin = credOfferRecord.userPin
-            ?: throw IllegalStateException("No UserPin")
+            ?: error("No CredentialOffer registered")
 
-        if (userPin != expUserPin)
-            throw IllegalStateException("Invalid UserPin")
+        val expUserPin = credOfferRecord.userPin
+        require(expUserPin == null || userPin == expUserPin) { "Invalid UserPin" }
 
         val credOffer = credOfferRecord.credOffer as CredentialOfferDraft11
         val types = credOffer.credentialConfigurationIds

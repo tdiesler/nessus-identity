@@ -36,7 +36,11 @@ import java.time.Instant
 import java.util.*
 import kotlin.uuid.Uuid
 
-class VerifierHandler(val walletSvc: WalletService, val issuerSvc: IssuerService, val verifierSvc: VerifierService) {
+class VerifierHandler(
+    val issuerSvc: IssuerService,
+    val walletSvc: WalletService,
+    val verifierSvc: VerifierService
+) {
 
     val log = KotlinLogging.logger {}
     val jsonPretty = Json { prettyPrint = true }

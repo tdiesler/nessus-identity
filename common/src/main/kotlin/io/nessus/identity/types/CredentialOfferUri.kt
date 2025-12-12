@@ -9,7 +9,7 @@ enum class OfferUriType(val value: String) {
 class CredentialOfferUri(val configId: String) {
 
     var preAuthorized: Boolean? = null
-    var userId: String? = null
+    var targetUser: String? = null
     var type: OfferUriType? = null
 
     fun withPreAuthorized(preAuthorized: Boolean): CredentialOfferUri {
@@ -17,8 +17,8 @@ class CredentialOfferUri(val configId: String) {
         return this
     }
 
-    fun withUserId(userId: String): CredentialOfferUri {
-        this.userId = userId
+    fun withTargetUser(targetUser: String): CredentialOfferUri {
+        this.targetUser = targetUser
         return this
     }
 
@@ -34,7 +34,7 @@ class CredentialOfferUri(val configId: String) {
     fun parameters(): Map<String, String> {
         val result = mutableMapOf("credential_configuration_id" to configId)
         preAuthorized?.also { result["pre_authorized"] = "$preAuthorized" }
-        userId?.also { result["user_id"] = "$userId" }
+        targetUser?.also { result["username"] = "$targetUser" }
         type?.also { result["type"] = "$type" }
         return result
     }

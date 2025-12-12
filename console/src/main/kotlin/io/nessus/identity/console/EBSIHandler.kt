@@ -7,10 +7,17 @@ import io.ktor.server.routing.*
 import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWaltIdConfig
+import io.nessus.identity.service.IssuerService
+import io.nessus.identity.service.VerifierService
+import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.UserRole
 import kotlinx.serialization.json.*
 
-class EBSIHandler() {
+class EBSIHandler(
+    val issuerSvc: IssuerService,
+    val walletSvc: WalletService,
+    val verifierSvc: VerifierService
+) {
 
     val log = KotlinLogging.logger {}
 
@@ -29,18 +36,18 @@ class EBSIHandler() {
         if (holder.hasAuthToken) {
             model["walletName"] = holder.walletInfo.name
             model["walletDid"] = holder.didInfo.did
-            model["walletUri"] = "${ebsiConfig.baseUrl}/wallet/${holder.targetId}"
-            model["issuerUri"] = "${ebsiConfig.baseUrl}/issuer/${holder.targetId}"
+            model["walletUri"] = "${walletSvc.endpointUri}/${holder.targetId}"
+            model["issuerUri"] = "${issuerSvc.endpointUri}/${issuer.targetId}"
         }
         if (issuer.hasAuthToken) {
             model["issuerName"] = issuer.walletInfo.name
             model["issuerDid"] = issuer.didInfo.did
-            model["issuerUri"] = "${ebsiConfig.baseUrl}/issuer/${issuer.targetId}"
+            model["issuerUri"] = "${issuerSvc.endpointUri}/${issuer.targetId}"
         }
         if (verifier.hasAuthToken) {
             model["verifierName"] = verifier.walletInfo.name
             model["verifierDid"] = verifier.didInfo.did
-            model["verifierUri"] = "${ebsiConfig.baseUrl}/verifier/${verifier.targetId}"
+            model["verifierUri"] = "${verifierSvc.endpointUri}/${verifier.targetId}"
         }
         model["demoWalletUrl"] = "${waltIdConfig.demoWallet?.baseUrl}"
         return model

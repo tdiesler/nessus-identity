@@ -1,5 +1,8 @@
 package io.nessus.identity.service
 
+import io.nessus.identity.config.ConfigProvider.requireVerifierConfig
+import io.nessus.identity.config.FeatureProfile.EBSI_V32
+import io.nessus.identity.config.Features
 import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.DCQLQuery
 
@@ -19,7 +22,12 @@ interface VerifierService {
 
     companion object {
         fun createNative(): VerifierService {
-            return NativeVerifierService()
+            val config = if(Features.isProfile(EBSI_V32)) {
+                requireVerifierConfig("proxy")
+            } else {
+                requireVerifierConfig("native")
+            }
+            return NativeVerifierService(config)
         }
     }
 

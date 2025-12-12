@@ -1,26 +1,18 @@
 package io.nessus.identity.service
 
-import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
-import io.nessus.identity.config.ConfigProvider.requireVerifierConfig
-import io.nessus.identity.config.FeatureProfile.EBSI_V32
-import io.nessus.identity.config.Features
+import io.nessus.identity.config.VerifierConfig
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.DCQLQuery
 
 // NativeVerifierService ===============================================================================================
 
-class NativeVerifierService: VerifierService {
+class NativeVerifierService(val config: VerifierConfig) : VerifierService {
 
     /**
      * The endpoint for this service
      */
-    override val endpointUri
-        get() = when(Features.getProfile()) {
-            EBSI_V32 -> "${requireEbsiConfig().baseUrl}/verifier"
-            else -> requireVerifierConfig().baseUrl
-        }
-
+    override val endpointUri = config.baseUrl
     override val authorizationSvc = NativeAuthorizationService(endpointUri)
 
     // VerifierService -------------------------------------------------------------------------------------------------

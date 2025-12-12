@@ -35,9 +35,7 @@ import io.nessus.identity.OAuthClient
 import io.nessus.identity.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
-import io.nessus.identity.config.ConfigProvider.requireWalletConfig
-import io.nessus.identity.config.FeatureProfile.EBSI_V32
-import io.nessus.identity.config.Features
+import io.nessus.identity.config.WalletConfig
 import io.nessus.identity.service.IssuerService.Companion.KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestBuilder
@@ -84,17 +82,12 @@ import kotlin.uuid.Uuid
 
 // NativeWalletService =================================================================================================
 
-class NativeWalletService: WalletService {
+class NativeWalletService(val config: WalletConfig) : WalletService {
 
     val log = KotlinLogging.logger {}
 
-    override val endpointUri
-        get() = when(Features.getProfile()) {
-            EBSI_V32 -> "${requireEbsiConfig().baseUrl}/wallet"
-            else -> requireWalletConfig().baseUrl
-        }
-
-    override val defaultClientId = requireIssuerConfig().clientId
+    override val endpointUri = config.baseUrl
+    override val defaultClientId = requireIssuerConfig().clientId ?: ""
     override val authorizationSvc = NativeAuthorizationService(endpointUri)
 
     // ExperimentalWalletService ---------------------------------------------------------------------------------------
@@ -136,15 +129,21 @@ class NativeWalletService: WalletService {
             return tokenRes
         }
 
-        if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
+        if (credOffer is CredentialOfferDraft11) {
             val authRequest = buildAuthorizationRequestFromOffer(ctx, credOffer)
             val authEndpointUri = issuerMetadata.getAuthorizationMetadata().getAuthorizationEndpointUri()
             val authCode = sendAuthorizationRequest(ctx, authEndpointUri, authRequest)
-            val tokenRes = getAccessTokenFromAuthorizationCode(ctx, authCode)
+            val tokenRes = getAccessTokenFromCode(ctx, authCode)
             return tokenRes
         }
 
-        error("Cannot get AccessToken from CredentialOffer")
+        val holder = ctx.assertAttachment(USER_ATTACHMENT_KEY)
+        val authCode = getAuthorizationCode(ctx,
+            username = holder.username,
+            password = holder.password
+        )
+        val tokenRes = getAccessTokenFromCode(ctx, authCode)
+        return tokenRes
     }
 
     override suspend fun authorizeWithDirectAccess(
@@ -208,7 +207,11 @@ class NativeWalletService: WalletService {
         val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
 
         val issuerMetadata = authContext.getIssuerMetadata()
-        val accessToken = authorizeFromCredentialOffer(ctx, credOffer)
+        val clientId = when(credOffer) {
+            is CredentialOfferDraft11 -> ctx.did
+            else -> defaultClientId
+        }
+        val accessToken = authorizeFromCredentialOffer(ctx, credOffer, clientId)
 
         var cNonce = accessToken.cNonce
         if (cNonce == null && issuerMetadata is IssuerMetadataV0) {
@@ -384,7 +387,7 @@ class NativeWalletService: WalletService {
         return tokenRequest
     }
 
-    override suspend fun getAccessTokenFromAuthorizationCode(
+    override suspend fun getAccessTokenFromCode(
         ctx: LoginContext,
         authCode: String,
     ): TokenResponse {
@@ -802,7 +805,7 @@ class NativeWalletService: WalletService {
         authContext: AuthorizationContext,
         cNonce: String?,
         credIdentifier: String? = null,
-        credConfigIds: List<String>? = null // [TODO] make credConfigId a single value
+        credConfigIds: List<String>? = null
     ): CredentialRequest {
 
         val ctx = requireNotNull(authContext.loginContext)
@@ -855,8 +858,8 @@ class NativeWalletService: WalletService {
         log.info { "ProofHeader: ${proofJwt.header}" }
         log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
 
-        val credRequest = when (credentialIssuer) {
-            KNOWN_ISSUER_EBSI_V3 -> {
+        val credRequest = when (issuerMetadata) {
+            is IssuerMetadataDraft11 -> {
                 CredentialRequestDraft11(
                     format = "jwt_vc",
                     types = credConfigIds,

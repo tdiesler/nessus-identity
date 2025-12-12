@@ -3,6 +3,7 @@ package io.nessus.identity.console
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import io.ktor.http.*
 import io.ktor.server.freemarker.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -44,9 +45,12 @@ class IssuerHandler(val issuerSvc: IssuerService) {
         val issuerConfigUrl = issuerSvc.getIssuerMetadataUrl()
         val model = ctx?.let { BaseModel().withLoginContext(ctx) }
             ?: BaseModel().withLoginContext(call, UserRole.Holder)
-        model["issuerUrl"] = endpointUri
         model["issuerConfigUrl"] = issuerConfigUrl
         model["authConfigUrl"] = authConfigUrl
+        if (issuerSvc is KeycloakIssuerService) {
+            val url = URLBuilder(endpointUri).build()
+            model["keycloakUrl"] = "${url.protocol.name}://${url.hostWithPortIfSpecified}"
+        }
         return model
     }
 
@@ -167,9 +171,9 @@ class IssuerHandler(val issuerSvc: IssuerService) {
             is IssuerMetadataV0 -> issuerMetadata.credentialConfigurationsSupported.keys
             is IssuerMetadataDraft11 -> issuerMetadata.credentialsSupported.
                 map { it.types!!.first { ct -> ct !in listOf("VerifiableAttestation", "VerifiableCredential") }}
-        }
+        }.toList()
         val model = issuerModel(call).also {
-            it["configIds"] = supported
+            it["configIds"] = supported.sorted()
         }
         call.respond(
             FreeMarkerContent("issuer_cred_offers.ftl", model)

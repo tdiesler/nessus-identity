@@ -2,7 +2,6 @@ package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.Experimental
-import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.FeatureProfile.EBSI_V32
 import io.nessus.identity.config.Features
@@ -30,16 +29,16 @@ interface IssuerService {
         const val WELL_KNOWN_OPENID_CREDENTIAL_ISSUER = ".well-known/openid-credential-issuer"
 
         fun createNative(): IssuerService {
-            val issuerCfg = requireIssuerConfig()
-            if(Features.isProfile(EBSI_V32)) {
-                val baseUrl = requireEbsiConfig().baseUrl
-                issuerCfg.baseUrl = "$baseUrl/issuer"
+            val config = if(Features.isProfile(EBSI_V32)) {
+                requireIssuerConfig("proxy")
+            } else {
+                requireIssuerConfig("native")
             }
-            return NativeIssuerService(issuerCfg)
+            return NativeIssuerService(config)
         }
         fun createKeycloak(): IssuerService {
-            val issuerCfg = requireIssuerConfig()
-            return KeycloakIssuerService(issuerCfg)
+            val config = requireIssuerConfig("keycloak")
+            return KeycloakIssuerService(config)
         }
     }
 

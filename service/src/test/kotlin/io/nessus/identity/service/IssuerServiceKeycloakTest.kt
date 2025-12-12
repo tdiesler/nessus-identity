@@ -36,7 +36,7 @@ class IssuerServiceKeycloakTest: AbstractServiceTest() {
     @Test
     fun createCredentialOffer() {
         runBlocking {
-            val credConfigId = "oid4vc_natural_person"
+            val credConfigId = "oid4vc_natural_person_sd"
             val credOffer = issuerSvc.createCredentialOffer(credConfigId)
             credOffer.shouldNotBeNull()
         }
@@ -45,7 +45,7 @@ class IssuerServiceKeycloakTest: AbstractServiceTest() {
     @Test
     fun createCredentialOfferPreAuthorized() {
         runBlocking {
-            val credConfigId = "oid4vc_natural_person"
+            val credConfigId = "oid4vc_natural_person_sd"
             val credOffer = issuerSvc.createCredentialOffer(credConfigId, preAuthorized = true, targetUser = Alice)
             credOffer.shouldNotBeNull()
         }

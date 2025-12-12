@@ -8,7 +8,7 @@ import io.nessus.identity.types.W3CCredentialSdV11Jwt
 
 class KeycloakIssuerServiceSDTest : KeycloakIssuerServiceBase() {
 
-    override val credentialConfigurationId = "oid4vc_natural_person"
+    override val credentialConfigurationId = "oid4vc_natural_person_sd"
 
     override suspend fun getCredential(ctx: LoginContext, accessToken: TokenResponse) {
 

@@ -11,6 +11,7 @@ import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.service.CredentialOfferRegistry.hasCredentialOfferRecord
 import io.nessus.identity.service.CredentialOfferRegistry.isEBSIPreAuthorizedType
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
+import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.NativeIssuerService
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialRequestDraft11
@@ -24,18 +25,20 @@ class IssuerApiHandler(val issuerSvc: NativeIssuerService):
 
     val adminContext = issuerSvc.adminContext
 
-    suspend fun handleAuthorizationMetadataRequest(call: RoutingCall) {
-        handleAuthorizationMetadataRequest(call, adminContext)
+    companion object {
+        suspend fun handleIssuerMetadataRequest(call: RoutingCall, issuerSvc: IssuerService) {
+            val issuerMetadata = issuerSvc.getIssuerMetadata()
+            val payload = Json.encodeToString(issuerMetadata)
+            call.respondText(
+                status = HttpStatusCode.OK,
+                contentType = ContentType.Application.Json,
+                text = payload
+            )
+        }
     }
 
-    suspend fun handleIssuerMetadataRequest(call: RoutingCall) {
-        val issuerMetadata = issuerSvc.getIssuerMetadata()
-        val payload = Json.encodeToString(issuerMetadata)
-        call.respondText(
-            status = HttpStatusCode.OK,
-            contentType = ContentType.Application.Json,
-            text = payload
-        )
+    suspend fun handleAuthorizationMetadataRequest(call: RoutingCall) {
+        handleAuthorizationMetadataRequest(call, adminContext)
     }
 
     suspend fun handleAuthorize(call: RoutingCall) {

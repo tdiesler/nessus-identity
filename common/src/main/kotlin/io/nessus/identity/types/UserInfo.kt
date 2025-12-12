@@ -10,6 +10,8 @@ data class UserInfo(
     val email: String,
     val username: String,
 ) {
+    val name get() = "$firstName $lastName"
+
     companion object {
         fun fromUserRepresentation(usr: UserRepresentation) : UserInfo {
             val did = usr.attributes?.get("did")?.firstOrNull()

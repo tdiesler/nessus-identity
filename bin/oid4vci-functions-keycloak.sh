@@ -227,8 +227,9 @@ kc_create_oid4vci_service_client() {
       "oid4vci.enabled": "true"
     },
     "optionalClientScopes": [
-      "oid4vc_natural_person",
-      "oid4vc_identity_credential",
+      "oid4vc_natural_person_sd",
+      "oid4vc_natural_person_ld",
+      "oid4vc_natural_person_jwt",
       "CTWalletSameAuthorisedInTime",
       "CTWalletSameAuthorisedDeferred",
       "CTWalletSamePreAuthorisedInTime",
@@ -264,66 +265,6 @@ kc_create_oid4vc_credential_configurations() {
 
   # Configure oid4vci client scopes
   #
-  local credential_id="oid4vc_identity_credential"
-  echo "Create Credential config for: ${credential_id}"
-  ${KCADM} create "realms/${realm}/client-scopes" -f - <<EOF
-  {
-    "name": "${credential_id}",
-    "protocol": "oid4vc",
-    "attributes": {
-      "vc.issuer_did": "${issuer_did}",
-      "vc.format": "jwt_vc"
-    },
-    "protocolMappers": [
-      {
-        "name": "did",
-        "protocol": "oid4vc",
-        "protocolMapper": "oid4vc-user-attribute-mapper",
-        "config": {
-          "claim.name": "id",
-          "userAttribute": "did",
-          "vc.mandatory": "false"
-        }
-      },
-      {
-        "name": "firstName",
-        "protocol": "oid4vc",
-        "protocolMapper": "oid4vc-user-attribute-mapper",
-        "config": {
-          "claim.name": "firstName",
-          "userAttribute": "firstName",
-          "vc.mandatory": "false"
-        }
-      },
-      {
-        "name": "lastName",
-        "protocol": "oid4vc",
-        "protocolMapper": "oid4vc-user-attribute-mapper",
-        "config": {
-          "claim.name": "lastName",
-          "userAttribute": "lastName",
-          "vc.mandatory": "false"
-        }
-      },
-      {
-        "name": "email",
-        "protocol": "oid4vc",
-        "protocolMapper": "oid4vc-user-attribute-mapper",
-        "config": {
-          "claim.name": "email",
-          "userAttribute": "email",
-          "vc.mandatory": "false"
-        }
-      }
-    ]
-  }
-EOF
-
-  local client_scope_id
-  client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_id}\") | .id")
-  echo "Client Scope Id for ${credential_id}: ${client_scope_id}"
-  ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
-
   for credential_id in "CTWalletSameAuthorisedInTime" "CTWalletSameAuthorisedDeferred" "CTWalletSamePreAuthorisedInTime" "CTWalletSamePreAuthorisedDeferred"; do
     echo "Create Credential config for: ${credential_id}"
     ${KCADM} create "realms/${realm}/client-scopes" -f - <<EOF
@@ -333,8 +274,30 @@ EOF
       "attributes": {
         "vc.issuer_did": "${issuer_did}",
         "vc.format": "jwt_vc"
-      }
-     }
+      },
+      "protocolMappers": [
+        {
+          "name": "subject-id",
+          "protocol": "oid4vc",
+          "protocolMapper": "oid4vc-subject-id-mapper",
+          "config": {
+            "claim.name": "id",
+            "userAttribute": "did",
+            "vc.mandatory": "false"
+          }
+        },
+        {
+          "name": "email",
+          "protocol": "oid4vc",
+          "protocolMapper": "oid4vc-user-attribute-mapper",
+          "config": {
+            "claim.name": "email",
+            "userAttribute": "email",
+            "vc.mandatory": "false"
+          }
+        }
+      ]
+    }
 EOF
 
     client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_id}\") | .id")
@@ -359,8 +322,9 @@ kc_create_oid4vci_client() {
     "directAccessGrantsEnabled": true,
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": [
-      "oid4vc_natural_person",
-      "oid4vc_identity_credential",
+      "oid4vc_natural_person_sd",
+      "oid4vc_natural_person_ld",
+      "oid4vc_natural_person_jwt",
       "CTWalletSameAuthorisedInTime",
       "CTWalletSameAuthorisedDeferred",
       "CTWalletSamePreAuthorisedInTime",
@@ -548,10 +512,10 @@ kc_credential_offer_uri() {
   local client_id="$2"
   local credential_id="$3"
   local pre_authorized="$4"
-  local user_id="$5"
+  local username="$5"
 
   local credOfferUriUrl="${AUTH_SERVER_URL}/realms/${realm}/protocol/oid4vc/credential-offer-uri"
-  credOfferUriUrl="${credOfferUriUrl}?credential_configuration_id=${credential_id}&pre_authorized=${pre_authorized}&user_id=${user_id}"
+  credOfferUriUrl="${credOfferUriUrl}?credential_configuration_id=${credential_id}&pre_authorized=${pre_authorized}&username=${username}"
 
   credOfferUriRes=$(curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" "${credOfferUriUrl}")
   echo "Credential Offer Uri: ${credOfferUriRes}"

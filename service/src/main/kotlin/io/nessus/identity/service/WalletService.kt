@@ -5,6 +5,9 @@ import io.nessus.identity.AuthorizationContext
 import io.nessus.identity.Experimental
 import io.nessus.identity.Legacy
 import io.nessus.identity.LoginContext
+import io.nessus.identity.config.ConfigProvider.requireWalletConfig
+import io.nessus.identity.config.FeatureProfile.EBSI_V32
+import io.nessus.identity.config.Features
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.CredentialOffer
@@ -32,7 +35,12 @@ interface WalletService: WalletCredentialsService {
 
     companion object {
         fun createNative(): WalletService {
-            return NativeWalletService()
+            val config = if(Features.isProfile(EBSI_V32)) {
+                requireWalletConfig("proxy")
+            } else {
+                requireWalletConfig("native")
+            }
+            return NativeWalletService(config)
         }
     }
 
@@ -92,7 +100,7 @@ interface WalletService: WalletCredentialsService {
     ): SignedJWT
 
     @Experimental
-    suspend fun getAccessTokenFromAuthorizationCode(
+    suspend fun getAccessTokenFromCode(
         ctx: LoginContext,
         authCode: String,
     ): TokenResponse

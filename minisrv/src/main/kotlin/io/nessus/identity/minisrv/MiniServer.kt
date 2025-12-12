@@ -15,8 +15,8 @@ import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.ConfigProvider.requireVerifierConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
-import io.nessus.identity.config.ConsoleConfig
 import io.nessus.identity.config.getVersionInfo
+import io.nessus.identity.minisrv.IssuerApiHandler.Companion.handleIssuerMetadataRequest
 import io.nessus.identity.minisrv.SessionsStore.cookieName
 import io.nessus.identity.minisrv.SessionsStore.createLoginContext
 import io.nessus.identity.minisrv.SessionsStore.findLoginContext
@@ -31,24 +31,21 @@ import io.nessus.identity.types.UserRole
 import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 
-class MiniServer(val config: ConsoleConfig) {
+class MiniServer(
+    val issuerSvc: IssuerService,
+    val walletSvc: WalletService,
+    val verifierSvc: VerifierService,
+) {
 
     val log = KotlinLogging.logger {}
 
     private val autoLoginComplete = mutableMapOf<UserRole, Boolean>()
 
-    private val issuerSvc: IssuerService
-    private val walletSvc: WalletService
-    private val verifierSvc: VerifierService
-    private val issuerApiHandler: IssuerApiHandler
-    private val walletApiHandler: WalletApiHandler
-    private val verifierApiHandler: VerifierApiHandler
-
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
-            val config = requireConsoleConfig()
-            MiniServer(config).create().start(wait = true)
+            val miniServer = MiniServerBuilder().build()
+            miniServer.create().start(wait = true)
         }
     }
 
@@ -56,12 +53,6 @@ class MiniServer(val config: ConsoleConfig) {
         val versionInfo = getVersionInfo()
         log.info { "OID4VCI Mini-Server" }
         log.info { "VersionInfo: ${Json.encodeToString(versionInfo)}" }
-        issuerSvc = IssuerService.createNative() as NativeIssuerService
-        walletSvc = WalletService.createNative()
-        verifierSvc = VerifierService.createNative()
-        issuerApiHandler = IssuerApiHandler(issuerSvc)
-        walletApiHandler = WalletApiHandler(walletSvc)
-        verifierApiHandler = VerifierApiHandler(verifierSvc)
         log.info { "Issuer Metadata: ${issuerSvc.getIssuerMetadataUrl()}" }
         log.info { "Issuer Authorization: ${issuerSvc.getAuthorizationMetadataUrl()}" }
     }
@@ -97,18 +88,24 @@ class MiniServer(val config: ConsoleConfig) {
             install(createApplicationPlugin("AutoLoginPlugin") {
                 onCall { call ->
                     if (!(autoLoginComplete[UserRole.Issuer] ?: false)) {
-                        val adminUser = requireIssuerConfig().adminUser
-                        createLoginContext(call, UserRole.Issuer, adminUser.toLoginParams())
+                        if (findLoginContext(call, UserRole.Issuer) == null) {
+                            val adminUser = requireIssuerConfig().adminUser
+                            createLoginContext(call, UserRole.Issuer, adminUser.toLoginParams())
+                        }
                         autoLoginComplete[UserRole.Issuer] = true
                     }
                     if (!(autoLoginComplete[UserRole.Holder] ?: false)) {
-                        val testUser = requireWalletConfig().testUser
-                        createLoginContext(call, UserRole.Holder, testUser.toLoginParams())
+                        if (findLoginContext(call, UserRole.Holder) == null) {
+                            val testUser = requireWalletConfig().testUser
+                            createLoginContext(call, UserRole.Holder, testUser.toLoginParams())
+                        }
                         autoLoginComplete[UserRole.Holder] = true
                     }
                     if (!(autoLoginComplete[UserRole.Verifier] ?: false)) {
-                        val testUser = requireVerifierConfig().testUser
-                        createLoginContext(call, UserRole.Verifier, testUser.toLoginParams())
+                        if (findLoginContext(call, UserRole.Verifier) == null) {
+                            val testUser = requireVerifierConfig().testUser
+                            createLoginContext(call, UserRole.Verifier, testUser.toLoginParams())
+                        }
                         autoLoginComplete[UserRole.Verifier] = true
                     }
                 }
@@ -118,33 +115,37 @@ class MiniServer(val config: ConsoleConfig) {
                 route("/issuer") {
                     route("/{targetId}") {
                         get("/$WELL_KNOWN_OPENID_CREDENTIAL_ISSUER") {
-                            issuerApiHandler.handleIssuerMetadataRequest(call)
+                            handleIssuerMetadataRequest(call, issuerSvc)
                         }
-                        post("/credential") {
-                            issuerApiHandler.handleCredentialRequest(call)
-                        }
-                        post("/credential_deferred") {
-                            issuerApiHandler.handleCredentialRequestDeferred(call)
-                        }
-                        get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
-                            issuerApiHandler.handleAuthorizationMetadataRequest(call)
-                        }
-                        get("/authorize") {
-                            issuerApiHandler.handleAuthorize(call)
-                        }
-                        post("/direct_post") {
-                            issuerApiHandler.handleDirectPost(call)
-                        }
-                        get("/jwks") {
-                            issuerApiHandler.handleJwksRequest(call)
-                        }
-                        post("/token") {
-                            issuerApiHandler.handleTokenRequest(call)
+                        if (issuerSvc is NativeIssuerService) {
+                            val issuerApiHandler = IssuerApiHandler(issuerSvc)
+                            post("/credential") {
+                                issuerApiHandler.handleCredentialRequest(call)
+                            }
+                            post("/credential_deferred") {
+                                issuerApiHandler.handleCredentialRequestDeferred(call)
+                            }
+                            get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
+                                issuerApiHandler.handleAuthorizationMetadataRequest(call)
+                            }
+                            get("/authorize") {
+                                issuerApiHandler.handleAuthorize(call)
+                            }
+                            post("/direct_post") {
+                                issuerApiHandler.handleDirectPost(call)
+                            }
+                            get("/jwks") {
+                                issuerApiHandler.handleJwksRequest(call)
+                            }
+                            post("/token") {
+                                issuerApiHandler.handleTokenRequest(call)
+                            }
                         }
                     }
                 }
 
                 route("/wallet") {
+                    val walletApiHandler = WalletApiHandler(walletSvc)
                     route("/{targetId}") {
                         get {
                             requireTargetContext(call) { ctx ->
@@ -180,6 +181,7 @@ class MiniServer(val config: ConsoleConfig) {
                 }
 
                 route("/verifier") {
+                    val verifierApiHandler = VerifierApiHandler(verifierSvc)
                     route("/{targetId}") {
                         get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
                             requireTargetContext(call) { ctx ->
@@ -211,9 +213,8 @@ class MiniServer(val config: ConsoleConfig) {
             }
         }
 
-        val host = config.host
-        val port = config.port
-        return embeddedServer(Netty, host = host, port = port, module = Application::module)
+        val config = requireConsoleConfig()
+        return embeddedServer(Netty, host = config.host, port = config.port, module = Application::module)
     }
 
     private suspend fun requireTargetContext(call: RoutingCall, block: suspend (LoginContext) -> Unit) {

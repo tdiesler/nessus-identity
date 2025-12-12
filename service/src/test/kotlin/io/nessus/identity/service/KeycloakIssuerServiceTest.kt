@@ -9,7 +9,7 @@ import kotlinx.serialization.json.*
 
 class KeycloakIssuerServiceTest : KeycloakIssuerServiceBase() {
 
-    override val credentialConfigurationId = "oid4vc_identity_credential"
+    override val credentialConfigurationId = "oid4vc_natural_person_jwt"
 
     override suspend fun getCredential(ctx: LoginContext, accessToken: TokenResponse) {
 

@@ -23,7 +23,7 @@ object W3CCredentialValidator {
 
         if (vcp?.sub != null) {
             val vcJson = vc.toJson()
-            // [TODO #302] Keycloak issues oid4vc_identity_credential with no id value
+            // [TODO #302] Keycloak issues oid4vc_natural_person_jwt with no id value
             // https://github.com/tdiesler/nessus-identity/issues/302
             val subId = CredentialMatcher.pathValues("$vcJson", "$.credentialSubject.id").firstOrNull()
             if (subId != null && subId != vcp.sub)

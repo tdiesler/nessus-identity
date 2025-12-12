@@ -36,7 +36,7 @@ class KeycloakVerifierServiceTest : AbstractServiceTest() {
     @Test
     fun requestCredentialPresentation() {
         runBlocking {
-            val credConfigId = "oid4vc_identity_credential"
+            val credConfigId = "oid4vc_natural_person_jwt"
 
             val issuerMetadata = issuerSvc.getIssuerMetadata()
             val ctype = issuerMetadata.getCredentialScope(credConfigId)
@@ -97,7 +97,7 @@ class KeycloakVerifierServiceTest : AbstractServiceTest() {
     @Test
     fun requestCredentialPresentationSD() {
         runBlocking {
-            val credConfigId = "oid4vc_natural_person"
+            val credConfigId = "oid4vc_natural_person_sd"
 
             val issuerMetadata = issuerSvc.getIssuerMetadata()
             val ctype = issuerMetadata.getCredentialScope(credConfigId)

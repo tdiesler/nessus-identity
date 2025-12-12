@@ -119,8 +119,7 @@ kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
 # Fetch the Credential from a Pre-Authorized Offer -----------------------------------------------------------------------
 #
 if [[ ${skip_verify} == "false" ]]; then
-  credential_id="oid4vc_identity_credential"
-  # credential_id="oid4vc_natural_person"
+  credential_id="oid4vc_natural_person_jwt"
 
   kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"
   kc_credential_offer_uri "${realm}" "${client_id}" "${credential_id}" "true" "${HOLDER[2]}"
@@ -132,8 +131,7 @@ fi
 # Fetch the Credential from an unauthorized Offer ----------------------------------------------------------------------
 #
 if [[ ${verify_oauth} == "true" ]]; then
-  credential_id="oid4vc_identity_credential"
-  # credential_id="oid4vc_natural_person"
+  credential_id="oid4vc_natural_person_sd"
 
   kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"
   kc_credential_offer_uri "${realm}" "${client_id}" "${credential_id}" "false" "${HOLDER[2]}"

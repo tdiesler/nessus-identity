@@ -45,7 +45,7 @@ abstract class KeycloakIssuerServiceBase : AbstractServiceTest() {
                 username = Alice.username,
                 password = Alice.password
             )
-            val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(alice, authCode)
+            val accessToken = walletSvc.getAccessTokenFromCode(alice, authCode)
 
             getCredential(alice, accessToken)
         }
@@ -63,7 +63,7 @@ abstract class KeycloakIssuerServiceBase : AbstractServiceTest() {
                 username = Alice.username,
                 password = Alice.password
             )
-            val accessToken = walletSvc.getAccessTokenFromAuthorizationCode(alice, authCode)
+            val accessToken = walletSvc.getAccessTokenFromCode(alice, authCode)
 
             getCredential(alice, accessToken)
         }

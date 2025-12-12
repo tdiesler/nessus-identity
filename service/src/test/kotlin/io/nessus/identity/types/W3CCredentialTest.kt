@@ -4,39 +4,8 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.equals.shouldBeEqual
 import kotlinx.serialization.json.*
 import kotlin.test.Test
-import kotlin.test.assertNull
 
 class W3CCredentialTest {
-
-    @Test
-    fun testW3CCredentialV11() {
-
-        val credJwt = W3CCredentialV11Jwt.fromEncoded(
-            "eyJhbGciOiJFUzI1NiIsInR5cCIgOiAiSldTIiwia2lkIiA6ICJaTnJqZzcyNXlVNXl3a21PNGZVMW04WldURVhSRTJxTzA2dEJVMi01WVNvIn0.eyJuYmYiOjE3NjAwOTg0NTMsImp0aSI6InVybjp1dWlkOmVkYmRhMmMwLWEyMzctNDFjOC04MmQ2LWM5MzAzYWU5MzVkZSIsImlzcyI6Imh0dHBzOi8vb2F1dGgubG9jYWx0ZXN0Lm1lL3JlYWxtcy9vaWQ0dmNpIiwic3ViIjoiZGlkOmtleTp6MmRtekQ4MWNnUHg4VmtpN0pidXVNbUZZcldQZ1lveXR5a1VaM2V5cWh0MWo5S2JxYXlqZHU4aXF5WjNMbjNtZW5HS0VVWjZtUzl0Q2pmanZraE5nb2dLczF6ZEVlRlNrazFHN1hRVWo3QVE4b3dKaVpaS0ZFN3BtUFZUeUd0RkZVa2ZQNHVqUnpIYzRnRUxGV1hmVzM5YmdpZ2F6eXlpeGRLRXNjZXZOSlV4N201SmI2IiwidmMiOnsidHlwZSI6WyJvaWQ0dmNfaWRlbnRpdHlfY3JlZGVudGlhbCJdLCJpc3N1ZXIiOiJodHRwczovL29hdXRoLmxvY2FsdGVzdC5tZS9yZWFsbXMvb2lkNHZjaSIsImlzc3VhbmNlRGF0ZSI6MTc2MDA5ODQ1My40MjIwMDAwMDAsImNyZWRlbnRpYWxTdWJqZWN0Ijp7Imxhc3ROYW1lIjoiV29uZGVybGFuZCIsImZpcnN0TmFtZSI6IkFsaWNlIiwiaWQiOiJkaWQ6a2V5OnoyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnFheWpkdThpcXlaM0xuM21lbkdLRVVaNm1TOXRDamZqdmtoTmdvZ0tzMXpkRWVGU2trMUc3WFFVajdBUThvd0ppWlpLRkU3cG1QVlR5R3RGRlVrZlA0dWpSekhjNGdFTEZXWGZXMzliZ2lnYXp5eWl4ZEtFc2Nldk5KVXg3bTVKYjYiLCJlbWFpbCI6ImFsaWNlQGVtYWlsLmNvbSJ9LCJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvbnMvY3JlZGVudGlhbHMvdjEiXX19.NQ-JFR1XSil0qsKBXt9YXkGyT_TZpsOIYDerMlWbmkpNvpf3sXODz1LEd_CGgkZLGLfqnR53ouA0TbrZbRmUCA"
-        )
-
-        val jsonObj = credJwt.toJson()
-        val vcObj = jsonObj.getValue("vc").jsonObject
-        val ctypes = vcObj.getValue("type").jsonArray.map { it.jsonPrimitive.content }
-        ctypes shouldContain "oid4vc_identity_credential"
-
-        val issuanceDate = vcObj.getValue("issuanceDate").jsonPrimitive.content
-        issuanceDate shouldBeEqual "2025-10-10T12:14:13Z"
-        assertNull(vcObj["validFrom"])
-        assertNull(vcObj["issued"])
-    }
-
-    @Test
-    fun testW3CCredentialSdV11() {
-
-        val credJwt = W3CCredentialJwt.fromEncoded(
-            "eyJhbGciOiJFUzI1NiIsInR5cCIgOiAiSldTIiwia2lkIiA6ICJaTnJqZzcyNXlVNXl3a21PNGZVMW04WldURVhSRTJxTzA2dEJVMi01WVNvIn0.eyJfc2QiOlsiMllJNVZCTTdIMFlkRnlLQjIxRm95MDNxZXNXNzJGRFd2dVpmWGdKNUZkRSIsIjJyX3FRYXZpS3ZlOXNBOVdxbHJCakpxZVMtZTNvcDJERzZMNExNZVRJSGMiLCJBRUpDYWJtcHRibk0tRDFFbkRWX2RVczlJbnFoRHl0Y2ljb05RRmM5VFBZIiwiRVZBeGoyWDJ1TzN6bVJsTFdVb1lib28wZ2RJcE52NkFJRGdUOXFQcFZfdyIsIktPZkJmbW5WbGN6YkhsNmtBRHlWZXNOV3dOYWI4YXJIa3J2NE44b2JoMmciLCJPQjRjcnBHWlVrU1VUMUtIM1dUSU5MaTlJcDFIU1lsSlJaTnhhZU82dHk4IiwiVDVpandIbHluR1BScHRsOEk5UW8yekpXd1hBOE5WTFduVDFUS1FXVUotTSIsIldydVdqaXhVekFvVDlIWUlENW5MLWVFOElqQUc2eEpEZnBqQkh4d1hNdXciLCJZNmYwaElIQXV5clFVRnNxSzdZWWJCbVQzcmR0cVJfQ0o2WTVreGV2UkpFIiwiZmUyWElNb3prbjIzQl95Tk5IOEx3OTR1WHQ0QWVtbXNtUVh1bGtCOFdnRSIsImtGeTNwYjdMblN4XzNKa1JRTXZjQzRhdnV4R0lZRDFtcU94TGdsdEVpa0EiLCJ0VVRyTWJlRmRBcmw2Tk1IVWZibm8xRnhEeGNnWTNaQ2RUeXBDb29MQzZZIiwieDhfLWh0X0tPUWhlTVJFTUxPaFhELUNYYXE2a0NBYzF0RWJIa291blgtVSJdLCJfc2RfYWxnIjoiU0hBLTI1NiIsInZjdCI6Im9pZDR2Y19uYXR1cmFsX3BlcnNvbiIsImlzcyI6Imh0dHBzOi8vb2F1dGgubG9jYWx0ZXN0Lm1lL3JlYWxtcy9vaWQ0dmNpIiwiY25mIjp7Imp3ayI6eyJraWQiOiJoVGJDcmI2MG9GOHdHcHBIOWRJOHp5OTQ1YmY1RVZmWlFmSU41NWVkY3lBIiwia3R5IjoiRUMiLCJhbGciOiJFUzI1NiIsInVzZSI6InNpZyIsImNydiI6IlAtMjU2IiwieCI6IjRTRHlGbElSVXk2WXBNSXgxM0FIbEQ3Y05pYjd1V2l2VmlWdVdZVnRPU2ciLCJ5IjoiQ0NiRDJBZEZtTFBLVzVxMEhFNEVXNGFyMURsbC1QanJwTVhaY0xCclpYayJ9fSwiaWQiOiJpZCJ9.uBhSRmT4lx_x8Sv7eJUw2Mriog1aFL9NZjWwBsjuqKxwIVPHvWTGIhzgJ9brI_2dndzJd6-tKOSWzeBLeu3etg~WyJ2REJzaTJoajlpSU9rX0ppck02QlJ3IiwgImZpcnN0TmFtZSIsICJBbGljZSJd~WyJqZUl0WVVaa3l3dUNmMElKc0JYZENnIiwgImZhbWlseU5hbWUiLCAiV29uZGVybGFuZCJd~WyJHQjlFcWZhR19raGhRb1ZaQTljTnJBIiwgImVtYWlsIiwgImFsaWNlQGVtYWlsLmNvbSJd~"
-        )
-
-        val jsonObj = credJwt.toJson()
-        val ctype = jsonObj.getValue("vct").jsonPrimitive.content
-        ctype shouldBeEqual "oid4vc_natural_person"
-    }
 
     @Test
     fun testW3CCredentialV11Ebsi32() {

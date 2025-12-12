@@ -28,10 +28,9 @@ object ConfigProvider {
             .addResourceSource("/application.conf")
             .addDecoder(FeatureProfileDecoder)
             .build().loadConfigOrThrow<RootConfig>()
-        Features.initProfile(rootConfig.featureProfile)
-        Max = rootConfig.issuer!!.adminUser
-        Alice = rootConfig.wallet!!.testUser
-        Bob = rootConfig.verifier!!.testUser
+        Max = rootConfig.issuer[0].adminUser
+        Alice = rootConfig.wallet[0].testUser
+        Bob = rootConfig.verifier[0].testUser
         rootConfig
     }
 
@@ -47,16 +46,16 @@ object ConfigProvider {
         return root.ebsi ?: error("No 'ebsi' config")
     }
 
-    fun requireIssuerConfig(): IssuerConfig {
-        return root.issuer ?: error("No 'issuer' config")
+    fun requireIssuerConfig(name: String = "keycloak"): IssuerConfig {
+        return root.issuer.firstOrNull { it.name == name } ?: error("No 'issuer' config for: $name")
     }
 
-    fun requireWalletConfig(): WalletConfig {
-        return root.wallet ?: error("No 'wallet' config")
+    fun requireWalletConfig(name: String = "native"): WalletConfig {
+        return root.wallet.firstOrNull { it.name == name } ?: error("No 'wallet' config for: $name")
     }
 
-    fun requireVerifierConfig(): VerifierConfig {
-        return root.verifier ?: error("No 'verifier' config")
+    fun requireVerifierConfig(name: String = "native"): VerifierConfig {
+        return root.verifier.firstOrNull { it.name == name } ?: error("No 'verifier' config for: $name")
     }
 
     fun requireWaltIdConfig(): WaltIdConfig {
@@ -72,13 +71,13 @@ object ConfigProvider {
 @Serializable
 data class RootConfig(
     val version: String,
-    val featureProfile: FeatureProfile,
+    val profile: FeatureProfile,
     val console: ConsoleConfig?,
     val database: DatabaseConfig?,
     val ebsi: EbsiConfig?,
-    val issuer: IssuerConfig?,
-    val wallet: WalletConfig?,
-    val verifier: VerifierConfig?,
+    val issuer: List<IssuerConfig>,
+    val wallet: List<WalletConfig>,
+    val verifier: List<VerifierConfig>,
     val waltid: WaltIdConfig?,
 )
 
@@ -99,7 +98,6 @@ data class DatabaseConfig(
 
 @Serializable
 data class EbsiConfig(
-    val baseUrl: String,
     // Our Issuer needs to know the Requester's DID for the Pre-Authorized use cases
     // https://hub.ebsi.eu/wallet-conformance/issue-to-holder/flow
     val requesterDid: String?,
@@ -115,24 +113,27 @@ data class EndpointConfig(
 
 @Serializable
 data class IssuerConfig(
-    var baseUrl: String,
-    val realm: String,
-    val clientId: String,
-    val serviceId: String,
-    val serviceSecret: String,
+    val name: String,
+    val baseUrl: String,
+    val realm: String?,
+    val clientId: String?,
+    val serviceId: String?,
+    val serviceSecret: String?,
     val adminUser: User,
 )
 
 @Serializable
 data class VerifierConfig(
-    var baseUrl: String,
+    val name: String,
+    val baseUrl: String,
     val testUser: User,
 )
 
 @Serializable
 data class WalletConfig(
-    var baseUrl: String,
-    val callbackUri: String,
+    val name: String,
+    val baseUrl: String,
+    val callbackPath: String,
     val testUser: User,
 )
 
