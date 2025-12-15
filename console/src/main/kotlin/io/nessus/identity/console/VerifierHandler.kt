@@ -14,8 +14,8 @@ import io.ktor.server.routing.*
 import io.nessus.identity.LoginContext
 import io.nessus.identity.LoginContext.Companion.AUTH_RESPONSE_ATTACHMENT_KEY
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
-import io.nessus.identity.console.SessionsStore.createLoginContext
-import io.nessus.identity.console.SessionsStore.logout
+import io.nessus.identity.console.HttpSessionStore.createLoginContext
+import io.nessus.identity.console.HttpSessionStore.logout
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
@@ -82,7 +82,7 @@ class VerifierHandler(
     }
 
     suspend fun handleLogout(call: RoutingCall, ctx: LoginContext) {
-        logout(call, ctx.targetId)
+        logout(call, ctx.userRole)
         call.respondRedirect("/verifier")
     }
 

@@ -13,7 +13,6 @@ import id.walt.oid4vc.data.DisplayProperties
 import id.walt.oid4vc.data.GrantType
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.data.SubjectType
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
 import io.nessus.identity.Experimental
@@ -34,6 +33,7 @@ import io.nessus.identity.types.CredentialRequestDraft11
 import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.CredentialSchema
 import io.nessus.identity.types.Grants
+import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.PreAuthorizedCodeGrant
 import io.nessus.identity.types.TokenRequest
@@ -54,11 +54,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
 
-class NativeIssuerService(val config: IssuerConfig): IssuerService {
-
-    val log = KotlinLogging.logger {}
-
-    override val endpointUri = config.baseUrl
+class NativeIssuerService(val config: IssuerConfig): AbstractIssuerService(config.baseUrl) {
 
     val authorizationSvc = NativeAuthorizationService(endpointUri)
     val adminContext = runBlocking { LoginContext.login(config.adminUser).withDidInfo() }
@@ -76,7 +72,7 @@ class NativeIssuerService(val config: IssuerConfig): IssuerService {
         return metadataUrl
     }
 
-    override suspend fun getIssuerMetadata(): IssuerMetadataDraft11 {
+    override suspend fun getIssuerMetadata(): IssuerMetadata {
         val issuerMetadata = buildIssuerMetadata(adminContext)
         return issuerMetadata
     }
@@ -91,7 +87,7 @@ class NativeIssuerService(val config: IssuerConfig): IssuerService {
 
         val ctx = adminContext
         val authContext = ctx.getAuthContext()
-        val issuerMetadata = getIssuerMetadata()
+        val issuerMetadata = getIssuerMetadata() as IssuerMetadataDraft11
         authContext.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
         val issuerUri = issuerMetadata.credentialIssuer
 

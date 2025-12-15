@@ -4,6 +4,7 @@ import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.Max
+import io.nessus.identity.types.UserRole
 import kotlin.random.Random
 
 abstract class AbstractIssuerConformanceTest : AbstractConformanceTest() {
@@ -13,7 +14,7 @@ abstract class AbstractIssuerConformanceTest : AbstractConformanceTest() {
 
     fun prepareIssuerTests(): LoginContext {
 
-        val ctx = runBlocking { loginWithDid(Max) }
+        val ctx = runBlocking { sessionStore.login(UserRole.Issuer, Max) }
         ctx.hasDidInfo.shouldBeTrue()
 
         val page = context.newPage()

@@ -5,7 +5,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.Application
-import io.ktor.server.application.createApplicationPlugin
 import io.ktor.server.application.install
 import io.ktor.server.engine.*
 import io.ktor.server.freemarker.*
@@ -19,15 +18,12 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.LoginContext
-import io.nessus.identity.config.ConfigProvider.Alice
-import io.nessus.identity.config.ConfigProvider.Bob
-import io.nessus.identity.config.ConfigProvider.Max
 import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
 import io.nessus.identity.config.ConsoleConfig
 import io.nessus.identity.config.getVersionInfo
-import io.nessus.identity.console.SessionsStore.cookieName
-import io.nessus.identity.console.SessionsStore.createLoginContext
-import io.nessus.identity.console.SessionsStore.findLoginContext
+import io.nessus.identity.console.HttpSessionStore.cookieName
+import io.nessus.identity.console.HttpSessionStore.findLoginContext
+import io.nessus.identity.console.HttpSessionStore.requireLoginContext
 import io.nessus.identity.minisrv.IssuerApiHandler
 import io.nessus.identity.minisrv.VerifierApiHandler
 import io.nessus.identity.minisrv.WalletApiHandler
@@ -37,7 +33,6 @@ import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CRED
 import io.nessus.identity.service.NativeIssuerService
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
-import io.nessus.identity.toLoginParams
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.utils.HttpStatusException
 import kotlinx.serialization.json.*
@@ -49,15 +44,12 @@ class ConsoleServer(
     val walletSvc: WalletService,
     val verifierSvc: VerifierService,
 ) {
-
     val log = KotlinLogging.logger {}
 
     private val ebsiHandler: EBSIHandler
     private val walletHandler: WalletHandler
     private val issuerHandler: IssuerHandler
     private val verifierHandler: VerifierHandler
-
-    private val autoLoginComplete = mutableMapOf<UserRole, Boolean>()
 
     companion object {
         @JvmStatic
@@ -122,30 +114,6 @@ class ConsoleServer(
                     call.respond(HttpStatusCode.InternalServerError, ex.message ?: "Internal error")
                 }
             }
-            install(createApplicationPlugin("AutoLoginPlugin") {
-                onCall { call ->
-                    val requestPath = call.request.path()
-                    if (config.autoLogin) {
-                        // Always login the Holder
-                        if (!(autoLoginComplete[UserRole.Holder] ?: false)) {
-                            createLoginContext(call, UserRole.Holder, Alice.toLoginParams())
-                            autoLoginComplete[UserRole.Holder] = true
-                        }
-                        // Login the Issuer on demand
-                        val wantIssuerLogin = listOf("/issuer", "/ebsi").any { requestPath.startsWith(it) }
-                        if (wantIssuerLogin && !(autoLoginComplete[UserRole.Issuer] ?: false)) {
-                            createLoginContext(call, UserRole.Issuer, Max.toLoginParams())
-                            autoLoginComplete[UserRole.Issuer] = true
-                        }
-                        // Login the Verifier on demand
-                        val wantVerifierLogin = listOf("/verifier", "/ebsi").any { requestPath.startsWith(it) }
-                        if (wantVerifierLogin && !(autoLoginComplete[UserRole.Verifier] ?: false)) {
-                            createLoginContext(call, UserRole.Verifier, Bob.toLoginParams())
-                            autoLoginComplete[UserRole.Verifier] = true
-                        }
-                    }
-                }
-            })
 
             routing {
                 staticResources("/", "static")
@@ -257,7 +225,7 @@ class ConsoleServer(
                         }
                     }
                     get("/auth/callback/{targetId}") {
-                        requireTargetContext(call) { ctx ->
+                        requireTargetContext(call, UserRole.Holder) { ctx ->
                             walletHandler.handleAuthCallback(call, ctx)
                         }
                     }
@@ -325,38 +293,38 @@ class ConsoleServer(
                     route("/{targetId}") {
                         val walletApiHandler = WalletApiHandler(walletSvc)
                         get {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Holder) { ctx ->
                                 walletApiHandler.handleCredentialOfferReceive(call, ctx)
                             }
                         }
                         get("/flow/{flowStep}") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Holder) { ctx ->
                                 val flowStep = call.parameters["flowStep"] ?: error("No flowStep")
                                 walletHandler.handleAuthFlow(call, ctx, flowStep)
                             }
                         }
                         get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Holder) { ctx ->
                                 walletApiHandler.handleAuthorizationMetadataRequest(call, ctx)
                             }
                         }
                         get("/authorize") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Holder) { ctx ->
                                 walletApiHandler.handleAuthorize(call, ctx)
                             }
                         }
                         post("/direct_post") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Holder) { ctx ->
                                 walletApiHandler.handleDirectPost(call, ctx)
                             }
                         }
                         get("/jwks") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Holder) { ctx ->
                                 walletApiHandler.handleJwksRequest(call, ctx)
                             }
                         }
                         post("/token") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Holder) { ctx ->
                                 walletApiHandler.handleTokenRequest(call, ctx)
                             }
                         }
@@ -389,7 +357,7 @@ class ConsoleServer(
                         error ("Not implemented ${call.request.uri}")
                     }
                     post("/auth/callback/{targetId}") {
-                        requireTargetContext(call) { ctx ->
+                        requireTargetContext(call, UserRole.Verifier) { ctx ->
                             verifierHandler.handleAuthCallback(call, ctx)
                         }
                     }
@@ -414,27 +382,27 @@ class ConsoleServer(
                     route("/{targetId}") {
                         val verifierApiHandler = VerifierApiHandler(verifierSvc)
                         get("/$WELL_KNOWN_OPENID_CONFIGURATION") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Verifier) { ctx ->
                                 verifierApiHandler.handleAuthorizationMetadataRequest(call, ctx)
                             }
                         }
                         get("/authorize") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Verifier) { ctx ->
                                 verifierApiHandler.handleAuthorize(call, ctx)
                             }
                         }
                         post("/direct_post") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Verifier) { ctx ->
                                 verifierApiHandler.handleDirectPost(call, ctx)
                             }
                         }
                         get("/jwks") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Verifier) { ctx ->
                                 verifierApiHandler.handleJwksRequest(call, ctx)
                             }
                         }
                         post("/token") {
-                            requireTargetContext(call) { ctx ->
+                            requireTargetContext(call, UserRole.Verifier) { ctx ->
                                 verifierApiHandler.handleTokenRequest(call, ctx)
                             }
                         }
@@ -447,10 +415,9 @@ class ConsoleServer(
         return embeddedServer(Netty, host = config.host, port = config.port, module = Application::module)
     }
 
-    private suspend fun requireTargetContext(call: RoutingCall, block: suspend (LoginContext) -> Unit) {
-        val targetId = requireNotNull(call.parameters["targetId"]) { "No target path" }
-        val ctx = findLoginContext(call, targetId)
-        block(requireNotNull(ctx) { "No login context for: $targetId" })
+    private suspend fun requireTargetContext(call: RoutingCall, role: UserRole, block: suspend (LoginContext) -> Unit) {
+        val ctx = requireLoginContext(call, role)
+        block(ctx)
     }
 
     private suspend fun withHolderContextOrHome(call: RoutingCall, block: suspend (LoginContext) -> Unit) {

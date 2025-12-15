@@ -6,6 +6,7 @@ import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.Alice
+import io.nessus.identity.types.UserRole
 import io.nessus.identity.utils.urlEncode
 import io.nessus.identity.utils.urlQueryToMap
 import java.net.URI
@@ -14,7 +15,7 @@ abstract class AbstractWalletConformanceTest : AbstractConformanceTest() {
 
     fun prepareWalletTests(crossDevive: Boolean): LoginContext {
 
-        val ctx = runBlocking { loginWithDid(Alice) }
+        val ctx = runBlocking { sessionStore.login(UserRole.Holder, Alice) }
         ctx.hasDidInfo.shouldBeTrue()
 
         val page = context.newPage()

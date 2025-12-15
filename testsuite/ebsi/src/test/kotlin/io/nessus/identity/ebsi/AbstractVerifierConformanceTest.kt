@@ -4,12 +4,13 @@ import io.kotest.common.runBlocking
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.Bob
+import io.nessus.identity.types.UserRole
 
 abstract class AbstractVerifierConformanceTest : AbstractConformanceTest() {
 
     fun prepareVerifierTests(): LoginContext {
 
-        val ctx = runBlocking { loginWithDid(Bob) }
+        val ctx = runBlocking { sessionStore.login(UserRole.Verifier, Bob) }
         ctx.hasDidInfo.shouldBeTrue()
 
         val page = context.newPage()

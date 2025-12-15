@@ -1,5 +1,6 @@
 package io.nessus.identity.ebsi
 
+import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.Alice
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -28,7 +29,7 @@ class WalletConformanceQualificationIT : AbstractWalletConformanceTest() {
         val ctype = "CTWalletQualificationCredential"
         log.info { ">>>>> CTQualificationThroughVPExchange" }
 
-        val ctx = login(Alice)
+        val ctx = sessionStore.findLoginContextByUser(Alice) as LoginContext
 
         // Click "Continue" button
         val page = context.pages().last()

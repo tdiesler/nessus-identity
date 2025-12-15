@@ -29,8 +29,8 @@ import io.nessus.identity.LoginContext
 import io.nessus.identity.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
-import io.nessus.identity.console.SessionsStore.createLoginContext
-import io.nessus.identity.console.SessionsStore.logout
+import io.nessus.identity.console.HttpSessionStore.createLoginContext
+import io.nessus.identity.console.HttpSessionStore.logout
 import io.nessus.identity.service.IssuerService.Companion.KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.service.WalletService
@@ -100,7 +100,7 @@ class WalletHandler(val walletSvc: WalletService) {
     }
 
     suspend fun handleLogout(call: RoutingCall, ctx: LoginContext) {
-        logout(call, ctx.targetId)
+        logout(call, ctx.userRole)
         call.respondRedirect("/wallet")
     }
 

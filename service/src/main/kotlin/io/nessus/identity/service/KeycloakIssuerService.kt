@@ -1,29 +1,18 @@
 package io.nessus.identity.service
 
 import com.nimbusds.jwt.SignedJWT
-import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
-import io.nessus.identity.Experimental
 import io.nessus.identity.OAuthClient
 import io.nessus.identity.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.config.User
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
-import io.nessus.identity.types.AuthorizationMetadata
-import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferUri
 import io.nessus.identity.types.CredentialOfferV0
-import io.nessus.identity.types.CredentialRequest
-import io.nessus.identity.types.CredentialResponse
-import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.OfferUriType
 import io.nessus.identity.types.TokenRequest
-import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserInfo
 import io.nessus.identity.utils.http
 import jakarta.ws.rs.core.HttpHeaders
@@ -33,33 +22,10 @@ import org.keycloak.admin.client.Keycloak
 import org.keycloak.admin.client.KeycloakBuilder
 import org.keycloak.representations.idm.CredentialRepresentation
 import org.keycloak.representations.idm.UserRepresentation
-import java.net.URI
 
-class KeycloakIssuerService(val config: IssuerConfig): IssuerService {
-
-    val log = KotlinLogging.logger {}
-
-    override val endpointUri = "${config.baseUrl}/realms/${config.realm}"
-
-    override fun getAuthorizationMetadataUrl(): String {
-        val metadataUrl = "$endpointUri/$WELL_KNOWN_OPENID_CONFIGURATION"
-        return metadataUrl
-    }
-
-    override suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
-        return getIssuerMetadata().getAuthorizationMetadata()
-    }
-
-    override fun getIssuerMetadataUrl(): String {
-        val metadataUrl = "$endpointUri/$WELL_KNOWN_OPENID_CREDENTIAL_ISSUER"
-        return metadataUrl
-    }
-
-    override suspend fun getIssuerMetadata(): IssuerMetadataV0 {
-        val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
-        log.info { "IssuerMetadataUrl: $metadataUrl" }
-        return http.get(metadataUrl).body<IssuerMetadataV0>()
-    }
+class KeycloakIssuerService(val config: IssuerConfig): AbstractIssuerService(
+    endpointUri = "${config.baseUrl}/realms/${config.realm}"
+) {
 
     override suspend fun createCredentialOffer(
         configId: String,
@@ -123,37 +89,6 @@ class KeycloakIssuerService(val config: IssuerConfig): IssuerService {
     }
 
     // ExperimentalIssuerService ---------------------------------------------------------------------------------------
-
-    @Experimental
-    override suspend fun createIDTokenRequest(authRequest: AuthorizationRequest): AuthorizationRequest {
-        error("Not implemented")
-    }
-
-    @Experimental
-    override fun getAuthCodeFromIDToken(idTokenJwt: SignedJWT): String {
-        error("Not implemented")
-    }
-
-    @Experimental
-    override suspend fun getCredentialFromAcceptanceToken(
-        acceptanceTokenJwt: SignedJWT
-    ): CredentialResponse {
-        error("Not implemented")
-    }
-
-    @Experimental
-    override suspend fun getCredentialFromRequest(
-        credReq: CredentialRequest,
-        accessTokenJwt: SignedJWT,
-        deferred: Boolean
-    ): CredentialResponse {
-        error("Not implemented")
-    }
-
-    @Experimental
-    override suspend fun getTokenResponse(tokenRequest: TokenRequest): TokenResponse {
-        error("Not implemented")
-    }
 
     // UserAccess ------------------------------------------------------------------------------------------------------
 

@@ -9,25 +9,16 @@ import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.request.*
 import io.ktor.server.routing.*
-import io.ktor.server.sessions.*
 import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
-import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
-import io.nessus.identity.config.ConfigProvider.requireVerifierConfig
-import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.minisrv.IssuerApiHandler.Companion.handleIssuerMetadataRequest
-import io.nessus.identity.minisrv.SessionsStore.cookieName
-import io.nessus.identity.minisrv.SessionsStore.createLoginContext
-import io.nessus.identity.minisrv.SessionsStore.findLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.service.NativeIssuerService
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
-import io.nessus.identity.toLoginParams
-import io.nessus.identity.types.UserRole
 import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 
@@ -35,11 +26,10 @@ class MiniServer(
     val issuerSvc: IssuerService,
     val walletSvc: WalletService,
     val verifierSvc: VerifierService,
+    val sessionStore: SessionStore,
 ) {
 
     val log = KotlinLogging.logger {}
-
-    private val autoLoginComplete = mutableMapOf<UserRole, Boolean>()
 
     companion object {
         @JvmStatic
@@ -71,46 +61,6 @@ class MiniServer(
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true })
             }
-            install(Sessions) {
-                cookie<HolderCookie>(cookieName(UserRole.Holder)) {
-                    cookie.path = "/"
-                    cookie.maxAgeInSeconds = 3600
-                }
-                cookie<IssuerCookie>(cookieName(UserRole.Issuer)) {
-                    cookie.path = "/"
-                    cookie.maxAgeInSeconds = 3600
-                }
-                cookie<VerifierCookie>(cookieName(UserRole.Verifier)) {
-                    cookie.path = "/"
-                    cookie.maxAgeInSeconds = 3600
-                }
-            }
-            install(createApplicationPlugin("AutoLoginPlugin") {
-                onCall { call ->
-                    if (!(autoLoginComplete[UserRole.Issuer] ?: false)) {
-                        if (findLoginContext(call, UserRole.Issuer) == null) {
-                            val adminUser = requireIssuerConfig().adminUser
-                            createLoginContext(call, UserRole.Issuer, adminUser.toLoginParams())
-                        }
-                        autoLoginComplete[UserRole.Issuer] = true
-                    }
-                    if (!(autoLoginComplete[UserRole.Holder] ?: false)) {
-                        if (findLoginContext(call, UserRole.Holder) == null) {
-                            val testUser = requireWalletConfig().testUser
-                            createLoginContext(call, UserRole.Holder, testUser.toLoginParams())
-                        }
-                        autoLoginComplete[UserRole.Holder] = true
-                    }
-                    if (!(autoLoginComplete[UserRole.Verifier] ?: false)) {
-                        if (findLoginContext(call, UserRole.Verifier) == null) {
-                            val testUser = requireVerifierConfig().testUser
-                            createLoginContext(call, UserRole.Verifier, testUser.toLoginParams())
-                        }
-                        autoLoginComplete[UserRole.Verifier] = true
-                    }
-                }
-            })
-
             routing {
                 route("/issuer") {
                     route("/{targetId}") {
@@ -219,7 +169,6 @@ class MiniServer(
 
     private suspend fun requireTargetContext(call: RoutingCall, block: suspend (LoginContext) -> Unit) {
         val targetId = requireNotNull(call.parameters["targetId"]) { "No target path" }
-        val ctx = findLoginContext(call, targetId)
-        block(requireNotNull(ctx) { "No login context for: $targetId" })
+        block(sessionStore.requireLoginContext(targetId))
     }
 }

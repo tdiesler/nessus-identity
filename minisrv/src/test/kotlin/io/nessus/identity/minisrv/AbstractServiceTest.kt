@@ -3,18 +3,13 @@ package io.nessus.identity.minisrv
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.common.runBlocking
 import io.ktor.server.engine.*
-import io.nessus.identity.LoginContext
-import io.nessus.identity.LoginContext.Companion.USER_ROLE_ATTACHMENT_KEY
-import io.nessus.identity.LoginContext.Companion.login
-import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.NativeIssuerService
+import io.nessus.identity.service.NoopIssuerService
+import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
-import io.nessus.identity.types.UserRole
 import kotlinx.serialization.json.*
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.TestInstance
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -26,8 +21,8 @@ abstract class AbstractServiceTest {
     lateinit var embeddedServer: EmbeddedServer<*, *>
     lateinit var issuerSvc: IssuerService
     lateinit var walletSvc: WalletService
-
-    lateinit var alice: LoginContext
+    lateinit var verifierSvc: VerifierService
+    lateinit var sessionStore: SessionStore
 
     @BeforeAll
     fun beforeAll() {
@@ -50,30 +45,24 @@ abstract class AbstractServiceTest {
     }
 
     fun stopMiniServer() {
-        embeddedServer.stop(3000, 5000)
+        embeddedServer.stop()
     }
 
-    @BeforeEach
-    fun setUp() {
-        runBlocking {
-            if (issuerSvc is NativeIssuerService) {
-                // [TODO] can we really reuse this context
-                val issuerContext = (issuerSvc as NativeIssuerService).adminContext
-                issuerContext.putAttachment(USER_ROLE_ATTACHMENT_KEY, UserRole.Issuer)
-                SessionsStore.putLoginContext(issuerContext)
-            }
-            alice = login(Alice).withDidInfo()
-            alice.putAttachment(USER_ROLE_ATTACHMENT_KEY, UserRole.Holder)
-            SessionsStore.putLoginContext(alice)
-        }
-    }
-
-    abstract fun createIssuerService(): IssuerService
+    open fun createIssuerService(): IssuerService = NoopIssuerService()
+    open fun createWalletService(): WalletService = WalletService.createNative()
+    open fun createVerifierService(): VerifierService = VerifierService.createNative()
+    open fun createSessionStore(): SessionStore = BasicSessionStore()
 
     open fun buildMiniServer(): MiniServer {
-        val issuerSvc = createIssuerService()
+        issuerSvc = createIssuerService()
+        walletSvc = createWalletService()
+        verifierSvc = createVerifierService()
+        sessionStore = createSessionStore()
         return MiniServerBuilder()
             .withIssuerService(issuerSvc)
+            .withWalletService(walletSvc)
+            .withVerifierService(verifierSvc)
+            .withSessionsStore(sessionStore)
             .build()
     }
 }

@@ -2,10 +2,9 @@ package io.nessus.identity.minisrv
 
 import io.nessus.identity.service.IssuerService
 
-
-class KeycloakIssuerServiceTest : AbstractIssuerServiceTest() {
+class Ebsi32WalletServiceTest : AbstractWalletServiceTest() {
 
     override fun createIssuerService(): IssuerService {
-        return IssuerService.createKeycloak()
+        return IssuerService.createEbsi32()
     }
 }

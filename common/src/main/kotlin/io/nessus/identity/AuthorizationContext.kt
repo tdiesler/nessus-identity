@@ -7,6 +7,7 @@ import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.IssuerMetadataV0
@@ -39,6 +40,7 @@ class AuthorizationContext(val loginContext: LoginContext) : AttachmentSupport()
 
         val EBSI32_AUTHORIZATION_METADATA_ATTACHMENT_KEY = attachmentKey<AuthorizationMetadata>()
         val EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>()
+        val EBSI32_CREDENTIAL_OFFER_ATTACHMENT_KEY = attachmentKey<CredentialOfferDraft11>()
         val EBSI32_ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<IssuerMetadataDraft11>()
         val EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY = attachmentKey<PresentationSubmission>()
         val EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestDraft11>("RequestUriObject")

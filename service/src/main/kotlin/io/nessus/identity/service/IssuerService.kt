@@ -28,6 +28,9 @@ interface IssuerService {
         const val WELL_KNOWN_OPENID_CONFIGURATION = ".well-known/openid-configuration"
         const val WELL_KNOWN_OPENID_CREDENTIAL_ISSUER = ".well-known/openid-credential-issuer"
 
+        fun createEbsi32(): IssuerService {
+            return Ebsi32IssuerService()
+        }
         fun createNative(): IssuerService {
             val config = if(Features.isProfile(EBSI_V32)) {
                 requireIssuerConfig("proxy")

@@ -7,7 +7,7 @@ import io.nessus.identity.types.DCQLQuery
 
 // NativeVerifierService ===============================================================================================
 
-class NativeVerifierService(val config: VerifierConfig) : VerifierService {
+class NativeVerifierService(val config: VerifierConfig) : AbstractVerifierService() {
 
     /**
      * The endpoint for this service

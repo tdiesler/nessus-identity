@@ -15,6 +15,7 @@ import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.NativeIssuerService
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.CredentialRequestDraft11
+import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.utils.urlQueryToMap
@@ -45,7 +46,7 @@ class IssuerApiHandler(val issuerSvc: NativeIssuerService):
 
         val ctx = adminContext
         val authContext = ctx.getAuthContext()
-        val issuerMetadata = issuerSvc.getIssuerMetadata()
+        val issuerMetadata = issuerSvc.getIssuerMetadata() as IssuerMetadataDraft11
         authContext.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
 
         val queryParams = urlQueryToMap(call.request.uri)
@@ -115,7 +116,7 @@ class IssuerApiHandler(val issuerSvc: NativeIssuerService):
 
         val ctx = adminContext
         val authContext = ctx.getAuthContext()
-        val issuerMetadata = issuerSvc.getIssuerMetadata()
+        val issuerMetadata = issuerSvc.getIssuerMetadata() as IssuerMetadataDraft11
         authContext.putAttachment(EBSI32_ISSUER_METADATA_ATTACHMENT_KEY, issuerMetadata)
 
         val postParams = call.receiveParameters().toMap().toMutableMap()

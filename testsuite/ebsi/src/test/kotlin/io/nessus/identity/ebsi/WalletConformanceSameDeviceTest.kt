@@ -1,5 +1,6 @@
 package io.nessus.identity.ebsi
 
+import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.Alice
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import org.junit.jupiter.api.AfterAll
@@ -29,7 +30,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSameAuthorisedInTime"
         log.info { ">>>>> Wallet $ctype" }
 
-        val ctx = login(Alice)
+        val ctx = sessionStore.findLoginContextByUser(Alice) as LoginContext
 
         // Click the collapsible element
         val page = context.pages().last()
@@ -67,7 +68,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSameAuthorisedDeferred"
         log.info { ">>>>> Wallet $ctype" }
 
-        val ctx = login(Alice)
+        val ctx = sessionStore.findLoginContextByUser(Alice) as LoginContext
 
         // Click the collapsible element
         val page = context.pages().last()
@@ -104,7 +105,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSamePreAuthorisedInTime"
         log.info { ">>>>> Wallet $ctype" }
 
-        val ctx = login(Alice)
+        val ctx = sessionStore.findLoginContextByUser(Alice) as LoginContext
 
         // Click the collapsible element
         val page = context.pages().last()
@@ -145,7 +146,7 @@ class WalletConformanceSameDeviceTest : AbstractWalletConformanceTest() {
         val ctype = "CTWalletSamePreAuthorisedDeferred"
         log.info { ">>>>> Wallet $ctype" }
 
-        val ctx = login(Alice)
+        val ctx = sessionStore.findLoginContextByUser(Alice) as LoginContext
 
         // Click the collapsible element
         val page = context.pages().last()

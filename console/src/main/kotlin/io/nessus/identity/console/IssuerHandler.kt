@@ -14,7 +14,7 @@ import io.nessus.identity.config.ConfigProvider.Bob
 import io.nessus.identity.config.ConfigProvider.Max
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.config.User
-import io.nessus.identity.console.SessionsStore.requireLoginContext
+import io.nessus.identity.console.HttpSessionStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.KeycloakIssuerService
 import io.nessus.identity.types.CredentialOffer
