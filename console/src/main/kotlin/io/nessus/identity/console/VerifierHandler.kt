@@ -21,13 +21,13 @@ import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.DCQLQuery
-import io.nessus.identity.types.IssuerMetadataV0
 import io.nessus.identity.types.LoginParams
 import io.nessus.identity.types.LoginType
 import io.nessus.identity.types.PresentationDefinitionBuilder
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.types.W3CCredentialJwt
+import io.nessus.identity.types.W3CCredentialV11Jwt
 import io.nessus.identity.types.publicKeyJwk
 import io.nessus.identity.utils.signWithKey
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
@@ -173,11 +173,15 @@ class VerifierHandler(
     }
 
     suspend fun showPresentationRequest(call: RoutingCall, holderContext: LoginContext) {
-        val issuerMetadata = issuerSvc.getIssuerMetadata() as IssuerMetadataV0
+        val vctValues = walletSvc.findCredentials(holderContext) { true }
+            .map { W3CCredentialJwt.fromEncoded(it.document) }
+            .filterIsInstance<W3CCredentialV11Jwt>()
+            .flatMap { it.types.filter { !listOf("VerifiableCredential", "VerifiableAttestation").contains(it) } }
+            .sorted()
         val model = verifierModel(call)
         model["targetId"] = holderContext.targetId
         model["subInfo"] = widWalletService.authUserInfo(holderContext.authToken) ?: error("No WaltIdUser")
-        model["vctValues"] = issuerMetadata.credentialConfigurationsSupported.keys
+        model["vctValues"] = vctValues
         model["claimsJson"] = jsonPretty.encodeToString(
             Json.decodeFromString<JsonArray>(
                 """

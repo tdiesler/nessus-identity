@@ -1,22 +1,15 @@
 package io.nessus.identity.service
 
-import com.nimbusds.jwt.SignedJWT
-import io.nessus.identity.Experimental
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.FeatureProfile.EBSI_V32
 import io.nessus.identity.config.Features
 import io.nessus.identity.config.User
 import io.nessus.identity.types.AuthorizationMetadata
-import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.CredentialOffer
-import io.nessus.identity.types.CredentialRequest
-import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.IssuerMetadata
-import io.nessus.identity.types.TokenRequest
-import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserInfo
 
-interface IssuerService {
+interface IssuerService: ExperimentalIssuerService {
 
     /**
      * The endpoint uri for this service
@@ -87,35 +80,6 @@ interface IssuerService {
         userPin: String? = null,
         targetUser: User? = null,
     ): String
-
-    // ExperimentalIssuerService ---------------------------------------------------------------------------------------
-
-    @Experimental
-    suspend fun createIDTokenRequest(
-        authRequest: AuthorizationRequest
-    ): AuthorizationRequest
-
-    @Experimental
-    fun getAuthCodeFromIDToken(
-        idTokenJwt: SignedJWT,
-    ): String
-
-    @Experimental
-    suspend fun getCredentialFromAcceptanceToken(
-        acceptanceTokenJwt: SignedJWT
-    ): CredentialResponse
-
-    @Experimental
-    suspend fun getCredentialFromRequest(
-        credReq: CredentialRequest,
-        accessTokenJwt: SignedJWT,
-        deferred: Boolean = false
-    ): CredentialResponse
-
-    @Experimental
-    suspend fun getTokenResponse(
-        tokenRequest: TokenRequest
-    ): TokenResponse
 
     // UserAccess ------------------------------------------------------------------------------------------------------
 

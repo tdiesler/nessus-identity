@@ -31,10 +31,6 @@ interface VerifierService {
         }
     }
 
-    // ExperimentalVerifierService =====================================================================================
-
-    // LegacyVerifierService ===========================================================================================
-
     /**
      * Verifier builds the AuthorizationRequest for Verifiable Presentation
      * https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-authorization-request

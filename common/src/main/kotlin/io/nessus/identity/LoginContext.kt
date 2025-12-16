@@ -3,7 +3,6 @@ package io.nessus.identity
 import io.nessus.identity.config.User
 import io.nessus.identity.types.AttachmentKey
 import io.nessus.identity.types.AttachmentSupport
-import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.DidInfo
 import io.nessus.identity.types.KeyType
 import io.nessus.identity.types.LoginParams
@@ -41,11 +40,11 @@ open class LoginContext(attachments: Map<AttachmentKey<*>, Any> = mapOf()) : Att
         val AUTH_TOKEN_ATTACHMENT_KEY = attachmentKey<String>("AUTH_TOKEN")
         val WALLET_INFO_ATTACHMENT_KEY = attachmentKey<WalletInfo>()
         val DID_INFO_ATTACHMENT_KEY = attachmentKey<DidInfo>()
+        val TX_CODE_ATTACHMENT_KEY = attachmentKey<String>("TX_CODE")
         val USER_ROLE_ATTACHMENT_KEY = attachmentKey<UserRole>()
         val USER_ATTACHMENT_KEY = attachmentKey<User>()
 
         // [TODO] Move these to the AuthorizationContext
-        val AUTH_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestV0>()
         val AUTH_RESPONSE_ATTACHMENT_KEY = attachmentKey<TokenResponse>()
 
         suspend fun login(user: User): LoginContext {

@@ -34,6 +34,7 @@ class AuthorizationContext(val loginContext: LoginContext) : AttachmentSupport()
     companion object {
         val ACCESS_TOKEN_ATTACHMENT_KEY = attachmentKey<SignedJWT>("ACCESS_TOKEN")
         val AUTHORIZATION_CODE_ATTACHMENT_KEY = attachmentKey<String>("AUTHORIZATION_CODE")
+        val AUTHORIZATION_REQUEST_ATTACHMENT_KEY = attachmentKey<AuthorizationRequestV0>()
         val AUTHORIZATION_METADATA_ATTACHMENT_KEY = attachmentKey<AuthorizationMetadata>()
         val CODE_VERIFIER_ATTACHMENT_KEY = attachmentKey<String>("CODE_VERIFIER")
         val ISSUER_METADATA_ATTACHMENT_KEY = attachmentKey<IssuerMetadataV0>()

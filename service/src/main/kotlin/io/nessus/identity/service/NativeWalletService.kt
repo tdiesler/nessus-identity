@@ -139,6 +139,7 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
 
         val holder = ctx.assertAttachment(USER_ATTACHMENT_KEY)
         val authCode = getAuthorizationCode(ctx,
+            clientId = defaultClientId,
             username = holder.username,
             password = holder.password
         )

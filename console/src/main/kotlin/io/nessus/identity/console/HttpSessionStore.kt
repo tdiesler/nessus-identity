@@ -1,6 +1,8 @@
 package io.nessus.identity.console
 
+import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.request.*
 import io.ktor.server.sessions.*
 import io.nessus.identity.LoginContext
 import io.nessus.identity.minisrv.BasicSessionStore
@@ -33,7 +35,12 @@ object HttpSessionStore : BasicSessionStore() {
      */
     fun findLoginContext(call: ApplicationCall, role: UserRole): LoginContext? {
         val cookie = getCookieFromSession(call, role)
-        val ctx = cookie?.let { super.findLoginContext(it.targetId) }
+        val authToken = call.request.header(HttpHeaders.Authorization)
+        val targetId = call.parameters["targetId"]
+        val ctx = cookie?.let { findLoginContext(it.targetId) }
+            ?: authToken?.let { findLoginContextByAuthToken(it) }
+            ?: targetId?.let { findLoginContextByTxCode(it) }
+            ?: targetId?.let { findLoginContext(targetId) } // [TODO] Remove this insecure lookup used vp flow
         return ctx
     }
 
@@ -43,8 +50,8 @@ object HttpSessionStore : BasicSessionStore() {
 
     fun logout(call: ApplicationCall, role: UserRole) {
         findLoginContext(call, role)?.also {
-            super.logout(it.targetId)
             call.sessions.clear(cookieName(it.userRole))
+            logout(it.targetId)
         }
     }
 

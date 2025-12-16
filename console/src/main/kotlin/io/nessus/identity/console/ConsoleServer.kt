@@ -416,8 +416,7 @@ class ConsoleServer(
     }
 
     private suspend fun requireTargetContext(call: RoutingCall, role: UserRole, block: suspend (LoginContext) -> Unit) {
-        val ctx = requireLoginContext(call, role)
-        block(ctx)
+        block(requireLoginContext(call, role))
     }
 
     private suspend fun withHolderContextOrHome(call: RoutingCall, block: suspend (LoginContext) -> Unit) {

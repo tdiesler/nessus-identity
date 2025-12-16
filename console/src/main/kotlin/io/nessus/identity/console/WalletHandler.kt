@@ -22,11 +22,12 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
+import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.USER_PIN_ATTACHMENT_KEY
 import io.nessus.identity.LoginContext
-import io.nessus.identity.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
+import io.nessus.identity.LoginContext.Companion.TX_CODE_ATTACHMENT_KEY
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.console.HttpSessionStore.createLoginContext
@@ -154,9 +155,10 @@ class WalletHandler(val walletSvc: WalletService) {
         }
 
         val walletConfig = requireWalletConfig()
+        val clientId = walletSvc.defaultClientId
         val redirectUri = "${walletSvc.endpointUri}${walletConfig.callbackPath}/${ctx.targetId}"
         val authEndpointUrl = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
-        val authRequest = walletSvc.buildAuthorizationRequest(authContext, redirectUri = redirectUri)
+        val authRequest = walletSvc.buildAuthorizationRequest(authContext, clientId, redirectUri = redirectUri)
         val authRequestUrl = authRequest.toRequestUrl(authEndpointUrl)
         log.info { "Wallet sends AuthorizationRequest: $authRequestUrl" }
         authRequest.toRequestParameters().forEach { (k, v) -> log.info { "  $k=$v" } }
@@ -188,25 +190,25 @@ class WalletHandler(val walletSvc: WalletService) {
 
         val reqParams = urlQueryToMap(call.request.uri)
 
-        // Final Qualification Credential use case ...
-        //
-        //  - EBSI offers the CTWalletQualificationCredential
-        //  - Holder sends an AuthorizationRequest, EBSI responds with an 302 Redirect (WalletBackend.sendAuthorizationRequest)
-        //  - Cloudflare may deny that redirect URL because of a very large 'request' query parameter
-        //  - The content of that request parameter is a serialized AuthorizationRequest object
-        //  - We rewrite the redirect URL using a request_uri parameter, which resolves to that AuthorizationRequest
-        //  - Here, we restore that AuthorizationRequest and use it's PresentationDefinition to build the VPToken
-
-        // [TODO #229] Access to request_uri object not thread safe
-        // https://github.com/tdiesler/nessus-identity/issues/229
-
-        val authContext = ctx.getAuthContext()
-
         val requestUri = reqParams["request_uri"]
         if (requestUri != null) {
 
+            // Final Qualification Credential use case ...
+            //
+            //  - EBSI offers the CTWalletQualificationCredential
+            //  - Holder sends an AuthorizationRequest, EBSI responds with an 302 Redirect (WalletBackend.sendAuthorizationRequest)
+            //  - Cloudflare may deny that redirect URL because of a very large 'request' query parameter
+            //  - The content of that request parameter is a serialized AuthorizationRequest object
+            //  - We rewrite the redirect URL using a request_uri parameter, which resolves to that AuthorizationRequest
+            //  - Here, we restore that AuthorizationRequest and use it's PresentationDefinition to build the VPToken
+
+            // [TODO #229] Access to request_uri object not thread safe
+            // https://github.com/tdiesler/nessus-identity/issues/229
+
             require(requestUri.startsWith(endpointUri)) { "Unexpected request_uri: $requestUri" }
             requireNotNull(urlQueryToMap(requestUri)["request_object"]) { "No request_object in: $requestUri" }
+
+            val authContext = ctx.getAuthContext()
             val authRequest = authContext.assertAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY)
 
             val vpTokenJwt = createVPTokenDraft11(ctx, authRequest)
@@ -220,8 +222,9 @@ class WalletHandler(val walletSvc: WalletService) {
 
         } else {
 
+            val authContext = ctx.getAuthContext()
             val authRequest = AuthorizationRequestV0.fromHttpParameters(reqParams)
-            authContext.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+            authContext.putAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
             return call.respondRedirect("/wallet/${ctx.targetId}/flow/vp-token-consent?state=ask")
         }
     }
@@ -230,7 +233,8 @@ class WalletHandler(val walletSvc: WalletService) {
 
         when (val state = call.parameters["state"]) {
             "ask" -> run {
-                val authReq = ctx.getAttachment(AUTH_REQUEST_ATTACHMENT_KEY) as AuthorizationRequestV0
+                val authContext = ctx.getAuthContext()
+                val authReq = authContext.assertAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
                 val model = walletModel(call, ctx).also {
                     it["dcqlQuery"] = jsonPretty.encodeToString(authReq.dcqlQuery!!.toJsonObj())
                     it["targetId"] = ctx.targetId
@@ -241,7 +245,8 @@ class WalletHandler(val walletSvc: WalletService) {
             }
 
             "accept" -> {
-                val authReq = ctx.removeAttachment(AUTH_REQUEST_ATTACHMENT_KEY) as AuthorizationRequestV0
+                val authContext = ctx.getAuthContext()
+                val authReq = authContext.removeAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY) as AuthorizationRequestV0
                 val authRes = walletSvc.handleVPTokenRequest(ctx, authReq)
                 when (authReq.responseMode) {
                     "direct_post" -> run {
@@ -313,10 +318,13 @@ class WalletHandler(val walletSvc: WalletService) {
                 )
             }.toList()
 
+        val txCode = Uuid.random().toString()
+        ctx.putAttachment(TX_CODE_ATTACHMENT_KEY, txCode)
+
         val model = walletModel(call, ctx).also {
             it["credentialOffers"] = credOfferData
             it["userDid"] = ctx.did
-            it["credentialOfferEndpoint"] = "${walletSvc.endpointUri}/${ctx.targetId}"
+            it["credentialOfferEndpoint"] = urlEncode("${walletSvc.endpointUri}/$txCode")
         }
 
         call.respond(
@@ -359,7 +367,6 @@ class WalletHandler(val walletSvc: WalletService) {
                     val vc = credJwt.vc
                     listOf(credJwt.vcId.encodeURLPath(), abbreviatedDid(vc.issuer.id), "${vc.type}")
                 }
-
                 is W3CCredentialSdV11Jwt -> {
                     listOf(
                         credJwt.vcId.encodeURLPath(),

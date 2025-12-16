@@ -18,14 +18,24 @@ interface SessionStore {
     suspend fun login(role: UserRole, params: LoginParams): LoginContext
 
     /**
-     * Find a LoginContext for the given user
-     */
-    fun findLoginContextByUser(user: User): LoginContext?
-
-    /**
      * Find a LoginContext for the given targetId
      */
     fun findLoginContext(targetId: String): LoginContext?
+
+    /**
+     * Find a LoginContext by access token
+     */
+    fun findLoginContextByAuthToken(authToken: String): LoginContext?
+
+    /**
+     * Find a LoginContext by tx code
+     */
+    fun findLoginContextByTxCode(txCode: String): LoginContext?
+
+    /**
+     * Find a LoginContext for the given user
+     */
+    fun findLoginContextByUser(user: User): LoginContext?
 
     /**
      * Require a LoginContext for the given targetId

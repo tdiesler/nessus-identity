@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-class OAuthClientTest: AbstractServiceTest() {
+class IssuerServiceTest: AbstractServiceTest() {
 
     lateinit var issuerSvc: IssuerService
 

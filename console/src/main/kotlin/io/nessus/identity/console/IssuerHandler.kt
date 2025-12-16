@@ -150,6 +150,7 @@ class IssuerHandler(val issuerSvc: IssuerService) {
         val credOfferUri = params["credOfferUri"] ?: error("No credOfferUri")
 
         val holderContext = requireLoginContext(call, UserRole.Holder)
+        val holderAuthToken = holderContext.authToken
         val targetId = holderContext.targetId
 
         val credOfferUriRes = http.get(credOfferUri) {}
@@ -157,6 +158,7 @@ class IssuerHandler(val issuerSvc: IssuerService) {
 
         val walletUrl = "${requireWalletConfig().baseUrl}/$targetId"
         val credOfferSendRes = http.get(walletUrl) {
+            header(HttpHeaders.Authorization, holderAuthToken)
             parameter("credential_offer", credOffer.toJson())
         }
         if (credOfferSendRes.status.value !in 200..202)

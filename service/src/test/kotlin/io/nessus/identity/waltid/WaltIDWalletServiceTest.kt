@@ -9,6 +9,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
+import io.nessus.identity.LoginContext.Companion.login
 import io.nessus.identity.config.ConfigProvider.Max
 import io.nessus.identity.service.AbstractServiceTest
 import io.nessus.identity.toLoginParams

@@ -23,11 +23,11 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
+import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.LoginContext
-import io.nessus.identity.LoginContext.Companion.AUTH_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.service.AuthorizationService
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestV0
@@ -156,7 +156,7 @@ open class AuthorizationApiHandler(
         } else {
 
             val authRequest = AuthorizationRequestV0.fromHttpParameters(reqParams)
-            authContext.putAttachment(AUTH_REQUEST_ATTACHMENT_KEY, authRequest)
+            authContext.putAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
             return call.respondRedirect("/wallet/${ctx.targetId}/flow/vp-token-consent?state=ask")
         }
     }

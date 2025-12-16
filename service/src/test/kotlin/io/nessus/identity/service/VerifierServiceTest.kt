@@ -13,7 +13,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
-class KeycloakVerifierServiceTest : AbstractServiceTest() {
+class VerifierServiceTest : AbstractServiceTest() {
 
     lateinit var alice: LoginContext
 

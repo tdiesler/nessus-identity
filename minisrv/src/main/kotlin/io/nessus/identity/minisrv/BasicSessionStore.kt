@@ -2,6 +2,7 @@ package io.nessus.identity.minisrv
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.nessus.identity.LoginContext
+import io.nessus.identity.LoginContext.Companion.TX_CODE_ATTACHMENT_KEY
 import io.nessus.identity.LoginContext.Companion.USER_ATTACHMENT_KEY
 import io.nessus.identity.config.User
 import io.nessus.identity.toLoginParams
@@ -28,13 +29,23 @@ open class BasicSessionStore : SessionStore {
         return ctx
     }
 
-    override fun findLoginContextByUser(user: User): LoginContext? {
-        val ctx = loginContexts.values.firstOrNull { it.getAttachment(USER_ATTACHMENT_KEY)?.email == user.email }
+    override fun findLoginContext(targetId: String): LoginContext? {
+        val ctx = loginContexts[targetId]
         return ctx
     }
 
-    override fun findLoginContext(targetId: String): LoginContext? {
-        val ctx = loginContexts[targetId]
+    override fun findLoginContextByAuthToken(authToken: String): LoginContext? {
+        val ctx = loginContexts.values.firstOrNull { it.authToken == authToken }
+        return ctx
+    }
+
+    override fun findLoginContextByTxCode(txCode: String): LoginContext? {
+        val ctx = loginContexts.values.firstOrNull { it.removeAttachment(TX_CODE_ATTACHMENT_KEY) == txCode }
+        return ctx
+    }
+
+    override fun findLoginContextByUser(user: User): LoginContext? {
+        val ctx = loginContexts.values.firstOrNull { it.getAttachment(USER_ATTACHMENT_KEY)?.email == user.email }
         return ctx
     }
 
