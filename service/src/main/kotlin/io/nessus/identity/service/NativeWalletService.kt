@@ -4,9 +4,13 @@ import com.microsoft.playwright.BrowserType.LaunchOptions
 import com.microsoft.playwright.Playwright
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSAlgorithm.ES256
+import com.nimbusds.jose.JWSAlgorithm.PS384
 import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.JWSObject
 import com.nimbusds.jose.crypto.ECDSAVerifier
+import com.nimbusds.jose.crypto.RSASSAVerifier
+import com.nimbusds.jose.jwk.Curve
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.util.Base64URL
@@ -16,14 +20,23 @@ import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.dif.DescriptorMapping
 import id.walt.oid4vc.data.dif.PresentationSubmission
+import id.walt.oid4vc.definitions.JWTClaims.Header.jwk
+import id.walt.oid4vc.definitions.JWTClaims.Payload.issuer
 import id.walt.w3c.utils.VCFormat
 import id.walt.webwallet.db.models.WalletCredential
-import io.ktor.client.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.URLBuilder
+import io.ktor.http.contentType
+import io.ktor.serialization.kotlinx.json.json
 import io.nessus.identity.AuthorizationContext
 import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_REQUEST_ATTACHMENT_KEY
@@ -65,22 +78,25 @@ import io.nessus.identity.types.W3CCredentialJwt
 import io.nessus.identity.types.W3CCredentialSdV11Jwt
 import io.nessus.identity.types.W3CCredentialV11Jwt
 import io.nessus.identity.types.authenticationId
+import io.nessus.identity.utils.DIDUtils
 import io.nessus.identity.utils.HttpStatusException
 import io.nessus.identity.utils.base64UrlEncode
 import io.nessus.identity.utils.http
 import io.nessus.identity.utils.signWithKey
 import io.nessus.identity.utils.urlQueryToMap
 import io.nessus.identity.utils.verifyJwtSignature
-import io.nessus.identity.waltid.WaltIDServiceProvider
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.coroutines.delay
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
-import java.util.*
+import java.util.Date
 import kotlin.random.Random
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
+
 
 // NativeWalletService =================================================================================================
 
@@ -275,14 +291,14 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
 
         // Validate the Credential
         //
-        val signedJwt = extractCredentialFromResponse(credResponse)
-        val (_, format) = validateCredential(ctx, signedJwt)
+        val vcJwt = extractCredentialFromResponse(credResponse)
+        val (_, format) = validateCredential(ctx, vcJwt)
 
         // Store the Credential
         //
-        storeCredential(ctx, format, signedJwt)
+        storeCredential(ctx, format, vcJwt)
 
-        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
+        val credJwt = W3CCredentialJwt.fromEncoded("${vcJwt.serialize()}")
         return credJwt
     }
 
@@ -343,14 +359,14 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
 
         // Validate the Credential
         //
-        val signedJwt = extractCredentialFromResponse(credResponse)
-        val (_, format) = validateCredential(ctx, signedJwt)
+        val vcJwt = extractCredentialFromResponse(credResponse)
+        val (_, format) = validateCredential(ctx, vcJwt)
 
         // Store the Credential
         //
-        storeCredential(ctx, format, signedJwt)
+        storeCredential(ctx, format, vcJwt)
 
-        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
+        val credJwt = W3CCredentialJwt.fromEncoded("${vcJwt.serialize()}")
         return credJwt
     }
 
@@ -789,9 +805,9 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         return tokenResponse
     }
 
-    private suspend fun validateCredential(ctx: LoginContext, signedJwt: SignedJWT): Pair<String, CredentialFormat> {
+    private suspend fun validateCredential(ctx: LoginContext, vcJwt: SignedJWT): Pair<String, CredentialFormat> {
 
-        val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
+        val credJwt = W3CCredentialJwt.fromEncoded("${vcJwt.serialize()}")
         val credType = credJwt.types.first { it !in listOf("VerifiableAttestation", "VerifiableCredential") }
 
         val authContext = ctx.getAuthContext()
@@ -800,47 +816,80 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         val format = issuerMetadata.getCredentialFormat(credType)
         requireNotNull(format) { "No credential format for: $credType" }
 
-        // Resolve issuer
-        val issuerId = requireNotNull(credJwt.iss) { "No issuer claim" }
-        log.info { "IssuerId: $issuerId" }
-
-        // [TODO #331] Verify VC signature when iss is not did:key:*
-        // https://github.com/tdiesler/nessus-identity/issues/331
-        if (issuerId.startsWith("did:key:")) {
-
-            // Resolve DID Document locally
-            val key = WaltIDServiceProvider.widDidService.resolveToKey(issuerId).getOrThrow()
-            val jwk = JWK.parse("${key.exportJWKObject()}")
-            log.info { "Issuer Jwk: $jwk" }
-
-            val ecdsaVerifier = ECDSAVerifier(jwk.toECKey())
-            when (credJwt) {
-                is W3CCredentialV11Jwt -> {
-                    check(signedJwt.verify(ecdsaVerifier)) { "Invalid credential signature" }
-                }
-
-                is W3CCredentialSdV11Jwt -> {
-                    val combined = "${signedJwt.serialize()}"
-                    val jwsCompact = combined.substringBefore('~')  // keep only JWS
-                    val jwsObj = JWSObject.parse(jwsCompact)
-                    check(jwsObj.verify(ecdsaVerifier)) { "Invalid credential signature" }
-                }
-            }
-        } else {
-            log.warn{ "Skip credential signature verification for issuer: $issuerId" }
-        }
+        verifyVcJwtSignature(ctx, vcJwt)
 
         // Validate JWT standard claims
-        signedJwt.jwtClaimsSet.run {
+        vcJwt.jwtClaimsSet.run {
             val now = Date()
             check(notBeforeTime == null || !now.before(notBeforeTime)) { "Credential not yet valid" }
             check(expirationTime == null || !now.after(expirationTime)) { "Credential expired" }
-            check(this.issuer == issuerId) { "Issuer mismatch" }
+            check(this.issuer == issuer) { "Issuer mismatch" }
         }
 
         return Pair(credType, format)
     }
 
-    // LegacyWalletService ---------------------------------------------------------------------------------------------
+    private suspend fun verifyVcJwtSignature(ctx: LoginContext, vcJwt: SignedJWT) {
 
+        val authContext = ctx.getAuthContext()
+        val issuerMetadata = authContext.assertIssuerMetadata()
+        val credentialIssuer = issuerMetadata.credentialIssuer
+
+        // Resolve issuer
+        val credJwt = W3CCredentialJwt.fromEncoded("${vcJwt.serialize()}")
+        val issuer = requireNotNull(credJwt.iss) { "No issuer" }
+
+        // Get the 'kid' from the vcJwt header
+        val kid = requireNotNull(vcJwt.header.keyID) { "No 'kid' in header" }
+
+        // Get the public key spec from the JWKS endpoint
+        val jwks = issuerMetadata.getAuthorizationMetadata().getJwks()
+        val jwkFromKid = jwks.filter { it.algorithm == vcJwt.header.algorithm }.firstOrNull { it.keyID == kid }
+
+        // If found, use that one. Otherwise, iterate over all
+        val effectiveJwks = jwkFromKid?.let { listOf(it) } ?: jwks
+        var matchingJwk: JWK? = null
+
+        // Iterate over key candidates
+        for (jwk in effectiveJwks) {
+            log.info { "Trying signing key: $jwk" }
+            val verifier = when(jwk.algorithm) {
+                ES256 -> ECDSAVerifier(jwk.toECKey())
+                PS384 -> RSASSAVerifier(jwk.toRSAKey())
+                else -> error("Unsupported signature algorithm ${jwk.algorithm}")
+            }
+            if (when (credJwt) {
+                is W3CCredentialV11Jwt -> {
+                    vcJwt.verify(verifier)
+                }
+                is W3CCredentialSdV11Jwt -> {
+                    val combined = "${vcJwt.serialize()}"
+                    val jwsCompact = combined.substringBefore('~')  // keep only JWS
+                    val jwsObj = JWSObject.parse(jwsCompact)
+                    jwsObj.verify(verifier)
+                }
+            }) {
+                matchingJwk = jwk
+                break
+            }
+        }
+
+        // [TODO] Cannot verify signature from EBSI Issuer
+        if (matchingJwk == null && credentialIssuer == WELL_KNOWN_ISSUER_EBSI_V3) {
+            log.warn { "Invalid credential signature from: $credentialIssuer" }
+            return
+        }
+
+        requireNotNull(matchingJwk) { "Invalid credential signature" }
+
+        // Check that the Issuer DID matches the JWK
+        if (issuer.startsWith("did:key:")) {
+            val ecJwk = matchingJwk.toECKey()
+            val didPubKey = DIDUtils.decodeDidKey(issuer)
+            require(ecJwk.curve == Curve.forECParameterSpec(didPubKey.params)) { "EC curve mismatch: $didPubKey"}
+            val x1 = didPubKey.w.affineX; val y1 = didPubKey.w.affineY
+            val x2 = ecJwk.x.decodeToBigInteger(); val y2 = ecJwk.y.decodeToBigInteger()
+            require(x1 == x2 && y1 == y2) { "EC points mismatch: $didPubKey"}
+        }
+    }
 }

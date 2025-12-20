@@ -99,7 +99,6 @@ abstract class AbstractWalletServiceTest : AbstractServiceTest() {
     @Test
     open fun getCredentialAuthorisedInTime() {
         runBlocking {
-
             val configId = "CTWalletSameAuthorisedInTime"
             val credOffer = issuerSvc.createCredentialOffer(configId, alice.did, targetUser = Alice)
             verifyCredentialOffer(alice, configId, credOffer)
