@@ -95,7 +95,7 @@ class IssuerApiHandler(val issuerSvc: NativeIssuerService):
             ?: throw IllegalArgumentException("Invalid authorization header")
 
         val acceptanceTokenJwt = SignedJWT.parse(acceptanceToken)
-        val credentialResponse = issuerSvc.getCredentialFromAcceptanceToken(acceptanceTokenJwt)
+        val credentialResponse = issuerSvc.getDeferredCredential(acceptanceTokenJwt)
 
         call.respondText(
             status = HttpStatusCode.OK,

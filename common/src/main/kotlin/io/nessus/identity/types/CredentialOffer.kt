@@ -1,8 +1,5 @@
 package io.nessus.identity.types
 
-import io.ktor.client.call.*
-import io.ktor.client.request.*
-import io.nessus.identity.utils.http
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -38,8 +35,7 @@ sealed class CredentialOffer {
     @Suppress("UNCHECKED_CAST")
     suspend fun <IMType: IssuerMetadata> resolveIssuerMetadata(): IMType {
         if (!::issuerMetadata.isInitialized) {
-            val issuerMetadataUrl = "$credentialIssuer/.well-known/openid-credential-issuer"
-            issuerMetadata = http.get(issuerMetadataUrl).body<IssuerMetadata>()
+            issuerMetadata = IssuerMetadata.resolveIssuerMetadata<IMType>(credentialIssuer)
         }
         return issuerMetadata as IMType
     }

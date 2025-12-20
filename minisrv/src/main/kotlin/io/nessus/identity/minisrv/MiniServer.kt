@@ -14,11 +14,11 @@ import io.nessus.identity.config.ConfigProvider.requireConsoleConfig
 import io.nessus.identity.config.getVersionInfo
 import io.nessus.identity.minisrv.IssuerApiHandler.Companion.handleIssuerMetadataRequest
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.service.NativeIssuerService
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import kotlinx.serialization.json.*
 import org.slf4j.event.Level
 

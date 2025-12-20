@@ -1,9 +1,11 @@
 package io.nessus.identity.minisrv
 
 import io.kotest.common.runBlocking
+import io.nessus.identity.LoginCredentials
+import io.nessus.identity.config.ConfigProvider.Alice
+import io.nessus.identity.config.User
 import io.nessus.identity.service.IssuerService
 import org.junit.jupiter.api.Test
-import kotlin.test.Ignore
 
 class KeycloakWalletServiceTest : AbstractWalletServiceTest() {
 
@@ -11,31 +13,36 @@ class KeycloakWalletServiceTest : AbstractWalletServiceTest() {
         return IssuerService.createKeycloak()
     }
 
-    @Test
-    @Ignore
-    override fun getCredentialAuthorisedInTime() {
-        runBlocking {
-        }
+    override fun getLoginCredentials(user: User): LoginCredentials {
+        return LoginCredentials(user.username, user.password)
     }
 
     @Test
-    @Ignore
-    override fun getCredentialAuthorisedDeferred() {
+    fun authorizeWithCodeFlow() {
         runBlocking {
-        }
+            val configId = "CTWalletSameAuthorisedInTime"
+            val authCode = walletSvc.authorizeWithCodeFlow(alice,
+                credentialIssuer = issuerSvc.endpointUri,
+                clientId = walletSvc.defaultClientId,
+                configId = configId,
+                loginCredentials = LoginCredentials(Alice.username, Alice.password),
+            )
+            val tokenResponse = walletSvc.getAccessTokenFromCode(alice, authCode)
+            verifyTokenResponse(alice, configId, tokenResponse)
+       }
     }
 
     @Test
-    @Ignore
-    override fun getCredentialPreAuthorisedInTime() {
+    fun authorizeWithDirectAccess() {
         runBlocking {
-        }
-    }
-
-    @Test
-    @Ignore
-    override fun getCredentialPreAuthorisedDeferred() {
-        runBlocking {
+            val configId = "CTWalletSameAuthorisedInTime"
+            val tokenResponse = walletSvc.authorizeWithDirectAccess(alice,
+                credentialIssuer = issuerSvc.endpointUri,
+                clientId = walletSvc.defaultClientId,
+                configId = configId,
+                loginCredentials = LoginCredentials(Alice.username, Alice.password),
+            )
+            verifyTokenResponse(alice, configId, tokenResponse)
         }
     }
 }

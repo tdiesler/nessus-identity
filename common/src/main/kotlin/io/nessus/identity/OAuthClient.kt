@@ -15,10 +15,10 @@ import kotlinx.serialization.json.*
 
 class OAuthClient {
 
-    lateinit var loginPage: LoginPage
+    lateinit var loginCredentials: LoginCredentials
 
     fun withLoginCredentials(username: String, password: String): OAuthClient {
-        this.loginPage = LoginPage(username, password)
+        this.loginCredentials = LoginCredentials(username, password)
         return this
     }
 
@@ -36,8 +36,8 @@ class OAuthClient {
             page.navigate(authRequestUrl)
 
             // Fill in login form (adjust selectors if your Keycloak theme differs)
-            page.locator("#username").fill(loginPage.username)
-            page.locator("#password").fill(loginPage.password)
+            page.locator("#username").fill(loginCredentials.username)
+            page.locator("#password").fill(loginCredentials.password)
             page.locator("#kc-login").click()
 
             // Wait for the input with id="code"
@@ -107,11 +107,6 @@ class OAuthClient {
             }
         }
     }
-
-    data class LoginPage(
-        val username: String,
-        val password: String
-    )
 
     // Private ---------------------------------------------------------------------------------------------------------
 

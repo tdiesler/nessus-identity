@@ -1,5 +1,7 @@
 package io.nessus.identity.service
 
+import com.microsoft.playwright.BrowserType.LaunchOptions
+import com.microsoft.playwright.Playwright
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
@@ -16,7 +18,6 @@ import id.walt.oid4vc.data.dif.DescriptorMapping
 import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.w3c.utils.VCFormat
 import id.walt.webwallet.db.models.WalletCredential
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
@@ -25,23 +26,24 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.AuthorizationContext
 import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
+import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.USER_PIN_ATTACHMENT_KEY
 import io.nessus.identity.LoginContext
-import io.nessus.identity.LoginContext.Companion.USER_ATTACHMENT_KEY
+import io.nessus.identity.LoginCredentials
 import io.nessus.identity.OAuthClient
 import io.nessus.identity.OAuthClient.Companion.handleApiResponse
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.WalletConfig
-import io.nessus.identity.service.IssuerService.Companion.KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.AuthorizationRequestV0
+import io.nessus.identity.types.Constants.WELL_KNOWN_ISSUER_EBSI_V3
 import io.nessus.identity.types.CredentialMatcherV10
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -82,97 +84,178 @@ import kotlin.uuid.Uuid
 
 // NativeWalletService =================================================================================================
 
-class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
-
-    val log = KotlinLogging.logger {}
+class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), WalletService {
 
     override val endpointUri = config.baseUrl
     override val defaultClientId = requireIssuerConfig().clientId ?: ""
     override val authorizationSvc = NativeAuthorizationService(endpointUri)
 
-    // ExperimentalWalletService ---------------------------------------------------------------------------------------
-
-    override suspend fun createIDToken(
+    override suspend fun authorizeWithCodeFlow(
         ctx: LoginContext,
-        authRequest: AuthorizationRequest
-    ): SignedJWT {
-        val idTokenJwt = authorizationSvc.createIDToken(ctx, authRequest)
-        return idTokenJwt
-    }
-
-
-    override suspend fun authorizeFromCredentialOffer(
-        ctx: LoginContext,
-        credOffer: CredentialOffer,
+        credentialIssuer: String,
         clientId: String,
-    ): TokenResponse {
+        configId: String,
+        redirectUri: String,
+        loginCredentials: LoginCredentials?
+    ): String {
 
-        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
-        val issuerMetadata = authContext.getIssuerMetadata()
+        val authContext = ctx.getAuthContext().withCredentialConfigurationId(configId)
+        val issuerMetadata = authContext.resolveIssuerMetadata(credentialIssuer)
 
-        if (credOffer.isPreAuthorized) {
-            val authMetadata = authContext.getAuthorizationMetadata()
-            val preAuthorizedCodeGrant = credOffer.getPreAuthorizedCodeGrant()!!
-            val code = preAuthorizedCodeGrant.preAuthorizedCode
-            val tokenEndpointUrl = authMetadata.getAuthorizationTokenEndpointUri()
-            var userPin = authContext.getAttachment(USER_PIN_ATTACHMENT_KEY)
-            if (credOffer.isUserPinRequired && userPin == null) {
-                userPin = requireEbsiConfig().preAuthUserPin
-            }
-            val tokReq = TokenRequest.PreAuthorizedCode(
-                clientId = clientId,
-                preAuthorizedCode = code,
-                userPin = userPin
-            )
-            val tokenRes = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokReq)
-            log.info { "TokenResponse: ${tokenRes.toJson()}" }
-            return tokenRes
-        }
-
-        if (credOffer is CredentialOfferDraft11) {
-            val authRequest = buildAuthorizationRequestFromOffer(ctx, credOffer)
-            val authEndpointUri = issuerMetadata.getAuthorizationMetadata().getAuthorizationEndpointUri()
-            val authCode = sendAuthorizationRequest(ctx, authEndpointUri, authRequest)
-            val tokenRes = getAccessTokenFromCode(ctx, authCode)
-            return tokenRes
-        }
-
-        val holder = ctx.assertAttachment(USER_ATTACHMENT_KEY)
-        val authCode = getAuthorizationCode(ctx,
-            clientId = defaultClientId,
-            username = holder.username,
-            password = holder.password
-        )
-        val tokenRes = getAccessTokenFromCode(ctx, authCode)
-        return tokenRes
+        val scopes = listOf(issuerMetadata.getCredentialScope(configId) ?: error("No scope for: $configId"))
+        val authRequest = buildAuthorizationRequestForCodeFlow(ctx, clientId, scopes)
+        val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
+        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest, loginCredentials)
+        return authCode
     }
 
     override suspend fun authorizeWithDirectAccess(
         ctx: LoginContext,
-        clientId: String
+        credentialIssuer: String,
+        clientId: String,
+        configId: String,
+        loginCredentials: LoginCredentials
     ): TokenResponse {
-        val authMetadata = authorizationSvc.getAuthorizationMetadata(ctx)
-        val tokenEndpointUrl = authMetadata.getAuthorizationTokenEndpointUri()
-        val scopes = mutableListOf("openid")
 
-        val authContext = ctx.getAuthContext()
-        authContext.credentialConfigurationIds?.also {
-            scopes.addAll(it)
-        }
+        val authContext = ctx.getAuthContext().withCredentialConfigurationId(configId)
+        val issuerMetadata = authContext.resolveIssuerMetadata(credentialIssuer)
 
-        val loginContext = requireNotNull(authContext.loginContext) { "No login context " }
-        val user = requireNotNull(loginContext.getAttachment(USER_ATTACHMENT_KEY)) { "No attached user " }
-
-        val tokReq = TokenRequest.DirectAccess(
+        val scopes = listOf(issuerMetadata.getCredentialScope(configId) ?: error("No scope for: $configId"))
+        val tokenRequest = TokenRequest.DirectAccess(
             clientId = clientId,
-            username = user.username,
-            password = user.password,
-            scopes = scopes
+            scopes = scopes,
+            username = loginCredentials.username,
+            password = loginCredentials.password,
         )
 
-        val tokRes = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokReq)
-        log.info { "TokenResponse: ${tokRes.toJson()}" }
-        return tokRes
+        val tokenResponse = sendTokenRequest(ctx, tokenRequest)
+        return tokenResponse
+    }
+
+    override suspend fun authorizeWithCredentialOffer(
+        ctx: LoginContext,
+        clientId: String,
+        credOffer: CredentialOffer,
+        loginCredentials: LoginCredentials?
+    ): TokenResponse {
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+
+        val tokenResponse = if (credOffer.isPreAuthorized) {
+            val preAuthorizedCodeGrant = credOffer.getPreAuthorizedCodeGrant()!!
+            val code = preAuthorizedCodeGrant.preAuthorizedCode
+            var userPin = authContext.getAttachment(USER_PIN_ATTACHMENT_KEY)
+            if (credOffer.isUserPinRequired && userPin == null) {
+                userPin = requireEbsiConfig().preAuthUserPin
+            }
+            val tokenRequest = TokenRequest.PreAuthorizedCode(
+                clientId = clientId,
+                preAuthorizedCode = code,
+                userPin = userPin
+            )
+            sendTokenRequest(ctx, tokenRequest)
+        } else {
+            val authCode = if (credOffer is CredentialOfferDraft11) {
+                authorizeWithCredentialOfferTokenFlow(ctx, credOffer)
+            } else {
+                authorizeWithCredentialOfferCodeFlow(ctx, clientId, credOffer, loginCredentials)
+            }
+            getAccessTokenFromCode(ctx, authCode)
+        }
+        return tokenResponse
+    }
+
+    override suspend fun authorizeWithCredentialOfferTokenFlow(
+        ctx: LoginContext,
+        credOffer: CredentialOffer
+    ): String {
+        credOffer as CredentialOfferDraft11
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+        val authRequest = buildAuthorizationRequestForIDTokenFlow(ctx, credOffer)
+        val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
+        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest)
+        return authCode
+    }
+
+    override suspend fun authorizeWithCredentialOfferCodeFlow(
+        ctx: LoginContext,
+        clientId: String,
+        credOffer: CredentialOffer,
+        loginCredentials: LoginCredentials?
+    ): String {
+        credOffer as CredentialOfferV0
+        val scopes = credOffer.credentialConfigurationIds
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+        val authRequest = buildAuthorizationRequestForCodeFlow(ctx, clientId, scopes)
+        val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
+        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest, loginCredentials)
+        return authCode
+    }
+
+    override suspend fun buildAuthorizationRequestForCodeFlow(
+        ctx: LoginContext,
+        clientId: String,
+        scopes: List<String>,
+        redirectUri: String
+    ): AuthorizationRequestV0 {
+
+        val rndBytes = Random.nextBytes(32)
+        val codeVerifier = Base64URL.encode(rndBytes).toString()
+
+        val authContext = ctx.getAuthContext()
+        authContext.withCodeVerifier(codeVerifier)
+
+        val issuerMetadata = authContext.assertIssuerMetadata()
+
+        val builder = AuthorizationRequestBuilder()
+            .withRedirectUri(redirectUri)
+            .withIssuerMetadata(issuerMetadata)
+            .withClientId(clientId)
+            .withScopes(scopes)
+            .withCodeChallengeMethod("S256")
+            .withCodeVerifier(codeVerifier)
+
+        val authRequest = builder.build()
+        authContext.withAuthorizationRequest(authRequest)
+        return authRequest
+    }
+
+    override suspend fun buildAuthorizationRequestForIDTokenFlow(
+        ctx: LoginContext,
+        credOffer: CredentialOffer
+    ): AuthorizationRequest {
+
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+        val issuerMetadata = authContext.resolveIssuerMetadata() as IssuerMetadataDraft11
+
+        val rndBytes = Random.nextBytes(32)
+        val codeVerifier = Base64URL.encode(rndBytes).toString()
+        val redirectUri = "${endpointUri}/${ctx.targetId}/authorize"
+        val authRequest = when (credOffer) {
+            is CredentialOfferDraft11 -> {
+                AuthorizationRequestDraft11Builder()
+                    .withClientId(ctx.did)
+                    .withClientState(ctx.walletId)
+                    .withCodeChallengeMethod("S256")
+                    .withCodeVerifier(codeVerifier)
+                    .withIssuerMetadata(issuerMetadata)
+                    .withRedirectUri(redirectUri)
+                    .buildFrom(credOffer)
+            }
+
+            else -> error("Not implemented for: ${credOffer::class.simpleName}")
+        }
+        authContext.putAttachment(CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
+        authContext.putAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
+        return authRequest
+    }
+
+    override suspend fun getAccessTokenFromCode(
+        ctx: LoginContext,
+        authCode: String,
+    ): TokenResponse {
+        val tokenRequest = buildTokenRequest(ctx, authCode)
+        val tokenResponse = sendTokenRequest(ctx, tokenRequest)
+        return tokenResponse
     }
 
     override suspend fun getCredentialOfferFromUri(offerUri: String): CredentialOffer {
@@ -203,16 +286,16 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
         return credJwt
     }
 
-    override suspend fun getCredentialFromOffer(ctx: LoginContext, credOffer: CredentialOffer): W3CCredentialJwt {
+    override suspend fun getCredentialFromOffer(
+        ctx: LoginContext,
+        credOffer: CredentialOffer,
+        loginCredentials: LoginCredentials?
+    ): W3CCredentialJwt {
 
         val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+        val issuerMetadata = authContext.resolveIssuerMetadata()
 
-        val issuerMetadata = authContext.getIssuerMetadata()
-        val clientId = when(credOffer) {
-            is CredentialOfferDraft11 -> ctx.did
-            else -> defaultClientId
-        }
-        val accessToken = authorizeFromCredentialOffer(ctx, credOffer, clientId)
+        val accessToken = authorizeWithCredentialOffer(ctx, defaultClientId, credOffer, loginCredentials)
 
         var cNonce = accessToken.cNonce
         if (cNonce == null && issuerMetadata is IssuerMetadataV0) {
@@ -271,324 +354,6 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
         return credJwt
     }
 
-    override suspend fun buildAuthorizationRequestFromOffer(
-        ctx: LoginContext,
-        credOffer: CredentialOffer
-    ): AuthorizationRequestDraft11 {
-
-        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
-        val issuerMetadata = authContext.getIssuerMetadata()
-
-        val rndBytes = Random.nextBytes(32)
-        val codeVerifier = Base64URL.encode(rndBytes).toString()
-        val redirectUri = "${endpointUri}/${ctx.targetId}/authorize"
-        val authRequest = when (issuerMetadata) {
-            is IssuerMetadataV0 -> {
-                error("[TODO] Not implemented")
-            }
-
-            is IssuerMetadataDraft11 -> {
-                AuthorizationRequestDraft11Builder()
-                    .withClientId(ctx.did)
-                    .withClientState(ctx.walletId)
-                    .withCodeChallengeMethod("S256")
-                    .withCodeVerifier(codeVerifier)
-                    .withIssuerMetadata(issuerMetadata)
-                    .withRedirectUri(redirectUri)
-                    .buildFrom(credOffer as CredentialOfferDraft11)
-            }
-        }
-        authContext.putAttachment(CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
-        authContext.putAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY, authRequest)
-        return authRequest
-    }
-
-    override suspend fun buildCredentialRequest(
-        ctx: LoginContext,
-        authRequest: AuthorizationRequest
-    ): CredentialRequest {
-        val authContext = ctx.getAuthContext()
-        val issuerMetadata = authContext.getIssuerMetadata()
-        val credentialIssuer = issuerMetadata.credentialIssuer
-
-        val iat = Instant.now()
-        val exp = iat.plusSeconds(300) // 5 mins expiry
-
-        val kid = ctx.didInfo.authenticationId()
-        val proofHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType("openid4vci-proof+jwt"))
-            .keyID(kid)
-            .build()
-        val proofClaimsBuilder = JWTClaimsSet.Builder()
-            .issuer(ctx.did)
-            .audience(credentialIssuer)
-            .issueTime(Date.from(iat))
-            .expirationTime(Date.from(exp))
-        //.claim("nonce", cNonce)
-
-        authRequest.state?.also { proofClaimsBuilder.claim("state", it) }
-
-        val proofClaims = proofClaimsBuilder.build()
-        val proofJwt = SignedJWT(proofHeader, proofClaims).signWithKey(ctx, kid)
-
-        log.info { "ProofHeader: ${proofJwt.header}" }
-        log.info { "ProofClaims: ${proofJwt.jwtClaimsSet}" }
-
-        val credRequest = when(authRequest) {
-            is AuthorizationRequestDraft11 -> {
-                val authorizationDetails = authRequest.authorizationDetails
-                require(authorizationDetails?.isNotEmpty() ?: false) { "No authorization_details" }
-                require(authorizationDetails.size == 1) { "Multiple authorization_details" }
-
-                val types = authorizationDetails[0].types
-                val format = requireNotNull(authorizationDetails[0].format?.value) { "No authorization_details.format" }
-                CredentialRequestDraft11(
-                    format = format,
-                    types = types,
-                    proof = CredentialRequestDraft11.Proof(
-                        proofType = "jwt",
-                        jwt = proofJwt.serialize()
-                    )
-                )
-            }
-            else -> error("Unsupported AuthorizationRequest: ${authRequest.toJson()}")
-        }
-
-        log.info { "CredentialRequest: ${credRequest.toJson()}" }
-        return credRequest
-    }
-
-    override suspend fun getTokenRequestFromAuthorizationCode(
-        ctx: LoginContext,
-        authCode: String
-    ): TokenRequest {
-        val authContext = ctx.getAuthContext()
-        val authRequestDraft11 = authContext.getAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
-        val tokenRequest = when {
-            authRequestDraft11 != null -> {
-                val codeVerifier = authContext.assertAttachment(CODE_VERIFIER_ATTACHMENT_KEY)
-                TokenRequest.AuthorizationCode(
-                    clientId = authRequestDraft11.clientId,
-                    redirectUri = authRequestDraft11.redirectUri,
-                    codeVerifier = codeVerifier,
-                    code = authCode
-                )
-            }
-
-            else -> {
-                val authRequest = authContext.authRequest
-                TokenRequest.AuthorizationCode(
-                    clientId = authRequest.clientId,
-                    redirectUri = authRequest.redirectUri,
-                    codeVerifier = authContext.codeVerifier,
-                    code = authCode
-                )
-            }
-        }
-        return tokenRequest
-    }
-
-    override suspend fun getAccessTokenFromCode(
-        ctx: LoginContext,
-        authCode: String,
-    ): TokenResponse {
-        val tokenRequest = getTokenRequestFromAuthorizationCode(ctx, authCode)
-        val tokenResponse = sendTokenRequest(ctx, tokenRequest)
-        return tokenResponse
-    }
-
-    override suspend fun sendAuthorizationRequest(
-        ctx: LoginContext,
-        authEndpointUri: String,
-        authRequest: AuthorizationRequest,
-    ): String {
-
-        val authReqUrl = URLBuilder(authEndpointUri).apply {
-            authRequest.toRequestParameters().forEach { (k, lst) -> lst.forEach { v -> parameters.append(k, v) } }
-        }.buildString()
-
-        log.info { "Send AuthorizationRequest: $authReqUrl" }
-        authRequest.toRequestParameters().forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
-
-        // Disable follow redirects
-        //
-        val http = HttpClient {
-            install(ContentNegotiation) {
-                json()
-            }
-            followRedirects = false
-            // install(Logging) {
-            //     logger = Logger.DEFAULT
-            //     level = LogLevel.ALL
-            // }
-        }
-
-        var res = http.get(authReqUrl)
-
-        val authContext = ctx.getAuthContext()
-        if (res.status == HttpStatusCode.Found) {
-
-            log.error { "Redirect response: ${res.status}" }
-            res.headers.forEach { k, lst -> lst.forEach { v -> log.debug { "  $k: $v" } } }
-
-            // First try access the location as given
-            val locationUri = res.headers["location"] as String
-            res = http.get(locationUri)
-
-
-            // Cloudflare may reject the request because of url size limits or other WAF rules
-            // We try again using 'request_uri' syntax with an in-memory request object
-            // https://openid.net/specs/openid-connect-core-1_0.html#UseRequestUri
-            if (res.status == HttpStatusCode.BadRequest) {
-                log.warn { "Direct redirect [length=${locationUri.length}] failed with: ${res.status}" }
-                val urlBase = locationUri.substringBefore('?')
-                val queryParams = urlQueryToMap(locationUri)
-                if (queryParams["request"] != null) {
-
-                    // Redirect location is expected to be an Authorization Request
-                    val authReq = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
-
-                    // Store the AuthorizationRequest in memory
-                    val reqObjectId = "${Uuid.random()}"
-                    authContext.putAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY, authReq)
-
-                    log.info { "Converting 'request' to 'request_uri'" }
-
-                    // Values for the response_type and client_id parameters MUST be included using the OAuth 2.0 request syntax.
-                    val urlString = URLBuilder(urlBase).apply {
-                        parameters.append("client_id", queryParams["client_id"] as String)
-                        parameters.append("request_uri", "$urlBase?request_object=$reqObjectId")
-                        parameters.append("response_type", queryParams["response_type"] as String)
-                    }.buildString()
-                    res = http.get(urlString)
-                }
-            }
-        }
-
-        if (res.status != HttpStatusCode.Accepted) {
-            log.error { "Unexpected response status: ${res.status}" }
-            res.headers.forEach { k, lst -> lst.forEach { v -> log.warn { "  $k: $v" } } }
-            throw HttpStatusException(res.status, res.bodyAsText())
-        }
-
-        val authCode = authContext.assertAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY)
-        log.info { "AuthorizationCode: $authCode" }
-        return authCode
-    }
-
-    override suspend fun sendTokenRequest(
-        ctx: LoginContext,
-        tokenRequest: TokenRequest
-    ): TokenResponse {
-        val authContext = ctx.getAuthContext()
-        val authMetadata = authContext.getAuthorizationMetadata()
-        val tokenEndpointUrl = authMetadata.getAuthorizationTokenEndpointUri()
-        val tokenResponse = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokenRequest)
-        log.info { "TokenResponse: ${tokenResponse.toJson()}" }
-        return tokenResponse
-    }
-
-    // LegacyWalletService ---------------------------------------------------------------------------------------------
-
-    @Deprecated("promote or remove")
-    override suspend fun buildAuthorizationRequest(
-        authContext: AuthorizationContext,
-        clientId: String,
-        redirectUri: String
-    ): AuthorizationRequestV0 {
-        val rndBytes = Random.nextBytes(32)
-        val codeVerifier = Base64URL.encode(rndBytes).toString()
-        authContext.withCodeVerifier(codeVerifier)
-
-        val authRequest = if (authContext.credOffer != null) {
-            val credOffer = authContext.credOffer ?: error("No credential offer")
-            buildAuthorizationRequestFromOffer(authContext, credOffer, clientId, redirectUri, codeVerifier)
-        } else {
-            val configIds = authContext.credentialConfigurationIds ?: error("No credential configuration ids")
-            buildAuthorizationRequestFromConfigIds(
-                authContext,
-                configIds,
-                clientId,
-                redirectUri,
-                codeVerifier
-            )
-        }
-        authContext.withAuthorizationRequest(authRequest)
-        return authRequest
-    }
-
-    @Deprecated("promote or remove")
-    override suspend fun buildPresentationSubmission(
-        ctx: LoginContext,
-        dcql: DCQLQuery
-    ): SubmissionBundle {
-        val vcArray = mutableListOf<SignedJWT>()
-        val descriptorMappings = mutableListOf<DescriptorMapping>()
-        val queryIds = mutableListOf<String>()
-        findMatchingCredentials(ctx, dcql).forEach { (wc, queryId, claims) ->
-            val n = vcArray.size
-            queryIds.add(queryId)
-            val dm = DescriptorMapping(
-                format = VCFormat.entries.first { it.value == wc.format.value },
-                path = "$.vp.verifiableCredential[$n]",
-            )
-            val credJwt = W3CCredentialJwt.fromEncoded(wc.document)
-            val sigJwt = when (credJwt) {
-                is W3CCredentialV11Jwt -> SignedJWT.parse(wc.document)
-                is W3CCredentialSdV11Jwt -> {
-                    if (claims == null || claims.isEmpty()) {
-                        SignedJWT.parse(wc.document)
-                    } else {
-                        val parts = mutableListOf(wc.document.substringBefore("~"))
-                        val claimMap = credJwt.disclosures.associateBy { disc -> disc.claim }
-                        val digests = claims.map { cl ->
-                            require(cl.path.size == 1) { "Invalid path in: $cl" }
-                            val encoded = claimMap[cl.path[0]]?.decoded ?: error("No digest for: $cl")
-                            base64UrlEncode(encoded.toByteArray())
-                        }
-                        parts.addAll(digests)
-                        SignedJWT.parse(parts.joinToString("~"))
-                    }
-                }
-            }
-            descriptorMappings.add(dm)
-            vcArray.add(sigJwt)
-        }
-
-        // The presentation_submission object **MUST** contain a definition_id property.
-        // The value of this property **MUST** be the id value of a valid Presentation Definition.
-        // https://identity.foundation/presentation-exchange/#presentation-submission
-        //
-        // In the absence of a Presentation Definition
-        val vpSubmission = PresentationSubmission(
-            id = "${Uuid.random()}",
-            definitionId = "dcql:${queryIds.joinToString("-")}",
-            descriptorMap = descriptorMappings
-        )
-        return SubmissionBundle(vcArray, vpSubmission)
-    }
-
-    @Deprecated("promote or remove")
-    override suspend fun getAuthorizationCode(
-        ctx: LoginContext,
-        clientId: String,
-        username: String,
-        password: String,
-        redirectUri: String
-    ): String {
-        val authContext = ctx.getAuthContext()
-        val authMetadata = authContext.getAuthorizationMetadata()
-        val authEndpointUrl = authMetadata.getAuthorizationEndpointUri()
-        val authRequest = buildAuthorizationRequest(authContext, clientId, redirectUri)
-
-        val authCode = OAuthClient()
-            .withLoginCredentials(username, password)
-            .sendAuthorizationRequest(authEndpointUrl, authRequest)
-
-        return authCode
-    }
-
-    @Deprecated("promote or remove")
     override suspend fun handleVPTokenRequest(
         ctx: LoginContext,
         authReq: AuthorizationRequestV0
@@ -658,62 +423,6 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
 
     // Private ---------------------------------------------------------------------------------------------------------
 
-    private suspend fun buildAuthorizationRequestFromConfigIds(
-        authContext: AuthorizationContext,
-        configIds: List<String>,
-        clientId: String,
-        redirectUri: String,
-        codeVerifier: String? = null
-    ): AuthorizationRequestV0 {
-
-        val issuerMetadata = authContext.getIssuerMetadata() as IssuerMetadataV0
-
-        val scopes = issuerMetadata.credentialConfigurationsSupported
-            .filter { (k, _) -> configIds.contains(k) }
-            .mapNotNull { (_, v) -> v.scope }
-            .toList()
-
-        val builder = AuthorizationRequestBuilder()
-            .withRedirectUri(redirectUri)
-            .withIssuerMetadata(issuerMetadata)
-            .withClientId(clientId)
-            .withScopes(scopes)
-
-        if (codeVerifier != null) {
-            builder.withCodeChallengeMethod("S256")
-            builder.withCodeVerifier(codeVerifier)
-        }
-
-        val authReq = builder.build()
-        return authReq
-    }
-
-    private suspend fun buildAuthorizationRequestFromOffer(
-        authContext: AuthorizationContext,
-        credOffer: CredentialOffer,
-        clientId: String,
-        redirectUri: String,
-        codeVerifier: String? = null
-    ): AuthorizationRequestV0 {
-        val ctx = requireNotNull(authContext.loginContext)
-
-        val clientState = ctx.walletId
-
-        val builder = AuthorizationRequestBuilder()
-            .withCredentialOffer(credOffer)
-            .withClientId(clientId)
-            .withClientState(clientState)
-            .withRedirectUri(redirectUri)
-
-        if (codeVerifier != null) {
-            builder.withCodeChallengeMethod("S256")
-            builder.withCodeVerifier(codeVerifier)
-        }
-
-        val authReq = builder.build()
-        return authReq
-    }
-
     private suspend fun buildCredentialRequest(
         authContext: AuthorizationContext,
         cNonce: String?,
@@ -722,14 +431,14 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
     ): CredentialRequest {
 
         val ctx = requireNotNull(authContext.loginContext)
-        val issuerMetadata = authContext.getIssuerMetadata()
+        val issuerMetadata = authContext.assertIssuerMetadata()
         val credentialIssuer = issuerMetadata.credentialIssuer
 
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
 
         val proofJwt = when (credentialIssuer) {
-            KNOWN_ISSUER_EBSI_V3 -> {
+            WELL_KNOWN_ISSUER_EBSI_V3 -> {
                 val kid = ctx.didInfo.authenticationId()
                 val proofHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
                     .type(JOSEObjectType("openid4vci-proof+jwt"))
@@ -803,6 +512,86 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
         return credRequest
     }
 
+    private suspend fun buildPresentationSubmission(
+        ctx: LoginContext,
+        dcql: DCQLQuery
+    ): SubmissionBundle {
+        val vcArray = mutableListOf<SignedJWT>()
+        val descriptorMappings = mutableListOf<DescriptorMapping>()
+        val queryIds = mutableListOf<String>()
+        findMatchingCredentials(ctx, dcql).forEach { (wc, queryId, claims) ->
+            val n = vcArray.size
+            queryIds.add(queryId)
+            val dm = DescriptorMapping(
+                format = VCFormat.entries.first { it.value == wc.format.value },
+                path = "$.vp.verifiableCredential[$n]",
+            )
+            val credJwt = W3CCredentialJwt.fromEncoded(wc.document)
+            val sigJwt = when (credJwt) {
+                is W3CCredentialV11Jwt -> SignedJWT.parse(wc.document)
+                is W3CCredentialSdV11Jwt -> {
+                    if (claims == null || claims.isEmpty()) {
+                        SignedJWT.parse(wc.document)
+                    } else {
+                        val parts = mutableListOf(wc.document.substringBefore("~"))
+                        val claimMap = credJwt.disclosures.associateBy { disc -> disc.claim }
+                        val digests = claims.map { cl ->
+                            require(cl.path.size == 1) { "Invalid path in: $cl" }
+                            val encoded = claimMap[cl.path[0]]?.decoded ?: error("No digest for: $cl")
+                            base64UrlEncode(encoded.toByteArray())
+                        }
+                        parts.addAll(digests)
+                        SignedJWT.parse(parts.joinToString("~"))
+                    }
+                }
+            }
+            descriptorMappings.add(dm)
+            vcArray.add(sigJwt)
+        }
+
+        // The presentation_submission object **MUST** contain a definition_id property.
+        // The value of this property **MUST** be the id value of a valid Presentation Definition.
+        // https://identity.foundation/presentation-exchange/#presentation-submission
+        //
+        // In the absence of a Presentation Definition
+        val vpSubmission = PresentationSubmission(
+            id = "${Uuid.random()}",
+            definitionId = "dcql:${queryIds.joinToString("-")}",
+            descriptorMap = descriptorMappings
+        )
+        return SubmissionBundle(vcArray, vpSubmission)
+    }
+
+    private fun buildTokenRequest(
+        ctx: LoginContext,
+        authCode: String
+    ): TokenRequest {
+        val authContext = ctx.getAuthContext()
+        val authRequestDraft11 = authContext.getAttachment(EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY)
+        val tokenRequest = when {
+            authRequestDraft11 != null -> {
+                val codeVerifier = authContext.assertAttachment(CODE_VERIFIER_ATTACHMENT_KEY)
+                TokenRequest.AuthorizationCode(
+                    clientId = authRequestDraft11.clientId,
+                    redirectUri = authRequestDraft11.redirectUri,
+                    codeVerifier = codeVerifier,
+                    code = authCode
+                )
+            }
+
+            else -> {
+                val authRequest = authContext.assertAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+                TokenRequest.AuthorizationCode(
+                    clientId = authRequest.clientId,
+                    redirectUri = authRequest.redirectUri,
+                    codeVerifier = authContext.codeVerifier,
+                    code = authCode
+                )
+            }
+        }
+        return tokenRequest
+    }
+
     /**
      * Extract the Credential from the CredentialResponse
      */
@@ -853,7 +642,7 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
         credConfigIds: List<String>? = null,
     ): CredentialResponse {
 
-        val issuerMetadata = authContext.getIssuerMetadata()
+        val issuerMetadata = authContext.assertIssuerMetadata()
 
         val cNonce = accessToken.cNonce ?: let {
             issuerMetadata as IssuerMetadataV0
@@ -888,14 +677,128 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
         widWalletService.addCredential(ctx.walletId, format, signedJwt)
     }
 
+    private suspend fun sendAuthorizationRequest(
+        authContext: AuthorizationContext,
+        authEndpointUri: String,
+        authRequest: AuthorizationRequest,
+        loginCredentials: LoginCredentials? = null
+    ): String {
+
+        val authReqUrl = URLBuilder(authEndpointUri).apply {
+            authRequest.toRequestParameters().forEach { (k, lst) -> lst.forEach { v -> parameters.append(k, v) } }
+        }.buildString()
+
+        log.info { "Send AuthorizationRequest: $authReqUrl" }
+        authRequest.toRequestParameters().forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
+
+        val authCode = if (loginCredentials != null) {
+            Playwright.create().use { plw ->
+                plw.firefox().launch(LaunchOptions().setHeadless(true)).use { browser ->
+                    val page = browser.newPage()
+
+                    // Navigate to Keycloak Authorization Endpoint
+                    val authRequestUrl = authRequest.toRequestUrl(authEndpointUri)
+                    page.navigate(authRequestUrl)
+
+                    // Fill in login form (adjust selectors if your Keycloak theme differs)
+                    page.locator("#username").fill(loginCredentials.username)
+                    page.locator("#password").fill(loginCredentials.password)
+                    page.locator("#kc-login").click()
+
+                    // Wait for the input with id="code"
+                    page.waitForSelector("#code")
+
+                    // Extract the code from the 'value' attribute
+                    page.locator("#code").getAttribute("value")
+                }
+            }
+        } else {
+            // Disable follow redirects
+            //
+            val http = HttpClient {
+                install(ContentNegotiation) {
+                    json()
+                }
+                followRedirects = false
+                // install(Logging) {
+                //     logger = Logger.DEFAULT
+                //     level = LogLevel.ALL
+                // }
+            }
+
+            var res = http.get(authReqUrl)
+            if (res.status == HttpStatusCode.Found) {
+
+                log.error { "Redirect response: ${res.status}" }
+                res.headers.forEach { k, lst -> lst.forEach { v -> log.debug { "  $k: $v" } } }
+
+                // First try access the location as given
+                val locationUri = res.headers["location"] as String
+                res = http.get(locationUri)
+
+                // Cloudflare may reject the request because of url size limits or other WAF rules
+                // We try again using 'request_uri' syntax with an in-memory request object
+                // https://openid.net/specs/openid-connect-core-1_0.html#UseRequestUri
+                if (res.status == HttpStatusCode.BadRequest) {
+                    log.warn { "Direct redirect [length=${locationUri.length}] failed with: ${res.status}" }
+                    val urlBase = locationUri.substringBefore('?')
+                    val queryParams = urlQueryToMap(locationUri)
+                    if (queryParams["request"] != null) {
+
+                        // Redirect location is expected to be an Authorization Request
+                        val authReq = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
+
+                        // Store the AuthorizationRequest in memory
+                        val reqObjectId = "${Uuid.random()}"
+                        authContext.putAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY, authReq)
+
+                        log.info { "Converting 'request' to 'request_uri'" }
+
+                        // Values for the response_type and client_id parameters MUST be included using the OAuth 2.0 request syntax.
+                        val urlString = URLBuilder(urlBase).apply {
+                            parameters.append("client_id", queryParams["client_id"] as String)
+                            parameters.append("request_uri", "$urlBase?request_object=$reqObjectId")
+                            parameters.append("response_type", queryParams["response_type"] as String)
+                        }.buildString()
+                        res = http.get(urlString)
+                    }
+                }
+            }
+
+            if (res.status != HttpStatusCode.Accepted) {
+                log.error { "Unexpected response status: ${res.status}" }
+                res.headers.forEach { k, lst -> lst.forEach { v -> log.warn { "  $k: $v" } } }
+                throw HttpStatusException(res.status, res.bodyAsText())
+            }
+            authContext.assertAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY)
+        }
+
+        log.info { "AuthorizationCode: $authCode" }
+        return authCode
+    }
+
+    private suspend fun sendTokenRequest(
+        ctx: LoginContext,
+        tokenRequest: TokenRequest
+    ): TokenResponse {
+        val authContext = ctx.getAuthContext()
+        val authMetadata = authContext.getAuthorizationMetadata()
+        val tokenEndpointUrl = authMetadata.getAuthorizationTokenEndpointUri()
+        val tokenResponse = OAuthClient().sendTokenRequest(tokenEndpointUrl, tokenRequest)
+        log.info { "TokenResponse: ${tokenResponse.toJson()}" }
+        return tokenResponse
+    }
+
     private suspend fun validateCredential(ctx: LoginContext, signedJwt: SignedJWT): Pair<String, CredentialFormat> {
 
         val credJwt = W3CCredentialJwt.fromEncoded("${signedJwt.serialize()}")
         val credType = credJwt.types.first { it !in listOf("VerifiableAttestation", "VerifiableCredential") }
 
         val authContext = ctx.getAuthContext()
-        val issuerMetadata = authContext.getIssuerMetadata()
-        val format = requireNotNull(issuerMetadata.getCredentialFormat(credType)) { "No credential format for: $credType" }
+        val issuerMetadata = authContext.assertIssuerMetadata()
+
+        val format = issuerMetadata.getCredentialFormat(credType)
+        requireNotNull(format) { "No credential format for: $credType" }
 
         // Resolve issuer
         val issuerId = requireNotNull(credJwt.iss) { "No issuer claim" }
@@ -903,28 +806,28 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
 
         // [TODO #331] Verify VC signature when iss is not did:key:*
         // https://github.com/tdiesler/nessus-identity/issues/331
-        when {
-            issuerId.startsWith("did:key:") -> {
+        if (issuerId.startsWith("did:key:")) {
 
-                // Resolve DID Document locally
-                val key = WaltIDServiceProvider.widDidService.resolveToKey(issuerId).getOrThrow()
-                val jwk = JWK.parse("${key.exportJWKObject()}")
-                log.info { "Issuer Jwk: $jwk" }
+            // Resolve DID Document locally
+            val key = WaltIDServiceProvider.widDidService.resolveToKey(issuerId).getOrThrow()
+            val jwk = JWK.parse("${key.exportJWKObject()}")
+            log.info { "Issuer Jwk: $jwk" }
 
-                val ecdsaVerifier = ECDSAVerifier(jwk.toECKey())
-                when (credJwt) {
-                    is W3CCredentialV11Jwt -> {
-                        check(signedJwt.verify(ecdsaVerifier)) { "Invalid credential signature" }
-                    }
+            val ecdsaVerifier = ECDSAVerifier(jwk.toECKey())
+            when (credJwt) {
+                is W3CCredentialV11Jwt -> {
+                    check(signedJwt.verify(ecdsaVerifier)) { "Invalid credential signature" }
+                }
 
-                    is W3CCredentialSdV11Jwt -> {
-                        val combined = "${signedJwt.serialize()}"
-                        val jwsCompact = combined.substringBefore('~')  // keep only JWS
-                        val jwsObj = JWSObject.parse(jwsCompact)
-                        check(jwsObj.verify(ecdsaVerifier)) { "Invalid credential signature" }
-                    }
+                is W3CCredentialSdV11Jwt -> {
+                    val combined = "${signedJwt.serialize()}"
+                    val jwsCompact = combined.substringBefore('~')  // keep only JWS
+                    val jwsObj = JWSObject.parse(jwsCompact)
+                    check(jwsObj.verify(ecdsaVerifier)) { "Invalid credential signature" }
                 }
             }
+        } else {
+            log.warn{ "Skip credential signature verification for issuer: $issuerId" }
         }
 
         // Validate JWT standard claims
@@ -937,4 +840,7 @@ class NativeWalletService(val config: WalletConfig): AbstractWalletService() {
 
         return Pair(credType, format)
     }
+
+    // LegacyWalletService ---------------------------------------------------------------------------------------------
+
 }

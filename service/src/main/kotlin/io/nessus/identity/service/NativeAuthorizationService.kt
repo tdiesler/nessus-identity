@@ -19,11 +19,11 @@ import io.nessus.identity.AuthorizationContext.Companion.EBSI32_ISSUER_METADATA_
 import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestV0
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.TokenResponse

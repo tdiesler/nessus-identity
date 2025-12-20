@@ -15,15 +15,13 @@ import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.oid4vc.data.SubjectType
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
-import io.nessus.identity.Experimental
 import io.nessus.identity.LoginContext
 import io.nessus.identity.config.IssuerConfig
 import io.nessus.identity.config.User
 import io.nessus.identity.service.CredentialOfferRegistry.putCredentialOfferRecord
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.types.AuthorizationCodeGrant
 import io.nessus.identity.types.AuthorizationMetadata
-import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.types.CredentialObject
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -36,14 +34,11 @@ import io.nessus.identity.types.Grants
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.PreAuthorizedCodeGrant
-import io.nessus.identity.types.TokenRequest
-import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserInfo
 import io.nessus.identity.types.VCDataV11JwtBuilder
 import io.nessus.identity.types.W3CCredentialV11Builder
 import io.nessus.identity.types.WaltIdCredentialResponse
 import io.nessus.identity.types.authenticationId
-import io.nessus.identity.utils.getAuthCodeFromRedirectUrl
 import io.nessus.identity.utils.signWithKey
 import io.nessus.identity.utils.verifyJwtSignature
 import kotlinx.coroutines.runBlocking
@@ -143,29 +138,7 @@ class NativeIssuerService(val config: IssuerConfig): AbstractIssuerService(confi
         error("Not implemented")
     }
 
-    // ExperimentalIssuerService ---------------------------------------------------------------------------------------
-
-    @Experimental
-    override suspend fun createIDTokenRequest(
-        authRequest: AuthorizationRequest
-    ): AuthorizationRequest {
-        val ctx = adminContext
-        val authRequestOut = authorizationSvc.createIDTokenRequest(ctx, authRequest)
-        return authRequestOut
-    }
-
-    @Experimental
-    override fun getAuthCodeFromIDToken(
-        idTokenJwt: SignedJWT,
-    ): String {
-        val ctx = adminContext
-        val redirectUrl = authorizationSvc.getIDTokenRedirectUrl(ctx, idTokenJwt)
-        val authCode = getAuthCodeFromRedirectUrl(redirectUrl)
-        return authCode
-    }
-
-    @Experimental
-    override suspend fun getCredentialFromAcceptanceToken(
+    override suspend fun getDeferredCredential(
         acceptanceTokenJwt: SignedJWT
     ): CredentialResponse {
 
@@ -191,7 +164,6 @@ class NativeIssuerService(val config: IssuerConfig): AbstractIssuerService(confi
         return credentialResponse
     }
 
-    @Experimental
     override suspend fun getCredentialFromRequest(
         credReq: CredentialRequest, accessTokenJwt: SignedJWT, deferred: Boolean
     ): CredentialResponse {
@@ -216,13 +188,6 @@ class NativeIssuerService(val config: IssuerConfig): AbstractIssuerService(confi
             getCredentialFromParameters(ctx, params)
         }
         return credentialResponse
-    }
-
-    @Experimental
-    override suspend fun getTokenResponse(tokenRequest: TokenRequest): TokenResponse {
-        val ctx = adminContext
-        val tokenResponse = authorizationSvc.getTokenResponse(ctx, tokenRequest)
-        return tokenResponse
     }
 
     // UserAccess ------------------------------------------------------------------------------------------------------

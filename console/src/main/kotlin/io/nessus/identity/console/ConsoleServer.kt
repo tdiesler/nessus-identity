@@ -28,11 +28,11 @@ import io.nessus.identity.minisrv.IssuerApiHandler
 import io.nessus.identity.minisrv.VerifierApiHandler
 import io.nessus.identity.minisrv.WalletApiHandler
 import io.nessus.identity.service.IssuerService
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.service.NativeIssuerService
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.types.UserRole
 import io.nessus.identity.utils.HttpStatusException
 import kotlinx.serialization.json.*

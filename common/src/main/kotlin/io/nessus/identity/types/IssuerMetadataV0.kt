@@ -3,6 +3,7 @@ package io.nessus.identity.types
 import id.walt.oid4vc.data.CredentialFormat
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.utils.http
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -39,7 +40,7 @@ data class IssuerMetadataV0(
     val credentialResponseEncryption: CredentialResponseEncryption? = null,
 
     @SerialName("credential_configurations_supported")
-    val credentialConfigurationsSupported: Map<String, CredentialConfigurationDraft17>
+    val credentialConfigurationsSupported: Map<String, CredentialConfigurationV0>
 ) : IssuerMetadata() {
 
     companion object {
@@ -51,7 +52,7 @@ data class IssuerMetadataV0(
     override suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
         if (authMetadata == null) {
             requireNotNull(authorizationServers) { "No authorization_servers" }
-            val res = http.get("${authorizationServers.first()}/.well-known/openid-configuration")
+            val res = http.get("${authorizationServers.first()}/$WELL_KNOWN_OPENID_CONFIGURATION")
             authMetadata = AuthorizationMetadata(res.body<JsonObject>())
         }
         return authMetadata as AuthorizationMetadata
@@ -98,7 +99,7 @@ data class CredentialResponseEncryption(
 
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class CredentialConfigurationDraft17(
+data class CredentialConfigurationV0(
     @SerialName("format")
     override val format: String,
 

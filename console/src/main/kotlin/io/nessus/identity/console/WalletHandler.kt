@@ -32,11 +32,11 @@ import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.console.HttpSessionStore.createLoginContext
 import io.nessus.identity.console.HttpSessionStore.logout
-import io.nessus.identity.service.IssuerService.Companion.KNOWN_ISSUER_EBSI_V3
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestV0
+import io.nessus.identity.types.Constants.WELL_KNOWN_ISSUER_EBSI_V3
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.types.CredentialMatcherDraft11
 import io.nessus.identity.types.LoginParams
 import io.nessus.identity.types.LoginType
@@ -135,9 +135,9 @@ class WalletHandler(val walletSvc: WalletService) {
         val credOffer = walletSvc.getCredentialOffer(ctx, offerId)
             ?: error("No credential_offer for: $offerId")
 
-        // Accept a Credential Offer from EBSI CT
+        // Accept a CredentialOffer from EBSI
         //
-        if (credOffer.credentialIssuer == KNOWN_ISSUER_EBSI_V3) {
+        if (credOffer.credentialIssuer == WELL_KNOWN_ISSUER_EBSI_V3) {
             val authContext = ctx.createAuthContext().withCredentialOffer(credOffer)
             call.request.queryParameters["userPin"]?.also {
                 authContext.putAttachment(USER_PIN_ATTACHMENT_KEY, it)
@@ -146,7 +146,7 @@ class WalletHandler(val walletSvc: WalletService) {
             return showCredentialDetails(call, ctx, credJwt.vcId)
         }
 
-        // Accept a Credential Offer from Keycloak
+        // Accept a Pre-Authorized CredentialOffer from Keycloak
         //
         val authContext = ctx.createAuthContext().withCredentialOffer(credOffer)
         if (credOffer.isPreAuthorized) {
@@ -154,11 +154,14 @@ class WalletHandler(val walletSvc: WalletService) {
             return showCredentialDetails(call, ctx, credJwt.vcId)
         }
 
-        val walletConfig = requireWalletConfig()
+        // Accept a CredentialOffer from Keycloak with Code Flow
+        //
         val clientId = walletSvc.defaultClientId
-        val redirectUri = "${walletSvc.endpointUri}${walletConfig.callbackPath}/${ctx.targetId}"
+        val scopes = credOffer.credentialConfigurationIds
+        val redirectUri = "${walletSvc.endpointUri}${requireWalletConfig().callbackPath}/${ctx.targetId}"
+        val authRequest = walletSvc.buildAuthorizationRequestForCodeFlow(ctx, clientId, scopes, redirectUri)
+
         val authEndpointUrl = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
-        val authRequest = walletSvc.buildAuthorizationRequest(authContext, clientId, redirectUri = redirectUri)
         val authRequestUrl = authRequest.toRequestUrl(authEndpointUrl)
         log.info { "Wallet sends AuthorizationRequest: $authRequestUrl" }
         authRequest.toRequestParameters().forEach { (k, v) -> log.info { "  $k=$v" } }
@@ -234,7 +237,7 @@ class WalletHandler(val walletSvc: WalletService) {
         when (val state = call.parameters["state"]) {
             "ask" -> run {
                 val authContext = ctx.getAuthContext()
-                val authReq = authContext.assertAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY)
+                val authReq = authContext.assertAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY) as AuthorizationRequestV0
                 val model = walletModel(call, ctx).also {
                     it["dcqlQuery"] = jsonPretty.encodeToString(authReq.dcqlQuery!!.toJsonObj())
                     it["targetId"] = ctx.targetId

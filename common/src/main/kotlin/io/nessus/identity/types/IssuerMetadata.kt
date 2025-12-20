@@ -1,6 +1,10 @@
 package io.nessus.identity.types
 
 import id.walt.oid4vc.data.CredentialFormat
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
+import io.nessus.identity.utils.http
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -19,6 +23,14 @@ sealed class IssuerMetadata {
         val jsonInst = Json { ignoreUnknownKeys = true}
         fun fromJson(json: String) = jsonInst.decodeFromString<IssuerMetadata>(json)
         fun fromJson(json: JsonObject) = jsonInst.decodeFromJsonElement<IssuerMetadata>(json)
+
+        @Suppress("UNCHECKED_CAST")
+        suspend fun <IMType: IssuerMetadata> resolveIssuerMetadata(credentialIssuer: String): IMType {
+            val credentialIssuerUrl = "$credentialIssuer/$WELL_KNOWN_OPENID_CREDENTIAL_ISSUER"
+            val issuerMetadata = http.get(credentialIssuerUrl).body<IssuerMetadata>()
+            return issuerMetadata as IMType
+        }
+
     }
     fun toJson() = Json.encodeToString(this)
     fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject

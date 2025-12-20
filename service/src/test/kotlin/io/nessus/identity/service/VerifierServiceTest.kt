@@ -44,9 +44,10 @@ class VerifierServiceTest : AbstractServiceTest() {
             // Create the Identity Credential on demand
             val credJwt = walletSvc.getCredentialByType(alice, ctype!!)
             if (credJwt == null) {
+                val clientId = walletSvc.defaultClientId
                 val offerUri = issuerSvc.createCredentialOfferUri(credConfigId, preAuthorized = true, targetUser = Alice)
                 val credOffer = walletSvc.getCredentialOfferFromUri(offerUri)
-                val accessToken = walletSvc.authorizeFromCredentialOffer(alice, credOffer)
+                val accessToken = walletSvc.authorizeWithCredentialOffer(alice, clientId, credOffer)
                 walletSvc.getCredential(alice, accessToken)
             }
 

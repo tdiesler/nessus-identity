@@ -48,65 +48,6 @@ kc_create_realm() {
   # Create realm
   #
 
-  user_profile_config=$(jq -c . <<< '{
-    "attributes": [
-      {
-        "name": "username",
-        "displayName": "${username}",
-        "multivalued": false,
-        "permissions": {
-          "view": [ "admin", "user" ],
-          "edit": [ "admin", "user" ]
-        }
-      },
-      {
-        "name": "did",
-        "displayName": "DID",
-        "multivalued": false,
-        "permissions": {
-          "view": [ "admin", "user" ],
-          "edit": [ "admin", "user" ]
-        }
-      },
-      {
-        "name": "email",
-        "displayName": "${email}",
-        "multivalued": false,
-        "permissions": {
-          "view": [ "admin", "user" ],
-          "edit": [ "admin", "user" ]
-        }
-      },
-      {
-        "name": "firstName",
-        "displayName": "${firstName}",
-        "multivalued": false,
-        "permissions": {
-          "view": [ "admin", "user" ],
-          "edit": [ "admin", "user" ]
-        }
-      },
-      {
-        "name": "lastName",
-        "displayName": "${lastName}",
-        "multivalued": false,
-        "permissions": {
-          "view": [ "admin", "user" ],
-          "edit": [ "admin", "user" ]
-        }
-      }
-    ],
-    "groups": [
-      {
-        "name": "user-metadata",
-        "displayHeader": "User metadata",
-        "displayDescription": "Attributes that describe user metadata"
-      }
-    ]
-  }')
-
-  escaped_profile_json=$(printf '%s' "$user_profile_config" | jq -R .)
-
   ${KCADM} create realms -f - <<-EOF
   {
     "realm": "oid4vci",
@@ -115,10 +56,7 @@ kc_create_realm() {
       "org.keycloak.userprofile.UserProfileProvider": [
         {
           "name": "Declarative User Profile",
-          "providerId": "declarative-user-profile",
-          "config": {
-            "kc.user.profile.config": [ ${escaped_profile_json} ]
-          }
+          "providerId": "declarative-user-profile"
         }
       ]
     }
@@ -273,6 +211,7 @@ kc_create_oid4vc_credential_configurations() {
       "protocol": "oid4vc",
       "attributes": {
         "vc.issuer_did": "${issuer_did}",
+        "vc.credential_signing_alg": "ES256",
         "vc.format": "jwt_vc"
       },
       "protocolMappers": [

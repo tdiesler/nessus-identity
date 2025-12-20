@@ -17,6 +17,7 @@ import io.nessus.identity.config.User
 import io.nessus.identity.console.HttpSessionStore.requireLoginContext
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.KeycloakIssuerService
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.IssuerMetadataV0
@@ -41,7 +42,7 @@ class IssuerHandler(val issuerSvc: IssuerService) {
             is IssuerMetadataV0 -> { issuerMetadata.authorizationServers?.firstOrNull() }
             is IssuerMetadataDraft11 -> { issuerMetadata.authorizationServer }
         } ?: error("No AuthorizationServer")
-        val authConfigUrl = "$authServerUrl/.well-known/openid-configuration"
+        val authConfigUrl = "$authServerUrl/$WELL_KNOWN_OPENID_CONFIGURATION"
         val issuerConfigUrl = issuerSvc.getIssuerMetadataUrl()
         val model = ctx?.let { BaseModel().withLoginContext(ctx) }
             ?: BaseModel().withLoginContext(call, UserRole.Holder)

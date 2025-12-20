@@ -4,6 +4,7 @@ import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.utils.http
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -49,7 +50,7 @@ class IssuerMetadataDraft11(
     override suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
         if (authMetadata == null) {
             requireNotNull(authorizationServer) { "No authorization_server" }
-            val res = http.get("$authorizationServer/.well-known/openid-configuration")
+            val res = http.get("$authorizationServer/$WELL_KNOWN_OPENID_CONFIGURATION")
             authMetadata = AuthorizationMetadata(res.body<JsonObject>())
         }
         return authMetadata as AuthorizationMetadata

@@ -9,24 +9,28 @@ import kotlin.time.Instant
 
 @Serializable
 data class W3CCredentialSdV11Jwt(
+
+    override val jti: String? = null,           // Credential Id
+
     @SerialName("_sd")
     val sdDigests: List<String>,
 
     @SerialName("_sd_alg")
     val sdAlgorithm: String? = null,
 
-    val vct: String? = null,                    // Verifiable Credential type
     override val iss: String? = null,           // Issuer
     override val sub: String? = null,           // Subject
+    val vct: String? = null,                    // Verifiable Credential Type
+
     @Serializable(with = TimeInstantSerializer::class)
-    val nbf: Instant? = null,                   // Not before
+    val iat: Instant? = null,                   // Issued At
     @Serializable(with = TimeInstantSerializer::class)
     val exp: Instant? = null,                   // Expiration
-    override val jti: String? = null,           // Token ID
+    @Serializable(with = TimeInstantSerializer::class)
+    val nbf: Instant? = null,                   // Not before
+
     val cnf: Confirmation? = null,              // Proof of key possession
 
-    // [TODO] Is this an invalid property?
-    val id: String? = null,                     // Credential ID
 ) : W3CCredentialJwt() {
 
     override val types get() = vct?.let { listOf(vct) } ?: listOf()

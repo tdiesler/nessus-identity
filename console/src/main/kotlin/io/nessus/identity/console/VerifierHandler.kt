@@ -20,6 +20,7 @@ import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.VerifierService
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.AuthorizationRequestDraft11
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.types.DCQLQuery
 import io.nessus.identity.types.LoginParams
 import io.nessus.identity.types.LoginType
@@ -162,7 +163,7 @@ class VerifierHandler(
         val verifierTargetUri = "${verifierSvc.endpointUri}/${ctx.targetId}"
         val authMetadata = verifierSvc.authorizationSvc.getAuthorizationMetadata(ctx)
         val prettyJson = jsonPretty.encodeToString(authMetadata)
-        val authConfigUrl = "$verifierTargetUri/.well-known/openid-configuration"
+        val authConfigUrl = "$verifierTargetUri/$WELL_KNOWN_OPENID_CONFIGURATION"
         val model = verifierModel(call).also {
             it["authConfigJson"] = prettyJson
             it["authConfigUrl"] = authConfigUrl

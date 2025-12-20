@@ -1,15 +1,18 @@
 package io.nessus.identity.service
 
+import com.nimbusds.jwt.SignedJWT
 import io.nessus.identity.config.ConfigProvider.requireIssuerConfig
 import io.nessus.identity.config.FeatureProfile.EBSI_V32
 import io.nessus.identity.config.Features
 import io.nessus.identity.config.User
 import io.nessus.identity.types.AuthorizationMetadata
 import io.nessus.identity.types.CredentialOffer
+import io.nessus.identity.types.CredentialRequest
+import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.UserInfo
 
-interface IssuerService: ExperimentalIssuerService {
+interface IssuerService {
 
     /**
      * The endpoint uri for this service
@@ -17,10 +20,6 @@ interface IssuerService: ExperimentalIssuerService {
     val endpointUri: String
 
     companion object {
-        const val KNOWN_ISSUER_EBSI_V3 = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock"
-        const val WELL_KNOWN_OPENID_CONFIGURATION = ".well-known/openid-configuration"
-        const val WELL_KNOWN_OPENID_CREDENTIAL_ISSUER = ".well-known/openid-credential-issuer"
-
         fun createEbsi32(): IssuerService {
             return Ebsi32IssuerService()
         }
@@ -80,6 +79,22 @@ interface IssuerService: ExperimentalIssuerService {
         userPin: String? = null,
         targetUser: User? = null,
     ): String
+
+    /**
+     * Get a Credential from CredentialRequest
+     */
+    suspend fun getCredentialFromRequest(
+        credReq: CredentialRequest,
+        accessTokenJwt: SignedJWT,
+        deferred: Boolean = false
+    ): CredentialResponse
+
+    /**
+     * Get a Credential from a deferred AcceptanceToken
+     */
+    suspend fun getDeferredCredential(
+        acceptanceTokenJwt: SignedJWT
+    ): CredentialResponse
 
     // UserAccess ------------------------------------------------------------------------------------------------------
 

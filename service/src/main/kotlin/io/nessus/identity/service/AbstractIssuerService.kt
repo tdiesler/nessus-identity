@@ -4,18 +4,14 @@ import com.nimbusds.jwt.SignedJWT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.call.*
 import io.ktor.client.request.*
-import io.nessus.identity.Experimental
 import io.nessus.identity.config.User
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CONFIGURATION
-import io.nessus.identity.service.IssuerService.Companion.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.types.AuthorizationMetadata
-import io.nessus.identity.types.AuthorizationRequest
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialRequest
 import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.IssuerMetadata
-import io.nessus.identity.types.TokenRequest
-import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.UserInfo
 import io.nessus.identity.utils.http
 import java.net.URI
@@ -64,38 +60,15 @@ abstract class AbstractIssuerService(override val endpointUri: String) : IssuerS
         error("Not implemented")
     }
 
-    // ExperimentalIssuerService ---------------------------------------------------------------------------------------
-
-    @Experimental
-    override suspend fun createIDTokenRequest(
-        authRequest: AuthorizationRequest
-    ): AuthorizationRequest {
-        error("Not implemented")
-    }
-
-    @Experimental
-    override fun getAuthCodeFromIDToken(
-        idTokenJwt: SignedJWT,
-    ): String {
-        error("Not implemented")
-    }
-
-    @Experimental
-    override suspend fun getCredentialFromAcceptanceToken(
+    override suspend fun getDeferredCredential(
         acceptanceTokenJwt: SignedJWT
     ): CredentialResponse {
         error("Not implemented")
     }
 
-    @Experimental
     override suspend fun getCredentialFromRequest(
         credReq: CredentialRequest, accessTokenJwt: SignedJWT, deferred: Boolean
     ): CredentialResponse {
-        error("Not implemented")
-    }
-
-    @Experimental
-    override suspend fun getTokenResponse(tokenRequest: TokenRequest): TokenResponse {
         error("Not implemented")
     }
 
