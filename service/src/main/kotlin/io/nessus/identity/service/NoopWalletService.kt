@@ -25,22 +25,6 @@ class NoopWalletService : AbstractWalletService() {
         error("Not implemented")
     }
 
-    override suspend fun authorizeWithCredentialOfferTokenFlow(
-        ctx: LoginContext,
-        credOffer: CredentialOffer
-    ): String {
-        error("Not implemented")
-    }
-
-    override suspend fun authorizeWithCredentialOfferCodeFlow(
-        ctx: LoginContext,
-        clientId: String,
-        credOffer: CredentialOffer,
-        loginCredentials: LoginCredentials?
-    ): String {
-        error("Not implemented")
-    }
-
     override suspend fun authorizeWithCodeFlow(
         ctx: LoginContext,
         credentialIssuer: String,
@@ -67,13 +51,6 @@ class NoopWalletService : AbstractWalletService() {
         clientId: String,
         scopes: List<String>,
         redirectUri: String
-    ): AuthorizationRequest {
-        error("Not implemented")
-    }
-
-    override suspend fun buildAuthorizationRequestForIDTokenFlow(
-        ctx: LoginContext,
-        credOffer: CredentialOffer
     ): AuthorizationRequest {
         error("Not implemented")
     }

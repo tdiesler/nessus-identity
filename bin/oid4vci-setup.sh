@@ -9,7 +9,7 @@ set -euo pipefail
 
 # Default target if not set
 # Keep in sync with Makefile
-: "${TARGET:=dev}"
+: "${TARGET:=local}"
 
 echo "Running setup for target: $TARGET"
 case "$TARGET" in

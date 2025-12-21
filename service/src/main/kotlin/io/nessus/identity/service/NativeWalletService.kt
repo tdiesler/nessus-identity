@@ -20,8 +20,6 @@ import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.dif.DescriptorMapping
 import id.walt.oid4vc.data.dif.PresentationSubmission
-import id.walt.oid4vc.definitions.JWTClaims.Header.jwk
-import id.walt.oid4vc.definitions.JWTClaims.Payload.issuer
 import id.walt.w3c.utils.VCFormat
 import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.HttpClient
@@ -171,40 +169,13 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
             sendTokenRequest(ctx, tokenRequest)
         } else {
             val authCode = if (credOffer is CredentialOfferDraft11) {
-                authorizeWithCredentialOfferTokenFlow(ctx, credOffer)
+                authorizeWithCredentialOfferIDTokenFlow(ctx, credOffer)
             } else {
                 authorizeWithCredentialOfferCodeFlow(ctx, clientId, credOffer, loginCredentials)
             }
             getAccessTokenFromCode(ctx, authCode)
         }
         return tokenResponse
-    }
-
-    override suspend fun authorizeWithCredentialOfferTokenFlow(
-        ctx: LoginContext,
-        credOffer: CredentialOffer
-    ): String {
-        credOffer as CredentialOfferDraft11
-        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
-        val authRequest = buildAuthorizationRequestForIDTokenFlow(ctx, credOffer)
-        val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
-        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest)
-        return authCode
-    }
-
-    override suspend fun authorizeWithCredentialOfferCodeFlow(
-        ctx: LoginContext,
-        clientId: String,
-        credOffer: CredentialOffer,
-        loginCredentials: LoginCredentials?
-    ): String {
-        credOffer as CredentialOfferV0
-        val scopes = credOffer.credentialConfigurationIds
-        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
-        val authRequest = buildAuthorizationRequestForCodeFlow(ctx, clientId, scopes)
-        val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
-        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest, loginCredentials)
-        return authCode
     }
 
     override suspend fun buildAuthorizationRequestForCodeFlow(
@@ -232,36 +203,6 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
 
         val authRequest = builder.build()
         authContext.withAuthorizationRequest(authRequest)
-        return authRequest
-    }
-
-    override suspend fun buildAuthorizationRequestForIDTokenFlow(
-        ctx: LoginContext,
-        credOffer: CredentialOffer
-    ): AuthorizationRequest {
-
-        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
-        val issuerMetadata = authContext.resolveIssuerMetadata() as IssuerMetadataDraft11
-
-        val rndBytes = Random.nextBytes(32)
-        val codeVerifier = Base64URL.encode(rndBytes).toString()
-        val redirectUri = "${endpointUri}/${ctx.targetId}/authorize"
-        val authRequest = when (credOffer) {
-            is CredentialOfferDraft11 -> {
-                AuthorizationRequestDraft11Builder()
-                    .withClientId(ctx.did)
-                    .withClientState(ctx.walletId)
-                    .withCodeChallengeMethod("S256")
-                    .withCodeVerifier(codeVerifier)
-                    .withIssuerMetadata(issuerMetadata)
-                    .withRedirectUri(redirectUri)
-                    .buildFrom(credOffer)
-            }
-
-            else -> error("Not implemented for: ${credOffer::class.simpleName}")
-        }
-        authContext.putAttachment(CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
-        authContext.putAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
         return authRequest
     }
 
@@ -438,6 +379,61 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
     }
 
     // Private ---------------------------------------------------------------------------------------------------------
+
+    private suspend fun authorizeWithCredentialOfferIDTokenFlow(
+        ctx: LoginContext,
+        credOffer: CredentialOffer
+    ): String {
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+        val authRequest = buildAuthorizationRequestForIDTokenFlow(ctx, credOffer)
+        val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
+        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest)
+        return authCode
+    }
+
+    private suspend fun authorizeWithCredentialOfferCodeFlow(
+        ctx: LoginContext,
+        clientId: String,
+        credOffer: CredentialOffer,
+        loginCredentials: LoginCredentials?
+    ): String {
+        credOffer as CredentialOfferV0
+        val scopes = credOffer.credentialConfigurationIds
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+        val authRequest = buildAuthorizationRequestForCodeFlow(ctx, clientId, scopes)
+        val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
+        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest, loginCredentials)
+        return authCode
+    }
+
+    private suspend fun buildAuthorizationRequestForIDTokenFlow(
+        ctx: LoginContext,
+        credOffer: CredentialOffer
+    ): AuthorizationRequest {
+
+        val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
+        val issuerMetadata = authContext.resolveIssuerMetadata() as IssuerMetadataDraft11
+
+        val rndBytes = Random.nextBytes(32)
+        val codeVerifier = Base64URL.encode(rndBytes).toString()
+        val redirectUri = "${endpointUri}/${ctx.targetId}/authorize"
+        val authRequest = when (credOffer) {
+            is CredentialOfferDraft11 -> {
+                AuthorizationRequestDraft11Builder()
+                    .withClientId(ctx.did)
+                    .withClientState(ctx.walletId)
+                    .withCodeChallengeMethod("S256")
+                    .withCodeVerifier(codeVerifier)
+                    .withIssuerMetadata(issuerMetadata)
+                    .withRedirectUri(redirectUri)
+                    .buildFrom(credOffer)
+            }
+            else -> error("Not implemented for: ${credOffer::class.simpleName}")
+        }
+        authContext.putAttachment(CODE_VERIFIER_ATTACHMENT_KEY, codeVerifier)
+        authContext.putAttachment(AUTHORIZATION_REQUEST_ATTACHMENT_KEY, authRequest)
+        return authRequest
+    }
 
     private suspend fun buildCredentialRequest(
         authContext: AuthorizationContext,
