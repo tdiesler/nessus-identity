@@ -48,24 +48,6 @@ interface WalletService: WalletCredentialsService {
     ): TokenResponse
 
     /**
-     * Authorize the Wallet from a CredentialOffer with IDToken Flow
-     */
-    suspend fun authorizeWithCredentialOfferTokenFlow(
-        ctx: LoginContext,
-        credOffer: CredentialOffer
-    ): String
-
-    /**
-     * Authorize the Wallet from a CredentialOffer with Code Flow
-     */
-    suspend fun authorizeWithCredentialOfferCodeFlow(
-        ctx: LoginContext,
-        clientId: String,
-        credOffer: CredentialOffer,
-        loginCredentials: LoginCredentials? = null
-    ): String
-
-    /**
      * Authorize the Wallet using OIDC Code Flow
      */
     suspend fun authorizeWithCodeFlow(
@@ -88,16 +70,14 @@ interface WalletService: WalletCredentialsService {
         loginCredentials: LoginCredentials
     ): TokenResponse
 
+    /**
+     * Build an AuthorizationRequest for OIDC Code Flow
+     */
     suspend fun buildAuthorizationRequestForCodeFlow(
         ctx: LoginContext,
         clientId: String,
         scopes: List<String>,
         redirectUri: String = "urn:ietf:wg:oauth:2.0:oob"
-    ): AuthorizationRequest
-
-    suspend fun buildAuthorizationRequestForIDTokenFlow(
-        ctx: LoginContext,
-        credOffer: CredentialOffer
     ): AuthorizationRequest
 
     /**

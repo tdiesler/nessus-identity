@@ -7,7 +7,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
-typealias AuthorizationDetailsDraft11 = AuthorizationDetails
+typealias AuthorizationDetailDraft11 = AuthorizationDetails
 typealias ClientMetadataDraft11 = OpenIDClientMetadata
 
 @Serializable
@@ -51,7 +51,7 @@ data class AuthorizationRequestDraft11(
     // Uncommon attributes --------------------------------------
 
     @SerialName("authorization_details")
-    val authorizationDetails: List<AuthorizationDetailsDraft11>? = null,
+    val authorizationDetails: List<AuthorizationDetailDraft11>? = null,
 
     @SerialName("client_metadata")
     val clientMetadata: ClientMetadataDraft11? = null,
@@ -122,7 +122,7 @@ data class AuthorizationRequestDraft11(
                 codeChallenge = params["code_challenge"],
                 codeChallengeMethod = params["code_challenge_method"],
                 authorizationDetails = params["authorization_details"]?.let {
-                    Json.decodeFromString<List<AuthorizationDetailsDraft11>>(it)
+                    Json.decodeFromString<List<AuthorizationDetailDraft11>>(it)
                 },
                 clientMetadata = params["client_metadata"]?.let {
                     Json.decodeFromString<ClientMetadataDraft11>(it)

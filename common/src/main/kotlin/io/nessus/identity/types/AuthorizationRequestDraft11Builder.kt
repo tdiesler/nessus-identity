@@ -24,7 +24,7 @@ class AuthorizationRequestDraft11Builder {
     private var presentationDefinition: PresentationDefinition? = null
 
     // Internal props
-    private val authDetails = mutableListOf<AuthorizationDetailsDraft11>()
+    private val authDetails = mutableListOf<AuthorizationDetailDraft11>()
     private var credOffer: CredentialOfferDraft11? = null
     private var scopes = mutableSetOf("openid")
 
@@ -86,7 +86,8 @@ class AuthorizationRequestDraft11Builder {
         if (offeredCredentials.size > 1) log.warn { "Multiple offered credentials, using first" }
         val offeredCred = offeredCredentials.first()
 
-        authDetails.add(AuthorizationDetailsDraft11.fromOfferedCredential(offeredCred, credOffer.credentialIssuer))
+        val authDetail = AuthorizationDetailDraft11.fromOfferedCredential(offeredCred, credOffer.credentialIssuer)
+        authDetails.add(authDetail)
 
         return buildInternal()
     }
