@@ -209,7 +209,7 @@ class WaltIDApiClient(val baseUrl: String) {
     @Suppress("UNCHECKED_CAST")
     private suspend inline fun <reified T> handleResponse(res: HttpResponse): T {
         val body = res.bodyAsText()
-        val json = Json { ignoreUnknownKeys = true }
+        val jsonInst = Json { ignoreUnknownKeys = true }
         if (res.status.value in 200..<300) {
             val resVal = if (T::class == HttpResponse::class) {
                 res as T
@@ -221,11 +221,11 @@ class WaltIDApiClient(val baseUrl: String) {
                     else -> body.toBoolean() as T
                 }
             } else {
-                json.decodeFromString<T>(body)
+                jsonInst.decodeFromString<T>(body)
             }
             return resVal
         }
-        val err = json.decodeFromString<ErrorResponse>(body)
+        val err = jsonInst.decodeFromString<ErrorResponse>(body)
         throw APIException(err)
     }
 }

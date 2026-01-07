@@ -17,7 +17,8 @@ sealed class W3CCredentialJwt {
     companion object {
         fun fromEncoded(encoded: String): W3CCredentialJwt {
             val sigJwt = SignedJWT.parse(encoded)
-            val credJwt = Json.decodeFromString<W3CCredentialJwt>("${sigJwt.payload}")
+            val jsonInst = Json { ignoreUnknownKeys = true }
+            val credJwt = jsonInst.decodeFromString<W3CCredentialJwt>("${sigJwt.payload}")
             if (credJwt is W3CCredentialSdV11Jwt) {
                 credJwt.decodeDisclosures(encoded)
             }

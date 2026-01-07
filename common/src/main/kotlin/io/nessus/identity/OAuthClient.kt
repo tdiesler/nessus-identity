@@ -84,8 +84,8 @@ class OAuthClient {
                     HttpResponse::class -> res as T
                     String::class -> res.bodyAsText() as T
                     else -> {
-                        val json = Json { ignoreUnknownKeys = true }
-                        json.decodeFromString<T>(res.bodyAsText())
+                        val jsonInst = Json { ignoreUnknownKeys = true }
+                        jsonInst.decodeFromString<T>(res.bodyAsText())
                     }
                 }
                 return resVal
