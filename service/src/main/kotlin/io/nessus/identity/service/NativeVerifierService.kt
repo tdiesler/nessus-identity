@@ -1,8 +1,8 @@
 package io.nessus.identity.service
 
 import io.nessus.identity.config.VerifierConfig
-import io.nessus.identity.types.AuthorizationRequestBuilder
 import io.nessus.identity.types.AuthorizationRequestV0
+import io.nessus.identity.types.AuthorizationRequestV0Builder
 import io.nessus.identity.types.DCQLQuery
 
 // NativeVerifierService ===============================================================================================
@@ -32,7 +32,7 @@ class NativeVerifierService(val config: VerifierConfig) : AbstractVerifierServic
         responseUri: String?,
     ): AuthorizationRequestV0 {
 
-        val builder = AuthorizationRequestBuilder()
+        val builder = AuthorizationRequestV0Builder()
             .withResponseType("vp_token")
             .withAuthorizationDetails(false)
             .withClientId(clientId)

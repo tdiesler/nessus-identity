@@ -1,7 +1,7 @@
 package io.nessus.identity.types
 
 import com.nimbusds.jose.util.Base64URL
-import id.walt.oid4vc.OpenID4VCI
+import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.OpenIDClientMetadata
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -72,21 +72,17 @@ class AuthorizationRequestDraft11Builder {
         return this
     }
 
-    suspend fun buildFrom(credOffer: CredentialOfferDraft11): AuthorizationRequestDraft11 {
+    fun buildFrom(credOffer: CredentialOfferDraft11): AuthorizationRequestDraft11 {
         this.credOffer = credOffer
 
-        if (issuerMetadata == null)
-            issuerMetadata = credOffer.resolveIssuerMetadata()
+        if (credOffer.credentials.size > 1) log.warn { "Multiple offered credentials, using first" }
+        val credObject = credOffer.credentials.filterIsInstance<CredentialObject>().first()
 
-        val waltIdOffer = credOffer.toWaltIdCredentialOffer()
-        val waltIdMetadata = issuerMetadata!!.toWaltIdIssuerMetadata()
-        val offeredCredentials = OpenID4VCI.resolveOfferedCredentials(waltIdOffer, waltIdMetadata)
-
-        log.info { "Offered Credentials: ${Json.encodeToString(offeredCredentials)}" }
-        if (offeredCredentials.size > 1) log.warn { "Multiple offered credentials, using first" }
-        val offeredCred = offeredCredentials.first()
-
-        val authDetail = AuthorizationDetailDraft11.fromOfferedCredential(offeredCred, credOffer.credentialIssuer)
+        val authDetail = AuthorizationDetailDraft11(
+            format = CredentialFormat.fromValue(credObject.format),
+            locations = listOf(credOffer.credentialIssuer),
+            types = credObject.types,
+        )
         authDetails.add(authDetail)
 
         return buildInternal()

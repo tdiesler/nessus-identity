@@ -7,7 +7,7 @@ import io.nessus.identity.config.Features
 import kotlinx.serialization.json.*
 import java.security.MessageDigest
 
-class AuthorizationRequestBuilder {
+class AuthorizationRequestV0Builder {
 
     val log = KotlinLogging.logger {}
 
@@ -33,73 +33,73 @@ class AuthorizationRequestBuilder {
     suspend fun getIssuerMetadata() = requireNotNull(explicitIssuerMetadata
         ?: credOffer?.resolveIssuerMetadata()) { "No issuer metadata"}
 
-    fun withClientId(clientId: String): AuthorizationRequestBuilder {
+    fun withClientId(clientId: String): AuthorizationRequestV0Builder {
         this.clientId = clientId
         return this
     }
 
-    fun withClientState(clientState: String): AuthorizationRequestBuilder {
+    fun withClientState(clientState: String): AuthorizationRequestV0Builder {
         this.clientState = clientState
         return this
     }
 
-    fun withCodeChallengeMethod(method: String): AuthorizationRequestBuilder {
+    fun withCodeChallengeMethod(method: String): AuthorizationRequestV0Builder {
         require(method == "S256") { "Unsupported code challenge method: $method" }
         this.codeChallengeMethod = method
         return this
     }
 
-    fun withCodeVerifier(codeVerifier: String): AuthorizationRequestBuilder {
+    fun withCodeVerifier(codeVerifier: String): AuthorizationRequestV0Builder {
         this.codeVerifier = codeVerifier
         return this
     }
 
-    fun withCredentialConfigurationIds(configIds: List<String>): AuthorizationRequestBuilder {
+    fun withCredentialConfigurationIds(configIds: List<String>): AuthorizationRequestV0Builder {
         this.credentialConfigurationIds.addAll(configIds)
         return this
     }
 
-    fun withCredentialOffer(credOffer: CredentialOffer): AuthorizationRequestBuilder {
+    fun withCredentialOffer(credOffer: CredentialOffer): AuthorizationRequestV0Builder {
         this.credOffer = credOffer
         return this
     }
 
-    fun withDCQLAssertion(dcql: DCQLQuery): AuthorizationRequestBuilder {
+    fun withDCQLAssertion(dcql: DCQLQuery): AuthorizationRequestV0Builder {
         this.dcqlQuery = dcql
         return this
     }
 
-    fun withIssuerMetadata(metadata: IssuerMetadata): AuthorizationRequestBuilder {
+    fun withIssuerMetadata(metadata: IssuerMetadata): AuthorizationRequestV0Builder {
         this.explicitIssuerMetadata = metadata
         return this
     }
 
-    fun withRedirectUri(redirectUri: String): AuthorizationRequestBuilder {
+    fun withRedirectUri(redirectUri: String): AuthorizationRequestV0Builder {
         this.redirectUri = redirectUri
         return this
     }
 
-    fun withResponseType(responseType: String): AuthorizationRequestBuilder {
+    fun withResponseType(responseType: String): AuthorizationRequestV0Builder {
         this.responseType = responseType
         return this
     }
 
-    fun withResponseMode(responseMode: String): AuthorizationRequestBuilder {
+    fun withResponseMode(responseMode: String): AuthorizationRequestV0Builder {
         this.responseMode = responseMode
         return this
     }
 
-    fun withResponseUri(responseUri: String): AuthorizationRequestBuilder {
+    fun withResponseUri(responseUri: String): AuthorizationRequestV0Builder {
         this.responseUri = responseUri
         return this
     }
 
-    fun withScopes(scopes: List<String>): AuthorizationRequestBuilder {
+    fun withScopes(scopes: List<String>): AuthorizationRequestV0Builder {
         this.scopes.addAll(scopes)
         return this
     }
 
-    fun withAuthorizationDetails(flag: Boolean): AuthorizationRequestBuilder {
+    fun withAuthorizationDetails(flag: Boolean): AuthorizationRequestV0Builder {
         this.buildAuthorizationDetails = flag
         return this
     }

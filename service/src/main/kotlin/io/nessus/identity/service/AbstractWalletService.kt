@@ -43,9 +43,7 @@ abstract class AbstractWalletService : WalletService {
         predicate: (WalletCredential) -> Boolean
     ): WalletCredential? {
         val res = widWalletService.listCredentials(ctx)
-            .asSequence()
-            .filter { predicate(it) }
-            .firstOrNull()
+            .firstOrNull { predicate(it) }
         return res
     }
 
