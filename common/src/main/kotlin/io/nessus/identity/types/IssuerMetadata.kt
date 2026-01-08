@@ -38,11 +38,6 @@ sealed class IssuerMetadata {
     @Transient
     protected var authMetadata: AuthorizationMetadata? = null
 
-    fun withAuthorizationMetadata(authMetadata: AuthorizationMetadata): IssuerMetadata {
-        this.authMetadata = authMetadata
-        return this
-    }
-
     abstract suspend fun getAuthorizationMetadata(): AuthorizationMetadata
 
     abstract fun getCredentialScope(configId: String): String?

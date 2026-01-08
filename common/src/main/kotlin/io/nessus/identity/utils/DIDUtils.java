@@ -1,11 +1,9 @@
 package io.nessus.identity.utils;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.*;
 import java.math.BigInteger;
 import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
@@ -16,6 +14,9 @@ import java.security.spec.ECParameterSpec;
 import java.security.spec.ECPoint;
 import java.security.spec.ECPublicKeySpec;
 import java.util.Arrays;
+import java.util.Base64;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Utility methods for DID encoding/decoding, specifically did:key for P-256 (ES256).
@@ -44,6 +45,7 @@ public final class DIDUtils {
     public static final int MULTICODEC_P256_PUB = 0x1200;
     public static final int MULTICODEC_P384_PUB = 0x1201;
     public static final int MULTICODEC_P521_PUB = 0x1202;
+    public static final int MULTICODEC_JWK_JCS_PUB = 0xEB51;
 
     // ---------------------------------------------------------------------
     // Public API – did:key encoding / decoding
@@ -73,7 +75,7 @@ public final class DIDUtils {
     }
 
     public static int getDidKeyCodec(String did) {
-        if (did==null || !did.startsWith("did:key:z"))
+        if (did == null || !did.startsWith("did:key:z"))
             return 0;
 
         // Strip "did:key:z" (z = multibase base58btc)
@@ -87,14 +89,14 @@ public final class DIDUtils {
         for (byte value : decoded) {
             int b = value & 0xff;
             codec |= (b & 0x7f) << shift;
-            if ((b & 0x80)==0) {
+            if ((b & 0x80) == 0) {
                 break;
             }
             shift += 7;
         }
 
         return switch (codec) {
-            case MULTICODEC_P256_PUB, MULTICODEC_P384_PUB, MULTICODEC_P521_PUB -> codec;
+            case MULTICODEC_P256_PUB, MULTICODEC_P384_PUB, MULTICODEC_P521_PUB, MULTICODEC_JWK_JCS_PUB -> codec;
             default -> 0;
         };
     }
@@ -102,29 +104,48 @@ public final class DIDUtils {
     // Private ---------------------------------------------------------------------------------------------------------
 
     private static String encodeDidKeyInternal(ECPublicKey pub) throws IOException {
+        return encodeDidKeyInternal(pub, false);
+    }
+
+    private static String encodeDidKeyInternal(ECPublicKey pub, boolean useJwkJcsPub) throws IOException {
 
         ECParameterSpec params = pub.getParams();
         int fieldSize = params.getCurve().getField().getFieldSize();
 
         // Verify P-256 => secp256r1
-        if (fieldSize!=256) {
+        if (fieldSize != 256) {
             throw new IllegalArgumentException("Expected secp256r1, but key uses: " + params);
         }
 
         byte[] x = toUnsigned32(pub.getW().getAffineX().toByteArray());
         byte[] y = toUnsigned32(pub.getW().getAffineY().toByteArray());
 
-        // Write multicodec varint: 0x1200 → 0x80 0x24
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        writeVarint(MULTICODEC_P256_PUB, baos);
 
-        // EC uncompressed point format: 0x04 || X || Y
-        baos.write(0x04);
-        baos.write(x);
-        baos.write(y);
+        if (useJwkJcsPub) {
+            writeVarint(MULTICODEC_JWK_JCS_PUB, baos);
 
-        String didKey = "did:key:z" + Base58.encode(baos.toByteArray());
-        return didKey;
+            // Minimal EC JWK (public) - order is fine if we don't strictly require JCS canonicalization
+            String jwkJson = new ObjectMapper()
+                    .writeValueAsString(java.util.Map.of(
+                            "crv", "P-256",
+                            "kty", "EC",
+                            "x", Base64.getUrlEncoder().withoutPadding().encodeToString(x),
+                            "y", Base64.getUrlEncoder().withoutPadding().encodeToString(y)
+                    ));
+
+            baos.write(jwkJson.getBytes(UTF_8));
+
+        } else {
+            writeVarint(MULTICODEC_P256_PUB, baos);
+
+            // EC uncompressed point format: 0x04 || X || Y
+            baos.write(0x04);
+            baos.write(x);
+            baos.write(y);
+        }
+
+        return "did:key:z" + Base58.encode(baos.toByteArray());
     }
 
     private static ECPublicKey decodeDidKeyInternal(String did) throws GeneralSecurityException, IOException {
@@ -136,20 +157,46 @@ public final class DIDUtils {
         String b58 = did.substring("did:key:z".length());
         InputStream in = new ByteArrayInputStream(Base58.decode(b58));
 
-        // Read and verify multicodec varint
+        // Read the multicodec varint
         int codec = readVarint(in);
-        if (codec!=MULTICODEC_P256_PUB) {
-            throw new IllegalArgumentException("Unexpected multicodec: 0x" + Integer.toHexString(codec));
-        }
 
-        // Expect 0x04 indicating an uncompressed EC point
-        int tag = in.read();
-        if (tag!=0x04) {
-            throw new IllegalArgumentException("Invalid EC point tag: " + tag);
-        }
+        byte[] x, y;
+        switch (codec) {
+            case MULTICODEC_P256_PUB -> {
 
-        byte[] x = readNBytes(in, 32);
-        byte[] y = readNBytes(in, 32);
+                // Expect 0x04 indicating an uncompressed EC point
+                int tag = in.read();
+                if (tag != 0x04) {
+                    throw new IllegalArgumentException("Invalid EC point tag: " + tag);
+                }
+
+                x = readNBytes(in, 32);
+                y = readNBytes(in, 32);
+            }
+            case MULTICODEC_JWK_JCS_PUB -> {
+                // Remaining bytes are a UTF-8 encoded JWK JSON object (JCS-canonicalized)
+                byte[] jwkBytes = in.readAllBytes();
+                String jwkJson = new String(jwkBytes, UTF_8);
+
+                JsonNode jwk = new ObjectMapper().readTree(jwkJson);
+                String kty = jwk.path("kty").asText(null);
+                String crv = jwk.path("crv").asText(null);
+                String xB64 = jwk.path("x").asText(null);
+                String yB64 = jwk.path("y").asText(null);
+
+                if (!"EC".equals(kty) || xB64 == null || yB64 == null) {
+                    throw new IllegalArgumentException("Invalid EC JWK in did:key");
+                }
+                if (!"P-256".equals(crv) && !"secp256r1".equalsIgnoreCase(crv)) {
+                    throw new IllegalArgumentException("Unsupported JWK crv: " + crv);
+                }
+
+                x = Base64.getUrlDecoder().decode(xB64);
+                y = Base64.getUrlDecoder().decode(yB64);
+            }
+            default ->
+                    throw new IllegalArgumentException("Unexpected multicodec: 0x" + Integer.toHexString(codec));
+        }
 
         ECPoint point = new ECPoint(
                 new BigInteger(1, x),
@@ -162,8 +209,7 @@ public final class DIDUtils {
         ECPublicKeySpec keySpec = new ECPublicKeySpec(point, paramSpec);
 
         KeyFactory keyFactory = KeyFactory.getInstance("EC");
-        ECPublicKey pubKey = (ECPublicKey) keyFactory.generatePublic(keySpec);
-        return pubKey;
+        return (ECPublicKey) keyFactory.generatePublic(keySpec);
     }
 
     // ---------------------------------------------------------------------
@@ -171,7 +217,7 @@ public final class DIDUtils {
     // ---------------------------------------------------------------------
 
     private static void writeVarint(int value, OutputStream out) throws IOException {
-        while ((value & ~0x7F)!=0) {
+        while ((value & ~0x7F) != 0) {
             out.write((value & 0x7F) | 0x80); // continuation bit
             value >>>= 7;
         }
@@ -184,13 +230,13 @@ public final class DIDUtils {
 
         while (true) {
             int b = in.read();
-            if (b==-1) {
+            if (b == -1) {
                 throw new EOFException("EOF while reading varint");
             }
 
             value |= (b & 0x7F) << shift;
 
-            if ((b & 0x80)==0) {
+            if ((b & 0x80) == 0) {
                 break; // final byte
             }
 
@@ -214,7 +260,7 @@ public final class DIDUtils {
         byte[] bytes = new byte[n];
         while (read < n) {
             int r = in.read(bytes, read, bytes.length - read);
-            if (r==-1)
+            if (r == -1)
                 throw new IllegalStateException("Unexpected EOF");
             read += r;
         }
@@ -224,7 +270,7 @@ public final class DIDUtils {
     // Convert a signed BigInteger byte array into a fixed 32-byte unsigned array.
     // Removes sign byte or pads with zeros as needed.
     private static byte[] toUnsigned32(byte[] in) {
-        if (in.length==32) {
+        if (in.length == 32) {
             return in;
         }
         if (in.length > 32) {

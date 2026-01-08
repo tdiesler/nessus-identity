@@ -1,12 +1,11 @@
 package io.nessus.identity.types
 
 import com.nimbusds.jose.jwk.JWK
-import io.ktor.client.call.body
-import io.ktor.client.request.get
+import io.ktor.client.call.*
+import io.ktor.client.request.*
 import io.nessus.identity.utils.http
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
@@ -21,6 +20,10 @@ class AuthorizationMetadata(val jsonObj: JsonObject) {
 
     fun getAuthorizationTokenEndpointUri(): String {
         return jsonObj.getValue("token_endpoint").jsonPrimitive.content
+    }
+
+    fun getIssuer(): String {
+        return jsonObj.getValue("issuer").jsonPrimitive.content
     }
 
     fun getJwksUri(): String {

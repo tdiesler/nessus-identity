@@ -220,7 +220,16 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         val codeVerifier = Base64URL.encode(rndBytes).toString()
         val redirectUri = "${endpointUri}/${ctx.targetId}/authorize"
         val authRequest = when (issuerMetadata) {
-            is IssuerMetadataV0 -> error("Not implemented for: ${credOffer::class.simpleName}")
+            is IssuerMetadataV0 -> {
+                AuthorizationRequestV0Builder()
+                    .withClientId(ctx.did)
+                    .withClientState(ctx.walletId)
+                    .withCodeChallengeMethod("S256")
+                    .withCodeVerifier(codeVerifier)
+                    .withIssuerMetadata(issuerMetadata)
+                    .withRedirectUri(redirectUri)
+                    .buildFrom(credOffer)
+            }
             is IssuerMetadataDraft11 -> {
                 AuthorizationRequestDraft11Builder()
                     .withClientId(ctx.did)
@@ -723,20 +732,18 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
                     json()
                 }
                 followRedirects = false
-                // install(Logging) {
-                //     logger = Logger.DEFAULT
-                //     level = LogLevel.ALL
-                // }
             }
 
             var res = http.get(authReqUrl)
             if (res.status == HttpStatusCode.Found) {
 
-                log.error { "Redirect response: ${res.status}" }
                 res.headers.forEach { k, lst -> lst.forEach { v -> log.debug { "  $k: $v" } } }
 
-                // First try access the location as given
                 val locationUri = res.headers["location"] as String
+                log.info { "Redirect response: $locationUri" }
+                Url(locationUri).parameters.forEach { k, v -> log.info { "  $k: $v" } }
+
+                // First try access the location as given
                 res = http.get(locationUri)
 
                 // Cloudflare may reject the request because of url size limits or other WAF rules

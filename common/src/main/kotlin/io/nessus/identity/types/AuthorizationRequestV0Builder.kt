@@ -26,8 +26,8 @@ class AuthorizationRequestV0Builder {
     // Internal props
     private var buildAuthorizationDetails = true
     private var explicitIssuerMetadata: IssuerMetadata? = null
+    private var credentialConfigurationIds: List<String>? = null
     private var scopes = mutableListOf<String>()
-    private var credentialConfigurationIds = mutableListOf<String>()
     private var codeChallenge: String? = null
 
     suspend fun getIssuerMetadata() = requireNotNull(explicitIssuerMetadata
@@ -55,12 +55,7 @@ class AuthorizationRequestV0Builder {
     }
 
     fun withCredentialConfigurationIds(configIds: List<String>): AuthorizationRequestV0Builder {
-        this.credentialConfigurationIds.addAll(configIds)
-        return this
-    }
-
-    fun withCredentialOffer(credOffer: CredentialOffer): AuthorizationRequestV0Builder {
-        this.credOffer = credOffer
+        this.credentialConfigurationIds = configIds.toList()
         return this
     }
 
@@ -105,6 +100,17 @@ class AuthorizationRequestV0Builder {
     }
 
     suspend fun build(): AuthorizationRequestV0 {
+        return buildInternal()
+    }
+
+    suspend fun buildFrom(credOffer: CredentialOffer): AuthorizationRequestV0 {
+        this.credOffer = credOffer
+        return buildInternal()
+    }
+
+    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
+
+    private suspend fun buildInternal(): AuthorizationRequestV0 {
 
         require(clientId.isNotBlank()) { "No client_id" }
 
@@ -118,27 +124,26 @@ class AuthorizationRequestV0Builder {
             codeChallenge = Base64URL.encode(codeVerifierHash).toString()
         }
 
-        if (credentialConfigurationIds.isEmpty() && credOffer != null) {
-            credentialConfigurationIds.addAll(credOffer!!.credentialConfigurationIds)
-        }
-
         if (responseMode == "direct_post") {
             require(redirectUri == null) { "redirect_uri must be null for direct_post" }
             require(responseUri != null) { "response_uri required for direct_post" }
         }
 
         val authorizationDetails = mutableListOf<AuthorizationDetail>()
-        if (buildAuthorizationDetails && !credentialConfigurationIds.isEmpty()) {
+        if (buildAuthorizationDetails) {
             val issuerMetadata = getIssuerMetadata()
             val issuerUri = issuerMetadata.credentialIssuer
-            credentialConfigurationIds.forEach {
+            val credConfigIds = credentialConfigurationIds
+                ?: credOffer?.credentialConfigurationIds
+                ?: listOf()
+            credConfigIds.forEach {
                 authorizationDetails.add(
                     Json.decodeFromString(
                         """{
-                            "type": "openid_credential",
-                            "credential_configuration_id": "$it",
-                            "locations": [ "$issuerUri" ]
-                        }"""
+                                "type": "openid_credential",
+                                "credential_configuration_id": "$it",
+                                "locations": [ "$issuerUri" ]
+                            }"""
                     )
                 )
                 // [TODO #264] Keycloak requires credential id in scope although already given in authorizationDetails
@@ -170,6 +175,4 @@ class AuthorizationRequestV0Builder {
 
         return authReq
     }
-
-    // Private -------------------------------------------------------------------------------------------------------------------------------------------------
 }

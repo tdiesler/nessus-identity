@@ -51,6 +51,7 @@ class IssuerApiHandler(val issuerSvc: NativeIssuerService):
 
         val queryParams = urlQueryToMap(call.request.uri)
         val authRequest = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
+        log.info { "AuthorizationRequest: ${authRequest.toJson()}" }
 
         val responseType = authRequest.responseType
         when (responseType) {

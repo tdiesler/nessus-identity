@@ -72,6 +72,10 @@ class AuthorizationRequestDraft11Builder {
         return this
     }
 
+    fun build(): AuthorizationRequestDraft11 {
+        return buildInternal()
+    }
+
     fun buildFrom(credOffer: CredentialOfferDraft11): AuthorizationRequestDraft11 {
         this.credOffer = credOffer
 
@@ -85,10 +89,6 @@ class AuthorizationRequestDraft11Builder {
         )
         authDetails.add(authDetail)
 
-        return buildInternal()
-    }
-
-    suspend fun build(): AuthorizationRequestDraft11 {
         return buildInternal()
     }
 

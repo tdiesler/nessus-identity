@@ -201,16 +201,16 @@ open class NativeAuthorizationService(override val endpointUri: String): Authori
         // The id_token must be signed with the DID document's authentication key.
 
         // Verify required query params
-        for (key in listOf("client_id", "nonce", "redirect_uri", "response_type")) {
+        for (key in listOf("client_id", "redirect_uri", "response_type")) {
             requireNotNull(reqParams[key]) { "No $key" }
         }
 
         val clientId = requireNotNull(reqParams["client_id"])
-        val nonce = requireNotNull(reqParams["nonce"])
+        val nonce = reqParams["nonce"]
         val state = reqParams["state"]
 
         val responseType = reqParams["response_type"]
-        require(reqParams["response_type"] == "id_token") { "Unexpected response_type: $responseType" }
+        require(responseType == "id_token") { "Unexpected response_type: $responseType" }
 
         val iat = Instant.now()
         val exp = iat.plusSeconds(300) // 5 mins expiry
@@ -228,8 +228,8 @@ open class NativeAuthorizationService(override val endpointUri: String): Authori
             .audience(clientId)
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
-            .claim("nonce", nonce)
 
+        nonce?.also { jwtBuilder.claim("nonce", it) }
         state?.also { jwtBuilder.claim("state", it) }
         val idTokenClaims = jwtBuilder.build()
 

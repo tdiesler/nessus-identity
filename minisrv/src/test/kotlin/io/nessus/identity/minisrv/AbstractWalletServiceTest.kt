@@ -70,6 +70,19 @@ abstract class AbstractWalletServiceTest : AbstractServiceTest() {
     }
 
     @Test
+    fun authorizeWithIDTokenFlow() {
+        runBlocking {
+            val configId = "CTWalletSameAuthorisedInTime"
+            val credOffer = issuerSvc.createCredentialOffer(configId, alice.did, targetUser = Alice)
+            verifyCredentialOffer(alice, configId, credOffer)
+
+            val authCode = walletSvc.authorizeWithIDTokenFlow(alice, credOffer)
+            val tokenResponse = walletSvc.getAccessTokenFromCode(alice, authCode)
+            verifyTokenResponse(alice, configId, tokenResponse)
+        }
+    }
+
+    @Test
     fun authorizeWithCredentialOffer() {
         runBlocking {
             val configId = "CTWalletSameAuthorisedInTime"

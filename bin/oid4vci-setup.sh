@@ -16,22 +16,22 @@ case "$TARGET" in
   local)
     echo "Doing local setup..."
     export KUBE_CONTEXT="rancher-desktop"
-    export AUTH_SERVER_URL="http://localhost:8080"
-    export AUTH_REDIRECT_URI="http://localhost:9000/wallet/auth/callback/*"
+    export ISSUER_BASE_URL="http://localhost:8080"
+    export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
   dev)
     echo "Doing development setup..."
     export KUBE_CONTEXT="rancher-desktop"
-    export AUTH_SERVER_URL="https://oauth.localtest.me"
-    export AUTH_REDIRECT_URI="http://localhost:9000/wallet/auth/callback/*"
+    export ISSUER_BASE_URL="https://oauth.localtest.me"
+    export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
   stage)
     echo "Doing staging setup..."
     export KUBE_CONTEXT="ebsi"
-    export AUTH_SERVER_URL="https://oauth.nessustech.io"
-    export AUTH_REDIRECT_URI="https://console.nessustech.io/wallet/auth/callback/*"
+    export ISSUER_BASE_URL="https://oauth.nessustech.io"
+    export WALLET_REDIRECT_URI="https://console.nessustech.io/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.nessustech.io"
     ;;
   *)

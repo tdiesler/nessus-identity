@@ -14,6 +14,7 @@ import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.UserInfo
 import io.nessus.identity.utils.http
+import kotlinx.coroutines.runBlocking
 import java.net.URI
 
 abstract class AbstractIssuerService(override val endpointUri: String) : IssuerService {
@@ -21,8 +22,7 @@ abstract class AbstractIssuerService(override val endpointUri: String) : IssuerS
     val log = KotlinLogging.logger {}
 
     override fun getAuthorizationMetadataUrl(): String {
-        val metadataUrl = "$endpointUri/$WELL_KNOWN_OPENID_CONFIGURATION"
-        return metadataUrl
+        return runBlocking { getAuthorizationMetadata().getIssuer() + "/$WELL_KNOWN_OPENID_CONFIGURATION" }
     }
 
     override suspend fun getAuthorizationMetadata(): AuthorizationMetadata {
@@ -36,7 +36,7 @@ abstract class AbstractIssuerService(override val endpointUri: String) : IssuerS
 
     override suspend fun getIssuerMetadata(): IssuerMetadata {
         val metadataUrl = URI(getIssuerMetadataUrl()).toURL()
-        log.info { "IssuerMetadataUrl: $metadataUrl" }
+        log.debug { "Get IssuerMetadata from: $metadataUrl" }
         return http.get(metadataUrl).body<IssuerMetadata>()
     }
 
