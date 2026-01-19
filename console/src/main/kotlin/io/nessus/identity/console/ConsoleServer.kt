@@ -308,11 +308,6 @@ class ConsoleServer(
                                 walletApiHandler.handleAuthorizationMetadataRequest(call, ctx)
                             }
                         }
-                        get("/authorize") {
-                            requireTargetContext(call, UserRole.Holder) { ctx ->
-                                walletApiHandler.handleAuthorize(call, ctx)
-                            }
-                        }
                         post("/direct_post") {
                             requireTargetContext(call, UserRole.Holder) { ctx ->
                                 walletApiHandler.handleDirectPost(call, ctx)

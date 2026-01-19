@@ -3,10 +3,17 @@ package io.nessus.identity.service
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import id.walt.oid4vc.data.AuthorizationDetails
 import id.walt.oid4vc.data.CredentialFormat
+import id.walt.oid4vc.data.dif.DescriptorMapping
+import id.walt.oid4vc.data.dif.InputDescriptor
+import id.walt.oid4vc.data.dif.PresentationDefinition
+import id.walt.oid4vc.data.dif.PresentationSubmission
+import id.walt.w3c.utils.VCFormat
+import id.walt.webwallet.db.models.WalletCredential
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
@@ -16,6 +23,7 @@ import io.nessus.identity.AuthorizationContext.Companion.ACCESS_TOKEN_ATTACHMENT
 import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_ISSUER_METADATA_ATTACHMENT_KEY
+import io.nessus.identity.AuthorizationContext.Companion.EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY
 import io.nessus.identity.LoginContext
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.service.CredentialOfferRegistry.removeCredentialOfferRecord
@@ -24,6 +32,7 @@ import io.nessus.identity.types.AuthorizationRequest
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
+import io.nessus.identity.types.CredentialMatcherDraft11
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.TokenRequest
 import io.nessus.identity.types.TokenResponse
@@ -34,6 +43,7 @@ import io.nessus.identity.utils.http
 import io.nessus.identity.utils.signWithKey
 import io.nessus.identity.utils.urlQueryToMap
 import io.nessus.identity.utils.verifyJwtSignature
+import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.serialization.json.*
 import java.time.Instant
 import java.util.*
@@ -137,12 +147,12 @@ open class NativeAuthorizationService(override val endpointUri: String): Authori
     }
 
     override suspend fun createIDToken(
-        ctx: LoginContext, authRequest:
-        AuthorizationRequest
+        ctx: LoginContext,
+        idTokenRequest: AuthorizationRequest
     ): SignedJWT {
 
-        val request = authRequest.request
-        val requestUri = authRequest.requestUri
+        val request = idTokenRequest.request
+        val requestUri = idTokenRequest.requestUri
         require(requestUri != null || request != null) { "No 'request_uri' nor 'request'" }
 
         val idTokenRequestJwt = when {
@@ -163,7 +173,7 @@ open class NativeAuthorizationService(override val endpointUri: String): Authori
                 SignedJWT.parse(request)
             }
         }
-        val idTokenJwt = createIDTokenJwt(ctx, authRequest, idTokenRequestJwt)
+        val idTokenJwt = createIDTokenJwt(ctx, idTokenRequest, idTokenRequestJwt)
         return idTokenJwt
     }
 
@@ -311,6 +321,166 @@ open class NativeAuthorizationService(override val endpointUri: String): Authori
         return idTokenRedirect
     }
 
+    suspend fun createVPTokenDraft11(
+        ctx: LoginContext,
+        vpTokenRequest: AuthorizationRequestDraft11
+    ): SignedJWT {
+
+        log.info { "VPToken AuthorizationRequest: ${Json.encodeToString(vpTokenRequest)}" }
+
+        val clientId = vpTokenRequest.clientId
+        val nonce = vpTokenRequest.nonce
+        val state = vpTokenRequest.state
+
+        val vpdef = vpTokenRequest.presentationDefinition
+            ?: throw IllegalStateException("No presentationDefinition in: $vpTokenRequest")
+
+        val jti = "${Uuid.random()}"
+        val iat = Instant.now()
+        val exp = iat.plusSeconds(300) // 5 mins expiry
+
+        val kid = ctx.didInfo.authenticationId()
+        val vpTokenHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType.JWT)
+            .keyID(kid)
+            .build()
+
+        val vpJson = """{
+            "@context": [ "https://www.w3.org/2018/credentials/v1" ],
+            "id": "$jti",
+            "type": [ "VerifiablePresentation" ],
+            "holder": "${ctx.did}",
+            "verifiableCredential": []
+        }"""
+        val vpObj = JSONObjectUtils.parse(vpJson)
+
+        @Suppress("UNCHECKED_CAST")
+        val vcArray = vpObj["verifiableCredential"] as MutableList<String>
+
+        val descriptorMappings = mutableListOf<DescriptorMapping>()
+        val matchingCredentials = findCredentialsByPresentationDefinition(ctx, vpdef).toMap()
+        val matchingCredentialsByInputDescriptorId = matchingCredentials.entries.associate { (ind, wc) -> ind.id to wc }
+
+        for (ind in vpdef.inputDescriptors) {
+
+            val wc = matchingCredentialsByInputDescriptorId[ind.id]
+            if (wc == null) {
+                log.warn { "No matching credential for: ${ind.id}" }
+                continue
+            }
+
+            log.info { "Found matching credential for: ${ind.id}" }
+
+            val n = vcArray.size
+            val dm = DescriptorMapping(
+                id = ind.id,
+                path = "$",
+                format = VCFormat.jwt_vp,
+                pathNested = DescriptorMapping(
+                    id = ind.id,
+                    path = "$.vp.verifiableCredential[$n]",
+                    format = VCFormat.jwt_vc,
+                )
+            )
+
+            descriptorMappings.add(dm)
+            vcArray.add(wc.document)
+        }
+
+        val vpSubmission = PresentationSubmission(
+            id = "${Uuid.random()}",
+            definitionId = vpdef.id,
+            descriptorMap = descriptorMappings
+        )
+
+        val claimsBuilder = JWTClaimsSet.Builder()
+            .jwtID(jti)
+            .issuer(ctx.did)
+            .subject(ctx.did)
+            .audience(clientId)
+            .issueTime(Date.from(iat))
+            .notBeforeTime(Date.from(iat))
+            .expirationTime(Date.from(exp))
+            .claim("vp", vpObj)
+
+        nonce?.also { claimsBuilder.claim("nonce", it) }
+        state?.also { claimsBuilder.claim("state", it) }
+        val vpTokenClaims = claimsBuilder.build()
+
+        val vpTokenJwt = SignedJWT(vpTokenHeader, vpTokenClaims).signWithKey(ctx, kid)
+        log.info { "VPToken Header: ${vpTokenJwt.header}" }
+        log.info { "VPToken Claims: ${vpTokenJwt.jwtClaimsSet}" }
+
+        val vpToken = vpTokenJwt.serialize()
+        log.info { "VPToken: $vpToken" }
+
+        vpTokenJwt.verifyJwtSignature("VPToken", ctx.didInfo)
+
+        val authContext = ctx.getAuthContext()
+        authContext.putAttachment(EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY, vpSubmission)
+
+        return vpTokenJwt
+    }
+
+    /**
+     * For every InputDescriptor iterate over all WalletCredentialsService and match all constraints.
+     */
+    suspend fun findCredentialsByPresentationDefinition(ctx: LoginContext, vpdef: PresentationDefinition): List<Pair<InputDescriptor, WalletCredential>> {
+        val foundCredentials = mutableListOf<Pair<InputDescriptor, WalletCredential>>()
+        val walletCredentials = widWalletService.listCredentials(ctx)
+        val credMatcher = CredentialMatcherDraft11()
+        for (wc in walletCredentials) {
+            for (ind in vpdef.inputDescriptors) {
+                if (credMatcher.matchCredential(wc, ind)) {
+                    foundCredentials.add(Pair(ind, wc))
+                    break
+                }
+            }
+        }
+        return foundCredentials
+    }
+
+    suspend fun sendVPTokenDraft11(
+        ctx: LoginContext,
+        vpTokenRequest: AuthorizationRequest,
+        vpTokenJwt: SignedJWT
+    ): String {
+
+        val authContext = ctx.getAuthContext()
+        val vpSubmission = authContext.assertAttachment(EBSI32_PRESENTATION_SUBMISSION_ATTACHMENT_KEY, true)
+
+        val redirectUri = requireNotNull(vpTokenRequest.redirectUri) { "No redirectUri in: $vpTokenRequest" }
+        val state = requireNotNull(vpTokenRequest.state) { "No state in: $vpTokenRequest" }
+
+        log.info { "Send VPToken: $redirectUri" }
+        val formData = mapOf(
+            "vp_token" to "${vpTokenJwt.serialize()}",
+            "presentation_submission" to Json.encodeToString(vpSubmission),
+            "state" to state,
+        )
+
+        val res = http.post(redirectUri) {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(FormDataContent(Parameters.build {
+                formData.forEach { (k, v) -> log.info { "  $k=$v"} }
+                formData.forEach { (k, v) -> append(k, v) }
+            }))
+        }
+
+        if (res.status != HttpStatusCode.Found)
+            throw HttpStatusException(res.status, res.bodyAsText())
+
+        val location = res.headers["location"]?.also {
+            log.info { "VPToken Response: $it" }
+        } ?: throw IllegalStateException("Cannot find 'location' in headers")
+
+        val authCode = urlQueryToMap(location)["code"]?.also {
+            authContext.putAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY, it)
+        } ?: throw IllegalStateException("No authorization code")
+
+        return authCode
+    }
+
     override suspend fun getTokenResponse(ctx: LoginContext, tokenRequest: TokenRequest): TokenResponse {
         val tokenResponse = when (tokenRequest) {
             is TokenRequest.AuthorizationCode -> {
@@ -326,11 +496,11 @@ open class NativeAuthorizationService(override val endpointUri: String): Authori
 
     override suspend fun sendIDToken(
         ctx: LoginContext,
-        authRequest: AuthorizationRequest,
+        idTokenRequest: AuthorizationRequest,
         idTokenJwt: SignedJWT
     ): String {
 
-        val redirectUri = requireNotNull(authRequest.redirectUri) { "No redirect_uri" }
+        val redirectUri = requireNotNull(idTokenRequest.redirectUri) { "No redirect_uri" }
 
         log.info { "Send IDToken: $redirectUri" }
         val formData = mutableMapOf(

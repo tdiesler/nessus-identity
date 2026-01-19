@@ -23,17 +23,13 @@ import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.w3c.utils.VCFormat
 import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
 import io.nessus.identity.AuthorizationContext
-import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_CODE_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.AUTHORIZATION_REQUEST_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.CODE_VERIFIER_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.EBSI32_AUTHORIZATION_REQUEST_DRAFT11_ATTACHMENT_KEY
-import io.nessus.identity.AuthorizationContext.Companion.EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY
 import io.nessus.identity.AuthorizationContext.Companion.USER_PIN_ATTACHMENT_KEY
 import io.nessus.identity.LoginContext
 import io.nessus.identity.LoginCredentials
@@ -110,7 +106,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         val scopes = listOf(issuerMetadata.getCredentialScope(configId) ?: error("No scope for: $configId"))
         val authRequest = buildAuthorizationRequestForCodeFlow(ctx, clientId, scopes)
         val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
-        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest, loginCredentials)
+        val authCode = sendAuthorizationRequest(ctx, authEndpointUri, authRequest, loginCredentials)
         return authCode
     }
 
@@ -153,7 +149,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
         val authRequest = buildAuthorizationRequestForIDTokenFlow(ctx, credOffer)
         val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
-        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest)
+        val authCode = sendAuthorizationRequest(ctx, authEndpointUri, authRequest)
         return authCode
     }
 
@@ -431,7 +427,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         val authContext = ctx.getAuthContext().withCredentialOffer(credOffer)
         val authRequest = buildAuthorizationRequestForCodeFlow(ctx, clientId, scopes)
         val authEndpointUri = authContext.getAuthorizationMetadata().getAuthorizationEndpointUri()
-        val authCode = sendAuthorizationRequest(authContext, authEndpointUri, authRequest, loginCredentials)
+        val authCode = sendAuthorizationRequest(ctx, authEndpointUri, authRequest, loginCredentials)
         return authCode
     }
 
@@ -690,7 +686,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
     }
 
     private suspend fun sendAuthorizationRequest(
-        authContext: AuthorizationContext,
+        ctx: LoginContext,
         authEndpointUri: String,
         authRequest: AuthorizationRequest,
         loginCredentials: LoginCredentials? = null
@@ -703,87 +699,84 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         log.info { "Send AuthorizationRequest: $authReqUrl" }
         authRequest.toRequestParameters().forEach { (k, lst) -> lst.forEach { v -> log.info { "  $k=$v" } } }
 
-        val authCode = if (loginCredentials != null) {
-            Playwright.create().use { plw ->
-                plw.firefox().launch(LaunchOptions().setHeadless(true)).use { browser ->
-                    val page = browser.newPage()
+        // Handle Authorization Code Flow
+        //
+        if (loginCredentials != null) {
+            val authCode = handleAuthorizationCodeFlow(authEndpointUri, authRequest, loginCredentials)
+            log.info { "AuthorizationCode: $authCode" }
+            return authCode
+        }
 
-                    // Navigate to Keycloak Authorization Endpoint
-                    val authRequestUrl = authRequest.toRequestUrl(authEndpointUri)
-                    page.navigate(authRequestUrl)
+        // Handle Authorization IDToken/VPToken Flow
+        //
+        if (authRequest.clientId.startsWith("did:")) {
 
-                    // Fill in login form (adjust selectors if your Keycloak theme differs)
-                    page.locator("#username").fill(loginCredentials.username)
-                    page.locator("#password").fill(loginCredentials.password)
-                    page.locator("#kc-login").click()
-
-                    // Wait for the input with id="code"
-                    page.waitForSelector("#code")
-
-                    // Extract the code from the 'value' attribute
-                    page.locator("#code").getAttribute("value")
-                }
-            }
-        } else {
             // Disable follow redirects
-            //
             val http = HttpClient {
-                install(ContentNegotiation) {
-                    json()
-                }
                 followRedirects = false
             }
 
-            var res = http.get(authReqUrl)
-            if (res.status == HttpStatusCode.Found) {
-
-                res.headers.forEach { k, lst -> lst.forEach { v -> log.debug { "  $k: $v" } } }
-
-                val locationUri = res.headers["location"] as String
-                log.info { "Redirect response: $locationUri" }
-                Url(locationUri).parameters.forEach { k, v -> log.info { "  $k: $v" } }
-
-                // First try access the location as given
-                res = http.get(locationUri)
-
-                // Cloudflare may reject the request because of url size limits or other WAF rules
-                // We try again using 'request_uri' syntax with an in-memory request object
-                // https://openid.net/specs/openid-connect-core-1_0.html#UseRequestUri
-                if (res.status == HttpStatusCode.BadRequest) {
-                    log.warn { "Direct redirect [length=${locationUri.length}] failed with: ${res.status}" }
-                    val urlBase = locationUri.substringBefore('?')
-                    val queryParams = urlQueryToMap(locationUri)
-                    if (queryParams["request"] != null) {
-
-                        // Redirect location is expected to be an Authorization Request
-                        val authReq = AuthorizationRequestDraft11.fromHttpParameters(queryParams)
-
-                        // Store the AuthorizationRequest in memory
-                        val reqObjectId = "${Uuid.random()}"
-                        authContext.putAttachment(EBSI32_REQUEST_URI_OBJECT_ATTACHMENT_KEY, authReq)
-
-                        log.info { "Converting 'request' to 'request_uri'" }
-
-                        // Values for the response_type and client_id parameters MUST be included using the OAuth 2.0 request syntax.
-                        val urlString = URLBuilder(urlBase).apply {
-                            parameters.append("client_id", queryParams["client_id"] as String)
-                            parameters.append("request_uri", "$urlBase?request_object=$reqObjectId")
-                            parameters.append("response_type", queryParams["response_type"] as String)
-                        }.buildString()
-                        res = http.get(urlString)
-                    }
-                }
-            }
-
-            if (res.status != HttpStatusCode.Accepted) {
+            val res = http.get(authReqUrl)
+            if(res.status != HttpStatusCode.Found) {
                 log.error { "Unexpected response status: ${res.status}" }
-                res.headers.forEach { k, lst -> lst.forEach { v -> log.warn { "  $k: $v" } } }
                 throw HttpStatusException(res.status, res.bodyAsText())
             }
-            authContext.assertAttachment(AUTHORIZATION_CODE_ATTACHMENT_KEY)
+
+            res.headers.forEach { k, lst -> lst.forEach { v -> log.debug { "  $k: $v" } } }
+
+            val locationUri = res.headers["location"] as String
+            log.info { "Redirect response: $locationUri" }
+
+            val locationUrl = Url(locationUri)
+            locationUrl.parameters.forEach { k, v -> log.info { "  $k: $v" } }
+
+            val locationParams = urlQueryToMap(locationUri)
+            val tokenRequest = AuthorizationRequestV0.fromHttpParameters(locationParams)
+
+            if (tokenRequest.responseType == "id_token") {
+                val idTokenJwt = authorizationSvc.createIDToken(ctx, tokenRequest)
+                val authCode = authorizationSvc.sendIDToken(ctx, tokenRequest, idTokenJwt)
+                log.info { "AuthorizationCode: $authCode" }
+                return authCode
+            }
+
+            if (tokenRequest.responseType == "vp_token") {
+                val vpTokenRequest = AuthorizationRequestDraft11.fromHttpParameters(locationParams)
+                val vpTokenJwt = authorizationSvc.createVPTokenDraft11(ctx, vpTokenRequest)
+                val authCode = authorizationSvc.sendVPTokenDraft11(ctx, vpTokenRequest, vpTokenJwt)
+                log.info { "AuthorizationCode: $authCode" }
+                return authCode
+            }
         }
 
-        log.info { "AuthorizationCode: $authCode" }
+        error("Unsupported AuthorizationRequest: ${authRequest.toJson()}")
+    }
+
+    private fun handleAuthorizationCodeFlow(
+        authEndpointUri: String,
+        authRequest: AuthorizationRequest,
+        loginCredentials: LoginCredentials
+    ): String {
+        val authCode = Playwright.create().use { plw ->
+            plw.firefox().launch(LaunchOptions().setHeadless(true)).use { browser ->
+                val page = browser.newPage()
+
+                // Navigate to Keycloak Authorization Endpoint
+                val authRequestUrl = authRequest.toRequestUrl(authEndpointUri)
+                page.navigate(authRequestUrl)
+
+                // Fill in login form (adjust selectors if your Keycloak theme differs)
+                page.locator("#username").fill(loginCredentials.username)
+                page.locator("#password").fill(loginCredentials.password)
+                page.locator("#kc-login").click()
+
+                // Wait for the input with id="code"
+                page.waitForSelector("#code")
+
+                // Extract the code from the 'value' attribute
+                page.locator("#code").getAttribute("value")
+            }
+        }
         return authCode
     }
 

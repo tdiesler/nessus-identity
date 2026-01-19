@@ -26,7 +26,7 @@ interface AuthorizationService {
 
     suspend fun createIDToken(
         ctx: LoginContext,
-        authRequest: AuthorizationRequest
+        idTokenRequest: AuthorizationRequest
     ): SignedJWT
 
     fun createIDTokenAuthorizationRequest(
@@ -63,7 +63,7 @@ interface AuthorizationService {
 
     suspend fun sendIDToken(
         ctx: LoginContext,
-        authRequest: AuthorizationRequest,
+        idTokenRequest: AuthorizationRequest,
         idTokenJwt: SignedJWT
     ): String
 

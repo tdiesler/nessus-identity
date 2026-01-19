@@ -107,11 +107,6 @@ class MiniServer(
                                 walletApiHandler.handleAuthorizationMetadataRequest(call, ctx)
                             }
                         }
-                        get("/authorize") {
-                            requireTargetContext(call) { ctx ->
-                                walletApiHandler.handleAuthorize(call, ctx)
-                            }
-                        }
                         post("/direct_post") {
                             requireTargetContext(call) { ctx ->
                                 walletApiHandler.handleDirectPost(call, ctx)
