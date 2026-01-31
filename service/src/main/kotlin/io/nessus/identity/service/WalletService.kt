@@ -10,6 +10,7 @@ import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.W3CCredentialJwt
+import kotlinx.serialization.json.*
 
 interface WalletService: WalletCredentialsService {
 
@@ -61,17 +62,6 @@ interface WalletService: WalletCredentialsService {
         redirectUri: String = "urn:ietf:wg:oauth:2.0:oob",
         loginCredentials: LoginCredentials? = null
     ): String
-
-    /**
-     * Authorize the Wallet using OIDC Direct Access (not recommended)
-     */
-    suspend fun authorizeWithDirectAccess(
-        ctx: LoginContext,
-        credentialIssuer: String,
-        clientId: String,
-        configId: String,
-        loginCredentials: LoginCredentials
-    ): TokenResponse
 
     /**
      * Authorize the Wallet using IDToken Flow
@@ -131,7 +121,7 @@ interface WalletService: WalletCredentialsService {
      * Fetch the CredentialOffer for the given CredentialOfferUri
      */
     suspend fun getCredentialOfferFromUri(
-        offerUri: String
+        credOfferUri: JsonObject
     ): CredentialOffer
 
     /**

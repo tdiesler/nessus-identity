@@ -15,6 +15,7 @@ import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.UserInfo
 import io.nessus.identity.utils.http
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.*
 import java.net.URI
 
 abstract class AbstractIssuerService(override val endpointUri: String) : IssuerService {
@@ -53,10 +54,10 @@ abstract class AbstractIssuerService(override val endpointUri: String) : IssuerS
     override suspend fun createCredentialOfferUri(
         configId: String,
         clientId: String?,
+        targetUser: User?,
         preAuthorized: Boolean,
         userPin: String?,
-        targetUser: User?,
-    ): String {
+    ): JsonObject {
         error("Not implemented")
     }
 

@@ -202,16 +202,16 @@ kc_create_oid4vc_credential_configurations() {
 
   # Configure oid4vci client scopes
   #
-  for credential_id in "CTWalletSameAuthorisedInTime" "CTWalletSameAuthorisedDeferred" "CTWalletSamePreAuthorisedInTime" "CTWalletSamePreAuthorisedDeferred"; do
-    echo "Create Credential config for: ${credential_id}"
+  for credential_identifier in "CTWalletSameAuthorisedInTime" "CTWalletSameAuthorisedDeferred" "CTWalletSamePreAuthorisedInTime" "CTWalletSamePreAuthorisedDeferred"; do
+    echo "Create Credential config for: ${credential_identifier}"
     ${KCADM} create "realms/${realm}/client-scopes" -f - <<EOF
     {
-      "name": "${credential_id}",
+      "name": "${credential_identifier}",
       "protocol": "oid4vc",
       "attributes": {
         "vc.issuer_did": "${issuer_did}",
         "vc.credential_signing_alg": "ES256",
-        "vc.format": "jwt_vc"
+        "vc.format": "jwt_vc_json"
       },
       "protocolMappers": [
         {
@@ -238,8 +238,8 @@ kc_create_oid4vc_credential_configurations() {
     }
 EOF
 
-    client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_id}\") | .id")
-    echo "Client Scope Id for ${credential_id}: ${client_scope_id}"
+    client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_identifier}\") | .id")
+    echo "Client Scope Id for ${credential_identifier}: ${client_scope_id}"
     ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
   done
 }
@@ -369,11 +369,11 @@ kc_access_token_pre_auth_code() {
 
   # Extract access_token
   access_token=$(echo "${tokenRes}" | jq -r .access_token)
-  credential_identifier=$(echo "${tokenRes}" | jq -r .authorization_details[0].credential_identifiers[0])
-  echo "Credential Id: ${credential_identifier}"
+  credential_configuration_id=$(echo "${tokenRes}" | jq -r .authorization_details[0].credential_configuration_id)
+  echo "Credential Configuration Id: ${credential_configuration_id}"
 
   export ACCESS_TOKEN="${access_token}"
-  export CREDENTIAL_IDENTIFIER="${credential_identifier}"
+  export CREDENTIAL_CONFIGURATION_ID="${credential_configuration_id}"
 }
 
 kc_access_token_direct_access() {
@@ -404,7 +404,7 @@ kc_access_token_direct_access() {
 kc_authorization_request() {
   local realm="$1"
   local client_id="$2"
-  local credential_id="$3"
+  local credential_identifier="$3"
 
   local response_type="code"
   local redirect_uri="urn:ietf:wg:oauth:2.0:oob"
@@ -416,7 +416,7 @@ kc_authorization_request() {
     tr '+/' '-_' | tr -d '=' | tr -d '\n')
 
   scopes="openid"
-  scopes=$(printf 'openid %s' "${credential_id}" | jq -sRr @uri)
+  scopes=$(printf 'openid %s' "${credential_identifier}" | jq -sRr @uri)
 
   local authUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/auth"
 
@@ -425,7 +425,7 @@ kc_authorization_request() {
     "type": "openid_credential",
     "credential_configuration_id": "%s",
     "locations": [ "%s" ]
-  }]' "${credential_id}" "${ISSUER_BASE_URL}/realms/${realm}")
+  }]' "${credential_identifier}" "${ISSUER_BASE_URL}/realms/${realm}")
   echo "authorization_details=${authorization_details}"
   authorization_details_encoded=$(echo "${authorization_details}" | jq -sRr @uri)
 
@@ -446,13 +446,12 @@ kc_authorization_request() {
 
 kc_credential_offer_uri() {
   local realm="$1"
-  local client_id="$2"
-  local credential_id="$3"
+  local credential_configuration_id="$2"
+  local target_user="$3"
   local pre_authorized="$4"
-  local username="$5"
 
-  local credOfferUriUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/oid4vc/credential-offer-uri"
-  credOfferUriUrl="${credOfferUriUrl}?credential_configuration_id=${credential_id}&pre_authorized=${pre_authorized}&username=${username}"
+  local credOfferUriUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/oid4vc/create-credential-offer"
+  credOfferUriUrl="${credOfferUriUrl}?credential_configuration_id=${credential_configuration_id}&target_user=${target_user}&pre_authorized=${pre_authorized}"
 
   credOfferUriRes=$(curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" "${credOfferUriUrl}")
   echo "Credential Offer Uri: ${credOfferUriRes}"
@@ -461,7 +460,7 @@ kc_credential_offer_uri() {
   nonce=$(echo "${credOfferUriRes}" | jq -r '.nonce')
 
   # export for next step
-  export CREDENTIAL_OFFER_URI="${issuer}${nonce}"
+  export CREDENTIAL_OFFER_URI="${issuer}/${nonce}"
 }
 
 kc_credential_offer() {
@@ -483,7 +482,7 @@ kc_credential_offer() {
 
 kc_credential_request() {
   local realm="$1"
-  local credential_id="$2"
+  local credential_identifier="$2"
   local credential_configuration_id="$3"
 
   local nonceUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/oid4vc/nonce"
@@ -522,9 +521,9 @@ kc_credential_request() {
   proof=$(wallet_keys_sign "${token}" "${wid}" "${kid}" "${proof_jws}")
 
   # Credential request body
-  if [[ "${credential_id}" ]]; then
+  if [[ "${credential_identifier}" ]]; then
     req_body=$(jq -n \
-      --arg cid "${credential_id}" \
+      --arg cid "${credential_identifier}" \
       --arg proof "${proof}" \
       '{
         credential_identifier: $cid,

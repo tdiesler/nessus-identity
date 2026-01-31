@@ -119,24 +119,24 @@ kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
 # Fetch the Credential from a Pre-Authorized Offer -----------------------------------------------------------------------
 #
 if [[ ${skip_verify} == "false" ]]; then
-  credential_id="oid4vc_natural_person_jwt"
+  credential_configuration_id="oid4vc_natural_person_jwt"
 
   kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"
-  kc_credential_offer_uri "${realm}" "${client_id}" "${credential_id}" "true" "${HOLDER[2]}"
+  kc_credential_offer_uri "${realm}" "${credential_configuration_id}" "${HOLDER[2]}" "true"
   kc_credential_offer "${realm}" "true"
   kc_access_token_pre_auth_code "${realm}"
-  kc_credential_request "${realm}" "${CREDENTIAL_IDENTIFIER}" ""
+  kc_credential_request "${realm}" "" "${credential_configuration_id}"
 fi
 
 # Fetch the Credential from an unauthorized Offer ----------------------------------------------------------------------
 #
 if [[ ${verify_oauth} == "true" ]]; then
-  credential_id="oid4vc_natural_person_sd"
+  credential_configuration_id="oid4vc_natural_person_sd"
 
   kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"
-  kc_credential_offer_uri "${realm}" "${client_id}" "${credential_id}" "false" "${HOLDER[2]}"
+  kc_credential_offer_uri "${realm}" "${credential_configuration_id}" "${HOLDER[2]}" "false"
   kc_credential_offer "${realm}" "false"
-  kc_authorization_request "${realm}" "${client_id}" "${credential_id}"
-  kc_access_token_authorization_code "${realm}" "${client_id}" "${credential_id}"
-  kc_credential_request "${realm}" "" "${credential_id}"
+  kc_authorization_request "${realm}" "${client_id}" "${credential_configuration_id}"
+  kc_access_token_authorization_code "${realm}" "${client_id}" "${credential_configuration_id}"
+  kc_credential_request "${realm}" "" "${credential_configuration_id}"
 fi

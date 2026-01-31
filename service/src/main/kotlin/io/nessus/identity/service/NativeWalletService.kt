@@ -153,29 +153,6 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         return authCode
     }
 
-    override suspend fun authorizeWithDirectAccess(
-        ctx: LoginContext,
-        credentialIssuer: String,
-        clientId: String,
-        configId: String,
-        loginCredentials: LoginCredentials
-    ): TokenResponse {
-
-        val authContext = ctx.getAuthContext().withCredentialConfigurationId(configId)
-        val issuerMetadata = authContext.resolveIssuerMetadata(credentialIssuer)
-
-        val scopes = listOf(issuerMetadata.getCredentialScope(configId) ?: error("No scope for: $configId"))
-        val tokenRequest = TokenRequest.DirectAccess(
-            clientId = clientId,
-            scopes = scopes,
-            username = loginCredentials.username,
-            password = loginCredentials.password,
-        )
-
-        val tokenResponse = sendTokenRequest(ctx, tokenRequest)
-        return tokenResponse
-    }
-
     override suspend fun buildAuthorizationRequestForCodeFlow(
         ctx: LoginContext,
         clientId: String,
@@ -251,8 +228,10 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         return tokenResponse
     }
 
-    override suspend fun getCredentialOfferFromUri(offerUri: String): CredentialOffer {
-        val credOfferRes = http.get(offerUri)
+    override suspend fun getCredentialOfferFromUri(credOfferUri: JsonObject): CredentialOffer {
+        val credOfferUrl = credOfferUri["credential_offer_uri"]?.let { credOfferUri["credential_offer_uri"]!!.jsonPrimitive.content }
+            ?: "${credOfferUri.getValue("issuer").jsonPrimitive.content}/${credOfferUri.getValue("nonce").jsonPrimitive.content}"
+        val credOfferRes = http.get(credOfferUrl)
         val credOffer = (handleApiResponse(credOfferRes) as CredentialOfferV0)
         log.info { "CredentialOffer: ${credOffer.toJson()}" }
         return credOffer

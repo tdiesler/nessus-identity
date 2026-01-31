@@ -9,6 +9,7 @@ import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
 import io.nessus.identity.types.UserInfo
 import io.nessus.identity.utils.http
+import kotlinx.serialization.json.*
 
 class Ebsi32IssuerService : AbstractIssuerService(
     endpointUri = "https://api-conformance.ebsi.eu/conformance/v3/issuer-mock"
@@ -21,7 +22,8 @@ class Ebsi32IssuerService : AbstractIssuerService(
         userPin: String?,
         targetUser: User?,
     ): CredentialOffer {
-        val credOfferUri = createCredentialOfferUri(configId, clientId, preAuthorized, userPin, targetUser)
+        val credOfferUriObj = createCredentialOfferUri(configId, clientId, targetUser, preAuthorized, userPin)
+        val credOfferUri = credOfferUriObj.getValue("credential_offer_uri").jsonPrimitive.content
         val res = http.get(credOfferUri)
         if (res.status.value !in 200..202) {
             error("Error fetching credential offer: ${res.bodyAsText()}")
@@ -34,10 +36,10 @@ class Ebsi32IssuerService : AbstractIssuerService(
     override suspend fun createCredentialOfferUri(
         configId: String,
         clientId: String?,
+        targetUser: User?,
         preAuthorized: Boolean,
         userPin: String?,
-        targetUser: User?,
-    ): String {
+    ): JsonObject {
 
         val res = http.get("$endpointUri/initiate-credential-offer") {
             url {
@@ -55,7 +57,8 @@ class Ebsi32IssuerService : AbstractIssuerService(
             error("No credential_offer_uri in: $redirectUrl")
         log.info { "CredentialOfferUri: $credOfferUri" }
 
-        return credOfferUri
+        val credOfferUriString = Json.encodeToString(mapOf(Pair("credential_offer_uri", credOfferUri)))
+        return Json.decodeFromString<JsonObject>(credOfferUriString)
     }
 
     // UserAccess ------------------------------------------------------------------------------------------------------

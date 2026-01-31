@@ -11,6 +11,7 @@ import io.nessus.identity.types.CredentialRequest
 import io.nessus.identity.types.CredentialResponse
 import io.nessus.identity.types.IssuerMetadata
 import io.nessus.identity.types.UserInfo
+import kotlinx.serialization.json.*
 
 interface IssuerService {
 
@@ -75,10 +76,10 @@ interface IssuerService {
     suspend fun createCredentialOfferUri(
         configId: String,
         clientId: String? = null,
+        targetUser: User? = null,
         preAuthorized: Boolean = false,
         userPin: String? = null,
-        targetUser: User? = null,
-    ): String
+    ): JsonObject
 
     /**
      * Get a Credential from CredentialRequest

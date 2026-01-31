@@ -131,10 +131,10 @@ class NativeIssuerService(val config: IssuerConfig): AbstractIssuerService(confi
     override suspend fun createCredentialOfferUri(
         configId: String,
         clientId: String?,
+        targetUser: User?,
         preAuthorized: Boolean,
         userPin: String?,
-        targetUser: User?,
-    ): String {
+    ): JsonObject {
         error("Not implemented")
     }
 

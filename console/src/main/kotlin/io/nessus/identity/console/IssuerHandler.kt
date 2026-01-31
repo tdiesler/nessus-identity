@@ -128,7 +128,11 @@ class IssuerHandler(val issuerSvc: IssuerService) {
         val usersMap = listOf(Alice, Bob, Max).associateBy { usr -> usr.email }
         val targetUser = usersMap[userId]
 
-        val credOfferUri = issuerSvc.createCredentialOfferUri(configId, preAuthorized = preAuthorized, targetUser = targetUser)
+        val credOfferUri = issuerSvc.createCredentialOfferUri(
+            configId,
+            targetUser = targetUser,
+            preAuthorized = preAuthorized
+        )
 
         val model = issuerModel(call).also {
             it["configId"] = configId

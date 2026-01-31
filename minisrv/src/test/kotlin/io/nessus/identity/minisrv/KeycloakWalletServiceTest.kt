@@ -31,18 +31,4 @@ class KeycloakWalletServiceTest : AbstractWalletServiceTest() {
             verifyTokenResponse(alice, configId, tokenResponse)
        }
     }
-
-    @Test
-    fun authorizeWithDirectAccess() {
-        runBlocking {
-            val configId = "CTWalletSameAuthorisedInTime"
-            val tokenResponse = walletSvc.authorizeWithDirectAccess(alice,
-                credentialIssuer = issuerSvc.endpointUri,
-                clientId = walletSvc.defaultClientId,
-                configId = configId,
-                loginCredentials = LoginCredentials(Alice.username, Alice.password),
-            )
-            verifyTokenResponse(alice, configId, tokenResponse)
-        }
-    }
 }

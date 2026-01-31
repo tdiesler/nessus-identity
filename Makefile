@@ -62,8 +62,8 @@ waltid-images: waltid-install
 
 images: waltid-images nessus-images
 
-keycloak:
-	@cd ../keycloak && ./mvnw -pl quarkus/dist -am -DskipTests clean install
+keycloak-build:
+	@cd ../keycloak && ./mvnw -pl quarkus/dist,testsuite/integration-arquillian/tests/base -am -DskipTests clean install
 	@tar xzf ../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT.tar.gz -C ../keycloak/quarkus/dist/target
 
 # Append debug log options e.g.
@@ -74,9 +74,9 @@ keycloak-run:
 		  --log-console-color=false # --log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
 
 # -Pauth-server-quarkus
-keycloak-tests:
+keycloak-test:
 	@cd ../keycloak/testsuite/integration-arquillian/tests/base && \
-		mvn clean test -Pauth-server-quarkus -Dtest='org.keycloak.testsuite.oid4vc.**'
+		mvn clean test -Dtest='org.keycloak.testsuite.oid4vc.**'
 
 run-services: package
 	trap 'kill 0' INT TERM; \

@@ -7,6 +7,7 @@ import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.TokenResponse
 import io.nessus.identity.types.W3CCredentialJwt
+import kotlinx.serialization.json.*
 
 // NativeWalletService =================================================================================================
 
@@ -33,16 +34,6 @@ class NoopWalletService : AbstractWalletService() {
         redirectUri: String,
         loginCredentials: LoginCredentials?
     ): String {
-        error("Not implemented")
-    }
-
-    override suspend fun authorizeWithDirectAccess(
-        ctx: LoginContext,
-        credentialIssuer: String,
-        clientId: String,
-        configId: String,
-        loginCredentials: LoginCredentials
-    ): TokenResponse {
         error("Not implemented")
     }
 
@@ -76,7 +67,7 @@ class NoopWalletService : AbstractWalletService() {
         error("Not implemented")
     }
 
-    override suspend fun getCredentialOfferFromUri(offerUri: String): CredentialOffer {
+    override suspend fun getCredentialOfferFromUri(credOfferUri: JsonObject): CredentialOffer {
         error("Not implemented")
     }
 

@@ -1,8 +1,9 @@
 package io.nessus.identity.types
 
 enum class OfferUriType(val value: String) {
+    QR("qr"),
     URI("uri"),
-    QR_CODE("qr-code");
+    URI_AND_QR("uri+qr");
     override fun toString() = value
 }
 
@@ -34,7 +35,7 @@ class CredentialOfferUri(val configId: String) {
     fun parameters(): Map<String, String> {
         val result = mutableMapOf("credential_configuration_id" to configId)
         preAuthorized?.also { result["pre_authorized"] = "$preAuthorized" }
-        targetUser?.also { result["username"] = "$targetUser" }
+        targetUser?.also { result["target_user"] = "$targetUser" }
         type?.also { result["type"] = "$type" }
         return result
     }

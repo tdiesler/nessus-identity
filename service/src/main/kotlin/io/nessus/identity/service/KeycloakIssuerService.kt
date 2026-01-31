@@ -41,7 +41,7 @@ class KeycloakIssuerService(val config: IssuerConfig): AbstractIssuerService(
         val issuerUrl = credOfferUriJson.getValue("issuer").jsonPrimitive.content
         val nonce = credOfferUriJson.getValue("nonce").jsonPrimitive.content
 
-        val credOfferUri = "$issuerUrl$nonce"
+        val credOfferUri = "$issuerUrl/$nonce"
 
         val credOfferRes = http.get(credOfferUri)
         val credOffer = (handleApiResponse(credOfferRes) as CredentialOfferV0)
@@ -52,40 +52,19 @@ class KeycloakIssuerService(val config: IssuerConfig): AbstractIssuerService(
     override suspend fun createCredentialOfferUri(
         configId: String,
         clientId: String?,
+        targetUser: User?,
         preAuthorized: Boolean,
         userPin: String?,
-        targetUser: User?,
-    ): String {
+    ): JsonObject {
 
-        val credOfferUriRes = createCredentialOfferUriInternal(configId, preAuthorized, targetUser, OfferUriType.URI)
+        val credOfferUriRes = createCredentialOfferUriInternal(configId, preAuthorized, targetUser, OfferUriType.URI_AND_QR)
 
-        val credOfferUriJson = handleApiResponse(credOfferUriRes) as JsonObject
-        val issuerUrl = credOfferUriJson.getValue("issuer").jsonPrimitive.content
-        val nonce = credOfferUriJson.getValue("nonce").jsonPrimitive.content
+        val credOfferUriObj: JsonObject = handleApiResponse(credOfferUriRes) as JsonObject
+        val issuerUrl = credOfferUriObj.getValue("issuer").jsonPrimitive.content
+        val nonce = credOfferUriObj.getValue("nonce").jsonPrimitive.content
 
-        val credOfferUri = "$issuerUrl$nonce"
-        log.info { "CredentialOfferUri: $credOfferUri" }
-
-        return credOfferUri
-    }
-
-    /**
-     * Creates a CredentialOfferUri QR Code
-     */
-    suspend fun createCredentialOfferUriQRCode(
-        configId: String,
-        preAuthorized: Boolean = false,
-        holder: User? = null,
-    ): ByteArray {
-
-        val credOfferUriRes = createCredentialOfferUriInternal(
-            configId,
-            preAuthorized,
-            holder,
-            OfferUriType.QR_CODE
-        )
-
-        return handleApiResponse(credOfferUriRes) as ByteArray
+        log.info { "CredentialOfferUri: $issuerUrl/$nonce" }
+        return credOfferUriObj
     }
 
     // ExperimentalIssuerService ---------------------------------------------------------------------------------------
@@ -191,7 +170,7 @@ class KeycloakIssuerService(val config: IssuerConfig): AbstractIssuerService(
         targetUser?.also { params.withTargetUser(it.username) }
         type?.also { params.withType(it) }
 
-        val credOfferUriUrl = "$endpointUri/protocol/oid4vc/credential-offer-uri"
+        val credOfferUriUrl = "$endpointUri/protocol/oid4vc/create-credential-offer"
         log.info { "CredentialOfferUriReq: $credOfferUriUrl?${params.getUrlQuery()}" }
         val credOfferUriRes = http.get(credOfferUriUrl) {
             header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
