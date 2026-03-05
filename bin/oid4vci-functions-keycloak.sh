@@ -175,23 +175,13 @@ kc_create_oid4vci_service_client() {
   }
 EOF
 
-  # Assign realm-management roles to the service account
+  # Assign roles manage-clients roles to the service account
   ${KCADM} add-roles -r "${realm}" \
     --uusername "service-account-${client_id}" \
     --cclientid realm-management \
-    --rolename manage-clients 2>/dev/null
-  ${KCADM} add-roles -r "${realm}" \
-    --uusername "service-account-${client_id}" \
-    --cclientid realm-management \
-    --rolename view-clients 2>/dev/null
-  ${KCADM} add-roles -r "${realm}" \
-    --uusername "service-account-${client_id}" \
-    --cclientid realm-management \
+    --rolename manage-clients \
+    --rolename manage-realm \
     --rolename manage-users 2>/dev/null
-  ${KCADM} add-roles -r "${realm}" \
-    --uusername "service-account-${client_id}" \
-    --cclientid realm-management \
-    --rolename view-users 2>/dev/null
 
   echo "List assigned client roles for verification ..."
   ${KCADM} get-roles -r "${realm}" --uusername "service-account-${client_id}" --cclientid realm-management
@@ -317,10 +307,13 @@ kc_create_user() {
       -s enabled=true \
       -s attributes.did="${user_did}"
 
+    echo "Setting password [username=${username}, password=${userPassword}]" >&2
     ${KCADM} set-password -r "${realm}" --username "${username}" --new-password "${userPassword}" --temporary=false
 
     if [[ "${role}" == "issuer" ]]; then
-      ${KCADM} add-roles -r "${realm}" --uusername "${username}" --rolename "credential-offer-create"
+      local roleName="credential-offer-create"
+      echo "Adding role [username=${username}, role=${roleName}]" >&2
+      ${KCADM} add-roles -r "${realm}" --uusername "${username}" --rolename "${roleName}"
     fi
 
     user_id=$(${KCADM} get users -r "${realm}" -q username="${username}" --fields id --format json | jq -r '.[0].id')
