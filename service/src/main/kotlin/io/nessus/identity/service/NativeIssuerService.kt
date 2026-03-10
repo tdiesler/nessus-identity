@@ -76,7 +76,7 @@ class NativeIssuerService(val config: IssuerConfig): AbstractIssuerService(confi
         configId: String,
         clientId: String?,
         preAuthorized: Boolean,
-        userPin: String?,
+        txCode: String?,
         targetUser: User?,
     ): CredentialOffer {
 
@@ -121,7 +121,7 @@ class NativeIssuerService(val config: IssuerConfig): AbstractIssuerService(confi
         val preAuthCodeGrant = credOffer.getPreAuthorizedCodeGrant()
         if (preAuthCodeGrant != null) {
             val authCode = preAuthCodeGrant.preAuthorizedCode
-            putCredentialOfferRecord(authCode, credOffer, userPin)
+            putCredentialOfferRecord(authCode, credOffer, txCode)
         }
 
         log.info { "Issued CredentialOffer: ${credOffer.toJson()}" }
@@ -133,7 +133,7 @@ class NativeIssuerService(val config: IssuerConfig): AbstractIssuerService(confi
         clientId: String?,
         targetUser: User?,
         preAuthorized: Boolean,
-        userPin: String?,
+        txCode: String?,
     ): JsonObject {
         error("Not implemented")
     }

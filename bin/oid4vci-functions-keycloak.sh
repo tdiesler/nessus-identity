@@ -135,9 +135,78 @@ EOF
   }
 EOF
 
-  ## Show realm  attributes
+  ## Show realm attributes
   #
   ${KCADM} get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
+
+  # Configure client profiles
+  #
+  echo "Configure realm client policy profiles ..."
+  ${KCADM} update "client-policies/profiles" -r "${realm}" -f - <<-EOF
+  {
+    "profiles": [
+      {
+        "name": "oid4vci-client-profile",
+        "executors": [
+          {
+            "executor": "oid4vci-policy-executor",
+            "configuration": {}
+          }
+        ]
+      }
+    ]
+  }
+EOF
+
+  ## Show client policies
+  #
+  ${KCADM} get client-policies/profiles -r "${realm}"
+
+  # Configure client policies
+  #
+  echo "Configure realm client policies ..."
+  ${KCADM} update "client-policies/policies" -r "${realm}" -f - <<-EOF
+  {
+    "policies": [
+      {
+        "name": "oid4vci-offer-required",
+        "description": "Client policy to determine whether a credential offers is required",
+        "enabled": false,
+        "conditions": [
+          {
+            "condition": "client-attributes",
+            "configuration": {
+              "attributes": "[{\"key\":\"oid4vci.enabled\", \"value\":\"true\"}]"
+            }
+          }
+        ],
+        "profiles": [
+          "oid4vci-client-profile"
+        ]
+      },
+      {
+        "name": "oid4vci-offer-preauth-allowed",
+        "description": "Client policy to determine whether 'pre-authorized_code' grant credential offers can be issued",
+        "enabled": true,
+        "conditions": [
+          {
+            "condition": "client-attributes",
+            "configuration": {
+              "attributes": "[{\"key\":\"oid4vci.enabled\", \"value\":\"true\"}]"
+            }
+          }
+        ],
+        "profiles": [
+          "oid4vci-client-profile"
+        ]
+      }
+    ]
+  }
+EOF
+
+  ## Show client policies
+  #
+  ${KCADM} get client-policies/policies -r "${realm}"
 
   echo
   echo "Realm setup complete"
@@ -246,7 +315,7 @@ kc_create_oid4vci_client() {
     "enabled": true,
     "protocol": "openid-connect",
     "publicClient": true,
-    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}"],
+    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}", "https://oauth.pstmn.io/v1/callback"],
     "directAccessGrantsEnabled": true,
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": [
@@ -261,7 +330,6 @@ kc_create_oid4vci_client() {
     "attributes": {
       "client.introspection.response.allow.jwt.claim.enabled": "false",
       "post.logout.redirect.uris": "${ISSUER_BASE_URL}",
-      "pkce.code.challenge.method": "S256",
       "oid4vci.enabled": "true"
     }
   }

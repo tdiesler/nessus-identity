@@ -40,7 +40,7 @@ data class IssuerMetadataV0(
     val credentialResponseEncryption: CredentialResponseEncryption? = null,
 
     @SerialName("credential_configurations_supported")
-    val credentialConfigurationsSupported: Map<String, CredentialConfigurationV0>
+    val credentialConfigurationsSupported: Map<String, CredentialConfigurationSupported>
 ) : IssuerMetadata() {
 
     companion object {
@@ -63,15 +63,25 @@ data class IssuerMetadataV0(
             .mapNotNull { (_, v) -> v.scope }
             .toSet()
 
+    override fun getCredentialFormat(configId: String): CredentialFormat? {
+        val credConfig = credentialConfigurationsSupported[configId]
+            ?: error("No credential_configurations_supported for: $configId")
+        return CredentialFormat.fromValue(credConfig.format)
+    }
+
     override fun getCredentialScope(configId: String): String? {
         val credConfig = credentialConfigurationsSupported[configId]
         return credConfig?.scope
     }
 
-    override fun getCredentialFormat(configId: String): CredentialFormat? {
+    override fun getCredentialTypes(configId: String): List<String> {
         val credConfig = credentialConfigurationsSupported[configId]
-            ?: error("No credential_configurations_supported for: $configId")
-        return CredentialFormat.fromValue(credConfig.format)
+        val credentialTypes = when (credConfig?.format) {
+            "jwt_vc_json" -> credConfig.credentialDefinition?.types ?: emptyList()
+            "dc+sd-jwt" -> listOf(credConfig.vct ?: error("No vct for: $configId"))
+            else -> listOf()
+        }
+        return credentialTypes
     }
 }
 
@@ -99,12 +109,16 @@ data class CredentialResponseEncryption(
 
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class CredentialConfigurationV0(
+data class CredentialConfigurationSupported(
     @SerialName("format")
     override val format: String,
 
     @SerialName("scope")
     val scope: String? = null,
+
+    // Required for jwt_vc_json
+    @SerialName("credential_definition")
+    val credentialDefinition: CredentialDefinition? = null,
 
     @SerialName("credential_signing_alg_values_supported")
     val credentialSigningAlgValuesSupported: List<String>? = null,
@@ -121,10 +135,21 @@ data class CredentialConfigurationV0(
     @SerialName("claims")
     val claims: List<ClaimDescription>? = null,
 
+    // Required for "dc+sd-jwt"
+    @SerialName("vct")
+    val vct: String? = null,
+
 ): CredentialConfiguration() {
     override fun toJson() = Json.encodeToString(this)
     override fun toJsonObj() = Json.encodeToJsonElement(this).jsonObject
 }
+
+@Serializable
+data class CredentialDefinition(
+    @SerialName("type")
+    val types: List<String>,
+)
+
 
 @Serializable
 data class ProofTypeMetadata(

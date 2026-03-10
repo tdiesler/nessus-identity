@@ -39,10 +39,10 @@ class VerifierServiceTest : AbstractServiceTest() {
             val credConfigId = "oid4vc_natural_person_jwt"
 
             val issuerMetadata = issuerSvc.getIssuerMetadata()
-            val ctype = issuerMetadata.getCredentialScope(credConfigId)
+            val ctype = issuerMetadata.getPrimaryCredentialType(credConfigId) ?: error("No primary credential type")
 
             // Create the Identity Credential on demand
-            val credJwt = walletSvc.getCredentialByType(alice, ctype!!)
+            val credJwt = walletSvc.getCredentialByType(alice, ctype)
             if (credJwt == null) {
                 val clientId = walletSvc.defaultClientId
                 val offerUri = issuerSvc.createCredentialOfferUri(
@@ -63,9 +63,9 @@ class VerifierServiceTest : AbstractServiceTest() {
                   "credentials": [
                     {
                       "id": "queryId",
-                      "format": "jwt_vc",
+                      "format": "jwt_vc_json",
                       "meta": {
-                        "vct_values": [ "$credConfigId" ]
+                        "vct_values": [ "$ctype" ]
                       },
                       "claims": [
                           {"path": ["email"], "values": ["alice@email.com"]}
@@ -93,7 +93,7 @@ class VerifierServiceTest : AbstractServiceTest() {
 
             val vcp = CredentialParameters()
                 .withSubject(alice.did)
-                .withTypes(listOf(credConfigId))
+                .withTypes(listOf(ctype))
 
             validateVerifiableCredential(vpcJwt, vcp)
         }
@@ -105,10 +105,10 @@ class VerifierServiceTest : AbstractServiceTest() {
             val credConfigId = "oid4vc_natural_person_sd"
 
             val issuerMetadata = issuerSvc.getIssuerMetadata()
-            val ctype = issuerMetadata.getCredentialScope(credConfigId)
+            val ctype = issuerMetadata.getPrimaryCredentialType(credConfigId) ?: error("No primary credential type")
 
             // Create the Identity Credential on demand
-            val credJwt = walletSvc.getCredentialByType(alice, ctype!!)
+            val credJwt = walletSvc.getCredentialByType(alice, ctype)
             if (credJwt == null) {
                 val offerUri = issuerSvc.createCredentialOfferUri(
                     credConfigId,
@@ -129,7 +129,7 @@ class VerifierServiceTest : AbstractServiceTest() {
                       "id": "queryId",
                       "format": "dc+sd-jwt",
                       "meta": {
-                        "vct_values": [ "$credConfigId" ]
+                        "vct_values": [ "$ctype" ]
                       },
                       "claims": [
                           {"path": ["email"], "values": ["alice@email.com"]}
@@ -157,7 +157,7 @@ class VerifierServiceTest : AbstractServiceTest() {
 
             val vcp = CredentialParameters()
                 .withSubject(alice.did)
-                .withTypes(listOf(credConfigId))
+                .withTypes(listOf(ctype))
 
             // [TODO #318] Consolidate presented credential verification in verifier
             // https://github.com/tdiesler/nessus-identity/issues/318

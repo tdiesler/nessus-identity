@@ -43,7 +43,7 @@ import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestDraft11Builder
 import io.nessus.identity.types.AuthorizationRequestV0
 import io.nessus.identity.types.AuthorizationRequestV0Builder
-import io.nessus.identity.types.Constants.WELL_KNOWN_ISSUER_EBSI_V3
+import io.nessus.identity.types.Constants.ISSUER_ENDPOINT_EBSI_V3
 import io.nessus.identity.types.CredentialMatcherV10
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.CredentialOfferDraft11
@@ -203,6 +203,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
                     .withRedirectUri(redirectUri)
                     .buildFrom(credOffer)
             }
+
             is IssuerMetadataDraft11 -> {
                 AuthorizationRequestDraft11Builder()
                     .withClientId(ctx.did)
@@ -229,8 +230,9 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
     }
 
     override suspend fun getCredentialOfferFromUri(credOfferUri: JsonObject): CredentialOffer {
-        val credOfferUrl = credOfferUri["credential_offer_uri"]?.let { credOfferUri["credential_offer_uri"]!!.jsonPrimitive.content }
-            ?: "${credOfferUri.getValue("issuer").jsonPrimitive.content}/${credOfferUri.getValue("nonce").jsonPrimitive.content}"
+        val credOfferUrl =
+            credOfferUri["credential_offer_uri"]?.let { credOfferUri["credential_offer_uri"]!!.jsonPrimitive.content }
+                ?: "${credOfferUri.getValue("issuer").jsonPrimitive.content}/${credOfferUri.getValue("nonce").jsonPrimitive.content}"
         val credOfferRes = http.get(credOfferUrl)
         val credOffer = (handleApiResponse(credOfferRes) as CredentialOfferV0)
         log.info { "CredentialOffer: ${credOffer.toJson()}" }
@@ -242,13 +244,18 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         accessToken: TokenResponse
     ): W3CCredentialJwt {
         val authContext = ctx.getAuthContext()
+        val issuerMetadata = authContext.resolveIssuerMetadata()
         val credConfigIds = authContext.credentialConfigurationIds
-        val credResponse = sendCredentialRequest(authContext, accessToken, null, credConfigIds)
+        val credResponse = sendCredentialRequest(authContext, accessToken, credConfigIds)
 
         // Validate the Credential
         //
         val vcJwt = extractCredentialFromResponse(credResponse)
-        val (_, format) = validateCredential(ctx, vcJwt)
+
+        require(credConfigIds?.size == 1) { "Multiple credential_configuration_ids not supported: $credConfigIds" }
+        val format = issuerMetadata.getCredentialFormat(credConfigIds.first()) as CredentialFormat
+
+        validateCredential(ctx, vcJwt)
 
         // Store the Credential
         //
@@ -279,7 +286,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         }
 
         val credConfigIds = credOffer.credentialConfigurationIds
-        val credRequest = buildCredentialRequest(authContext, cNonce, null, credConfigIds)
+        val credRequest = buildCredentialRequest(authContext, cNonce, credConfigIds)
 
         val res = http.post(issuerMetadata.credentialEndpoint) {
             header(HttpHeaders.Authorization, "Bearer ${accessToken.accessToken}")
@@ -316,7 +323,11 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         // Validate the Credential
         //
         val vcJwt = extractCredentialFromResponse(credResponse)
-        val (_, format) = validateCredential(ctx, vcJwt)
+
+        val credConfigId = credOffer.filteredConfigurationIds.first()
+        val format = issuerMetadata.getCredentialFormat(credConfigId) as CredentialFormat
+
+        validateCredential(ctx, vcJwt)
 
         // Store the Credential
         //
@@ -413,8 +424,8 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
     private suspend fun buildCredentialRequest(
         authContext: AuthorizationContext,
         cNonce: String?,
-        credIdentifier: String? = null,
-        credConfigIds: List<String>? = null
+        credConfigIds: List<String>? = null,
+        credIdentifier: String? = null
     ): CredentialRequest {
 
         val ctx = requireNotNull(authContext.loginContext)
@@ -425,7 +436,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         val exp = iat.plusSeconds(300) // 5 mins expiry
 
         val proofJwt = when (credentialIssuer) {
-            WELL_KNOWN_ISSUER_EBSI_V3 -> {
+            ISSUER_ENDPOINT_EBSI_V3 -> {
                 val kid = ctx.didInfo.authenticationId()
                 val proofHeader = JWSHeader.Builder(JWSAlgorithm.ES256)
                     .type(JOSEObjectType("openid4vci-proof+jwt"))
@@ -481,10 +492,8 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
 
             else -> {
                 val credConfigId = credConfigIds?.firstOrNull()
-                require(credIdentifier != null || credConfigId != null)
-                { "Either credential_identifier OR credential_configuration_id" }
-                require(!(credIdentifier != null && credConfigId != null))
-                { "Cannot give both credential_identifier AND credential_configuration_id" }
+                require(credIdentifier != null || credConfigId != null) { "Either credential_identifier OR credential_configuration_id" }
+                require(!(credIdentifier != null && credConfigId != null)) { "Cannot give both credential_identifier AND credential_configuration_id" }
                 CredentialRequestV0(
                     credentialIdentifier = credIdentifier,
                     credentialConfigurationId = credConfigId,
@@ -625,8 +634,8 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
     private suspend fun sendCredentialRequest(
         authContext: AuthorizationContext,
         accessToken: TokenResponse,
-        credIdentifier: String? = null,
         credConfigIds: List<String>? = null,
+        credIdentifier: String? = null,
     ): CredentialResponse {
 
         val issuerMetadata = authContext.assertIssuerMetadata()
@@ -640,7 +649,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
             jsonObj.getValue("c_nonce").jsonPrimitive.content
         }
 
-        val credRequest = buildCredentialRequest(authContext, cNonce, credIdentifier, credConfigIds)
+        val credRequest = buildCredentialRequest(authContext, cNonce, credConfigIds, credIdentifier)
 
         val res = http.post(issuerMetadata.credentialEndpoint) {
             header(HttpHeaders.Authorization, "Bearer ${accessToken.accessToken}")
@@ -696,7 +705,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
             }
 
             val res = http.get(authReqUrl)
-            if(res.status != HttpStatusCode.Found) {
+            if (res.status != HttpStatusCode.Found) {
                 log.error { "Unexpected response status: ${res.status}" }
                 throw HttpStatusException(res.status, res.bodyAsText())
             }
@@ -771,16 +780,7 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         return tokenResponse
     }
 
-    private suspend fun validateCredential(ctx: LoginContext, vcJwt: SignedJWT): Pair<String, CredentialFormat> {
-
-        val credJwt = W3CCredentialJwt.fromEncoded("${vcJwt.serialize()}")
-        val credType = credJwt.types.first { it !in listOf("VerifiableAttestation", "VerifiableCredential") }
-
-        val authContext = ctx.getAuthContext()
-        val issuerMetadata = authContext.assertIssuerMetadata()
-
-        val format = issuerMetadata.getCredentialFormat(credType)
-        requireNotNull(format) { "No credential format for: $credType" }
+    private suspend fun validateCredential(ctx: LoginContext, vcJwt: SignedJWT) {
 
         verifyVcJwtSignature(ctx, vcJwt)
 
@@ -791,8 +791,6 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
             check(expirationTime == null || !now.after(expirationTime)) { "Credential expired" }
             check(this.issuer == issuer) { "Issuer mismatch" }
         }
-
-        return Pair(credType, format)
     }
 
     private suspend fun verifyVcJwtSignature(ctx: LoginContext, vcJwt: SignedJWT) {
@@ -819,29 +817,31 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         // Iterate over key candidates
         for (jwk in effectiveJwks) {
             log.info { "Trying signing key: $jwk" }
-            val verifier = when(jwk.algorithm) {
+            val verifier = when (jwk.algorithm) {
                 ES256 -> ECDSAVerifier(jwk.toECKey())
                 PS384 -> RSASSAVerifier(jwk.toRSAKey())
                 else -> error("Unsupported signature algorithm ${jwk.algorithm}")
             }
             if (when (credJwt) {
-                is W3CCredentialV11Jwt -> {
-                    vcJwt.verify(verifier)
+                    is W3CCredentialV11Jwt -> {
+                        vcJwt.verify(verifier)
+                    }
+
+                    is W3CCredentialSdV11Jwt -> {
+                        val combined = "${vcJwt.serialize()}"
+                        val jwsCompact = combined.substringBefore('~')  // keep only JWS
+                        val jwsObj = JWSObject.parse(jwsCompact)
+                        jwsObj.verify(verifier)
+                    }
                 }
-                is W3CCredentialSdV11Jwt -> {
-                    val combined = "${vcJwt.serialize()}"
-                    val jwsCompact = combined.substringBefore('~')  // keep only JWS
-                    val jwsObj = JWSObject.parse(jwsCompact)
-                    jwsObj.verify(verifier)
-                }
-            }) {
+            ) {
                 matchingJwk = jwk
                 break
             }
         }
 
         // [TODO] Cannot verify signature from EBSI Issuer
-        if (matchingJwk == null && credentialIssuer == WELL_KNOWN_ISSUER_EBSI_V3) {
+        if (matchingJwk == null && credentialIssuer == ISSUER_ENDPOINT_EBSI_V3) {
             log.warn { "Invalid credential signature from: $credentialIssuer" }
             return
         }
@@ -852,10 +852,12 @@ class NativeWalletService(val config: WalletConfig) : AbstractWalletService(), W
         if (issuer.startsWith("did:key:")) {
             val ecJwk = matchingJwk.toECKey()
             val didPubKey = DIDUtils.decodeDidKey(issuer)
-            require(ecJwk.curve == Curve.forECParameterSpec(didPubKey.params)) { "EC curve mismatch: $didPubKey"}
-            val x1 = didPubKey.w.affineX; val y1 = didPubKey.w.affineY
-            val x2 = ecJwk.x.decodeToBigInteger(); val y2 = ecJwk.y.decodeToBigInteger()
-            require(x1 == x2 && y1 == y2) { "EC points mismatch: $didPubKey"}
+            require(ecJwk.curve == Curve.forECParameterSpec(didPubKey.params)) { "EC curve mismatch: $didPubKey" }
+            val x1 = didPubKey.w.affineX;
+            val y1 = didPubKey.w.affineY
+            val x2 = ecJwk.x.decodeToBigInteger();
+            val y2 = ecJwk.y.decodeToBigInteger()
+            require(x1 == x2 && y1 == y2) { "EC points mismatch: $didPubKey" }
         }
     }
 }

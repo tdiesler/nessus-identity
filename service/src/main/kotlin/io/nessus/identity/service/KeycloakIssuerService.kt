@@ -31,7 +31,7 @@ class KeycloakIssuerService(val config: IssuerConfig): AbstractIssuerService(
         configId: String,
         clientId: String?,
         preAuthorized: Boolean,
-        userPin: String?,
+        txCode: String?,
         targetUser: User?,
     ): CredentialOffer {
 
@@ -54,10 +54,10 @@ class KeycloakIssuerService(val config: IssuerConfig): AbstractIssuerService(
         clientId: String?,
         targetUser: User?,
         preAuthorized: Boolean,
-        userPin: String?,
+        txCode: String?,
     ): JsonObject {
 
-        val credOfferUriRes = createCredentialOfferUriInternal(configId, preAuthorized, targetUser, OfferUriType.URI_AND_QR)
+        val credOfferUriRes = createCredentialOfferUriInternal(configId, preAuthorized, targetUser, OfferUriType.URI_QR)
 
         val credOfferUriObj: JsonObject = handleApiResponse(credOfferUriRes) as JsonObject
         val issuerUrl = credOfferUriObj.getValue("issuer").jsonPrimitive.content

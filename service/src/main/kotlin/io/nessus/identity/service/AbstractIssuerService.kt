@@ -45,7 +45,7 @@ abstract class AbstractIssuerService(override val endpointUri: String) : IssuerS
         configId: String,
         clientId: String?,
         preAuthorized: Boolean,
-        userPin: String?,
+        txCode: String?,
         targetUser: User?,
     ): CredentialOffer {
         error("Not implemented")
@@ -56,7 +56,7 @@ abstract class AbstractIssuerService(override val endpointUri: String) : IssuerS
         clientId: String?,
         targetUser: User?,
         preAuthorized: Boolean,
-        userPin: String?,
+        txCode: String?,
     ): JsonObject {
         error("Not implemented")
     }

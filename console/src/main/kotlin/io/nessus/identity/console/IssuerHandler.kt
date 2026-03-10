@@ -15,9 +15,12 @@ import io.nessus.identity.config.ConfigProvider.Max
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
 import io.nessus.identity.config.User
 import io.nessus.identity.console.HttpSessionStore.requireLoginContext
+import io.nessus.identity.service.Ebsi32IssuerService
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.KeycloakIssuerService
+import io.nessus.identity.types.Constants.ISSUER_ENDPOINT_EBSI_V3
 import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
+import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.IssuerMetadataV0
@@ -27,7 +30,6 @@ import io.nessus.identity.types.UserRole
 import io.nessus.identity.utils.http
 import io.nessus.identity.waltid.WaltIDServiceProvider.widWalletService
 import kotlinx.serialization.json.*
-import kotlin.io.encoding.Base64
 
 
 class IssuerHandler(val issuerSvc: IssuerService) {
@@ -42,12 +44,14 @@ class IssuerHandler(val issuerSvc: IssuerService) {
             is IssuerMetadataV0 -> { issuerMetadata.authorizationServers?.firstOrNull() }
             is IssuerMetadataDraft11 -> { issuerMetadata.authorizationServer }
         } ?: error("No AuthorizationServer")
-        val authConfigUrl = "$authServerUrl/$WELL_KNOWN_OPENID_CONFIGURATION"
-        val issuerConfigUrl = issuerSvc.getIssuerMetadataUrl()
+        val authMetadataUrl = "$authServerUrl/$WELL_KNOWN_OPENID_CONFIGURATION"
+        val issuerMetadataUrl = issuerSvc.getIssuerMetadataUrl()
         val model = ctx?.let { BaseModel().withLoginContext(ctx) }
             ?: BaseModel().withLoginContext(call, UserRole.Holder)
-        model["issuerConfigUrl"] = issuerConfigUrl
-        model["authConfigUrl"] = authConfigUrl
+        model["issuerMetadataUrl"] = issuerMetadataUrl
+        model["authConfigUrl"] = authMetadataUrl
+        model["ebsiIssuerMetadataUrl"] = "$ISSUER_ENDPOINT_EBSI_V3/$WELL_KNOWN_OPENID_CREDENTIAL_ISSUER"
+        model["ebsiAuthConfigUrl"] = "$ISSUER_ENDPOINT_EBSI_V3/$WELL_KNOWN_OPENID_CONFIGURATION"
         if (issuerSvc is KeycloakIssuerService) {
             val url = URLBuilder(endpointUri).build()
             model["keycloakUrl"] = "${url.protocol.name}://${url.hostWithPortIfSpecified}"
@@ -62,26 +66,37 @@ class IssuerHandler(val issuerSvc: IssuerService) {
         )
     }
 
-    suspend fun showAuthConfig(call: RoutingCall) {
-        val issuerMetadata = issuerSvc.getIssuerMetadata()
-        val authConfig = issuerMetadata.getAuthorizationMetadata()
-        val prettyJson = jsonPretty.encodeToString(authConfig)
+    suspend fun showAuthMetadata(call: RoutingCall) {
         val model = issuerModel(call).also {
-            it["authConfigJson"] = prettyJson
+            it["authConfigJson"] = let {
+                val issuerMetadata = issuerSvc.getIssuerMetadata()
+                val authMetadata = issuerMetadata.getAuthorizationMetadata()
+                jsonPretty.encodeToString(authMetadata) 
+            }
+            it["ebsiAuthConfigJson"] = let {
+                val issuerMetadata = Ebsi32IssuerService().getIssuerMetadata()
+                val authMetadata = issuerMetadata.getAuthorizationMetadata()
+                jsonPretty.encodeToString(authMetadata)
+            }
         }
         call.respond(
-            FreeMarkerContent("auth_config.ftl", model)
+            FreeMarkerContent("auth_metadata.ftl", model)
         )
     }
 
-    suspend fun showIssuerConfig(call: RoutingCall) {
-        val issuerMetadata = issuerSvc.getIssuerMetadata()
-        val prettyJson = jsonPretty.encodeToString(issuerMetadata)
+    suspend fun showIssuerMetadata(call: RoutingCall) {
         val model = issuerModel(call).also {
-            it["issuerConfigJson"] = prettyJson
+            it["issuerMetadataJson"] = let {
+                val issuerMetadata = issuerSvc.getIssuerMetadata()
+                jsonPretty.encodeToString(issuerMetadata)
+            }
+            it["ebsiIssuerMetadataJson"] = let {
+                val issuerMetadata = Ebsi32IssuerService().getIssuerMetadata()
+                jsonPretty.encodeToString(issuerMetadata)
+            }
         }
         call.respond(
-            FreeMarkerContent("issuer_config.ftl", model)
+            FreeMarkerContent("issuer_metadata.ftl", model)
         )
     }
 
@@ -137,11 +152,15 @@ class IssuerHandler(val issuerSvc: IssuerService) {
         val model = issuerModel(call).also {
             it["configId"] = configId
             it["holder"] = targetUser ?: User("Anonymous", "", "", "")
-            it["credOfferUri"] = credOfferUri
         }
         if (issuerSvc is KeycloakIssuerService) {
-            val credOfferQRCode = issuerSvc.createCredentialOfferUriQRCode(configId, preAuthorized, targetUser)
-            model["credOfferQRCode"] = Base64.encode(credOfferQRCode)
+            val issuer = credOfferUri.getValue("issuer").jsonPrimitive.content
+            val nonce = credOfferUri.getValue("nonce").jsonPrimitive.content
+            val qrcode = credOfferUri.getValue("qr_code").jsonPrimitive.content
+            model["credOfferUri"] = "$issuer/$nonce"
+            model["credOfferQRCode"] = qrcode
+        } else {
+            model["credOfferUri"] = credOfferUri
         }
 
         call.respond(

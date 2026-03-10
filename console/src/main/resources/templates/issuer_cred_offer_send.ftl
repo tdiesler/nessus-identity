@@ -21,7 +21,7 @@
                     <td>Offer Uri</td><td><a href="${credOfferUri}" target="_blank">${credOfferUri}</a></td>
                 </tr>
                 <tr>
-                    <td><img src="data:image/png;base64,${credOfferQRCode}" alt="QR code" style="margin-top: 1rem; width: 200px; height: 200px;"/></td>
+                    <td><img src="${credOfferQRCode}" alt="QR code" style="margin-top: 1rem; width: 200px; height: 200px;"/></td>
                 </tr>
             </tbody>
         </table>

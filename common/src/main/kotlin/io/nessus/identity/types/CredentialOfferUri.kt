@@ -3,7 +3,7 @@ package io.nessus.identity.types
 enum class OfferUriType(val value: String) {
     QR("qr"),
     URI("uri"),
-    URI_AND_QR("uri+qr");
+    URI_QR("uri_qr");
     override fun toString() = value
 }
 

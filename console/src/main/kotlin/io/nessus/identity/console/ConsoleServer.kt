@@ -138,11 +138,11 @@ class ConsoleServer(
                     get {
                         issuerHandler.showHome(call)
                     }
-                    get("/auth-config") {
-                        issuerHandler.showAuthConfig(call)
+                    get("/auth-metadata") {
+                        issuerHandler.showAuthMetadata(call)
                     }
-                    get("/issuer-config") {
-                        issuerHandler.showIssuerConfig(call)
+                    get("/issuer-metadata") {
+                        issuerHandler.showIssuerMetadata(call)
                     }
                     get("/credential-config/{configId}") {
                         val configId = call.parameters["configId"] ?: error("No configId")

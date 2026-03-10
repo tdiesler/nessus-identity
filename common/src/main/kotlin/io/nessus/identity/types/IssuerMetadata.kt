@@ -40,9 +40,17 @@ sealed class IssuerMetadata {
 
     abstract suspend fun getAuthorizationMetadata(): AuthorizationMetadata
 
+    abstract fun getCredentialFormat(configId: String): CredentialFormat?
+
     abstract fun getCredentialScope(configId: String): String?
 
-    abstract fun getCredentialFormat(configId: String): CredentialFormat?
+    abstract fun getCredentialTypes(configId: String): List<String>
+
+    fun getPrimaryCredentialType(configId: String): String? {
+        val credentialTypes = getCredentialTypes(configId)
+        return credentialTypes
+            .firstOrNull { it !in listOf("VerifiableAttestation", "VerifiableCredential")}
+    }
 }
 
 object IssuerMetadataSerializer : JsonContentPolymorphicSerializer<IssuerMetadata>(IssuerMetadata::class) {

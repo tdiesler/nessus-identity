@@ -66,7 +66,7 @@ interface IssuerService {
         configId: String,
         clientId: String? = null,
         preAuthorized: Boolean = false,
-        userPin: String? = null,
+        txCode: String? = null,
         targetUser: User? = null,
     ): CredentialOffer
 
@@ -78,7 +78,7 @@ interface IssuerService {
         clientId: String? = null,
         targetUser: User? = null,
         preAuthorized: Boolean = false,
-        userPin: String? = null,
+        txCode: String? = null,
     ): JsonObject
 
     /**

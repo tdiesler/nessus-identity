@@ -1,7 +1,6 @@
 package io.nessus.identity.types
 
 import id.walt.oid4vc.data.CredentialFormat
-import id.walt.oid4vc.data.OpenIDProviderMetadata
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
@@ -61,10 +60,6 @@ class IssuerMetadataDraft11(
             .filter { it !in listOf("VerifiableAttestation", "VerifiableCredential") }
             .toSet()
 
-    override fun getCredentialScope(configId: String): String {
-        return configId
-    }
-
     override fun getCredentialFormat(configId: String): CredentialFormat? {
         val credConfig = credentialsSupported
             .firstOrNull { it.types!!.contains(configId) }
@@ -72,9 +67,15 @@ class IssuerMetadataDraft11(
         return CredentialFormat.fromValue(credConfig.format)
     }
 
-    fun toWaltIdIssuerMetadata(): OpenIDProviderMetadata {
-        val jsonStr = Json.encodeToString(this)
-        return OpenIDProviderMetadata.fromJSONString(jsonStr)
+    override fun getCredentialScope(configId: String): String {
+        return configId
+    }
+
+    override fun getCredentialTypes(configId: String): List<String> {
+        val types = credentialsSupported
+            .first { it.types!!.contains(configId) }
+            .types ?: emptyList()
+        return types
     }
 }
 

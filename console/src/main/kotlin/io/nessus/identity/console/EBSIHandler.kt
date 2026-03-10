@@ -37,7 +37,6 @@ class EBSIHandler(
             model["walletName"] = holder.walletInfo.name
             model["walletDid"] = holder.didInfo.did
             model["walletUri"] = "${walletSvc.endpointUri}/${holder.targetId}"
-            model["issuerUri"] = "${issuerSvc.endpointUri}/${issuer.targetId}"
         }
         if (issuer.hasAuthToken) {
             model["issuerName"] = issuer.walletInfo.name

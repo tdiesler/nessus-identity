@@ -139,7 +139,7 @@ class IssuerApiHandler(val issuerSvc: NativeIssuerService):
             if (!hasCredentialOfferRecord(preAuthCode)) {
                 val userPin = postParams["user_pin"]?.firstOrNull()
                 log.info { "Issuing CredentialOffer $preAuthCode (on-demand) for EBSI Conformance" }
-                val credOffer = issuerSvc.createCredentialOffer(preAuthCode, clientId, preAuthorized = true, userPin = userPin)
+                val credOffer = issuerSvc.createCredentialOffer(preAuthCode, clientId, preAuthorized = true, txCode = userPin)
                 putCredentialOfferRecord(preAuthCode, credOffer, userPin)
             }
         }

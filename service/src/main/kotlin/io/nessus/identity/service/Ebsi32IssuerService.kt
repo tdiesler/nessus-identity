@@ -19,10 +19,10 @@ class Ebsi32IssuerService : AbstractIssuerService(
         configId: String,
         clientId: String?,
         preAuthorized: Boolean,
-        userPin: String?,
+        txCode: String?,
         targetUser: User?,
     ): CredentialOffer {
-        val credOfferUriObj = createCredentialOfferUri(configId, clientId, targetUser, preAuthorized, userPin)
+        val credOfferUriObj = createCredentialOfferUri(configId, clientId, targetUser, preAuthorized, txCode)
         val credOfferUri = credOfferUriObj.getValue("credential_offer_uri").jsonPrimitive.content
         val res = http.get(credOfferUri)
         if (res.status.value !in 200..202) {
@@ -38,7 +38,7 @@ class Ebsi32IssuerService : AbstractIssuerService(
         clientId: String?,
         targetUser: User?,
         preAuthorized: Boolean,
-        userPin: String?,
+        txCode: String?,
     ): JsonObject {
 
         val res = http.get("$endpointUri/initiate-credential-offer") {

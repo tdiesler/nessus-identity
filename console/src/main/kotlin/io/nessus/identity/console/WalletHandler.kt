@@ -35,7 +35,7 @@ import io.nessus.identity.console.HttpSessionStore.logout
 import io.nessus.identity.service.WalletService
 import io.nessus.identity.types.AuthorizationRequestDraft11
 import io.nessus.identity.types.AuthorizationRequestV0
-import io.nessus.identity.types.Constants.WELL_KNOWN_ISSUER_EBSI_V3
+import io.nessus.identity.types.Constants.ISSUER_ENDPOINT_EBSI_V3
 import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
 import io.nessus.identity.types.CredentialMatcherDraft11
 import io.nessus.identity.types.LoginParams
@@ -137,7 +137,7 @@ class WalletHandler(val walletSvc: WalletService) {
 
         // Accept a CredentialOffer from EBSI
         //
-        if (credOffer.credentialIssuer == WELL_KNOWN_ISSUER_EBSI_V3) {
+        if (credOffer.credentialIssuer == ISSUER_ENDPOINT_EBSI_V3) {
             val authContext = ctx.createAuthContext().withCredentialOffer(credOffer)
             call.request.queryParameters["userPin"]?.also {
                 authContext.putAttachment(USER_PIN_ATTACHMENT_KEY, it)

@@ -15,16 +15,14 @@ object W3CCredentialValidator {
         }
 
         val now = Clock.System.now()
-        if (vc.expirationDate != null && vc.expirationDate!! < now)
+        if (vc.expirationDate != null && vc.expirationDate < now)
             throw VerificationException(id, "Credential '$id' is expired")
 
-        if (vc.validFrom != null && vc.validFrom!! > now)
+        if (vc.validFrom != null && vc.validFrom > now)
             throw VerificationException(id, "Credential '$id' is not yet valid")
 
         if (vcp?.sub != null) {
             val vcJson = vc.toJson()
-            // [TODO #302] Keycloak issues oid4vc_natural_person_jwt with no id value
-            // https://github.com/tdiesler/nessus-identity/issues/302
             val subId = CredentialMatcher.pathValues("$vcJson", "$.credentialSubject.id").firstOrNull()
             if (subId != null && subId != vcp.sub)
                 error("Unexpected subject id: $subId")
