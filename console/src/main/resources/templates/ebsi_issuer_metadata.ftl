@@ -1,12 +1,12 @@
 <#import "fragments/layout.ftl" as layout>
 
-<@layout.layout activeTab="issuer">
+<@layout.layout activeTab="ebsi">
     <!-- Sidebar -->
-    <#include "fragments/issuer_sidebar.ftl">
+    <#include "fragments/ebsi_sidebar.ftl">
 
     <!-- Main content -->
     <div class="content">
-        <h1>Keycloak Issuer Metadata</h1>
+        <h1>EBSI Issuer Metadata</h1>
         <p>Issuer Metadata URL: <a href="${issuerMetadataUrl}" target="_blank">${issuerMetadataUrl}</a></p>
         <textarea readonly>${issuerMetadataJson?html}</textarea>
     </div>

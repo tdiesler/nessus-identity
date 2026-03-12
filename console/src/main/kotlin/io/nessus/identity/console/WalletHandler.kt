@@ -279,7 +279,7 @@ class WalletHandler(val walletSvc: WalletService) {
         }
     }
 
-    suspend fun showAuthConfig(call: RoutingCall, ctx: LoginContext) {
+    suspend fun showAuthMetadata(call: RoutingCall, ctx: LoginContext) {
         val walletTargetUri = "${walletSvc.endpointUri}/${ctx.targetId}"
         val authConfig = walletSvc.authorizationSvc.getAuthorizationMetadata(ctx)
         val prettyJson = jsonPretty.encodeToString(authConfig)

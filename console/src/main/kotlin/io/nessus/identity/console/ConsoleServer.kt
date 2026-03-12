@@ -132,6 +132,12 @@ class ConsoleServer(
                     get {
                         ebsiHandler.showHome(call)
                     }
+                    get("/auth-metadata") {
+                        ebsiHandler.showAuthMetadata(call)
+                    }
+                    get("/issuer-metadata") {
+                        ebsiHandler.showIssuerMetadata(call)
+                    }
                 }
 
                 route("/issuer") {
@@ -234,7 +240,7 @@ class ConsoleServer(
                     }
                     get("/auth-config") {
                         withHolderContextOrHome(call) { ctx ->
-                            walletHandler.showAuthConfig(call, ctx)
+                            walletHandler.showAuthMetadata(call, ctx)
                         }
                     }
                     get("/credential-offers") {
@@ -345,7 +351,7 @@ class ConsoleServer(
                     }
                     get("/auth-config") {
                         withVerifierContextOrHome(call) { ctx ->
-                            verifierHandler.showAuthConfig(call, ctx)
+                            verifierHandler.showAuthMetadata(call, ctx)
                         }
                     }
                     get("/auth/callback/{targetId}") {

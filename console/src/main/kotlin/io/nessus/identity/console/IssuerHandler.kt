@@ -18,9 +18,7 @@ import io.nessus.identity.console.HttpSessionStore.requireLoginContext
 import io.nessus.identity.service.Ebsi32IssuerService
 import io.nessus.identity.service.IssuerService
 import io.nessus.identity.service.KeycloakIssuerService
-import io.nessus.identity.types.Constants.ISSUER_ENDPOINT_EBSI_V3
 import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CONFIGURATION
-import io.nessus.identity.types.Constants.WELL_KNOWN_OPENID_CREDENTIAL_ISSUER
 import io.nessus.identity.types.CredentialOffer
 import io.nessus.identity.types.IssuerMetadataDraft11
 import io.nessus.identity.types.IssuerMetadataV0
@@ -48,10 +46,8 @@ class IssuerHandler(val issuerSvc: IssuerService) {
         val issuerMetadataUrl = issuerSvc.getIssuerMetadataUrl()
         val model = ctx?.let { BaseModel().withLoginContext(ctx) }
             ?: BaseModel().withLoginContext(call, UserRole.Holder)
-        model["issuerMetadataUrl"] = issuerMetadataUrl
         model["authConfigUrl"] = authMetadataUrl
-        model["ebsiIssuerMetadataUrl"] = "$ISSUER_ENDPOINT_EBSI_V3/$WELL_KNOWN_OPENID_CREDENTIAL_ISSUER"
-        model["ebsiAuthConfigUrl"] = "$ISSUER_ENDPOINT_EBSI_V3/$WELL_KNOWN_OPENID_CONFIGURATION"
+        model["issuerMetadataUrl"] = issuerMetadataUrl
         if (issuerSvc is KeycloakIssuerService) {
             val url = URLBuilder(endpointUri).build()
             model["keycloakUrl"] = "${url.protocol.name}://${url.hostWithPortIfSpecified}"
@@ -73,14 +69,14 @@ class IssuerHandler(val issuerSvc: IssuerService) {
                 val authMetadata = issuerMetadata.getAuthorizationMetadata()
                 jsonPretty.encodeToString(authMetadata) 
             }
-            it["ebsiAuthConfigJson"] = let {
+            it["ebsiAuthMetadataJson"] = let {
                 val issuerMetadata = Ebsi32IssuerService().getIssuerMetadata()
                 val authMetadata = issuerMetadata.getAuthorizationMetadata()
                 jsonPretty.encodeToString(authMetadata)
             }
         }
         call.respond(
-            FreeMarkerContent("auth_metadata.ftl", model)
+            FreeMarkerContent("issuer_auth_metadata.ftl", model)
         )
     }
 
@@ -90,7 +86,7 @@ class IssuerHandler(val issuerSvc: IssuerService) {
                 val issuerMetadata = issuerSvc.getIssuerMetadata()
                 jsonPretty.encodeToString(issuerMetadata)
             }
-            it["ebsiIssuerMetadataJson"] = let {
+            it["ebsiMetadataJson"] = let {
                 val issuerMetadata = Ebsi32IssuerService().getIssuerMetadata()
                 jsonPretty.encodeToString(issuerMetadata)
             }

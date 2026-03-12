@@ -159,7 +159,7 @@ class VerifierHandler(
         call.respondRedirect(redirectUrl)
     }
 
-    suspend fun showAuthConfig(call: RoutingCall, ctx: LoginContext) {
+    suspend fun showAuthMetadata(call: RoutingCall, ctx: LoginContext) {
         val verifierTargetUri = "${verifierSvc.endpointUri}/${ctx.targetId}"
         val authMetadata = verifierSvc.authorizationSvc.getAuthorizationMetadata(ctx)
         val prettyJson = jsonPretty.encodeToString(authMetadata)
