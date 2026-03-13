@@ -30,6 +30,7 @@ import io.nessus.identity.LoginContext
 import io.nessus.identity.LoginContext.Companion.TX_CODE_ATTACHMENT_KEY
 import io.nessus.identity.config.ConfigProvider.requireEbsiConfig
 import io.nessus.identity.config.ConfigProvider.requireWalletConfig
+import io.nessus.identity.config.ConfigProvider.requireWaltIdConfig
 import io.nessus.identity.console.HttpSessionStore.createLoginContext
 import io.nessus.identity.console.HttpSessionStore.logout
 import io.nessus.identity.service.WalletService
@@ -74,6 +75,9 @@ class WalletHandler(val walletSvc: WalletService) {
             model["walletDid"] = holder.didInfo.did
             model["walletUri"] = "${walletSvc.endpointUri}/${holder.targetId}"
         }
+        val waltIdConfig = requireWaltIdConfig()
+        model["demoWalletUrl"] = "${waltIdConfig.demoWallet?.baseUrl}"
+        model["devWalletUrl"] = "${waltIdConfig.devWallet?.baseUrl}"
         return model
     }
 

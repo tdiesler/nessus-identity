@@ -10,8 +10,6 @@
     user_home: "/home/{{ ansible_user }}"
     origin_crt: "{{ user_home }}/.k3s/origin.crt"
     origin_key: "{{ user_home }}/.k3s/origin.key"
-    nginx_domain: proxy.{{ K3S_SERVER_DOMAIN }}
-    proxy_pass: "http://localhost:9000"
 
   tasks:
 
@@ -69,13 +67,30 @@
           server {
             # SELinux might block this
             listen 8443 ssl;
-            server_name {{ nginx_domain }};
+            server_name proxy.{{ K3S_SERVER_DOMAIN }};
         
             ssl_certificate     /etc/nginx/certs/origin.crt;
             ssl_certificate_key /etc/nginx/certs/origin.key;
           
             location / {
-              proxy_pass {{ proxy_pass }};
+              proxy_pass http://127.0.0.1:9000;
+          
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+            }
+          }
+          server {
+            # SELinux might block this
+            listen 8443 ssl;
+            server_name keycloak.{{ K3S_SERVER_DOMAIN }};
+          
+            ssl_certificate     /etc/nginx/certs/origin.crt;
+            ssl_certificate_key /etc/nginx/certs/origin.key;
+          
+            location / {
+              proxy_pass http://127.0.0.1:8080;
           
               proxy_set_header Host $host;
               proxy_set_header X-Real-IP $remote_addr;

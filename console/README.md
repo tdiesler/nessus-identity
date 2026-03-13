@@ -4,7 +4,7 @@
 Install the nginx reverse proxy on VPS
 
 ```
-ansible-playbook -i ansible/inventory.yml ansible/step04-nginx-proxy.yml
+ansible-playbook -i ansible/inventory.yml ansible/step10-nginx-proxy.yml
 ```
 
 Open the ssh tunnel

@@ -70,8 +70,13 @@ keycloak-build:
 # 	--log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
 keycloak-run:
 	@KC_HOME="../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT" && PRINT_ENV="true" \
-		$${KC_HOME}/bin/kc.sh start-dev --features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin \
-		  --log-console-color=false # --log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
+		$${KC_HOME}/bin/kc.sh start-dev --features=oid4vc-vci
+			--bootstrap-admin-username=admin --bootstrap-admin-password=admin --log-console-color=false
+
+keycloak-run-proxy:
+	@KC_HOME="../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT" && PRINT_ENV="true" \
+		$${KC_HOME}/bin/kc.sh start --hostname=https://keycloak.nessustech.io:8443 --proxy-headers=xforwarded --http-enabled=true \
+			--features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin --log-console-color=false
 
 # -Pauth-server-quarkus
 keycloak-tests:

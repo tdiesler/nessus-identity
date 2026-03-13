@@ -23,7 +23,7 @@
             <p>
                 On the left we have links to wallet admin tasks like managing Keys and DIDs for a given Wallet. This functionality
                 can all be delegated to the <a href="https://waltid-wallet-api.localtest.me" target="_blank">WaltId API</a>
-                or to the <a href="https://waltid-wallet-dev.localtest.me" target="_blank">Dev Wallet</a> and is currently
+                or to the <a href="${devWalletUrl}" target="_blank">Dev Wallet</a> and is currently
                 not (yet) supported in this console.
             </p>
             <p>

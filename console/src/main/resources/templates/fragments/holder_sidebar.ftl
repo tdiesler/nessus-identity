@@ -21,5 +21,7 @@
             <li class="bx--list__item"><a class="inactive">Credential Offers</a></li>
             <li class="bx--list__item"><a class="inactive">Credentials</a></li>
         </#if>
+            <li class="bx--list__item"><a href="${demoWalletUrl}" target="_blank">Demo Wallet</a></li>
+            <li class="bx--list__item"><a href="${devWalletUrl}" target="_blank">Dev Wallet</a></li>
     </ul>
 </div>
