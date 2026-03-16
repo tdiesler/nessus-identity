@@ -20,10 +20,10 @@ case "$TARGET" in
     export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
-  dev)
+  proxy)
     echo "Doing development setup..."
     export KUBE_CONTEXT="rancher-desktop"
-    export ISSUER_BASE_URL="https://oauth.localtest.me"
+    export ISSUER_BASE_URL="https://keycloak.nessustech.io:8443"
     export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
