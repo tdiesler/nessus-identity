@@ -27,6 +27,16 @@ ssh -R 127.0.0.1:8080:localhost:8080 core@vps4c.eu.ebsi
 
 It should now be possible to access Keycloak on: https://keycloak.nessustech.io:8443
 
+## Import the test realm
+
+We have a Keycloak `oid4vci-setup.sh` script that we can use to prepare the Issuer for OpenID Conformance testing.
+
+```
+TARGET=proxy ./bin/oid4vci-setup.sh --force
+```
+
+You should now be able to access the Client Attester JWKS at: https://keycloak.nessustech.io:8443/realms/oid4vci/client-attester/jwks
+
 ## Run the Conformance Test Suite
 
 Clone the project, build it and run it on docker

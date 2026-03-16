@@ -2,7 +2,16 @@
     "alias": "keycloak-preview",
     "vci": {
         "credential_issuer_url": "https://keycloak.nessustech.io:8443/realms/oid4vci",
-        "credential_configuration_id": "oid4vc_natural_person_sd"
+        "credential_configuration_id": "oid4vc_natural_person_sd",
+        "client_attester_keys_jwks": {
+            "kid": "RuBt4pOYq6jrnvY60aE5wj-1aOjLi6NrE55xbzoAkBM",
+            "kty": "RSA",
+            "alg": "RS256",
+            "use": "sig",
+            "n": "0bUAph689GUlk0uDXoX-a94GI92Y9GYMn6nsn_YJmwWh9lzuCGjZ4g5cfsLfE-PSTljIOo4eMfletKSexKVrytuGIhmlk_W5Ss_EGVDNhXDa8JWJC9Ykh5MmFiOtg_tTLi_mptfUSivoGyd2kfbnKFvARJqfRyrBkuZDKwecCY3s2p3L2OypfprdMrx60--qCGtTGkMeKlusC27edtA5QBh6Sj89XskJAMMqqNSnItd5q0J03qVhntcnLn-b9vb_y_AVDQM08kCIma_IbpESDj2wf31cLeWviis4QvhgVx1R7057QBB1po7t7cw0Gy48vlgL7jWLyYHl5c8w9FbDhQ",
+            "e": "AQAB"
+        },
+        "client_attestation_issuer": "https://keycloak.nessustech.io:8443/realms/oid4vci/client-attester/attest"
     },
     "client2": {
         "client_id": "oid4vci-client"
