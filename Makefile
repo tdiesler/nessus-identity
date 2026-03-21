@@ -38,14 +38,8 @@ nessus-images: package
 			-t $(IMAGE_REGISTRY)nessusio/console:$(IMAGE_TAG) \
 			-t nessusio/console:$(IMAGE_TAG) \
 			-f ./console/Dockerfile ./console
-		@docker buildx build --platform linux/amd64 \
-			--build-arg PROJECT_VERSION=$(PROJECT_VERSION) \
-			-t $(IMAGE_REGISTRY)nessusio/ebsi-portal:$(IMAGE_TAG) \
-			-t nessusio/ebsi-portal:$(IMAGE_TAG) \
-			-f ./ebsi/Dockerfile ./ebsi
 		@if [ $(TARGET) == "stage" ]; then \
-			docker push $(IMAGE_REGISTRY)nessusio/console:$(IMAGE_TAG); \
-			docker push $(IMAGE_REGISTRY)nessusio/ebsi-portal:$(IMAGE_TAG); \
+			docker push $(IMAGE_REGISTRY)nessusio/console:$(IMAGE_TAG)
 		fi
 
 waltid-install:

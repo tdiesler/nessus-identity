@@ -51,15 +51,10 @@ source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
 #
 force="false"
 skip_verify="false"
-verify_oauth="false"
 for arg in "$@"; do
   case $arg in
     --force)
       force="true"
-      shift
-      ;;
-    --verify-oauth)
-      verify_oauth="true"
       shift
       ;;
     --skip-verify)
@@ -96,17 +91,17 @@ kc_admin_login "${adminUser}" "${adminPass}"
 
 if kc_create_realm "${realm}" "${force}"; then
 
-  ## Setup Keycloak OID4VCI Service Client -------------------------------------------------------------------------------
+  ## Service Client ----------------------------------------------------------------------------------------------------
   #
   kc_create_oid4vci_service_client "${realm}" "${oid4vciUser}" "${oid4vciPass}"
 
   kc_oid4vci_login "${realm}" "${oid4vciUser}" "${oid4vciPass}"
 
-  ## Setup OID4VCI Identity Credential -----------------------------------------------------------------------------------
+  ## Client Scopes -----------------------------------------------------------------------------------------------------
   #
-  kc_create_oid4vc_credential_configurations "${realm}"
+  # kc_create_oid4vci_credential_configurations "${realm}"
 
-  ## Setup Keycloak OID4VCI Issuance Client ------------------------------------------------------------------------------
+  ## Issuance Client ---------------------------------------------------------------------------------------------------
   #
   kc_create_oid4vci_client "${realm}" "${client_id}"
 fi
@@ -116,22 +111,10 @@ fi
 kc_create_user "${realm}" "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}"
 kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
 
-# Fetch the Credential from a Pre-Authorized Offer -----------------------------------------------------------------------
+# Fetch the Credential -------------------------------------------------------------------------------------------------
 #
 if [[ ${skip_verify} == "false" ]]; then
   credential_configuration_id="oid4vc_natural_person_jwt"
-
-  kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"
-  kc_credential_offer_uri "${realm}" "${credential_configuration_id}" "${HOLDER[2]}" "true"
-  kc_credential_offer "${realm}" "true"
-  kc_access_token_pre_auth_code "${realm}"
-  kc_credential_request "${realm}" "" "${credential_configuration_id}"
-fi
-
-# Fetch the Credential from an unauthorized Offer ----------------------------------------------------------------------
-#
-if [[ ${verify_oauth} == "true" ]]; then
-  credential_configuration_id="oid4vc_natural_person_sd"
 
   kc_access_token_direct_access "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}"
   kc_credential_offer_uri "${realm}" "${credential_configuration_id}" "${HOLDER[2]}" "false"

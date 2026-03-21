@@ -139,6 +139,13 @@ EOF
   #
   ${KCADM} get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
 
+  echo
+  echo "Realm setup complete"
+}
+
+kc_create_client_policies() {
+  local realm="$1"
+
   # Configure client profiles
   #
   echo "Configure realm client policy profiles ..."
@@ -207,9 +214,6 @@ EOF
   ## Show client policies
   #
   ${KCADM} get client-policies/policies -r "${realm}"
-
-  echo
-  echo "Realm setup complete"
 }
 
 kc_create_oid4vci_service_client() {
@@ -256,7 +260,7 @@ EOF
   ${KCADM} get-roles -r "${realm}" --uusername "service-account-${client_id}" --cclientid realm-management
 }
 
-kc_create_oid4vc_credential_configurations() {
+kc_create_oid4vci_credential_configurations() {
   local realm="$1"
 
   # Configure oid4vci client scopes
