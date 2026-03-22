@@ -395,7 +395,47 @@ kc_create_user() {
 
 # Verification ---------------------------------------------------------------------------------------------------------
 
-kc_access_token_authorization_code() {
+kc_authorization_request() {
+  local realm="$1"
+  local client_id="$2"
+  local credential_configuration_id="$3"
+
+  local response_type="code"
+  local redirect_uri="urn:ietf:wg:oauth:2.0:oob"
+
+  # PKCE
+  code_verifier=$(openssl rand -base64 96 | tr -d '+/=' | tr -d '\n' | cut -c -128)
+  code_challenge=$(echo -n "$code_verifier" |
+    openssl dgst -sha256 -binary | openssl base64 |
+    tr '+/' '-_' | tr -d '=' | tr -d '\n')
+
+  local authUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/auth"
+
+  # Build JSON for authorization_details
+  authorization_details=$(printf '[{
+    "type": "openid_credential",
+    "credential_configuration_id": "%s",
+    "locations": [ "%s" ]
+  }]' "${credential_configuration_id}" "${ISSUER_BASE_URL}/realms/${realm}")
+  echo "authorization_details=${authorization_details}"
+  authorization_details_encoded=$(echo "${authorization_details}" | jq -sRr @uri)
+
+  url="${authUrl}?response_type=${response_type}&client_id=${client_id}&redirect_uri=${redirect_uri}"
+  url="${url}&scope=openid+${credential_configuration_id}&authorization_details=${authorization_details_encoded}"
+  url="${url}&code_challenge=${code_challenge}&code_challenge_method=S256"
+
+  echo "Browser Url: ${url}"
+  open "$url"
+
+  read -p "Paste the authorization code here: " authCode
+
+  # export for next step
+  export VC_REDIRECT_URI="${redirect_uri}"
+  export VC_AUTH_CODE="${authCode}"
+  export VC_CODE_VERIFIER="${code_verifier}"
+}
+
+kc_access_token_auth_code() {
   local realm="$1"
 
   local tokenUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/token"
@@ -417,7 +457,7 @@ kc_access_token_authorization_code() {
   export ACCESS_TOKEN="${access_token}"
 }
 
-kc_access_token_pre_auth_code() {
+kc_access_token_preauth_code() {
   local realm="$1"
 
   local tokenUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/token"
@@ -441,13 +481,23 @@ kc_access_token_pre_auth_code() {
   export CREDENTIAL_CONFIGURATION_ID="${credential_configuration_id}"
 }
 
-kc_access_token_direct_access() {
+kc_access_token_direct() {
   local realm="$1"
   local client_id="$2"
   local username="$3"
   local password="$4"
+  local credential_configuration_id="$5"
 
   local authUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/token"
+
+  # Build JSON for authorization_details
+  authorization_details=$(printf '[{
+    "type": "openid_credential",
+    "credential_configuration_id": "%s",
+    "locations": [ "%s" ]
+  }]' "${credential_configuration_id}" "${ISSUER_BASE_URL}/realms/${realm}")
+  echo "authorization_details=${authorization_details}"
+  authorization_details_encoded=$(echo "${authorization_details}" | jq -sRr @uri)
 
   tokenRes=$(curl -s "${authUrl}" \
     -H "Content-Type: application/x-www-form-urlencoded" \
@@ -455,7 +505,8 @@ kc_access_token_direct_access() {
     -d "client_id=${client_id}" \
     -d "username=${username}" \
     -d "password=${password}" \
-    -d "scope=openid")
+    -d "scope=openid+${credential_configuration_id}" \
+    -d "authorization_details=${authorization_details_encoded}")
 
   # Show raw tokens
   echo "Token Response ..."
@@ -464,49 +515,6 @@ kc_access_token_direct_access() {
   # Extract access_token
   access_token=$(echo "${tokenRes}" | jq -r .access_token)
   export ACCESS_TOKEN="${access_token}"
-}
-
-kc_authorization_request() {
-  local realm="$1"
-  local client_id="$2"
-  local credential_identifier="$3"
-
-  local response_type="code"
-  local redirect_uri="urn:ietf:wg:oauth:2.0:oob"
-
-  # PKCE
-  code_verifier=$(openssl rand -base64 96 | tr -d '+/=' | tr -d '\n' | cut -c -128)
-  code_challenge=$(echo -n "$code_verifier" |
-    openssl dgst -sha256 -binary | openssl base64 |
-    tr '+/' '-_' | tr -d '=' | tr -d '\n')
-
-  scopes="openid"
-  scopes=$(printf 'openid %s' "${credential_identifier}" | jq -sRr @uri)
-
-  local authUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/auth"
-
-  # Build JSON for authorization_details
-  authorization_details=$(printf '[{
-    "type": "openid_credential",
-    "credential_configuration_id": "%s",
-    "locations": [ "%s" ]
-  }]' "${credential_identifier}" "${ISSUER_BASE_URL}/realms/${realm}")
-  echo "authorization_details=${authorization_details}"
-  authorization_details_encoded=$(echo "${authorization_details}" | jq -sRr @uri)
-
-  url="${authUrl}?response_type=${response_type}&client_id=${client_id}&redirect_uri=${redirect_uri}"
-  url="${url}&scope=${scopes}&authorization_details=${authorization_details_encoded}"
-  url="${url}&code_challenge=${code_challenge}&code_challenge_method=S256"
-
-  echo "Browser Url: ${url}"
-  open "$url"
-
-  read -p "Paste the authorization code here: " authCode
-
-  # export for next step
-  export VC_REDIRECT_URI="${redirect_uri}"
-  export VC_AUTH_CODE="${authCode}"
-  export VC_CODE_VERIFIER="${code_verifier}"
 }
 
 kc_credential_offer_uri() {
