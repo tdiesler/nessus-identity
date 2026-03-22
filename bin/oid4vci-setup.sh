@@ -50,28 +50,34 @@ source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
 ## Parse args
 #
 force="false"
+abca_key="false"
+auth_type="preauth_code"
 skip_verify="false"
-auth_type="direct"
+
 for arg in "$@"; do
   case $arg in
     --force)
       force="true"
       shift
       ;;
-    --skip-verify)
-      skip_verify="true"
-      shift
-      ;;
     --direct)
       auth_type="direct"
       shift
       ;;
-    --auth_code)
+    --abca-key)
+      abca_key="true"
+      shift
+      ;;
+    --auth-code)
       auth_type="auth_code"
       shift
       ;;
-    --preauth_code)
+    --preauth-code)
       auth_type="preauth_code"
+      shift
+      ;;
+    --skip-verify)
+      skip_verify="true"
       shift
       ;;
     *)
@@ -149,3 +155,11 @@ if [[ ${skip_verify} == "false" ]]; then
     kc_credential_request "${realm}" "" "${credential_configuration_id}"
   fi
 fi
+
+# Generate/Show the Attestation-Based Client Authorization Key ---------------------------------------------------------
+#
+if [[ ${abca_key} == "true" ]]; then
+  kc_create_abca_key "${force}"
+fi
+
+

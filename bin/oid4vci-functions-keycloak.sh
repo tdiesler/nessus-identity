@@ -28,6 +28,21 @@ kc_oid4vci_login() {
     --secret "${oid4vciPass}"
 }
 
+kc_create_abca_key() {
+  local force="$1"
+
+  abca_jwk_file=".secret/keycloak_abca_jwk.json"
+
+  echo "Generate ABCA private key"
+  if [ -f "${abca_jwk_file}" ] && [[ ${force} == false ]]; then
+      echo "Keycloak ABCA key exists (use --force to regenerate)"
+  else
+    jbang "${SCRIPT_DIR}/keycloak_abca_sig_rsa.java" | jq . > "${abca_jwk_file}"
+  fi
+
+  jq . "${abca_jwk_file}"
+}
+
 kc_create_realm() {
   local realm="$1"
   local force="$2"
@@ -319,7 +334,7 @@ kc_create_oid4vci_client() {
     "enabled": true,
     "protocol": "openid-connect",
     "publicClient": true,
-    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}", "https://oauth.pstmn.io/v1/callback"],
+    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}", "https://oauth.pstmn.io/v1/callback", "https://localhost.emobix.co.uk:8443/*"],
     "directAccessGrantsEnabled": true,
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": [

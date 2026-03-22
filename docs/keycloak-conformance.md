@@ -12,13 +12,6 @@ There is a target in the Makefile
 make keycloak-run-proxy
 ```
 
-essentially it does this
-
-```shell
-kc.sh start --hostname=https://keycloak.nessustech.io:8443 --proxy-headers=xforwarded --http-enabled=true \
-			--features=oid4vc-vci --bootstrap-admin-username=admin --bootstrap-admin-password=admin --log-console-color=false
-```
-
 Then open an SSH tunnel like this
 
 ```shell
