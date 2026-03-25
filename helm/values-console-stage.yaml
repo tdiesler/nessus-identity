@@ -1,0 +1,23 @@
+#
+# helm upgrade --kube-context=ebsi --install nessus-identity ./helm -f ./helm/values-console-stage.yaml
+#
+environment: stage
+
+# WebApp Services
+#
+consoleHost: "console.nessustech.io"
+ebsiPortalHost: "ebsi.nessustech.io"
+
+# Origin Certificate from Cloudflare
+#
+tlsSecret: origin-tls
+
+deployments:
+
+  # Nessus Services
+  #
+  console:
+    imagePrefix: "registry.nessustech.io/"
+    image: "nessusio/console"
+    version: latest
+    pullPolicy: Always

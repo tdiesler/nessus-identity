@@ -60,6 +60,13 @@ keycloak-build:
 	@cd ../keycloak && ./mvnw -pl quarkus/dist,tests,testsuite/integration-arquillian/tests/base -am -DskipTests clean install
 	@tar xzf ../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT.tar.gz -C ../keycloak/quarkus/dist/target
 
+keycloak-image: keycloak-build
+	@cd ../keycloak/quarkus/container && cp ../dist/target/keycloak-999.0.0-SNAPSHOT.tar.gz . && \
+		docker buildx build --platform linux/amd64 --build-arg KEYCLOAK_DIST=keycloak-999.0.0-SNAPSHOT.tar.gz -t $(IMAGE_REGISTRY)keycloak:latest .
+	@if [ $(TARGET) == "stage" ]; then \
+		docker push $(IMAGE_REGISTRY)keycloak:latest; \
+	fi
+
 # Append debug log options e.g.
 # 	--log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
 keycloak-run:

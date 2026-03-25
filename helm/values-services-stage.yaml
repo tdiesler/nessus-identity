@@ -10,7 +10,7 @@ ebsiPortalHost: "ebsi.nessustech.io"
 
 # Services
 #
-oauthApiHost: "oauth.nessustech.io"
+keycloakHost: "keycloak.nessustech.io"
 
 # WaltId Services
 #
@@ -33,14 +33,8 @@ deployments:
   # OAuth Service
   #
   keycloak:
-    version: nightly
-    pullPolicy: Always
-
-  # Nessus Services
-  #
-  console:
     imagePrefix: "registry.nessustech.io/"
-    image: "nessusio/console"
+    image: "keycloak"
     version: latest
     pullPolicy: Always
 

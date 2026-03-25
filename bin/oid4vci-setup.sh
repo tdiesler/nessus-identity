@@ -30,7 +30,7 @@ case "$TARGET" in
   stage)
     echo "Doing staging setup..."
     export KUBE_CONTEXT="ebsi"
-    export ISSUER_BASE_URL="https://oauth.nessustech.io"
+    export ISSUER_BASE_URL="https://keycloak.nessustech.io"
     export WALLET_REDIRECT_URI="https://console.nessustech.io/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.nessustech.io"
     ;;
@@ -134,10 +134,11 @@ kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
 #
 if [[ ${skip_verify} == "false" ]]; then
   credential_configuration_id="oid4vc_natural_person_jwt"
+  credential_identifier="oid4vc_natural_person_jwt_0000"
 
   if [[ ${auth_type} == "direct" ]]; then
     kc_access_token_direct "${realm}" "${client_id}" "${HOLDER[2]}" "${HOLDER[3]}" "${credential_configuration_id}"
-    kc_credential_request "${realm}" "" "${credential_configuration_id}"
+    kc_credential_request "${realm}" "${credential_identifier}"
 
   elif [[ ${auth_type} == "auth_code" ]]; then
     kc_access_token_direct "${realm}" "${client_id}" "${ISSUER[2]}" "${ISSUER[3]}" "${credential_configuration_id}"
@@ -145,14 +146,14 @@ if [[ ${skip_verify} == "false" ]]; then
     kc_credential_offer "${realm}" "false"
     kc_authorization_request "${realm}" "${client_id}" "${credential_configuration_id}"
     kc_access_token_auth_code "${realm}"
-    kc_credential_request "${realm}" "" "${credential_configuration_id}"
+    kc_credential_request "${realm}" "${credential_identifier}"
 
   elif [[ ${auth_type} == "preauth_code" ]]; then
     kc_access_token_direct "${realm}" "${client_id}" "${HOLDER[2]}" "${HOLDER[3]}" "${credential_configuration_id}"
     kc_credential_offer_uri "${realm}" "${credential_configuration_id}" "${HOLDER[2]}" "true"
     kc_credential_offer "${realm}" "true"
     kc_access_token_preauth_code "${realm}"
-    kc_credential_request "${realm}" "" "${credential_configuration_id}"
+    kc_credential_request "${realm}" "${credential_identifier}"
   fi
 fi
 

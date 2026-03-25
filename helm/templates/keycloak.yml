@@ -22,9 +22,9 @@ spec:
     spec:
       containers:
         - name: keycloak
-          image: "keycloak/keycloak:{{ .version }}"
+          image: {{ .imagePrefix }}{{ .image }}:{{ .version }}
           imagePullPolicy: {{ .pullPolicy }}
-          args: [ "start", "--features=oid4vc-vci" ]
+          args: [ "start", "--features=oid4vc-vci,oid4vc-vci-abca,oid4vc-vci-preauth-code" ]
           env:
             # Admin bootstrap
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
@@ -58,7 +58,7 @@ spec:
             - name: KC_PROXY_HEADERS
               value: "xforwarded"
             - name: KC_HOSTNAME
-              value: "{{ $.Values.oauthApiHost }}"
+              value: "{{ $.Values.keycloakHost }}"
             - name: KC_HTTP_ENABLED
               value: "true"
           ports:
@@ -108,7 +108,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host("{{ $.Values.oauthApiHost }}")
+    - match: Host("{{ $.Values.keycloakHost }}")
       kind: Rule
       services:
         - name: keycloak

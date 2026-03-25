@@ -571,7 +571,6 @@ kc_credential_offer() {
 kc_credential_request() {
   local realm="$1"
   local credential_identifier="$2"
-  local credential_configuration_id="$3"
 
   local nonceUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/oid4vc/nonce"
   c_nonce=$(curl -s -X POST "${nonceUrl}" | jq -r '.c_nonce')
@@ -609,23 +608,13 @@ kc_credential_request() {
   proof=$(wallet_keys_sign "${token}" "${wid}" "${kid}" "${proof_jws}")
 
   # Credential request body
-  if [[ "${credential_identifier}" ]]; then
-    req_body=$(jq -n \
-      --arg cid "${credential_identifier}" \
-      --arg proof "${proof}" \
-      '{
-        credential_identifier: $cid,
-        proofs: { jwt: [ $proof ] }
-      }')
-  else
-    req_body=$(jq -n \
-      --arg cid "${credential_configuration_id}" \
-      --arg proof "${proof}" \
-      '{
-        credential_configuration_id: $cid,
-        proofs: { jwt: [ $proof ] }
-      }')
-  fi
+  req_body=$(jq -n \
+    --arg cid "${credential_identifier}" \
+    --arg proof "${proof}" \
+    '{
+      credential_identifier: $cid,
+      proofs: { jwt: [ $proof ] }
+    }')
 
   echo "==== Credential Request Body ====" >&2
   echo "${req_body}" | jq . >&2
