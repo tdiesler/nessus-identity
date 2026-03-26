@@ -115,5 +115,33 @@ spec:
           port: 8080
   tls:
     secretName: {{ $.Values.tlsSecret }}
+    options:
+      name: fapi-2.0
+---
+
+# FAPI-2.0 Requirements
+# https://openid.net/specs/fapi-security-profile-2_0-final.html#section-5.2
+#
+# Note, in this setup Traefik is the TLS terminating edge.
+# Client => Cloudflare => Traefik => Keycloak
+#
+# The minimum TLS version that Cloudflare accepts needs to be configured with Cloudflare.
+# After receiving the client request, Cloudflare establishes a new TLS connection, which is always > TLS-1.0
+#
+# SSL/TLS -> Edge Certificates -> Minimum TLS Version
+#
+apiVersion: traefik.io/v1alpha1
+kind: TLSOption
+metadata:
+  name: fapi-2.0
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  minVersion: VersionTLS12
+  maxVersion: VersionTLS13
+  sniStrict: true
+  cipherSuites:
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
 ---
 {{- end }}

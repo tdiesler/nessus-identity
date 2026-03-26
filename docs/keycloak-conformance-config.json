@@ -1,9 +1,9 @@
 {
     "alias": "keycloak-preview",
     "vci": {
-        "credential_issuer_url": "https://keycloak.nessustech.io:8443/realms/oid4vci",
+        "credential_issuer_url": "https://keycloak.nessustech.io/realms/oid4vci",
         "credential_configuration_id": "oid4vc_natural_person_sd",
-        "client_attestation_issuer": "https://keycloak.nessustech.io:8443/realms/oid4vci/client-attester/attest",
+        "client_attestation_issuer": "https://keycloak.nessustech.io/realms/oid4vci",
         "key_attestation_jwks": {
             "keys": [
                 {
