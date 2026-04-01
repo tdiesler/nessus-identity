@@ -108,6 +108,15 @@ client_id="oid4vci-client"
 
 kc_admin_login "${adminUser}" "${adminPass}"
 
+#${KCADM} create components -r "${realm}" \
+#  -s name=attester.jwks \
+#  -s providerId=attestation-based \
+#  -s providerType=org.keycloak.authentication.ClientAuthenticator \
+#  -s parentId=<REALM_ID> \
+#  -s 'config."attester.jwks"=1234'
+#
+#exit 0
+
 if kc_create_realm "${realm}" "${force}"; then
 
   ## Service Client ----------------------------------------------------------------------------------------------------

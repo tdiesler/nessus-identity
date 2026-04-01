@@ -31,16 +31,18 @@ kc_oid4vci_login() {
 kc_create_abca_key() {
   local force="$1"
 
-  abca_jwk_file=".secret/keycloak_abca_jwk.json"
+  abca_jwk_key_priv=".secret/keycloak_abca_jwk_priv.json"
+  abca_jwk_key_pub=".secret/keycloak_abca_jwk.json"
 
   echo "Generate ABCA private key"
-  if [ -f "${abca_jwk_file}" ] && [[ ${force} == false ]]; then
+  if [ -f "${abca_jwk_key_priv}" ] && [[ ${force} == false ]]; then
       echo "Keycloak ABCA key exists (use --force to regenerate)"
   else
-    jbang "${SCRIPT_DIR}/keycloak_abca_sig_rsa.java" | jq . > "${abca_jwk_file}"
+    jbang "${SCRIPT_DIR}/keycloak_abca_sig_rsa.java" | jq . > "${abca_jwk_key_priv}"
   fi
 
-  jq . "${abca_jwk_file}"
+  jq . "${abca_jwk_key_priv}"
+  jq '[ .keys[0] | del(.d, .p, .q, .dp, .dq, .qi) ]' "${abca_jwk_key_priv}" > "${abca_jwk_key_pub}"
 }
 
 kc_create_realm() {
@@ -67,6 +69,11 @@ kc_create_realm() {
   {
     "realm": "oid4vci",
     "enabled": true,
+    "verifiableCredentialsEnabled": true,
+    "attributes": {
+      "preAuthorizedCodeLifespanS": 120,
+      "oid4vci.request.zip.algorithms": "DEF"
+    },
     "components": {
       "org.keycloak.userprofile.UserProfileProvider": [
         {
@@ -78,13 +85,17 @@ kc_create_realm() {
   }
 EOF
 
+  ## Show realm attributes
+  #
+  ${KCADM} get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
+
   realmId=$(${KCADM} get "realms/${realm}" --fields id --format csv --noquotes)
 
   ## Delete Keys with unwanted algos
   #
   local curr_algos keep_algos unwanted_algos
 
-  keep_algos=("ES256" "RS256" "RSA-OAEP")
+  keep_algos=("ES256" "RS256" "RSA-OAEP" "ECDH-ES")
   curr_algos=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
 
   unwanted_algos=()
@@ -103,28 +114,46 @@ EOF
     fi
   done
 
-  ## Generate a Key for signing VCs with the ES256
+  ## Generate a signing key for signing VCs with the ES256
   #
   echo "Creating a Key with algorithm: ES256"
-  ${KCADM} create components -r "${realm}" \
+  es256KeyProv=$(${KCADM} create components -r "${realm}" \
     -s name="es256-vc-signing" \
     -s providerId="ecdsa-generated" \
     -s providerType="org.keycloak.keys.KeyProvider" \
     -s parentId="${realmId}" \
+    -s 'config.keyUse=["sig"]' \
     -s 'config.priority=["120"]' \
     -s 'config.enabled=["true"]' \
     -s 'config.active=["true"]' \
-    -s 'config.algorithm=["ES256"]'
+    -s 'config.algorithm=["ES256"]' -o)
 
-  # Get the ACTIVE ES256 kid
-  es256KeyId=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[] | select(.algorithm=="ES256" and .status=="ACTIVE") | .kid')
-  echo "ES256 key id: ${es256KeyId}"
+  echo "ES256 Key: ${es256KeyProv}"
+
+  # Generate an EC encryption key provider for ECDH-ES
+  #
+  echo "Creating a Key with algorithm: ECDH-ES"
+  ecdhKeyProv=$(${KCADM} create components -r "${realm}" \
+    -s name="ecdh-vc-encryption" \
+    -s providerId="ecdh-generated" \
+    -s providerType="org.keycloak.keys.KeyProvider" \
+    -s parentId="${realmId}" \
+    -s 'config.keyUse=["enc"]' \
+    -s 'config.priority=["130"]' \
+    -s 'config.enabled=["true"]' \
+    -s 'config.active=["true"]' \
+    -s 'config.ecdhAlgorithm=["ECDH-ES"]' -o)
+
+  echo "ECDH-ES Key: ${ecdhKeyProv}"
 
   curr_algos=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
   echo "Current key algorithms: ${curr_algos[*]}"
 
   # Fetch the realm’s public JWKS
-  jwks_json=$(curl -s "${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/certs" | jq -r --arg kid "$es256KeyId" '.keys[] | select(.kid==$kid)')
+  es256KeyProvId=$(echo "${es256KeyProv}" | jq -r .id)
+  es256Kid=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r --arg pid "${es256KeyProvId}" '.keys[] | select(.providerId==$pid) | .kid')
+
+  jwks_json=$(curl -s "${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/certs" | jq -r --arg kid "${es256Kid}" '.keys[] | select(.kid==$kid)')
   echo "Realm JWK: $jwks_json"
 
   # Filter JWKS by kid
@@ -135,24 +164,6 @@ EOF
   #
   issuer_did=$(jbang "${SCRIPT_DIR}/es256pub_to_didkey.java" "$x" "$y")
   echo "Issuer Did: ${issuer_did}"
-
-  # Configure oid4vci realm attributes
-  #
-  echo "Configure realm attributes ..."
-  ${KCADM} update "realms/${realm}" -f - <<-EOF
-  {
-    "realm": "${realm}",
-    "enabled": true,
-    "verifiableCredentialsEnabled": true,
-    "attributes": {
-      "preAuthorizedCodeLifespanS": 120
-    }
-  }
-EOF
-
-  ## Show realm attributes
-  #
-  ${KCADM} get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
 
   echo
   echo "Realm setup complete"

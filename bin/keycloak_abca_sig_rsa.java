@@ -40,7 +40,7 @@ public class keycloak_abca_sig_rsa {
 
         Security.addProvider(new BouncyCastleProvider());
 
-        String kid = "keycloak-abca-sig-rsa";
+        String kid = "openid-abca-attester-key";
         String cn = "github.com/keycloak";
 
         // ---- 1. Generate keypair (same as KC default provider)
