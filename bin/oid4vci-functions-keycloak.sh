@@ -29,20 +29,27 @@ kc_oid4vci_login() {
 }
 
 kc_create_abca_key() {
-  local force="$1"
+  local realm="$1"
 
   abca_jwk_key_priv=".secret/keycloak_abca_jwk_priv.json"
   abca_jwk_key_pub=".secret/keycloak_abca_jwk.json"
 
-  echo "Generate ABCA private key"
-  if [ -f "${abca_jwk_key_priv}" ] && [[ ${force} == false ]]; then
-      echo "Keycloak ABCA key exists (use --force to regenerate)"
-  else
+  if [[ ! -f "${abca_jwk_key_priv}" ]]; then
+    echo "Generate ABCA private key"
     jbang "${SCRIPT_DIR}/keycloak_abca_sig_rsa.java" | jq . > "${abca_jwk_key_priv}"
   fi
 
-  jq . "${abca_jwk_key_priv}"
   jq '[ .keys[0] | del(.d, .p, .q, .dp, .dq, .qi) ]' "${abca_jwk_key_priv}" > "${abca_jwk_key_pub}"
+
+  abca_config_value=$(jq -c . "${abca_jwk_key_priv}")
+  escaped_config_value=$(printf '%s' "${abca_config_value}" | jq -Rs .)
+
+  authenticator_id=$(${KCADM} get authentication/flows/clients/executions -r "${realm}" 2>/dev/null | jq -r '.[] | select(.providerId=="attestation-based") | .id')
+
+  echo "Creating ABCA config"
+  ${KCADM} create authentication/executions/"${authenticator_id}"/config -r "${realm}" \
+    -s alias="attester_jwks" \
+    -s "config.attester_jwks=${escaped_config_value}"
 }
 
 kc_create_realm() {

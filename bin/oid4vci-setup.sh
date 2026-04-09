@@ -108,15 +108,6 @@ client_id="oid4vci-client"
 
 kc_admin_login "${adminUser}" "${adminPass}"
 
-#${KCADM} create components -r "${realm}" \
-#  -s name=attester.jwks \
-#  -s providerId=attestation-based \
-#  -s providerType=org.keycloak.authentication.ClientAuthenticator \
-#  -s parentId=<REALM_ID> \
-#  -s 'config."attester.jwks"=1234'
-#
-#exit 0
-
 if kc_create_realm "${realm}" "${force}"; then
 
   ## Service Client ----------------------------------------------------------------------------------------------------
@@ -132,6 +123,10 @@ if kc_create_realm "${realm}" "${force}"; then
   ## Issuance Client ---------------------------------------------------------------------------------------------------
   #
   kc_create_oid4vci_client "${realm}" "${client_id}"
+
+  # Create the Attestation-Based Client Authorization Key --------------------------------------------------------------------
+  #
+  kc_create_abca_key "${realm}"
 fi
 
 ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
@@ -165,11 +160,3 @@ if [[ ${skip_verify} == "false" ]]; then
     kc_credential_request "${realm}" "${credential_identifier}"
   fi
 fi
-
-# Generate/Show the Attestation-Based Client Authorization Key ---------------------------------------------------------
-#
-if [[ ${abca_key} == "true" ]]; then
-  kc_create_abca_key "${force}"
-fi
-
-
