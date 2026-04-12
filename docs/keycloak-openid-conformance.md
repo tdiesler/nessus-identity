@@ -6,7 +6,7 @@ To make this work, we need to run Keycloak behind a reverse proxy - see the [Con
 
 ## Run Keycloak
 
-We can run Keycloak 
+We can run Keycloak ...
 
 * locally and accessible through a reverse proxy (TARGET=local)
 * remotely with direct access from Cloudflare (TARGET=stage)
@@ -51,13 +51,13 @@ It should now be possible to access Keycloak on: https://keycloak.nessustech.io
 
 ## Import the test realm
 
-We have a Keycloak `oid4vci-setup.sh` script that we can use to prepare the Issuer for OpenID Conformance testing.
+We have a `oid4vci-setup.sh` script that we can use to prepare the Issuer for OpenID Conformance testing.
 
 ```
-TARGET=stage ./bin/oid4vci-setup.sh 
+TARGET=proxy ./bin/oid4vci-setup.sh 
 ```
 
-## Run the Conformance Test Suite
+## Run the Conformance Tests in UI
 
 Clone the project, build it and run it on docker
 
@@ -73,13 +73,43 @@ It should now be possible to access the Conformance Suite on: https://localhost:
 
 ### Configure the HAIP Issuer Test Plan
 
-| Test Plan         | OpenID for Verifiable Credential Issuance 1.0 Final/HAIP: Test an issuer |
-| Credential Format | sd_jwt_vc |
-| Code Flow Variant | wallet_initiated |
+| Field             | Value                                                     |
+|-------------------|-----------------------------------------------------------|
+| Specification     | OID4VCI                                                   |
+| Entity Under Test | Test a OpenID4VCI issuer                                  |
+| Test Plan         | OpenID for Verifiable Credential Issuance 1.0 Final/HAIP  |
+| Credential Format | sd_jwt_vc                                                 |
+| Code Flow Variant | wallet_initiated                                          |
 
 Then add a config like the one you can find in this directory.
 
+## Run the Conformance Tests automated
+
+### Setup the Python3 environment
+
+```shell
+cd conformance-suite/scripts
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Run a given test
+
+First, try to run the first test in the plan - the result should look like this.
+
+<img src="docs/img/oid4vci-1_0-issuer-metadata-test.png" width="800"/>
+
+Next, try to run the same test from the python script
+
+```shell
+CONFORMANCE_SERVER="https://localhost.emobix.co.uk:8443"
+CONFIG_FILE="${HOME}/git/nessus-identity/docs/keycloak-openid-conformance-config.json"
+PLAN_VARIANTS="[vci_authorization_code_flow_variant=wallet_initiated][credential_format=sd_jwt_vc]"
+./run-test-plan.py --no-parallel "oid4vci-1_0-issuer-haip-test-plan${PLAN_VARIANTS}:oid4vci-1_0-issuer-metadata-test,oid4vci-1_0-issuer-metadata-test-signed" "${CONFIG_FILE}"
+```
+
 ## HAIP Conformance Status
 
-Conformance status is tracked by: [[#354] Keycloak Conformance with HAIP Profile](https://github.com/tdiesler/nessus-identity/issues/354)
+Conformance status is tracked by: [Conformance with OpenID HAIP Profile](https://github.com/keycloak/keycloak/issues/47149)
 

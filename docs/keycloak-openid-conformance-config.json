@@ -47,10 +47,26 @@
             ]
         }
     },
+    "client": {
+        "client_id": "oid4vci-client"
+    },
     "client2": {
         "client_id": "oid4vci-client"
     },
-    "client": {
-        "client_id": "oid4vci-client"
-    }
+    "browser": [
+        {
+            "match": "https://keycloak.nessustech.io:8443/realms/oid4vci/protocol/openid-connect/auth*",
+            "tasks": [
+                {
+                    "task": "Keycloak Login",
+                    "match": "https://keycloak.nessustech.io:8443/realms/oid4vci/login-actions/authenticate*",
+                    "commands": [
+                        ["text", "id", "username", "alice"],
+                        ["text", "id", "password", "password"],
+                        ["click", "id", "kc-login"]
+                    ]
+                }
+            ]
+        }
+    ]
 }
