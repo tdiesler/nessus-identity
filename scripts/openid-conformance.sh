@@ -10,8 +10,9 @@ SCRIPT_DIR=$(realpath "$(dirname "$0")")
 CONFORMANCE_DIR=$(realpath "${SCRIPT_DIR}/../../conformance-suite")
 CONFORMANCE_SCRIPTS_DIR="${CONFORMANCE_DIR}/scripts"
 
-CONFIG_FILE="${SCRIPT_DIR}/../docs/keycloak-openid-conformance-config.json"
-EXPECTED_FAILURES_FILE="${SCRIPT_DIR}/../docs/keycloak-openid-expected-failures.json"
+CONFIG_FILE="${SCRIPT_DIR}/config/keycloak-openid-conformance-config.json"
+EXPECTED_FAILURES_FILE="${SCRIPT_DIR}/config/keycloak-openid-expected-failures.json"
+EXPECTED_SKIPS_FILE="${SCRIPT_DIR}/config/keycloak-openid-expected-skips.json"
 
 PLAN_NAME="oid4vci-1_0-issuer-haip-test-plan"
 PLAN_VARIANTS="[vci_authorization_code_flow_variant=wallet_initiated][credential_format=sd_jwt_vc]"
@@ -87,22 +88,33 @@ run_test_modules() {
   local modules="$1"
 
   if [[ -z "${modules}" ]]; then
-    modules=$(curl -ks "${CONFORMANCE_SERVER}/api/plan/info/${PLAN_NAME}" | jq -r '.modules[].testModule')
+    modules=$(_get_effective_modules)
   fi
-
-  echo "Modules for test plan ${PLAN_NAME}"
-  for mod in ${modules}; do
-    printf " - %s\n" "$mod"
-  done
   modules=$(printf "%s\n" "${modules}" | paste -sd "," -)
 
-  ./run-test-plan.py --no-parallel --verbose --expected-failures-file "${EXPECTED_FAILURES_FILE}" "${PLAN_NAME}${PLAN_VARIANTS}:${modules}" "${CONFIG_FILE}"
+  echo "Skipped modules for test plan ${PLAN_NAME}"
+  for mod in $(_get_skipped_modules); do
+    printf " - %s\n" "$mod"
+  done
+
+  ./run-test-plan.py --no-parallel --verbose \
+    --expected-failures-file "${EXPECTED_FAILURES_FILE}" \
+    --expected-skips-file "${EXPECTED_SKIPS_FILE}" \
+    "${PLAN_NAME}${PLAN_VARIANTS}:${modules}" \
+    "${CONFIG_FILE}"
 }
 
 show_modules() {
-  modules=$(curl -ks "${CONFORMANCE_SERVER}/api/plan/info/${PLAN_NAME}" | jq -r '.modules[].testModule')
+  skip_modules=$(_get_skipped_modules)
+  effective_modules=$(_get_effective_modules)
+
   echo "Modules for test plan ${PLAN_NAME}"
-  for mod in ${modules}; do
+  for mod in ${effective_modules}; do
+    printf " - %s\n" "$mod"
+  done
+
+  echo "Skipped modules for test plan ${PLAN_NAME}"
+  for mod in ${skip_modules}; do
     printf " - %s\n" "$mod"
   done
 }
@@ -120,6 +132,24 @@ _activate_venv() {
 _deactivate_venv() {
   deactivate
   popd > /dev/null
+}
+
+_get_modules() {
+  curl -ks "${CONFORMANCE_SERVER}/api/plan/info/${PLAN_NAME}" | jq -r '.modules[].testModule'
+}
+
+_get_skipped_modules() {
+  jq -r '.[]."test-name"' "${EXPECTED_SKIPS_FILE}"
+}
+
+_get_effective_modules() {
+  modules=$(_get_modules)
+  skip_modules=$(_get_skipped_modules)
+  while IFS= read -r mod; do
+    if ! printf "%s\n" "$skip_modules" | grep -F -x -q "$mod"; then
+      printf "%s\n" "$mod"
+    fi
+  done <<< "$modules"
 }
 
 # Optionally clean existing test plans ---------------------------------------------------------------------------------

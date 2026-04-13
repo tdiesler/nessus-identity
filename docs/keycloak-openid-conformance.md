@@ -54,7 +54,7 @@ It should now be possible to access Keycloak on: https://keycloak.nessustech.io
 We have a `oid4vci-setup.sh` script that we can use to prepare the Issuer for OpenID Conformance testing.
 
 ```
-TARGET=proxy ./bin/oid4vci-setup.sh 
+TARGET=proxy ./scripts/oid4vci-setup.sh 
 ```
 
 ## Run the Conformance Tests in UI

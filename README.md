@@ -33,7 +33,7 @@ the OpenID for Verifiable Credential Issuance ([OID4VCI](https://openid.net/spec
 realm in Keycloak.
 
 ```
-./bin/oid4vci-setup.sh
+./scripts/oid4vci-setup.sh
 ```
 
 If all goes well, this will ... 
