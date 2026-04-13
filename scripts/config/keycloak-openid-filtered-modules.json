@@ -1,0 +1,59 @@
+[
+    {
+        "test-name": "oid4vci-1_0-issuer-happy-flow-multiple-clients"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-happy-flow"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-user-rejects-authentication"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-access-token-type-header-case-sensitivity"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-ensure-authorization-request-with-long-state"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-state-only-outside-request-object-not-used"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-ensure-registered-redirect-uri"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-ensure-response-type-code-idtoken-fails"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-ensure-response-type-token-fails"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-dpop-negative-tests"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-refresh-token"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-par-ensure-reused-request-uri-prior-to-auth-completion-succeeds"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-par-attempt-reuse-request_uri"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-par-attempt-to-use-expired-request_uri"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-par-attempt-to-use-request_uri-for-different-client"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-par-ensure-pkce-required"
+    },
+    {
+        "test-name": "fapi2-security-profile-final-par-plain-pkce-rejected"
+    }
+]
