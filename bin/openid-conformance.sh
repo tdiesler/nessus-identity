@@ -30,29 +30,46 @@ PLAN_VARIANTS="[vci_authorization_code_flow_variant=wallet_initiated][credential
 
 ## Parse args
 #
-opt_clean="false"
-opt_run_all="false"
-opt_run_test=""
+init_opts() {
+  opt_clean=false
+  opt_show_help=true
+  opt_run_all=false
+  opt_run_test=""
+}
+
+init_opts
 
 while [[ $# -gt 0 ]]; do
-  case $1 in
+  case "$1" in
     --clean)
-      opt_clean="true"
-      shift
+      opt_clean=true
+      ;;
+    --help)
+      init_opts
+      break
       ;;
     --run-all)
-      opt_run_all="true"
-      shift
+      opt_run_all=true
+      ;;
+    --run-smoke-test)
+      opt_run_test="oid4vci-1_0-issuer-happy-flow"
       ;;
     --run-test)
+      [[ -z "$2" || "$2" == --* ]] && {
+        echo "Missing value for --run-test"
+        init_opts
+        break
+      }
       opt_run_test="$2"
-      shift 2
+      shift
       ;;
     *)
-      echo "Unknown option: $1"
-      exit 1
+      echo "Unknown option: $1";
+      init_opts
+      break
       ;;
   esac
+  shift
 done
 
 clean_plans() {
@@ -61,12 +78,6 @@ clean_plans() {
     echo "Deleting: ${id}"
     curl -ks -X DELETE "${CONFORMANCE_SERVER}/api/plan/${id}"
   done
-}
-
-show_help() {
-  _activate_venv
-  ./run-test-plan.py -h
-  _deactivate_venv
 }
 
 run_test_modules() {
@@ -82,7 +93,12 @@ run_test_modules() {
   done
   modules=$(printf "%s\n" "${modules}" | paste -sd "," -)
 
-  ./run-test-plan.py --no-parallel --verbose "${PLAN_NAME}${PLAN_VARIANTS}:${modules}" "${CONFIG_FILE}"
+  ./run-test-plan.py --no-parallel "${PLAN_NAME}${PLAN_VARIANTS}:${modules}" "${CONFIG_FILE}"
+}
+
+show_help() {
+  local cmd="$1"
+  echo "usage: ${cmd} [--clean] [--help] [--run-all] [--run-smoke-test] [--run-test module]"
 }
 
 _activate_venv() {
@@ -95,11 +111,15 @@ _deactivate_venv() {
   popd > /dev/null
 }
 
-if [[ ${opt_clean} == "true" ]]; then
+# Optionally clean existing test plans ---------------------------------------------------------------------------------
+#
+if [[ ${opt_clean} == true ]]; then
   clean_plans
 fi
 
-if [[ ${opt_run_all} == "true" ]]; then
+# Run all pre-configured modules for the given test plan ---------------------------------------------------------------
+#
+if [[ ${opt_run_all} == true ]]; then
   _activate_venv
 
   run_test_modules ""
@@ -108,6 +128,8 @@ if [[ ${opt_run_all} == "true" ]]; then
   exit 0
 fi
 
+# Run a single module from the given test plan -------------------------------------------------------------------------
+#
 if [[ -n ${opt_run_test} ]]; then
   _activate_venv
 
@@ -117,4 +139,9 @@ if [[ -n ${opt_run_test} ]]; then
   exit 0
 fi
 
-# show_help
+# Show help for this script and for run-test-plan.py -------------------------------------------------------------------
+#
+if [[ ${opt_show_help} == true ]]; then
+  show_help "$0"
+  exit 0
+fi

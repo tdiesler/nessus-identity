@@ -65,6 +65,18 @@
                         ["text", "id", "password", "password"],
                         ["click", "id", "kc-login"]
                     ]
+                },
+                {
+                    "task": "Verify Complete",
+                    "match": "*/test/a/keycloak-preview/callback*",
+                    "commands": [
+                        [
+                            "wait",
+                            "id",
+                            "submission_complete",
+                            10
+                        ]
+                    ]
                 }
             ]
         }
