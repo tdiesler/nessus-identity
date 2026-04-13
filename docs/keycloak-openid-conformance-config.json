@@ -51,15 +51,15 @@
         "client_id": "oid4vci-client"
     },
     "client2": {
-        "client_id": "oid4vci-client"
+        "client_id": "oid4vci-client2"
     },
     "browser": [
         {
-            "match": "https://keycloak.nessustech.io:8443/realms/oid4vci/protocol/openid-connect/auth*",
+            "match": "https://*/realms/oid4vci/protocol/openid-connect/auth*",
             "tasks": [
                 {
                     "task": "Keycloak Login",
-                    "match": "https://keycloak.nessustech.io:8443/realms/oid4vci/login-actions/authenticate*",
+                    "match": "https://*/realms/oid4vci/login-actions/authenticate*",
                     "commands": [
                         ["text", "id", "username", "alice"],
                         ["text", "id", "password", "password"],
@@ -68,7 +68,7 @@
                 },
                 {
                     "task": "Verify Complete",
-                    "match": "*/test/a/keycloak-preview/callback*",
+                    "match": "https://*/test/a/keycloak-preview/callback*",
                     "commands": [
                         [
                             "wait",

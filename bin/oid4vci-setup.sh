@@ -123,6 +123,7 @@ if kc_create_realm "${realm}" "${force}"; then
   ## Issuance Client ---------------------------------------------------------------------------------------------------
   #
   kc_create_oid4vci_client "${realm}" "${client_id}"
+  kc_create_oid4vci_client "${realm}" "${client_id}2"
 
   # Create the Attestation-Based Client Authorization Key --------------------------------------------------------------------
   #
