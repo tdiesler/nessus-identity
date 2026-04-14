@@ -13,7 +13,6 @@ CONFORMANCE_SCRIPTS_DIR="${CONFORMANCE_DIR}/scripts"
 CONFIG_FILE="${SCRIPT_DIR}/config/keycloak-openid-conformance-config.json"
 EXPECTED_FAILURES_FILE="${SCRIPT_DIR}/config/keycloak-openid-expected-failures.json"
 EXPECTED_SKIPS_FILE="${SCRIPT_DIR}/config/keycloak-openid-expected-skips.json"
-FILTERED_MODULES_FILE="${SCRIPT_DIR}/config/keycloak-openid-filtered-modules.json"
 
 PLAN_NAME="oid4vci-1_0-issuer-haip-test-plan"
 PLAN_VARIANTS="[vci_authorization_code_flow_variant=wallet_initiated][credential_format=sd_jwt_vc]"
@@ -86,36 +85,22 @@ clean_plans() {
 }
 
 run_test_modules() {
-  local modules="$1"
+  local module="$1"
 
-  if [[ -z "${modules}" ]]; then
-    modules=$(_get_effective_modules)
+  TESTS="${PLAN_NAME}${PLAN_VARIANTS}"
+  if [[ -n "${module}" ]]; then
+    TESTS="${TESTS}:${module}"
   fi
-  modules=$(printf "%s\n" "${modules}" | paste -sd "," -)
-
-  echo "Filtered modules for test plan ${PLAN_NAME}"
-  for mod in $(_get_filtered_modules); do
-    printf " - %s\n" "$mod"
-  done
 
   ./run-test-plan.py --no-parallel --verbose \
     --expected-failures-file "${EXPECTED_FAILURES_FILE}" \
     --expected-skips-file "${EXPECTED_SKIPS_FILE}" \
-    "${PLAN_NAME}${PLAN_VARIANTS}:${modules}" \
-    "${CONFIG_FILE}"
+    "${TESTS}" "${CONFIG_FILE}"
 }
 
 show_modules() {
-  effective_modules=$(_get_effective_modules)
-  filtered_modules=$(_get_filtered_modules)
-
   echo "Modules for test plan ${PLAN_NAME}"
-  for mod in ${effective_modules}; do
-    printf " - %s\n" "$mod"
-  done
-
-  echo "Filtered modules for test plan ${PLAN_NAME}"
-  for mod in ${filtered_modules}; do
+  for mod in $(_get_module_names); do
     printf " - %s\n" "$mod"
   done
 }
@@ -135,22 +120,8 @@ _deactivate_venv() {
   popd > /dev/null
 }
 
-_get_modules() {
+_get_module_names() {
   curl -ks "${CONFORMANCE_SERVER}/api/plan/info/${PLAN_NAME}" | jq -r '.modules[].testModule'
-}
-
-_get_filtered_modules() {
-  jq -r '.[]."test-name"' "${FILTERED_MODULES_FILE}"
-}
-
-_get_effective_modules() {
-  modules=$(_get_modules)
-  filtered_modules=$(_get_filtered_modules)
-  while IFS= read -r mod; do
-    if ! printf "%s\n" "${filtered_modules}" | grep -F -x -q "$mod"; then
-      printf "%s\n" "$mod"
-    fi
-  done <<< "$modules"
 }
 
 # Optionally clean existing test plans ---------------------------------------------------------------------------------

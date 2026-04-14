@@ -60,6 +60,7 @@
                 {
                     "task": "Keycloak Login",
                     "match": "https://*/realms/oid4vci/login-actions/authenticate*",
+                    "optional": true,
                     "commands": [
                         ["text", "id", "username", "alice"],
                         ["text", "id", "password", "password"],

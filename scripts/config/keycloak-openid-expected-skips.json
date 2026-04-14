@@ -3,7 +3,8 @@
         "test-name": "oid4vci-1_0-issuer-fail-invalid-jwt-proof-signature",
         "configuration-filename": "*/keycloak-*.json",
         "variant": {
-            "client_auth_type": "client_attestation"
-        }
+            "credential_format": "sd_jwt_vc"
+        },
+        "expected-result": "skipped"
     }
 ]
