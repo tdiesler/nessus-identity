@@ -13,6 +13,7 @@ CONFORMANCE_SCRIPTS_DIR="${CONFORMANCE_DIR}/scripts"
 CONFIG_FILE="${SCRIPT_DIR}/config/keycloak-openid-conformance-config.json"
 EXPECTED_FAILURES_FILE="${SCRIPT_DIR}/config/keycloak-openid-expected-failures.json"
 EXPECTED_SKIPS_FILE="${SCRIPT_DIR}/config/keycloak-openid-expected-skips.json"
+FILTERED_MODULES_FILE="${SCRIPT_DIR}/config/keycloak-openid-filtered-modules.json"
 
 PLAN_NAME="oid4vci-1_0-issuer-haip-test-plan"
 PLAN_VARIANTS="[vci_authorization_code_flow_variant=wallet_initiated][credential_format=sd_jwt_vc]"
@@ -43,6 +44,11 @@ init_opts() {
 
 init_opts
 
+show_help() {
+  local cmd="$1"
+  echo "usage: ${cmd} [--clean] [--help] [--run-tests] [--run-test module] [--show-modules]"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --clean)
@@ -56,7 +62,7 @@ while [[ $# -gt 0 ]]; do
       opt_show_modules=true
       break
       ;;
-    --run-all)
+    --run-tests)
       opt_run_all=true
       ;;
     --run-test)
@@ -84,30 +90,43 @@ clean_plans() {
   done
 }
 
-run_test_modules() {
-  local module="$1"
+run_tests() {
+  local modules="$1"
+  local args=(--no-parallel --verbose)
 
-  TESTS="${PLAN_NAME}${PLAN_VARIANTS}"
-  if [[ -n "${module}" ]]; then
-    TESTS="${TESTS}:${module}"
+  if [[ -z "${modules}" ]]; then
+    modules=$(printf "%s\n" "$(_get_effective_modules)" | paste -sd "," -)
+
+    echo "Filtered modules for test plan ${PLAN_NAME}"
+    for mod in $(_get_filtered_modules); do
+      printf " - %s\n" "$mod"
+    done
+
+    args+=(
+      --expected-failures-file "${EXPECTED_FAILURES_FILE}"
+      --expected-skips-file "${EXPECTED_SKIPS_FILE}"
+    )
   fi
 
-  ./run-test-plan.py --no-parallel --verbose \
-    --expected-failures-file "${EXPECTED_FAILURES_FILE}" \
-    --expected-skips-file "${EXPECTED_SKIPS_FILE}" \
-    "${TESTS}" "${CONFIG_FILE}"
+  ./run-test-plan.py \
+    "${args[@]}" \
+    "${PLAN_NAME}${PLAN_VARIANTS}:${modules}" \
+    "${CONFIG_FILE}"
 }
 
 show_modules() {
+  effective_modules=$(_get_effective_modules)
+  filtered_modules=$(_get_filtered_modules)
+
   echo "Modules for test plan ${PLAN_NAME}"
-  for mod in $(_get_module_names); do
+  for mod in ${effective_modules}; do
     printf " - %s\n" "$mod"
   done
-}
 
-show_help() {
-  local cmd="$1"
-  echo "usage: ${cmd} [--clean] [--help] [--run-all] [--run-smoke-test] [--run-test module]"
+  echo "Filtered modules for test plan ${PLAN_NAME}"
+  for mod in ${filtered_modules}; do
+    printf " - %s\n" "$mod"
+  done
 }
 
 _activate_venv() {
@@ -120,7 +139,20 @@ _deactivate_venv() {
   popd > /dev/null
 }
 
-_get_module_names() {
+_get_effective_modules() {
+  filtered_modules=$(_get_filtered_modules)
+  while IFS= read -r mod; do
+    if ! printf "%s\n" "${filtered_modules}" | grep -F -x -q "$mod"; then
+      printf "%s\n" "$mod"
+    fi
+  done <<< "$(_get_modules)"
+}
+
+_get_filtered_modules() {
+  jq -r '.[]."test-name"' "${FILTERED_MODULES_FILE}"
+}
+
+_get_modules() {
   curl -ks "${CONFORMANCE_SERVER}/api/plan/info/${PLAN_NAME}" | jq -r '.modules[].testModule'
 }
 
@@ -143,7 +175,7 @@ fi
 #
 if [[ ${opt_run_all} == true ]]; then
   _activate_venv
-  run_test_modules ""
+  run_tests ""
   _deactivate_venv
   exit 0
 fi
@@ -152,7 +184,7 @@ fi
 #
 if [[ -n ${opt_run_test} ]]; then
   _activate_venv
-  run_test_modules "${opt_run_test}"
+  run_tests "${opt_run_test}"
   _deactivate_venv
   exit 0
 fi
