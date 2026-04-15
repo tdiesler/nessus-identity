@@ -4,7 +4,7 @@
     "variant": {
       "credential_format": "sd_jwt_vc"
     },
-    "configuration-filename": "*/keycloak-openid-conformance-config.json",
+    "configuration-filename": "*/keycloak-openid-config.json",
     "current-block": "Make request to PAR endpoint",
     "condition": "EnsurePARUnsupportedResponseTypeOrInvalidRequestOrUnauthorizedClientError",
     "expected-result": "warning",
@@ -15,7 +15,7 @@
     "variant": {
       "credential_format": "sd_jwt_vc"
     },
-    "configuration-filename": "*/keycloak-openid-conformance-config.json",
+    "configuration-filename": "*/keycloak-openid-config.json",
     "current-block": "Make request to PAR endpoint",
     "condition": "EnsurePARUnsupportedResponseTypeOrInvalidRequestOrUnauthorizedClientError",
     "expected-result": "warning",

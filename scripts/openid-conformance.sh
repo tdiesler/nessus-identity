@@ -10,13 +10,13 @@ SCRIPT_DIR=$(realpath "$(dirname "$0")")
 CONFORMANCE_DIR=$(realpath "${SCRIPT_DIR}/../../conformance-suite")
 CONFORMANCE_SCRIPTS_DIR="${CONFORMANCE_DIR}/scripts"
 
-CONFIG_FILE="${SCRIPT_DIR}/config/keycloak-openid-conformance-config.json"
-EXPECTED_FAILURES_FILE="${SCRIPT_DIR}/config/keycloak-openid-expected-failures.json"
-EXPECTED_SKIPS_FILE="${SCRIPT_DIR}/config/keycloak-openid-expected-skips.json"
-FILTERED_MODULES_FILE="${SCRIPT_DIR}/config/keycloak-openid-filtered-modules.json"
+DEFAULT_CONFIG_FILE="${SCRIPT_DIR}/config/keycloak-openid-config.json"
+DEFAULT_FAILURES_FILE="${SCRIPT_DIR}/config/keycloak-openid-failures.json"
+DEFAULT_SKIPS_FILE="${SCRIPT_DIR}/config/keycloak-openid-skips.json"
+DEFAULT_FILTERS_FILE="${SCRIPT_DIR}/config/keycloak-openid-filters.json"
 
 PLAN_NAME="oid4vci-1_0-issuer-haip-test-plan"
-PLAN_VARIANTS="[vci_authorization_code_flow_variant=wallet_initiated][credential_format=sd_jwt_vc]"
+DEFAULT_VARIANTS="[vci_authorization_code_flow_variant=wallet_initiated][credential_format=sd_jwt_vc]"
 
 # Default target if not set
 : "${TARGET:=proxy}"
@@ -82,6 +82,10 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+source "${SCRIPT_DIR}/oid4vci-functions-keycloak.sh"
+
+# Remove existing test plans
+#
 clean_plans() {
   plan_ids=$(curl -ks "${CONFORMANCE_SERVER}/api/plan" | jq -r '.data[]._id')
   for id in $plan_ids; do
@@ -90,9 +94,14 @@ clean_plans() {
   done
 }
 
+# Run test modules
+#
 run_tests() {
   local modules="$1"
-  local args=(--no-parallel --verbose)
+
+  local failures="${DEFAULT_FAILURES_FILE}"
+  local skips="${DEFAULT_SKIPS_FILE}"
+  local config="${DEFAULT_CONFIG_FILE}"
 
   if [[ -z "${modules}" ]]; then
     modules=$(printf "%s\n" "$(_get_effective_modules)" | paste -sd "," -)
@@ -101,19 +110,16 @@ run_tests() {
     for mod in $(_get_filtered_modules); do
       printf " - %s\n" "$mod"
     done
-
-    args+=(
-      --expected-failures-file "${EXPECTED_FAILURES_FILE}"
-      --expected-skips-file "${EXPECTED_SKIPS_FILE}"
-    )
+  else
+    failures=""
+    skips=""
   fi
 
-  ./run-test-plan.py \
-    "${args[@]}" \
-    "${PLAN_NAME}${PLAN_VARIANTS}:${modules}" \
-    "${CONFIG_FILE}"
+  _run_test_profile "${DEFAULT_VARIANTS}" "${modules}" "${failures}" "${skips}" "${config}"
 }
 
+# Show effective test modules
+#
 show_modules() {
   effective_modules=$(_get_effective_modules)
   filtered_modules=$(_get_filtered_modules)
@@ -149,11 +155,32 @@ _get_effective_modules() {
 }
 
 _get_filtered_modules() {
-  jq -r '.[]."test-name"' "${FILTERED_MODULES_FILE}"
+  jq -r '.[]."test-name"' "${DEFAULT_FILTERS_FILE}"
 }
 
 _get_modules() {
   curl -ks "${CONFORMANCE_SERVER}/api/plan/info/${PLAN_NAME}" | jq -r '.modules[].testModule'
+}
+
+_run_test_profile() {
+  local variants="$1"
+  local modules="$2"
+  local failures="$3"
+  local skips="$4"
+  local config="$5"
+
+  local cmd_args=(--no-parallel --verbose)
+
+  if [[ -n "${failures}" ]]; then
+    cmd_args+=(--expected-failures-file "${failures}")
+  fi
+
+  if [[ -n "${skips}" ]]; then
+    cmd_args+=(--expected-skips-file "${skips}")
+  fi
+
+  echo "./run-test-plan.py ${cmd_args[*]} ${PLAN_NAME}${variants}:${modules} ${config}"
+  ./run-test-plan.py "${cmd_args[@]}" "${PLAN_NAME}${variants}:${modules}" "${config}"
 }
 
 # Optionally clean existing test plans ---------------------------------------------------------------------------------

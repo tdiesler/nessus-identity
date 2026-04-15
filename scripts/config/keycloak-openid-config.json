@@ -1,9 +1,10 @@
 {
-    "alias": "keycloak-preview",
+    "alias": "keycloak-default",
     "vci": {
         "credential_issuer_url": "https://keycloak.nessustech.io:8443/realms/oid4vci",
         "credential_configuration_id": "oid4vc_natural_person_sd",
         "client_attestation_issuer": "https://keycloak.nessustech.io:8443/realms/oid4vci/client-attester/attest",
+        "credential_proof_type_hint": "jwt",
         "client_attester_keys_jwks": {
             "keys": [
                 {
@@ -69,7 +70,7 @@
                 },
                 {
                     "task": "Verify Complete",
-                    "match": "https://*/test/a/keycloak-preview/callback*",
+                    "match": "https://*/test/a/keycloak-*/callback*",
                     "commands": [
                         [
                             "wait",
