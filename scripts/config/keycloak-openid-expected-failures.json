@@ -1,1 +1,24 @@
-[]
+[
+  {
+    "test-name": "fapi2-security-profile-final-ensure-response-type-code-idtoken-fails",
+    "variant": {
+      "credential_format": "sd_jwt_vc"
+    },
+    "configuration-filename": "*/keycloak-openid-conformance-config.json",
+    "current-block": "Make request to PAR endpoint",
+    "condition": "EnsurePARUnsupportedResponseTypeOrInvalidRequestOrUnauthorizedClientError",
+    "expected-result": "warning",
+    "comment": "https://github.com/keycloak/keycloak/issues/48067"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-ensure-response-type-token-fails",
+    "variant": {
+      "credential_format": "sd_jwt_vc"
+    },
+    "configuration-filename": "*/keycloak-openid-conformance-config.json",
+    "current-block": "Make request to PAR endpoint",
+    "condition": "EnsurePARUnsupportedResponseTypeOrInvalidRequestOrUnauthorizedClientError",
+    "expected-result": "warning",
+    "comment": "https://github.com/keycloak/keycloak/issues/48068"
+  }
+]
