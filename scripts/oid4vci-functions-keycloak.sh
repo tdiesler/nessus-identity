@@ -662,3 +662,10 @@ kc_credential_request() {
         | jq .
     done
 }
+
+kc_get_client_id() {
+  local realm="$1"
+  local clientId="$2"
+
+  kcadm get clients -r "${realm}" -q clientId="${clientId}" 2>/dev/null | jq -r .[0].id
+}

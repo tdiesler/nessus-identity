@@ -18,6 +18,14 @@ DEFAULT_FILTERS_FILE="${SCRIPT_DIR}/config/keycloak-openid-filters.json"
 PLAN_NAME="oid4vci-1_0-issuer-haip-test-plan"
 DEFAULT_VARIANTS="[vci_authorization_code_flow_variant=wallet_initiated][credential_format=sd_jwt_vc]"
 
+KC_REALM="oid4vci"
+
+KC_ADMIN_USERNAME="admin"
+KC_ADMIN_PASSWORD="admin"
+
+KC_CLIENT="oid4vci-client"
+KC_CLIENT2="oid4vci-client2"
+
 # Default target if not set
 : "${TARGET:=proxy}"
 
@@ -25,6 +33,7 @@ echo "OpenID Conformance Suite target: $TARGET"
 case "$TARGET" in
   proxy)
     CONFORMANCE_SERVER="https://localhost.emobix.co.uk:8443"
+    export ISSUER_BASE_URL="https://keycloak.nessustech.io:8443"
     ;;
   *)
     echo "Unsupported target: $TARGET"
@@ -56,8 +65,10 @@ show_help() {
   echo "  --show-modules    Show effective test modules"
   echo ""
   echo "  Profiles"
-  echo "    - default       Run the default profile"
-  echo "    - attestation   Uses proof type 'attestation' instead of 'jwt'"
+  echo "    - [0|default]                             Run the default profile"
+  echo "    - [1|oid4vci-attestation-proof]           Uses proof type 'attestation' instead of 'jwt'"
+  echo "    - [2|oid4vci-credential-encryption]       Variant [vci_credential_encryption=encrypted]"
+  echo "    - [3|fapi2-user-rejects-authentication]   Use rejects consent during authentication"
   echo ""
 }
 
@@ -90,12 +101,12 @@ while [[ $# -gt 0 ]]; do
       fi
       ;;
     --run-profile)
-      if [[ -z "${2-}" ]]; then
-        echo "Requires a profile name" >&2
-        exit 1
+      if [[ -n "${2-}" && "${2-}" != --* ]]; then
+        opt_run_profile="$2"
+        shift
+      else
+        opt_run_profile="default"
       fi
-      opt_run_profile="$2"
-      shift
       ;;
     *)
       echo "Unknown option: $1";
@@ -113,77 +124,7 @@ fi
 
 source "${SCRIPT_DIR}/oid4vci-functions-keycloak.sh"
 
-# Remove existing test plans
-#
-clean_plans() {
-  plan_ids=$(curl -ks "${CONFORMANCE_SERVER}/api/plan" | jq -r '.data[]._id')
-  for id in $plan_ids; do
-    echo "Deleting: ${id}"
-    curl -ks -X DELETE "${CONFORMANCE_SERVER}/api/plan/${id}"
-  done
-}
-
-# Run test modules
-#
-run_modules() {
-  local modules="$1"
-  local config="$2"
-
-  local failures="${DEFAULT_FAILURES_FILE}"
-  local skips="${DEFAULT_SKIPS_FILE}"
-
-  if [[ -z "${modules}" ]]; then
-    modules=$(printf "%s\n" "$(_get_effective_modules)" | paste -sd "," -)
-
-    echo "Filtered modules for test plan ${PLAN_NAME}"
-    for mod in $(_get_filtered_modules); do
-      printf " - %s\n" "$mod"
-    done
-  else
-    failures=""
-    skips=""
-  fi
-
-  _run_test_modules "${DEFAULT_VARIANTS}" "${modules}" "${failures}" "${skips}" "${config}"
-}
-
-# Run the default profile
-#
-run_default_profile() {
-  echo "Run profile: default";
-  run_modules "" "${DEFAULT_CONFIG_FILE}"
-}
-
-# Run a profile 'attestation'
-#
-run_profile_attestation() {
-  echo "Run profile: attestation";
-
-  modules="oid4vci-1_0-issuer-fail-invalid-key-attestation-signature"
-  config="${SCRIPT_DIR}/config/.keycloak-openid-config-attestation.json"
-
-  # Transform the config
-  jq '.vci.credential_proof_type_hint = "attestation"' "${DEFAULT_CONFIG_FILE}" > "${config}"
-
-  _run_test_modules "${DEFAULT_VARIANTS}" "${modules}" "" "" "${config}"
-}
-
-# Show effective test modules
-#
-show_modules() {
-  effective_modules=$(_get_effective_modules)
-  filtered_modules=$(_get_filtered_modules)
-
-  echo "Modules for test plan ${PLAN_NAME}"
-  for mod in ${effective_modules}; do
-    printf " - %s\n" "$mod"
-  done
-
-  echo "Filtered modules for test plan ${PLAN_NAME}"
-  for mod in ${filtered_modules}; do
-    printf " - %s\n" "$mod"
-  done
-}
+## Internal Functions --------------------------------------------------------------------------------------------------
 
 _activate_venv() {
   pushd "${CONFORMANCE_SCRIPTS_DIR}" > /dev/null
@@ -233,6 +174,124 @@ _run_test_modules() {
   ./run-test-plan.py "${cmd_args[@]}" "${PLAN_NAME}${variants}:${modules}" "${config}"
 }
 
+
+## CLI Commands --------------------------------------------------------------------------------------------------------
+
+# Remove existing test plans
+#
+clean_plans() {
+  plan_ids=$(curl -ks "${CONFORMANCE_SERVER}/api/plan" | jq -r '.data[]._id')
+  for id in $plan_ids; do
+    echo "Deleting: ${id}"
+    curl -ks -X DELETE "${CONFORMANCE_SERVER}/api/plan/${id}"
+  done
+}
+
+# Run test modules
+#
+run_modules() {
+  local modules="$1"
+  local config="$2"
+
+  local failures="${DEFAULT_FAILURES_FILE}"
+  local skips="${DEFAULT_SKIPS_FILE}"
+
+  if [[ -z "${modules}" ]]; then
+    modules=$(printf "%s\n" "$(_get_effective_modules)" | paste -sd "," -)
+
+    echo "Filtered modules for test plan ${PLAN_NAME}"
+    for mod in $(_get_filtered_modules); do
+      printf " - %s\n" "$mod"
+    done
+  else
+    failures=""
+    skips=""
+  fi
+
+  _run_test_modules "${DEFAULT_VARIANTS}" "${modules}" "${failures}" "${skips}" "${config}"
+}
+
+# Run the default profile
+#
+run_default_profile() {
+  echo "Run profile: default";
+  run_modules "" "${DEFAULT_CONFIG_FILE}"
+}
+
+# Run a profile 'oid4vci-attestation-proof'
+#
+run_profile_oid4vci_attestation_proof() {
+  echo "Run profile: oid4vci-attestation-proof";
+
+  modules="oid4vci-1_0-issuer-fail-invalid-key-attestation-signature"
+  config="${SCRIPT_DIR}/config/.keycloak-openid-config-oid4vci-attestation-proof.json"
+
+  # Transform the config
+  jq '.vci.credential_proof_type_hint = "attestation"' "${DEFAULT_CONFIG_FILE}" > "${config}"
+
+  _run_test_modules "${DEFAULT_VARIANTS}" "${modules}" "" "" "${config}"
+}
+
+# Run a profile 'oid4vci-credential-encryption'
+#
+run_profile_oid4vci_credential_encryption() {
+  echo "Run profile: oid4vci-credential-encryption";
+
+  modules="oid4vci-1_0-issuer-happy-flow,oid4vci-1_0-issuer-fail-unknown-credential-configuration"
+  _run_test_modules "${DEFAULT_VARIANTS}" "${modules}" "" "" "${DEFAULT_CONFIG_FILE}"
+}
+
+# Run a profile 'fapi2-user-rejects-authentication'
+#
+run_profile_fapi2_user_rejects_authentication() {
+  echo "Run profile: fapi2-user-rejects-authentication"
+
+  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
+
+  cid1=$(kc_get_client_id ${KC_REALM} ${KC_CLIENT})
+  kcadm update "clients/${cid1}" -r ${KC_REALM} -s consentRequired=true
+  echo "${KC_CLIENT} ${cid1} consentRequired=true"
+
+  cid2=$(kc_get_client_id ${KC_REALM} ${KC_CLIENT2})
+  kcadm update "clients/${cid2}" -r ${KC_REALM} -s consentRequired=true
+  echo "${KC_CLIENT2} ${cid2} consentRequired=true"
+
+  modules="fapi2-security-profile-final-user-rejects-authentication"
+  config="${SCRIPT_DIR}/config/.keycloak-openid-config-fapi2-user-rejects-authentication.json"
+
+  jq '.browser[0].tasks |=
+    (.[:1] + [{
+      "task": "Keycloak Consent",
+      "match": "https://*/realms/oid4vci/login-actions/required-action*",
+      "commands": [
+        ["click", "id", "kc-cancel"]
+      ]
+    }] + .[1:])' "${DEFAULT_CONFIG_FILE}" > "${config}"
+
+  _run_test_modules "${DEFAULT_VARIANTS}" "${modules}" "" "" "${config}"
+
+  kcadm update "clients/${cid1}" -r ${KC_REALM} -s consentRequired=false
+  kcadm update "clients/${cid2}" -r ${KC_REALM} -s consentRequired=false
+}
+
+# Show effective test modules
+#
+show_modules() {
+  effective_modules=$(_get_effective_modules)
+  filtered_modules=$(_get_filtered_modules)
+
+  echo "Modules for test plan ${PLAN_NAME}"
+  for mod in ${effective_modules}; do
+    printf " - %s\n" "$mod"
+  done
+
+  echo "Filtered modules for test plan ${PLAN_NAME}"
+  for mod in ${filtered_modules}; do
+    printf " - %s\n" "$mod"
+  done
+}
+
+
 # Optionally clean existing test plans ---------------------------------------------------------------------------------
 #
 if [[ ${opt_clean} == true ]]; then
@@ -252,7 +311,8 @@ fi
 #
 if [[ ${opt_run_all} == true ]]; then
   _activate_venv
-  run_profile_attestation
+  run_profile_fapi2_user_rejects_authentication
+  run_profile_oid4vci_attestation_proof
   run_default_profile
   _deactivate_venv
   exit 0
@@ -272,11 +332,17 @@ fi
 if [[ -n ${opt_run_profile} ]]; then
   _activate_venv
   case "$opt_run_profile" in
-    attestation)
-      run_profile_attestation
-      ;;
-    default)
+    0|default)
       run_default_profile
+      ;;
+    1|oid4vci-attestation-proof)
+      run_profile_oid4vci_attestation_proof
+      ;;
+    2|oid4vci-credential-encryption)
+      run_profile_oid4vci_credential_encryption
+      ;;
+    3|fapi2-user-rejects-authentication)
+      run_profile_fapi2_user_rejects_authentication
       ;;
     *)
       echo "Unknown profile: $opt_run_profile";
