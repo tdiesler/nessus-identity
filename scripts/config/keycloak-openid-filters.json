@@ -1,5 +1,9 @@
 [
   {
+    "test-name": "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature",
+    "comment": "openid-conformance.sh --run-profile attestation"
+  },
+  {
     "test-name": "fapi2-security-profile-final-user-rejects-authentication",
     "comment": "https://github.com/keycloak/keycloak/issues/48057"
   },
@@ -22,6 +26,14 @@
   {
     "test-name": "fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails",
     "comment": "https://github.com/keycloak/keycloak/issues/48066"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-ensure-response-type-code-idtoken-fails",
+    "comment": "https://github.com/keycloak/keycloak/issues/48067"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-ensure-response-type-token-fails",
+    "comment": "https://github.com/keycloak/keycloak/issues/48068"
   },
   {
     "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required",

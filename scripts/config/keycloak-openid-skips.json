@@ -1,10 +1,1 @@
-[
-    {
-        "test-name": "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature",
-        "configuration-filename": "*/keycloak-*.json",
-        "variant": {
-            "credential_format": "sd_jwt_vc"
-        },
-        "expected-result": "skipped"
-    }
-]
+[]

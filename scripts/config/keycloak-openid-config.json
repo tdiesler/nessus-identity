@@ -63,9 +63,23 @@
                     "match": "https://*/realms/oid4vci/login-actions/authenticate*",
                     "optional": true,
                     "commands": [
-                        ["text", "id", "username", "alice"],
-                        ["text", "id", "password", "password"],
-                        ["click", "id", "kc-login"]
+                        [
+                            "text",
+                            "id",
+                            "username",
+                            "alice"
+                        ],
+                        [
+                            "text",
+                            "id",
+                            "password",
+                            "password"
+                        ],
+                        [
+                            "click",
+                            "id",
+                            "kc-login"
+                        ]
                     ]
                 },
                 {

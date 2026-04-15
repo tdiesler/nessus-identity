@@ -36,17 +36,29 @@ esac
 #
 init_opts() {
   opt_clean=false
-  opt_show_help=true
+  opt_show_help=false
   opt_show_modules=false
   opt_run_all=false
-  opt_run_test=""
+  opt_run_config=""
+  opt_run_module=""
+  opt_run_profile=""
 }
 
 init_opts
 
 show_help() {
-  local cmd="$1"
-  echo "usage: ${cmd} [--clean] [--help] [--run-tests] [--run-test module] [--show-modules]"
+  echo "usage: $0 [--clean] [--help] [--run-all] [--run-test module] [--run-profile name] [--show-modules]"
+  echo ""
+  echo "  --clean           Cleans existing test plans from the database"
+  echo "  --run-all         Run the default profile and all other"
+  echo "  --run-test        Run a single test module"
+  echo "  --run-profile     Run the given test profile"
+  echo "  --show-modules    Show effective test modules"
+  echo ""
+  echo "  Profiles"
+  echo "    - default       Run the default profile"
+  echo "    - attestation   Uses proof type 'attestation' instead of 'jwt'"
+  echo ""
 }
 
 while [[ $# -gt 0 ]]; do
@@ -55,23 +67,35 @@ while [[ $# -gt 0 ]]; do
       opt_clean=true
       ;;
     --help)
-      init_opts
+      opt_show_help=true
       break
       ;;
     --show-modules)
       opt_show_modules=true
       break
       ;;
-    --run-tests)
+    --run-all)
       opt_run_all=true
       ;;
     --run-test)
       if [[ -n "${2-}" && "${2-}" != --* ]]; then
-        opt_run_test="$2"
+        opt_run_module="$2"
         shift
       else
-        opt_run_test="oid4vci-1_0-issuer-happy-flow"
+        opt_run_module="oid4vci-1_0-issuer-happy-flow"
       fi
+      if [[ -n "${2-}" && "${2-}" != --* ]]; then
+        opt_run_config="$2"
+        shift
+      fi
+      ;;
+    --run-profile)
+      if [[ -z "${2-}" ]]; then
+        echo "Requires a profile name" >&2
+        exit 1
+      fi
+      opt_run_profile="$2"
+      shift
       ;;
     *)
       echo "Unknown option: $1";
@@ -81,6 +105,11 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+if [[ -n "${opt_run_module}" && -n "${opt_run_profile}" ]]; then
+  echo "Cannot specify both: --run-test AND --run-profile" >&2
+  exit 1
+fi
 
 source "${SCRIPT_DIR}/oid4vci-functions-keycloak.sh"
 
@@ -96,12 +125,12 @@ clean_plans() {
 
 # Run test modules
 #
-run_tests() {
+run_modules() {
   local modules="$1"
+  local config="$2"
 
   local failures="${DEFAULT_FAILURES_FILE}"
   local skips="${DEFAULT_SKIPS_FILE}"
-  local config="${DEFAULT_CONFIG_FILE}"
 
   if [[ -z "${modules}" ]]; then
     modules=$(printf "%s\n" "$(_get_effective_modules)" | paste -sd "," -)
@@ -115,7 +144,28 @@ run_tests() {
     skips=""
   fi
 
-  _run_test_profile "${DEFAULT_VARIANTS}" "${modules}" "${failures}" "${skips}" "${config}"
+  _run_test_modules "${DEFAULT_VARIANTS}" "${modules}" "${failures}" "${skips}" "${config}"
+}
+
+# Run the default profile
+#
+run_default_profile() {
+  echo "Run profile: default";
+  run_modules "" "${DEFAULT_CONFIG_FILE}"
+}
+
+# Run a profile 'attestation'
+#
+run_profile_attestation() {
+  echo "Run profile: attestation";
+
+  modules="oid4vci-1_0-issuer-fail-invalid-key-attestation-signature"
+  config="${SCRIPT_DIR}/config/.keycloak-openid-config-attestation.json"
+
+  # Transform the config
+  jq '.vci.credential_proof_type_hint = "attestation"' "${DEFAULT_CONFIG_FILE}" > "${config}"
+
+  _run_test_modules "${DEFAULT_VARIANTS}" "${modules}" "" "" "${config}"
 }
 
 # Show effective test modules
@@ -162,7 +212,7 @@ _get_modules() {
   curl -ks "${CONFORMANCE_SERVER}/api/plan/info/${PLAN_NAME}" | jq -r '.modules[].testModule'
 }
 
-_run_test_profile() {
+_run_test_modules() {
   local variants="$1"
   local modules="$2"
   local failures="$3"
@@ -202,23 +252,45 @@ fi
 #
 if [[ ${opt_run_all} == true ]]; then
   _activate_venv
-  run_tests ""
+  run_profile_attestation
+  run_default_profile
   _deactivate_venv
   exit 0
 fi
 
 # Run a single module from the given test plan -------------------------------------------------------------------------
 #
-if [[ -n ${opt_run_test} ]]; then
+if [[ -n ${opt_run_module} ]]; then
   _activate_venv
-  run_tests "${opt_run_test}"
+  run_modules "${opt_run_module}" "${opt_run_config:-$DEFAULT_CONFIG_FILE}"
   _deactivate_venv
   exit 0
 fi
 
-# Show help for this script and for run-test-plan.py -------------------------------------------------------------------
+# Run a given test profile ---------------------------------------------------------------------------------------------
+#
+if [[ -n ${opt_run_profile} ]]; then
+  _activate_venv
+  case "$opt_run_profile" in
+    attestation)
+      run_profile_attestation
+      ;;
+    default)
+      run_default_profile
+      ;;
+    *)
+      echo "Unknown profile: $opt_run_profile";
+      show_help
+      exit 1
+      ;;
+  esac
+  _deactivate_venv
+  exit 0
+fi
+
+# Show help for this script --------------------------------------------------------------------------------------------
 #
 if [[ ${opt_show_help} == true ]]; then
-  show_help "$0"
+  show_help
   exit 0
 fi
