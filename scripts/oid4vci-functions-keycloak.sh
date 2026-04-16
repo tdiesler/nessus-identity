@@ -272,11 +272,7 @@ kc_create_oid4vci_service_client() {
     },
     "optionalClientScopes": [
       "oid4vc_natural_person_sd",
-      "oid4vc_natural_person_jwt",
-      "CTWalletSameAuthorisedInTime",
-      "CTWalletSameAuthorisedDeferred",
-      "CTWalletSamePreAuthorisedInTime",
-      "CTWalletSamePreAuthorisedDeferred"
+      "oid4vc_natural_person_jwt"
     ]
   }
 EOF
@@ -352,16 +348,12 @@ kc_create_oid4vci_client() {
     "enabled": true,
     "protocol": "openid-connect",
     "publicClient": true,
-    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}", "https://oauth.pstmn.io/v1/callback", "https://localhost.emobix.co.uk:8443/*"],
     "directAccessGrantsEnabled": true,
+    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}", "https://oauth.pstmn.io/v1/callback", "https://localhost.emobix.co.uk:8443/*"],
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": [
       "oid4vc_natural_person_sd",
-      "oid4vc_natural_person_jwt",
-      "CTWalletSameAuthorisedInTime",
-      "CTWalletSameAuthorisedDeferred",
-      "CTWalletSamePreAuthorisedInTime",
-      "CTWalletSamePreAuthorisedDeferred"
+      "oid4vc_natural_person_jwt"
     ],
     "baseUrl": "${ISSUER_BASE_URL}/realms/${realm}/.well-known/openid-credential-issuer",
     "attributes": {

@@ -50,7 +50,6 @@ source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
 ## Parse args
 #
 force="false"
-abca_key="false"
 auth_type="preauth_code"
 skip_verify="false"
 
@@ -62,10 +61,6 @@ for arg in "$@"; do
       ;;
     --direct)
       auth_type="direct"
-      shift
-      ;;
-    --abca-key)
-      abca_key="true"
       shift
       ;;
     --auth-code)
