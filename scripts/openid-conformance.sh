@@ -248,11 +248,11 @@ run_profile_fapi2_user_rejects_authentication() {
 
   kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
 
-  cid1=$(kc_get_client_id ${KC_REALM} ${KC_CLIENT})
+  cid1=$(kc_get_client ${KC_REALM} ${KC_CLIENT} | jq -r '.id')
   kcadm update "clients/${cid1}" -r ${KC_REALM} -s consentRequired=true
   echo "${KC_CLIENT} ${cid1} consentRequired=true"
 
-  cid2=$(kc_get_client_id ${KC_REALM} ${KC_CLIENT2})
+  cid2=$(kc_get_client ${KC_REALM} ${KC_CLIENT2} | jq -r '.id')
   kcadm update "clients/${cid2}" -r ${KC_REALM} -s consentRequired=true
   echo "${KC_CLIENT2} ${cid2} consentRequired=true"
 

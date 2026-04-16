@@ -49,9 +49,9 @@ source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
 
 ## Parse args
 #
-force="false"
 auth_type="preauth_code"
-skip_verify="false"
+force="false"
+skip_vc="false"
 
 for arg in "$@"; do
   case $arg in
@@ -71,8 +71,8 @@ for arg in "$@"; do
       auth_type="preauth_code"
       shift
       ;;
-    --skip-verify)
-      skip_verify="true"
+    --skip-vc)
+      skip_vc="true"
       shift
       ;;
     *)
@@ -123,18 +123,20 @@ if kc_create_realm "${realm}" "${force}"; then
   # Create the Attestation-Based Client Authorization Key --------------------------------------------------------------------
   #
   kc_create_abca_key "${realm}"
-fi
 
-## Setup Alice as Holder -----------------------------------------------------------------------------------------------
-#
-kc_create_user "${realm}" "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}"
-kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
+  ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
+  #
+  kc_create_user "${realm}" "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}"
+  kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
+fi
 
 # Fetch the Credential -------------------------------------------------------------------------------------------------
 #
-if [[ ${skip_verify} == "false" ]]; then
+if [[ ${skip_vc} == "false" ]]; then
   credential_configuration_id="oid4vc_natural_person_jwt"
   credential_identifier="oid4vc_natural_person_jwt_0000"
+
+  kc_client_set_directAccess "${realm}" "${client_id}" "true"
 
   if [[ ${auth_type} == "direct" ]]; then
     kc_access_token_direct "${realm}" "${client_id}" "${HOLDER[2]}" "${HOLDER[3]}" "${credential_configuration_id}"
@@ -155,4 +157,6 @@ if [[ ${skip_verify} == "false" ]]; then
     kc_access_token_preauth_code "${realm}"
     kc_credential_request "${realm}" "${credential_identifier}"
   fi
+
+  # kc_client_set_directAccess "${realm}" "${client_id}" "false"
 fi

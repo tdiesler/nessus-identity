@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-KCADM="kcadm"
-
 # Log in as Keycloak Admin
 #
 kc_admin_login() {
@@ -9,7 +7,7 @@ kc_admin_login() {
   local adminUser="$1"
   local adminPass="$2"
 
-  ${KCADM} config credentials --server "${ISSUER_BASE_URL}" \
+  kcadm config credentials --server "${ISSUER_BASE_URL}" \
       --realm "${realm}" \
       --user "${adminUser}" \
       --password "${adminPass}"
@@ -22,7 +20,7 @@ kc_oid4vci_login() {
   local oid4vciUser="$2"
   local oid4vciPass="$3"
 
-  ${KCADM} config credentials --server "${ISSUER_BASE_URL}" \
+  kcadm config credentials --server "${ISSUER_BASE_URL}" \
     --realm "${realm}" \
     --client "${oid4vciUser}" \
     --secret "${oid4vciPass}"
@@ -44,11 +42,11 @@ kc_create_abca_key() {
   abca_config_value=$(jq -c . "${abca_jwk_key_priv}")
   escaped_config_value=$(printf '%s' "${abca_config_value}" | jq -Rs .)
 
-  authenticator_id=$(${KCADM} get authentication/flows/clients/executions -r "${realm}" 2>/dev/null | jq -r '.[] | select(.providerId=="attestation-based") | .id')
+  authenticator_id=$(kcadm get authentication/flows/clients/executions -r "${realm}" 2>/dev/null | jq -r '.[] | select(.providerId=="attestation-based") | .id')
 
   echo "Creating ABCA config"
-  ${KCADM} create authentication/executions/"${authenticator_id}"/config -r "${realm}" \
-    -s alias="attester_jwks" \
+  kcadm create authentication/executions/"${authenticator_id}"/config -r "${realm}" \
+    -s alias="attestation-based" \
     -s "config.attester_jwks=${escaped_config_value}"
 }
 
@@ -58,10 +56,10 @@ kc_create_realm() {
 
   # Check if realm already exists
   #
-  realm_exists=$(${KCADM} get realms | jq -e ".[] | select(.realm==\"${realm}\")" >/dev/null 2>&1 && echo true || echo false)
+  realm_exists=$(kcadm get realms | jq -e ".[] | select(.realm==\"${realm}\")" >/dev/null 2>&1 && echo true || echo false)
   if [[ $realm_exists == true ]]; then
     if [[ ${force} == true ]]; then
-      ${KCADM} delete "realms/${realm}" 2>/dev/null
+      kcadm delete "realms/${realm}" 2>/dev/null
       echo "Deleting realm '${realm}'"
     else
       echo "Realm '${realm}' already exists"
@@ -72,7 +70,7 @@ kc_create_realm() {
   # Create realm
   #
 
-  ${KCADM} create realms -f - <<-EOF
+  kcadm create realms -f - <<-EOF
   {
     "realm": "oid4vci",
     "enabled": true,
@@ -94,16 +92,16 @@ EOF
 
   ## Show realm attributes
   #
-  ${KCADM} get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
+  kcadm get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
 
-  realmId=$(${KCADM} get "realms/${realm}" --fields id --format csv --noquotes)
+  realmId=$(kcadm get "realms/${realm}" --fields id --format csv --noquotes)
 
   ## Delete Keys with unwanted algos
   #
   local curr_algos keep_algos unwanted_algos
 
   keep_algos=("ES256" "RS256" "RSA-OAEP" "ECDH-ES")
-  curr_algos=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
+  curr_algos=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
 
   unwanted_algos=()
   for alg in ${curr_algos}; do
@@ -114,17 +112,17 @@ EOF
 
   for alg in "${unwanted_algos[@]}"; do
     local providerId
-    providerId=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r ".keys[] | select(.algorithm==\"${alg}\") | .providerId")
+    providerId=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r ".keys[] | select(.algorithm==\"${alg}\") | .providerId")
     if [ -n "${providerId}" ]; then
       echo "Deleting $alg key: ${providerId}"
-      ${KCADM} delete "components/${providerId}" -r "${realm}"
+      kcadm delete "components/${providerId}" -r "${realm}"
     fi
   done
 
   ## Generate a signing key for signing VCs with the ES256
   #
   echo "Creating a Key with algorithm: ES256"
-  es256KeyProv=$(${KCADM} create components -r "${realm}" \
+  es256KeyProv=$(kcadm create components -r "${realm}" \
     -s name="es256-vc-signing" \
     -s providerId="ecdsa-generated" \
     -s providerType="org.keycloak.keys.KeyProvider" \
@@ -140,7 +138,7 @@ EOF
   # Generate an EC encryption key provider for ECDH-ES
   #
   echo "Creating a Key with algorithm: ECDH-ES"
-  ecdhKeyProv=$(${KCADM} create components -r "${realm}" \
+  ecdhKeyProv=$(kcadm create components -r "${realm}" \
     -s name="ecdh-vc-encryption" \
     -s providerId="ecdh-generated" \
     -s providerType="org.keycloak.keys.KeyProvider" \
@@ -153,12 +151,12 @@ EOF
 
   echo "ECDH-ES Key: ${ecdhKeyProv}"
 
-  curr_algos=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
+  curr_algos=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
   echo "Current key algorithms: ${curr_algos[*]}"
 
   # Fetch the realm’s public JWKS
   es256KeyProvId=$(echo "${es256KeyProv}" | jq -r .id)
-  es256Kid=$(${KCADM} get keys -r "${realm}" 2>/dev/null | jq -r --arg pid "${es256KeyProvId}" '.keys[] | select(.providerId==$pid) | .kid')
+  es256Kid=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r --arg pid "${es256KeyProvId}" '.keys[] | select(.providerId==$pid) | .kid')
 
   jwks_json=$(curl -s "${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/certs" | jq -r --arg kid "${es256Kid}" '.keys[] | select(.kid==$kid)')
   echo "Realm JWK: $jwks_json"
@@ -182,7 +180,7 @@ kc_create_client_policies() {
   # Configure client profiles
   #
   echo "Configure realm client policy profiles ..."
-  ${KCADM} update "client-policies/profiles" -r "${realm}" -f - <<-EOF
+  kcadm update "client-policies/profiles" -r "${realm}" -f - <<-EOF
   {
     "profiles": [
       {
@@ -200,12 +198,12 @@ EOF
 
   ## Show client policies
   #
-  ${KCADM} get client-policies/profiles -r "${realm}"
+  kcadm get client-policies/profiles -r "${realm}"
 
   # Configure client policies
   #
   echo "Configure realm client policies ..."
-  ${KCADM} update "client-policies/policies" -r "${realm}" -f - <<-EOF
+  kcadm update "client-policies/policies" -r "${realm}" -f - <<-EOF
   {
     "policies": [
       {
@@ -246,7 +244,7 @@ EOF
 
   ## Show client policies
   #
-  ${KCADM} get client-policies/policies -r "${realm}"
+  kcadm get client-policies/policies -r "${realm}"
 }
 
 kc_create_oid4vci_service_client() {
@@ -255,7 +253,7 @@ kc_create_oid4vci_service_client() {
   local client_secret="$3"
 
   echo "Create service client: ${client_id} ..."
-  ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
+  kcadm create "realms/${realm}/clients" -f - <<-EOF
   {
     "clientId": "${client_id}",
     "name": "OID4VC Service Client",
@@ -278,7 +276,7 @@ kc_create_oid4vci_service_client() {
 EOF
 
   # Assign roles manage-clients roles to the service account
-  ${KCADM} add-roles -r "${realm}" \
+  kcadm add-roles -r "${realm}" \
     --uusername "service-account-${client_id}" \
     --cclientid realm-management \
     --rolename manage-clients \
@@ -286,7 +284,7 @@ EOF
     --rolename manage-users 2>/dev/null
 
   echo "List assigned client roles for verification ..."
-  ${KCADM} get-roles -r "${realm}" --uusername "service-account-${client_id}" --cclientid realm-management
+  kcadm get-roles -r "${realm}" --uusername "service-account-${client_id}" --cclientid realm-management
 }
 
 kc_create_oid4vci_credential_configurations() {
@@ -296,7 +294,7 @@ kc_create_oid4vci_credential_configurations() {
   #
   for credential_identifier in "CTWalletSameAuthorisedInTime" "CTWalletSameAuthorisedDeferred" "CTWalletSamePreAuthorisedInTime" "CTWalletSamePreAuthorisedDeferred"; do
     echo "Create Credential config for: ${credential_identifier}"
-    ${KCADM} create "realms/${realm}/client-scopes" -f - <<EOF
+    kcadm create "realms/${realm}/client-scopes" -f - <<EOF
     {
       "name": "${credential_identifier}",
       "protocol": "oid4vc",
@@ -330,9 +328,9 @@ kc_create_oid4vci_credential_configurations() {
     }
 EOF
 
-    client_scope_id=$(${KCADM} get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_identifier}\") | .id")
+    client_scope_id=$(kcadm get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${credential_identifier}\") | .id")
     echo "Client Scope Id for ${credential_identifier}: ${client_scope_id}"
-    ${KCADM} get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
+    kcadm get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
   done
 }
 
@@ -341,7 +339,7 @@ kc_create_oid4vci_client() {
   local client_id="$2"
 
   echo "Create OID4VCI Issuance client: ${client_id} ..."
-  ${KCADM} create "realms/${realm}/clients" -f - <<-EOF
+  kcadm create "realms/${realm}/clients" -f - <<-EOF
   {
     "clientId": "${client_id}",
     "name": "OID4VC Issuance Client",
@@ -387,7 +385,7 @@ kc_create_user() {
 
   # Check if user already exists
   local userId
-  userId=$(${KCADM} get users -r "${realm}" -q username="${username}" --fields id --format csv --noquotes)
+  userId=$(kcadm get users -r "${realm}" -q username="${username}" --fields id --format csv --noquotes)
 
   if [[ -n "${userId}" ]]; then
     echo "User '${fullName}' already exists (id=${userId})" >&2
@@ -395,7 +393,7 @@ kc_create_user() {
     echo "Creating user '${fullName}' with role '${role}' in realm '${realm}'" >&2
     user_did=$(jq -r '.did' ".secret/${role}-details.json")
     echo "${firstName}'s DID: ${user_did}" >&2
-    ${KCADM} create users -r "${realm}" \
+    kcadm create users -r "${realm}" \
       -s username="${username}" \
       -s email="${userEmail}" \
       -s firstName="${firstName}" \
@@ -405,16 +403,16 @@ kc_create_user() {
       -s attributes.did="${user_did}"
 
     echo "Setting password [username=${username}, password=${userPassword}]" >&2
-    ${KCADM} set-password -r "${realm}" --username "${username}" --new-password "${userPassword}" --temporary=false
+    kcadm set-password -r "${realm}" --username "${username}" --new-password "${userPassword}" --temporary=false
 
     if [[ "${role}" == "issuer" ]]; then
       local roleName="credential-offer-create"
       echo "Adding role [username=${username}, role=${roleName}]" >&2
-      ${KCADM} add-roles -r "${realm}" --uusername "${username}" --rolename "${roleName}"
+      kcadm add-roles -r "${realm}" --uusername "${username}" --rolename "${roleName}"
     fi
 
-    user_id=$(${KCADM} get users -r "${realm}" -q username="${username}" --fields id --format json | jq -r '.[0].id')
-    ${KCADM} get -r "${realm}" "users/${user_id}"
+    user_id=$(kcadm get users -r "${realm}" -q username="${username}" --fields id --format json | jq -r '.[0].id')
+    kcadm get -r "${realm}" "users/${user_id}"
   fi
 }
 
@@ -655,9 +653,20 @@ kc_credential_request() {
     done
 }
 
-kc_get_client_id() {
+# Get a client by clientId
+#
+kc_get_client() {
   local realm="$1"
   local clientId="$2"
 
-  kcadm get clients -r "${realm}" -q clientId="${clientId}" 2>/dev/null | jq -r .[0].id
+  kcadm get clients -r "${realm}" -q clientId="${clientId}" 2>/dev/null | jq -r '.[0]'
+}
+
+kc_client_set_directAccess() {
+  local realm="$1"
+  local clientId="$2"
+  local flag="$3"
+
+  cid=$(kc_get_client "${realm}" "${clientId}" | jq -r '.id')
+  kcadm update "clients/${cid}" -r "${realm}" -s "directAccessGrantsEnabled=${flag}"
 }
