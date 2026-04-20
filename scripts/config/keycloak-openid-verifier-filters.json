@@ -1,0 +1,42 @@
+[
+  {
+    "test-name": "oid4vp-1final-verifier-happy-flow",
+    "comment": "[TODO]"
+  },
+  {
+    "test-name": "oid4vp-1final-verifier-request-uri-method-post",
+    "comment": "[TODO]"
+  },
+  {
+    "test-name": "oid4vp-1final-verifier-invalid-session-transcript",
+    "comment": "[TODO]"
+  },
+  {
+    "test-name": "oid4vp-1final-verifier-invalid-kb-jwt-signature",
+    "comment": "[TODO]"
+  },
+  {
+    "test-name": "oid4vp-1final-verifier-invalid-credential-signature",
+    "comment": "[TODO]"
+  },
+  {
+    "test-name": "oid4vp-1final-verifier-invalid-sd-hash",
+    "comment": "[TODO]"
+  },
+  {
+    "test-name": "oid4vp-1final-verifier-invalid-kb-jwt-nonce",
+    "comment": "[TODO]"
+  },
+  {
+    "test-name": "oid4vp-1final-verifier-invalid-kb-jwt-aud",
+    "comment": "[TODO]"
+  },
+  {
+    "test-name": "oid4vp-1final-verifier-kb-jwt-iat-in-past",
+    "comment": "[TODO]"
+  },
+  {
+    "test-name": "oid4vp-1final-verifier-kb-jwt-iat-in-future",
+    "comment": "[TODO]"
+  }
+]

@@ -1,0 +1,100 @@
+{
+    "alias": "keycloak-default",
+    "vci": {
+        "credential_issuer_url": "https://keycloak.nessustech.io:8443/realms/oid4vci",
+        "credential_configuration_id": "oid4vc_natural_person_sd",
+        "client_attestation_issuer": "https://keycloak.nessustech.io:8443/realms/oid4vci/client-attester/attest",
+        "credential_proof_type_hint": "jwt",
+        "client_attester_keys_jwks": {
+            "keys": [
+                {
+                    "kty": "RSA",
+                    "kid": "openid-abca-attester-key",
+                    "use": "sig",
+                    "alg": "PS256",
+                    "n": "q1Lixv3MJtq8HfIiiINrqnx4co2In0keBxJDWfO0ssmu6w7SOO5y4eeI-y8_y6XXYD_k-TtD24RsnmCW1xdQ5gRpcGBrvBG3A35Qm6el1jLab3Bu23vicykji8vX1L-ICMpFH142erKJuy8Ko4mYbZTZiiYQBOcCIYtskuHHtoel0SIyDzhENyU69N3RYYGtnuGgf7pTJGHty0OQDpUaLhFyTJZ4voWq_X1QeM617VLRcSt9IyBTxYq7tNVurIdyAdEKMGHL8Fpur7mF-paPqj7KBtvTawHOQDOlEG253kT8AK-QqtWPw0grAI8TJYsVhsf88gn6h4ss5pC7aMGQmw",
+                    "e": "AQAB",
+                    "d": "QnX_emF3YnVFN7q4UcvlpvftQ8cLAnu7VdPsY8dKSHc7z3zq6WH7GA6ZUZP1RBucLv7qZRLsEorPFitzKJKnc-uvOYR2FrmqjQTh4VhKWYtVuJhdsPBgmvsRCoizvBjm_T32TaJfMP70tjQcBO_6PTxanaCBY114MqojHuHOd0yJm4QXum0p5lgAdKbhzNOo-E6CSI5ym5lVo0GgakXOz0Kc69i7MoIEgWP-vkVS5CBAOtwLLaIW_jAxXhZwcfNuH-BduunZIsdv5eZRO_f8k9zGB96h4IhcUmEro-aXdQRIzfjSYJIjVBSEarMSQOcMp4osOYhQ1XguSlIn5YrjwQ",
+                    "p": "vPv5F9R1ndBi8WRIfISHSzdA_d3lCBLnnrnR47H7r682iW5cREGNe7VpEY640CYgAK6xDW8ZwPPKmjBM0QUXudZ8D0xAq2nhTN6Z6UuNud996QPBr9C9v9mu5yDoymXaQChRL8feOiE473NERWp-sQiY2o6TMgra5wNmPppdGts",
+                    "q": "6BOwjcvOc_-zCguZG6bTOfiq7OIozBzNKajI6b2r23lJmdqM7Ma--Ff9IADtZtk3X5K9zOdusz12Fbk9LOXSoW84WLhhytp02xiPEGntA0mE11GgelGeGoGrubsdnAYi-IVdeUabpLIqxw57p-pKhTPZLI0yQcz08upQ2EUT7UE",
+                    "dp": "ECPA0T0u0kyCtrTmz-ONnmnYnhW-QqNCrraV60k_AnEHSlNng9jJWYBTudEjjXtEDmrc6hXL8EOh0OtBFDTIIvHjZHcRqtH_EM6N_HOcZfxlR2ovt3EvU1wm6MxRtT9flU0cKeV64CIIN8LzWK5QpZPjYf79KS_uI_6RU9VhEDM",
+                    "dq": "pafIUq6zw2E1r2nv9Cj0hWDWwRf9_xRf7eio4Q-eaJ7-xm-WQDzte99yszF2Q_-w4uufx287OX4ZmBANdsrluo3lLo8OXvnoh6vUEudJYxtLU1bUsfsoW8tLhNvnmsNWmwa3XiXkW39Bway433cBkmscDg0LXqSqA-r1oipMuwE",
+                    "qi": "Ae_t1NeK5FWZKwcDVBWckbZlcXKK45pLmuVo21K79SHi3PykZbS4WA0Pv8Rtmg7OLZj-QKoQcRlI4WYgoY9hUez-V1oe1w2KD44e3IRwxVYvfCrHx1I7VHYP-TKmE-jXOIdtvLHLKB9QtRI1fztyaTQ3_gZZ_Az78eYKobpKUCs",
+                    "x5c": [
+                        "MIIDIjCCAdagAwIBAgIGAZ1xd6DUMEEGCSqGSIb3DQEBCjA0oA8wDQYJYIZIAWUDBAIBBQChHDAaBgkqhkiG9w0BAQgwDQYJYIZIAWUDBAIBBQCiAwIBIDAeMRwwGgYDVQQDDBNnaXRodWIuY29tL2tleWNsb2FrMB4XDTI2MDQwOTA4NTkxOFoXDTM2MDQwNjA4NTkxOFowHjEcMBoGA1UEAwwTZ2l0aHViLmNvbS9rZXljbG9hazCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKtS4sb9zCbavB3yIoiDa6p8eHKNiJ9JHgcSQ1nztLLJrusO0jjucuHniPsvP8ul12A/5Pk7Q9uEbJ5gltcXUOYEaXBga7wRtwN+UJunpdYy2m9wbtt74nMpI4vL19S/iAjKRR9eNnqyibsvCqOJmG2U2YomEATnAiGLbJLhx7aHpdEiMg84RDclOvTd0WGBrZ7hoH+6UyRh7ctDkA6VGi4RckyWeL6Fqv19UHjOte1S0XErfSMgU8WKu7TVbqyHcgHRCjBhy/Babq+5hfqWj6o+ygbb02sBzkAzpRBtud5E/ACvkKrVj8NIKwCPEyWLFYbH/PIJ+oeLLOaQu2jBkJsCAwEAATBBBgkqhkiG9w0BAQowNKAPMA0GCWCGSAFlAwQCAQUAoRwwGgYJKoZIhvcNAQEIMA0GCWCGSAFlAwQCAQUAogMCASADggEBAImAY92qFQeLpL9n6S7HHpLxLNoE6LE+5mpUUJM/tc2+TJ8xx2cpdzHohTAozwTuAYgmH5XlTH79ra2UlXrtNVvSKl5Ae+aByRCqRs/sKdwl5gdGW6eMwlLdkg4peKuGIG2j5ud7Pg29LrbRA88cIpzIcKr6JumS13eQ3AQKsB6xjxgv0KmQrDd7kBUb7hmedLYWLn/SEmpLiftIPOQM8oWJF0erFT5otZ0KlmTLstyM1yoEX6RpYc3rP0cbcCDA20PQQAX/fO/1MS7+Q23Rg7goSSsL0gZPSjiPcowd/dcFqsFkZ/KElrM1MJjccLJF/egUE4VjtLvrHMRe3tGtX/s="
+                    ]
+                }
+            ]
+        },
+        "key_attestation_jwks": {
+            "keys": [
+                {
+                    "kty": "RSA",
+                    "kid": "openid-abca-attester-key",
+                    "use": "sig",
+                    "alg": "PS256",
+                    "n": "q1Lixv3MJtq8HfIiiINrqnx4co2In0keBxJDWfO0ssmu6w7SOO5y4eeI-y8_y6XXYD_k-TtD24RsnmCW1xdQ5gRpcGBrvBG3A35Qm6el1jLab3Bu23vicykji8vX1L-ICMpFH142erKJuy8Ko4mYbZTZiiYQBOcCIYtskuHHtoel0SIyDzhENyU69N3RYYGtnuGgf7pTJGHty0OQDpUaLhFyTJZ4voWq_X1QeM617VLRcSt9IyBTxYq7tNVurIdyAdEKMGHL8Fpur7mF-paPqj7KBtvTawHOQDOlEG253kT8AK-QqtWPw0grAI8TJYsVhsf88gn6h4ss5pC7aMGQmw",
+                    "e": "AQAB",
+                    "d": "QnX_emF3YnVFN7q4UcvlpvftQ8cLAnu7VdPsY8dKSHc7z3zq6WH7GA6ZUZP1RBucLv7qZRLsEorPFitzKJKnc-uvOYR2FrmqjQTh4VhKWYtVuJhdsPBgmvsRCoizvBjm_T32TaJfMP70tjQcBO_6PTxanaCBY114MqojHuHOd0yJm4QXum0p5lgAdKbhzNOo-E6CSI5ym5lVo0GgakXOz0Kc69i7MoIEgWP-vkVS5CBAOtwLLaIW_jAxXhZwcfNuH-BduunZIsdv5eZRO_f8k9zGB96h4IhcUmEro-aXdQRIzfjSYJIjVBSEarMSQOcMp4osOYhQ1XguSlIn5YrjwQ",
+                    "p": "vPv5F9R1ndBi8WRIfISHSzdA_d3lCBLnnrnR47H7r682iW5cREGNe7VpEY640CYgAK6xDW8ZwPPKmjBM0QUXudZ8D0xAq2nhTN6Z6UuNud996QPBr9C9v9mu5yDoymXaQChRL8feOiE473NERWp-sQiY2o6TMgra5wNmPppdGts",
+                    "q": "6BOwjcvOc_-zCguZG6bTOfiq7OIozBzNKajI6b2r23lJmdqM7Ma--Ff9IADtZtk3X5K9zOdusz12Fbk9LOXSoW84WLhhytp02xiPEGntA0mE11GgelGeGoGrubsdnAYi-IVdeUabpLIqxw57p-pKhTPZLI0yQcz08upQ2EUT7UE",
+                    "dp": "ECPA0T0u0kyCtrTmz-ONnmnYnhW-QqNCrraV60k_AnEHSlNng9jJWYBTudEjjXtEDmrc6hXL8EOh0OtBFDTIIvHjZHcRqtH_EM6N_HOcZfxlR2ovt3EvU1wm6MxRtT9flU0cKeV64CIIN8LzWK5QpZPjYf79KS_uI_6RU9VhEDM",
+                    "dq": "pafIUq6zw2E1r2nv9Cj0hWDWwRf9_xRf7eio4Q-eaJ7-xm-WQDzte99yszF2Q_-w4uufx287OX4ZmBANdsrluo3lLo8OXvnoh6vUEudJYxtLU1bUsfsoW8tLhNvnmsNWmwa3XiXkW39Bway433cBkmscDg0LXqSqA-r1oipMuwE",
+                    "qi": "Ae_t1NeK5FWZKwcDVBWckbZlcXKK45pLmuVo21K79SHi3PykZbS4WA0Pv8Rtmg7OLZj-QKoQcRlI4WYgoY9hUez-V1oe1w2KD44e3IRwxVYvfCrHx1I7VHYP-TKmE-jXOIdtvLHLKB9QtRI1fztyaTQ3_gZZ_Az78eYKobpKUCs",
+                    "x5c": [
+                        "MIIDIjCCAdagAwIBAgIGAZ1xd6DUMEEGCSqGSIb3DQEBCjA0oA8wDQYJYIZIAWUDBAIBBQChHDAaBgkqhkiG9w0BAQgwDQYJYIZIAWUDBAIBBQCiAwIBIDAeMRwwGgYDVQQDDBNnaXRodWIuY29tL2tleWNsb2FrMB4XDTI2MDQwOTA4NTkxOFoXDTM2MDQwNjA4NTkxOFowHjEcMBoGA1UEAwwTZ2l0aHViLmNvbS9rZXljbG9hazCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKtS4sb9zCbavB3yIoiDa6p8eHKNiJ9JHgcSQ1nztLLJrusO0jjucuHniPsvP8ul12A/5Pk7Q9uEbJ5gltcXUOYEaXBga7wRtwN+UJunpdYy2m9wbtt74nMpI4vL19S/iAjKRR9eNnqyibsvCqOJmG2U2YomEATnAiGLbJLhx7aHpdEiMg84RDclOvTd0WGBrZ7hoH+6UyRh7ctDkA6VGi4RckyWeL6Fqv19UHjOte1S0XErfSMgU8WKu7TVbqyHcgHRCjBhy/Babq+5hfqWj6o+ygbb02sBzkAzpRBtud5E/ACvkKrVj8NIKwCPEyWLFYbH/PIJ+oeLLOaQu2jBkJsCAwEAATBBBgkqhkiG9w0BAQowNKAPMA0GCWCGSAFlAwQCAQUAoRwwGgYJKoZIhvcNAQEIMA0GCWCGSAFlAwQCAQUAogMCASADggEBAImAY92qFQeLpL9n6S7HHpLxLNoE6LE+5mpUUJM/tc2+TJ8xx2cpdzHohTAozwTuAYgmH5XlTH79ra2UlXrtNVvSKl5Ae+aByRCqRs/sKdwl5gdGW6eMwlLdkg4peKuGIG2j5ud7Pg29LrbRA88cIpzIcKr6JumS13eQ3AQKsB6xjxgv0KmQrDd7kBUb7hmedLYWLn/SEmpLiftIPOQM8oWJF0erFT5otZ0KlmTLstyM1yoEX6RpYc3rP0cbcCDA20PQQAX/fO/1MS7+Q23Rg7goSSsL0gZPSjiPcowd/dcFqsFkZ/KElrM1MJjccLJF/egUE4VjtLvrHMRe3tGtX/s="
+                    ]
+                }
+            ]
+        }
+    },
+    "client": {
+        "client_id": "oid4vci-client"
+    },
+    "client2": {
+        "client_id": "oid4vci-client2"
+    },
+    "browser": [
+        {
+            "match": "https://*/realms/oid4vci/protocol/openid-connect/auth*",
+            "tasks": [
+                {
+                    "task": "Keycloak Login",
+                    "match": "https://*/realms/oid4vci/login-actions/authenticate*",
+                    "optional": true,
+                    "commands": [
+                        [
+                            "text",
+                            "id",
+                            "username",
+                            "alice"
+                        ],
+                        [
+                            "text",
+                            "id",
+                            "password",
+                            "password"
+                        ],
+                        [
+                            "click",
+                            "id",
+                            "kc-login"
+                        ]
+                    ]
+                },
+                {
+                    "task": "Verify Complete",
+                    "match": "https://*/test/a/keycloak-*/callback*",
+                    "commands": [
+                        [
+                            "wait",
+                            "id",
+                            "submission_complete",
+                            10
+                        ]
+                    ]
+                }
+            ]
+        }
+    ]
+}

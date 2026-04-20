@@ -1,7 +1,7 @@
 [
   {
     "test-name": "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature",
-    "comment": "openid-conformance.sh --run-profile attestation"
+    "comment": "openid-conformance.sh --run-profile oid4vci-attestation-proof"
   },
   {
     "test-name": "fapi2-security-profile-final-user-rejects-authentication",
