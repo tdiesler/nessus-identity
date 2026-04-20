@@ -70,7 +70,7 @@ show_help() {
   echo "usage: $0 [--clean] [--help] [--show-modules role] [--run role] [--run-module role module] [--run-profile name]"
   echo ""
   echo "  --clean           Cleans existing test plans from the database"
-  echo "  --run             Run all profiles for a given role"
+  echo "  --run-all         Run all profiles for a given role"
   echo "  --run-module      Run a single test module"
   echo "  --run-profile     Run the given test profile"
   echo "  --show-modules    Show effective test modules for a given role"
@@ -105,7 +105,7 @@ while [[ $# -gt 0 ]]; do
       opt_show_role="$2"
       shift
       ;;
-    --run)
+    --run-all)
       if [[ -z "${2-}" || "${2-}" == --* ]]; then
         echo "Role name required (e.g. --run issuer)" >&2
         exit 1
@@ -311,8 +311,9 @@ run_profile_oid4vci_credential_encryption() {
   echo "Run profile: oid4vci-credential-encryption";
 
   role="issuer"
-  plan=$(_get_plan_name "${role}")
+  plan="oid4vci-1_0-issuer-test-plan"
   variants=$(jq -r ".${role}.variants" <<< "${SCRIPT_CONFIG}")
+  variants="${variants}[sender_constrain=dpop][client_auth_type=client_attestation][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=authorization_code][vci_credential_encryption=encrypted][fapi_profile=vci_haip][fapi_response_mode=plain_response]"
   modules="oid4vci-1_0-issuer-happy-flow,oid4vci-1_0-issuer-fail-unknown-credential-configuration"
   config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
 
@@ -408,11 +409,12 @@ if [[ -n "${opt_run_role}" && -z ${opt_run_module} ]]; then
   case "${opt_run_role}" in
     issuer)
       run_profile_fapi2_user_rejects_authentication
+      run_profile_oid4vci_credential_encryption
       run_profile_oid4vci_attestation_proof
-      run_profile_issuer
+      run_profile "issuer"
       ;;
     verifier)
-      run_profile "${opt_run_role}"
+      run_profile "verifier"
       ;;
   esac
   _deactivate_venv
