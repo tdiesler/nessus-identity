@@ -5,7 +5,7 @@
   },
   {
     "test-name": "fapi2-security-profile-final-user-rejects-authentication",
-    "comment": "https://github.com/keycloak/keycloak/issues/48057"
+    "comment": "openid-conformance.sh --run-profile fapi2-user-rejects-authentication"
   },
   {
     "test-name": "fapi2-security-profile-final-ensure-authorization-request-with-long-state",
