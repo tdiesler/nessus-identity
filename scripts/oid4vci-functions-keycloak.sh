@@ -338,6 +338,12 @@ kc_create_oid4vci_client() {
   local realm="$1"
   local client_id="$2"
 
+  openid_redirect_uri="https://localhost.emobix.co.uk:8443/test/a/keycloak/callback"
+  if [[ "${client_id}" == "oid4vci-client2" ]]; then
+    # [TODO] oid4vci-1_0-issuer-happy-flow-multiple-clients fails without the trailing '*'
+    openid_redirect_uri="${openid_redirect_uri}*"
+  fi
+
   echo "Create OID4VCI Issuance client: ${client_id} ..."
   kcadm create "realms/${realm}/clients" -f - <<-EOF
   {
@@ -347,7 +353,7 @@ kc_create_oid4vci_client() {
     "protocol": "openid-connect",
     "publicClient": true,
     "directAccessGrantsEnabled": true,
-    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}", "https://oauth.pstmn.io/v1/callback", "https://localhost.emobix.co.uk:8443/*"],
+    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}", "https://oauth.pstmn.io/v1/callback", "${openid_redirect_uri}"],
     "defaultClientScopes": ["profile"],
     "optionalClientScopes": [
       "oid4vc_natural_person_sd",
@@ -424,7 +430,7 @@ kc_authorization_request() {
   local credential_configuration_id="$3"
 
   local response_type="code"
-  local redirect_uri="urn:ietf:wg:oauth:2.0:oob"
+  local openid_redirect_uri="urn:ietf:wg:oauth:2.0:oob"
 
   # PKCE
   code_verifier=$(openssl rand -base64 96 | tr -d '+/=' | tr -d '\n' | cut -c -128)
@@ -443,7 +449,7 @@ kc_authorization_request() {
   echo "authorization_details=${authorization_details}"
   authorization_details_encoded=$(echo "${authorization_details}" | jq -sRr @uri)
 
-  url="${authUrl}?response_type=${response_type}&client_id=${client_id}&redirect_uri=${redirect_uri}"
+  url="${authUrl}?response_type=${response_type}&client_id=${client_id}&openid_redirect_uri=${openid_redirect_uri}"
   url="${url}&scope=openid+${credential_configuration_id}&authorization_details=${authorization_details_encoded}"
   url="${url}&code_challenge=${code_challenge}&code_challenge_method=S256"
 
@@ -453,7 +459,7 @@ kc_authorization_request() {
   read -p "Paste the authorization code here: " authCode
 
   # export for next step
-  export VC_REDIRECT_URI="${redirect_uri}"
+  export VC_REDIRECT_URI="${openid_redirect_uri}"
   export VC_AUTH_CODE="${authCode}"
   export VC_CODE_VERIFIER="${code_verifier}"
 }
@@ -468,7 +474,7 @@ kc_access_token_auth_code() {
     -d "grant_type=authorization_code" \
     -d "client_id=${client_id}" \
     -d "code=${VC_AUTH_CODE}" \
-    -d "redirect_uri=${VC_REDIRECT_URI}" \
+    -d "openid_redirect_uri=${VC_REDIRECT_URI}" \
     -d "code_verifier=${VC_CODE_VERIFIER}")
 
   # Show raw tokens

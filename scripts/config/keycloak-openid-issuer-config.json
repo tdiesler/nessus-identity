@@ -1,5 +1,5 @@
 {
-    "alias": "keycloak-default",
+    "alias": "keycloak",
     "vci": {
         "credential_issuer_url": "https://keycloak.nessustech.io:8443/realms/oid4vci",
         "credential_configuration_id": "oid4vc_natural_person_sd",
@@ -84,7 +84,7 @@
                 },
                 {
                     "task": "Verify Complete",
-                    "match": "https://*/test/a/keycloak-*/callback*",
+                    "match": "https://*/test/a/keycloak/callback*",
                     "commands": [
                         [
                             "wait",

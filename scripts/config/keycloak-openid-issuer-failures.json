@@ -1,89 +1,5 @@
 [
   {
-    "test-name": "fapi2-security-profile-final-access-token-type-header-case-sensitivity",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Resource server endpoint tests",
-    "condition": "EnsureHttpStatusCodeIs200or201",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-access-token-type-header-case-sensitivity",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Resource server endpoint tests",
-    "condition": "VCICheckForDeferredCredentialResponse",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-authorization-request-with-long-state",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Make request to authorization endpoint",
-    "condition": "WebRunner",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-authorization-request-with-long-state",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Make request to authorization endpoint",
-    "condition": "fapi2-security-profile-final-ensure-authorization-request-with-long-state",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
     "test-name": "fapi2-security-profile-final-state-only-outside-request-object-not-used",
     "variant": {
       "sender_constrain": "dpop",
@@ -101,27 +17,6 @@
     "configuration-filename": "*/keycloak-openid-issuer-config.json",
     "current-block": "Verify authorization endpoint response",
     "condition": "VerifyNoStateInAuthorizationResponse",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-registered-redirect-uri",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Make request to authorization endpoint",
-    "condition": "fapi2-security-profile-final-ensure-registered-redirect-uri",
     "expected-result": "failure",
     "comment": "**CHANGE ME** explain why this failure occurs"
   },
@@ -543,27 +438,6 @@
     "current-block": "Verify authorization endpoint response",
     "condition": "EnsureInvalidRequestError",
     "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-access-token-type-header-case-sensitivity",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Resource server endpoint tests",
-    "condition": "VCIValidateNoUnknownKeysInCredentialResponse",
-    "expected-result": "warning",
     "comment": "**CHANGE ME** explain why this failure occurs"
   },
   {
