@@ -668,6 +668,18 @@ kc_get_client() {
   kcadm get clients -r "${realm}" -q clientId="${clientId}" 2>/dev/null | jq -r '.[0]'
 }
 
+
+kc_client_set_attribute() {
+  local realm="$1"
+  local clientId="$2"
+  local attrName="$3"
+  local attrValue="$4"
+
+  echo "Set client attribute ${clientId}.${attrName} => ${attrValue}"
+  cid=$(kc_get_client "${realm}" "${clientId}" | jq -r '.id')
+  kcadm update -r "${realm}" "clients/${cid}" -s "attributes.\"${attrName}\"=${attrValue}"
+}
+
 kc_client_set_directAccess() {
   local realm="$1"
   local clientId="$2"
