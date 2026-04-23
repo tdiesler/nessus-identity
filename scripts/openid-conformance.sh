@@ -82,10 +82,9 @@ show_help() {
   echo "  Profiles"
   echo "    - [1|issuer]                                Run the default issuer profile"
   echo "    - [2|verifier]                              Run the default verifier profile"
-  echo "    - [3|oid4vci-attestation-proof]             Uses proof type 'attestation' instead of 'jwt'"
-  echo "    - [4|oid4vci-credential-encryption]         Variant [vci_credential_encryption=encrypted]"
-  echo "    - [5|fapi2-user-rejects-authentication]     User rejects consent during authentication"
-  echo "    - [6|fapi2-request-without-using-par-fails] Authorization without using a request object"
+  echo "    - [3|oid4vci-credential-encryption]         Variant [vci_credential_encryption=encrypted]"
+  echo "    - [4|fapi2-user-rejects-authentication]     User rejects consent during authentication"
+  echo "    - [5|fapi2-request-without-using-par-fails] Authorization without using a request object"
   echo ""
 }
 
@@ -131,7 +130,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         esac
       else
-        opt_run_module="$3"
+        opt_run_module="$2"
         shift
       fi
       if [[ -n "${2-}" && "${2-}" != --* ]]; then
@@ -288,24 +287,6 @@ run_profile_verifier() {
   run_modules "${role}" "" "${config}"
 }
 
-# Run a profile 'oid4vci-attestation-proof'
-#
-run_profile_oid4vci_attestation_proof() {
-  echo "Run profile: oid4vci-attestation-proof";
-
-  role="issuer"
-  plan=$(_get_plan_name "${role}")
-  variants=$(jq -r ".${role}.variants" <<< "${SCRIPT_CONFIG}")
-  modules="oid4vci-1_0-issuer-fail-invalid-key-attestation-signature"
-  config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-  config_out="${SCRIPT_DIR}/config/.keycloak-openid-config-oid4vci-attestation-proof.json"
-
-  # Transform the config
-  jq '.vci.credential_proof_type_hint = "attestation"' "${config_in}" > "${config_out}"
-
-  _run_test_modules "${role}" "${plan}" "${variants}" "${modules}" "" "" "${config_out}"
-}
-
 # Run a profile 'oid4vci-credential-encryption'
 #
 run_profile_oid4vci_credential_encryption() {
@@ -433,7 +414,6 @@ if [[ -n "${opt_run_role}" && -z ${opt_run_module} ]]; then
       run_profile_fapi2-request-without-using-par-fails
       run_profile_fapi2_user_rejects_authentication
       run_profile_oid4vci_credential_encryption
-      run_profile_oid4vci_attestation_proof
       run_profile "issuer"
       ;;
     verifier)
@@ -465,16 +445,13 @@ if [[ -n ${opt_run_profile} ]]; then
     2|verifier)
       run_profile "verifier"
       ;;
-    3|oid4vci-attestation-proof)
-      run_profile_oid4vci_attestation_proof
-      ;;
-    4|oid4vci-credential-encryption)
+    3|oid4vci-credential-encryption)
       run_profile_oid4vci_credential_encryption
       ;;
-    5|fapi2-user-rejects-authentication)
+    4|fapi2-user-rejects-authentication)
       run_profile_fapi2_user_rejects_authentication
       ;;
-    6|fapi2-request-without-using-par-fails)
+    5|fapi2-request-without-using-par-fails)
       run_profile_fapi2-request-without-using-par-fails
       ;;
     *)
