@@ -56,7 +56,9 @@ esac
 #
 init_opts() {
   opt_clean=false
-  opt_show_help=false
+  opt_help=false
+  opt_show_client=""
+  opt_show_client_scope=""
   opt_show_role=""
   opt_run_role=""
   opt_run_config=""
@@ -73,6 +75,8 @@ show_help() {
   echo "  --run-all         Run all profiles for a given role"
   echo "  --run-module      Run a single test module"
   echo "  --run-profile     Run the given test profile"
+  echo "  --show-client     Show the configuration for a given client"
+  echo "  --show-scope      Show the configuration for a given client scope"
   echo "  --show-modules    Show effective test modules for a given role"
   echo ""
   echo "  Roles"
@@ -94,7 +98,15 @@ while [[ $# -gt 0 ]]; do
       opt_clean=true
       ;;
     --help)
-      opt_show_help=true
+      opt_help=true
+      break
+      ;;
+    --show-client)
+      if [[ -z "${2-}" || "${2-}" == --* ]]; then
+        echo "Client name required (e.g. --show-client oid4vci)" >&2
+        exit 1
+      fi
+      opt_show_client="$2"
       break
       ;;
     --show-modules)
@@ -104,6 +116,14 @@ while [[ $# -gt 0 ]]; do
       fi
       opt_show_role="$2"
       shift
+      ;;
+    --show-scope)
+      if [[ -z "${2-}" || "${2-}" == --* ]]; then
+        echo "Scope name required (e.g. --show-scope oid4vc_natural_person_sd)" >&2
+        exit 1
+      fi
+      opt_show_client_scope="$2"
+      break
       ;;
     --run-all)
       if [[ -z "${2-}" || "${2-}" == --* ]]; then
@@ -193,7 +213,7 @@ _get_filtered_modules() {
 
 _get_modules() {
   local plan="$1"
-  curl -ks "${CONFORMANCE_SERVER}/api/plan/info/${plan}" | jq -r '.modules[].testModule'
+  curl -ksfS "${CONFORMANCE_SERVER}/api/plan/info/${plan}" | jq -r '.modules[].testModule'
 }
 
 _get_plan_name() {
@@ -230,10 +250,10 @@ _run_test_modules() {
 # Remove existing test plans
 #
 clean_plans() {
-  plan_ids=$(curl -ks "${CONFORMANCE_SERVER}/api/plan" | jq -r '.data[]._id')
+  plan_ids=$(curl -ksfS "${CONFORMANCE_SERVER}/api/plan" | jq -r '.data[]._id')
   for id in $plan_ids; do
     echo "Deleting: ${id}"
-    curl -ks -X DELETE "${CONFORMANCE_SERVER}/api/plan/${id}"
+    curl -ksfS -X DELETE "${CONFORMANCE_SERVER}/api/plan/${id}"
   done
 }
 
@@ -269,18 +289,25 @@ run_modules() {
   fi
 }
 
-# Run the default profile for the given role
+# Run the default issuer profile
 #
-run_profile() {
-  local role="$1"
+run_profile_oid4vci_default() {
+  role="issuer"
   echo "Run profile: ${role}";
+
+  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
+
+  kcadm get client-policies/policies -r "${KC_REALM}" \
+  | jq '(.policies[] | select(.name=="oid4vc-haip-policy") | .enabled) = true' \
+  | kcadm update client-policies/policies -r "${KC_REALM}" -f -
+
   config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
   run_modules "${role}" "" "${config}"
 }
 
-# Run the profile verifier
+# Run the default verifier profile
 #
-run_profile_verifier() {
+run_profile_oid4vcp_default() {
   role="verifier"
   echo "Run profile: ${role}";
   config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
@@ -345,9 +372,7 @@ run_profile_fapi2-request-without-using-par-fails() {
   echo "Run profile: fapi2-user-rejects-authentication"
 
   kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
-
-  kc_client_set_attribute ${KC_REALM} ${KC_CLIENT} "request.object.required" "request or request_uri"
-  # kc_get_client ${KC_REALM} ${KC_CLIENT}
+  kc_set_client_attribute ${KC_REALM} ${KC_CLIENT} "request.object.required" "request or request_uri"
 
   role="issuer"
   plan=$(_get_plan_name "${role}")
@@ -357,14 +382,21 @@ run_profile_fapi2-request-without-using-par-fails() {
 
   _run_test_modules "${role}" "${plan}" "${variants}" "${modules}" "" "" "${config}"
 
-  kc_client_set_attribute ${KC_REALM} ${KC_CLIENT} "request.object.required" "not required"
+  kc_set_client_attribute ${KC_REALM} ${KC_CLIENT} "request.object.required" "not required"
+}
+
+# Show client configuration
+#
+show_client() {
+  local name="$1"
+  kc_get_client ${KC_REALM} "${name}"
 }
 
 # Show effective test modules
 #
 show_modules() {
   local role="$1"
-  
+
   plan=$(_get_plan_name "${role}")
   effective_modules=$(_get_effective_modules "${role}")
   filtered_modules=$(_get_filtered_modules "${role}")
@@ -382,11 +414,45 @@ show_modules() {
   fi
 }
 
+# Show client scope configuration
+#
+show_client_scope() {
+  local name="$1"
+  kc_get_client_scope ${KC_REALM} "${name}"
+}
+
+# Show help for this script --------------------------------------------------------------------------------------------
+#
+if [[ ${opt_help} == true ]]; then
+  show_help
+  exit 0
+fi
 
 # Optionally clean existing test plans ---------------------------------------------------------------------------------
 #
 if [[ ${opt_clean} == true ]]; then
   clean_plans
+fi
+
+# Show client configuration --------------------------------------------------------------------------------------------
+#
+if [[ -n ${opt_show_client} ]]; then
+  show_client "${opt_show_client}"
+  exit 0
+fi
+
+# Show client scope configuration --------------------------------------------------------------------------------------
+#
+if [[ -n ${opt_show_client_scope} ]]; then
+  show_client_scope "${opt_show_client_scope}"
+  exit 0
+fi
+
+# Show help for this script --------------------------------------------------------------------------------------------
+#
+if [[ ${opt_help} == true ]]; then
+  show_help
+  exit 0
 fi
 
 # Show pre-configured modules for the given role -----------------------------------------------------------------------
@@ -414,10 +480,10 @@ if [[ -n "${opt_run_role}" && -z ${opt_run_module} ]]; then
       run_profile_fapi2-request-without-using-par-fails
       run_profile_fapi2_user_rejects_authentication
       run_profile_oid4vci_credential_encryption
-      run_profile "issuer"
+      run_profile_oid4vci_default
       ;;
     verifier)
-      run_profile "verifier"
+      run_profile_oid4vcp_default
       ;;
   esac
   _deactivate_venv
@@ -428,8 +494,10 @@ fi
 #
 if [[ -n ${opt_run_role} && -n ${opt_run_module} ]]; then
   _activate_venv
+
   default_config="${SCRIPT_DIR}/config/$(jq -r ".${opt_run_role}.config_file" <<< "${SCRIPT_CONFIG}")"
   run_modules "${opt_run_role}" "${opt_run_module}" "${opt_run_config:-$default_config}"
+
   _deactivate_venv
   exit 0
 fi
@@ -440,10 +508,10 @@ if [[ -n ${opt_run_profile} ]]; then
   _activate_venv
   case "${opt_run_profile}" in
     1|issuer)
-      run_profile "issuer"
+      run_profile_oid4vci_default
       ;;
     2|verifier)
-      run_profile "verifier"
+      run_profile_oid4vcp_default
       ;;
     3|oid4vci-credential-encryption)
       run_profile_oid4vci_credential_encryption
@@ -461,12 +529,5 @@ if [[ -n ${opt_run_profile} ]]; then
       ;;
   esac
   _deactivate_venv
-  exit 0
-fi
-
-# Show help for this script --------------------------------------------------------------------------------------------
-#
-if [[ ${opt_show_help} == true ]]; then
-  show_help
   exit 0
 fi

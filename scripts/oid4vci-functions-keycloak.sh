@@ -174,7 +174,7 @@ EOF
   echo "Realm setup complete"
 }
 
-kc_create_client_policies() {
+kc_create_oid4vci_client_policies() {
   local realm="$1"
 
   # Configure client profiles
@@ -196,7 +196,7 @@ kc_create_client_policies() {
   }
 EOF
 
-  ## Show client policies
+  ## Show client profiles
   #
   kcadm get client-policies/profiles -r "${realm}"
 
@@ -236,6 +236,140 @@ EOF
         ],
         "profiles": [
           "oid4vci-client-profile"
+        ]
+      }
+    ]
+  }
+EOF
+
+  ## Show client policies
+  #
+  kcadm get client-policies/policies -r "${realm}"
+}
+
+kc_create_haip_conformance_client_policies() {
+  local realm="$1"
+
+  # Configure client profiles
+  #
+  echo "Configure realm client policy profiles ..."
+  kcadm update "client-policies/profiles" -r "${realm}" -f - <<-EOF
+  {
+    "profiles": [
+      {
+        "name": "oid4vc-haip-profile",
+        "description": "Client profile, which enforces clients to conform to the OpenID4VC High Assurance Interoperability Profile 1.0",
+        "executors": [
+          {
+            "executor": "consent-required",
+            "configuration": {
+              "auto-configure": true
+            }
+          },
+          {
+            "executor": "dpop-bind-enforcer",
+            "configuration": {
+              "auto-configure": "true",
+              "enforce-authorization-code-binding-to-dpop": "false",
+              "allow-only-refresh-token-binding": "false"
+            }
+          },
+          {
+            "executor": "full-scope-disabled",
+            "configuration": {
+              "auto-configure": true
+            }
+          },
+          {
+            "executor": "holder-of-key-enforcer",
+            "configuration": {
+              "auto-configure": "true"
+            }
+          },
+          {
+            "executor": "pkce-enforcer",
+            "configuration": {
+              "auto-configure": "true"
+            }
+          },
+          {
+            "executor": "reject-implicit-grant",
+            "configuration": {
+              "auto-configure": "true"
+            }
+          },
+          {
+            "executor": "secure-client-authentication-assertion",
+            "configuration": {}
+          },
+          {
+            "executor": "secure-client-authenticator",
+            "configuration": {
+              "allowed-client-authenticators": [
+                "client-jwt",
+                "client-x509"
+              ],
+              "default-client-authenticator": "client-jwt"
+            }
+          },
+          {
+            "executor": "secure-client-uris",
+            "configuration": {}
+          },
+          {
+            "executor": "secure-par-content",
+            "configuration": {}
+          },
+          {
+            "executor": "secure-request-object",
+            "configuration": {
+              "verify-nbf": true,
+              "available-period": "3600",
+              "encryption-required": false
+            }
+          },
+          {
+            "executor": "secure-signature-algorithm",
+            "configuration": {
+              "default-algorithm": "PS256"
+            }
+          },
+          {
+            "executor": "secure-signature-algorithm-signed-jwt",
+            "configuration": {
+              "require-client-assertion": false
+            }
+          }
+        ]
+      }
+    ]
+  }
+EOF
+
+  ## Show client profiles
+  #
+  kcadm get client-policies/profiles -r "${realm}"
+
+  # Configure client policies
+  #
+  echo "Configure realm client policies ..."
+  kcadm update "client-policies/policies" -r "${realm}" -f - <<-EOF
+  {
+    "policies": [
+      {
+        "name": "oid4vc-haip-policy",
+        "description": "Client policy that enables the oid4vc-haip-profile",
+        "enabled": false,
+        "conditions": [
+          {
+            "condition": "client-attributes",
+            "configuration": {
+              "attributes": "[{\"key\":\"oid4vci.enabled\", \"value\":\"true\"}]"
+            }
+          }
+        ],
+        "profiles": [
+          "oid4vc-haip-profile"
         ]
       }
     ]
@@ -659,17 +793,15 @@ kc_credential_request() {
     done
 }
 
-# Get a client by clientId
+# Get a client config by clientId
 #
 kc_get_client() {
   local realm="$1"
   local clientId="$2"
-
   kcadm get clients -r "${realm}" -q clientId="${clientId}" 2>/dev/null | jq -r '.[0]'
 }
 
-
-kc_client_set_attribute() {
+kc_set_client_attribute() {
   local realm="$1"
   local clientId="$2"
   local attrName="$3"
@@ -680,11 +812,20 @@ kc_client_set_attribute() {
   kcadm update -r "${realm}" "clients/${cid}" -s "attributes.\"${attrName}\"=${attrValue}"
 }
 
-kc_client_set_directAccess() {
+kc_set_client_direct_access_grants() {
   local realm="$1"
   local clientId="$2"
   local flag="$3"
-
   cid=$(kc_get_client "${realm}" "${clientId}" | jq -r '.id')
   kcadm update "clients/${cid}" -r "${realm}" -s "directAccessGrantsEnabled=${flag}"
 }
+
+# Get a client scope config by name
+#
+kc_get_client_scope() {
+  local realm="$1"
+  local scopeName="$2"
+  sid=$(kcadm get client-scopes -r "${realm}" | jq -r --arg name "${scopeName}" '.[] | select(.name == $name) | .id')
+  kcadm get client-scopes/${sid} -r "${realm}" 2>/dev/null | jq -r .
+}
+

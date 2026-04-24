@@ -105,6 +105,11 @@ kc_admin_login "${adminUser}" "${adminPass}"
 
 if kc_create_realm "${realm}" "${force}"; then
 
+  ## Client Policies ---------------------------------------------------------------------------------------------------
+  #
+  # kc_create_oid4vci_client_policies "${realm}"
+  kc_create_haip_conformance_client_policies "${realm}"
+
   ## Service Client ----------------------------------------------------------------------------------------------------
   #
   kc_create_oid4vci_service_client "${realm}" "${oid4vciUser}" "${oid4vciPass}"
@@ -136,7 +141,7 @@ if [[ ${skip_vc} == "false" ]]; then
   credential_configuration_id="oid4vc_natural_person_jwt"
   credential_identifier="oid4vc_natural_person_jwt_0000"
 
-  kc_client_set_directAccess "${realm}" "${client_id}" "true"
+  kc_set_client_direct_access_grants "${realm}" "${client_id}" "true"
 
   if [[ ${auth_type} == "direct" ]]; then
     kc_access_token_direct "${realm}" "${client_id}" "${HOLDER[2]}" "${HOLDER[3]}" "${credential_configuration_id}"
@@ -158,5 +163,5 @@ if [[ ${skip_vc} == "false" ]]; then
     kc_credential_request "${realm}" "${credential_identifier}"
   fi
 
-  # kc_client_set_directAccess "${realm}" "${client_id}" "false"
+  # kc_set_client_direct_access_grants "${realm}" "${client_id}" "false"
 fi
