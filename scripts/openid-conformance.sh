@@ -245,7 +245,26 @@ _run_test_modules() {
 }
 
 
-## CLI Commands --------------------------------------------------------------------------------------------------------
+## Commands ------------------------------------------------------------------------------------------------------------
+
+before_all() {
+  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
+
+  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
+
+  for clientId in "${KC_CLIENT}" "${KC_CLIENT2}"; do
+    kc_set_client_property "${KC_REALM}" "${clientId}" "redirectUris" '["https://localhost.emobix.co.uk:8443/test/a/keycloak/callback"]'
+    kc_set_client_property "${KC_REALM}" "${clientId}" "webOrigins" '["https://localhost.emobix.co.uk:8443"]'
+    kc_set_client_attribute "${KC_REALM}" "${clientId}" "request.object.required" "not required"
+  done
+
+  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "true"
+  kc_get_client ${KC_REALM} ${KC_CLIENT}
+}
+
+after_all() {
+  echo "Done!"
+}
 
 # Remove existing test plans
 #
@@ -295,12 +314,6 @@ run_profile_oid4vci_default() {
   role="issuer"
   echo "Run profile: ${role}";
 
-  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
-
-  kcadm get client-policies/policies -r "${KC_REALM}" \
-  | jq '(.policies[] | select(.name=="oid4vc-haip-policy") | .enabled) = true' \
-  | kcadm update client-policies/policies -r "${KC_REALM}" -f -
-
   config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
   run_modules "${role}" "" "${config}"
 }
@@ -333,8 +346,6 @@ run_profile_oid4vci_credential_encryption() {
 #
 run_profile_fapi2_user_rejects_authentication() {
   echo "Run profile: fapi2-user-rejects-authentication"
-
-  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
 
   cid1=$(kc_get_client ${KC_REALM} ${KC_CLIENT} | jq -r '.id')
   kcadm update "clients/${cid1}" -r ${KC_REALM} -s consentRequired=true
@@ -371,7 +382,6 @@ run_profile_fapi2_user_rejects_authentication() {
 run_profile_fapi2-request-without-using-par-fails() {
   echo "Run profile: fapi2-user-rejects-authentication"
 
-  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
   kc_set_client_attribute ${KC_REALM} ${KC_CLIENT} "request.object.required" "request or request_uri"
 
   role="issuer"
@@ -421,6 +431,116 @@ show_client_scope() {
   kc_get_client_scope ${KC_REALM} "${name}"
 }
 
+main() {
+  before_all
+
+  # Optionally clean existing test plans -------------------------------------------------------------------------------
+  #
+  if [[ ${opt_clean} == true ]]; then
+    clean_plans
+  fi
+
+  # Show client configuration ------------------------------------------------------------------------------------------
+  #
+  if [[ -n ${opt_show_client} ]]; then
+    show_client "${opt_show_client}"
+    return
+  fi
+
+  # Show client scope configuration ------------------------------------------------------------------------------------
+  #
+  if [[ -n ${opt_show_client_scope} ]]; then
+    show_client_scope "${opt_show_client_scope}"
+    return
+  fi
+
+  # Show help for this script ------------------------------------------------------------------------------------------
+  #
+  if [[ ${opt_help} == true ]]; then
+    show_help
+    return
+  fi
+
+  # Show pre-configured modules for the given role ---------------------------------------------------------------------
+  #
+  if [[ -n ${opt_show_role} ]]; then
+    _activate_venv
+    case "${opt_show_role}" in
+      issuer)
+        show_modules "${opt_show_role}"
+        ;;
+      verifier)
+        show_modules "${opt_show_role}"
+        ;;
+    esac
+    _deactivate_venv
+    return
+  fi
+
+  # Run all pre-configured modules for the given test plan -------------------------------------------------------------
+  #
+  if [[ -n "${opt_run_role}" && -z ${opt_run_module} ]]; then
+    _activate_venv
+    case "${opt_run_role}" in
+      issuer)
+        run_profile_fapi2-request-without-using-par-fails
+        run_profile_fapi2_user_rejects_authentication
+        run_profile_oid4vci_credential_encryption
+        run_profile_oid4vci_default
+        ;;
+      verifier)
+        run_profile_oid4vcp_default
+        ;;
+    esac
+    _deactivate_venv
+    return
+  fi
+
+  # Run a single module from the given test plan -----------------------------------------------------------------------
+  #
+  if [[ -n ${opt_run_role} && -n ${opt_run_module} ]]; then
+    _activate_venv
+
+    default_config="${SCRIPT_DIR}/config/$(jq -r ".${opt_run_role}.config_file" <<< "${SCRIPT_CONFIG}")"
+    run_modules "${opt_run_role}" "${opt_run_module}" "${opt_run_config:-$default_config}"
+
+    _deactivate_venv
+    return
+  fi
+
+  # Run a given test profile -------------------------------------------------------------------------------------------
+  #
+  if [[ -n ${opt_run_profile} ]]; then
+    _activate_venv
+    case "${opt_run_profile}" in
+      1|issuer)
+        run_profile_oid4vci_default
+        ;;
+      2|verifier)
+        run_profile_oid4vcp_default
+        ;;
+      3|oid4vci-credential-encryption)
+        run_profile_oid4vci_credential_encryption
+        ;;
+      4|fapi2-user-rejects-authentication)
+        run_profile_fapi2_user_rejects_authentication
+        ;;
+      5|fapi2-request-without-using-par-fails)
+        run_profile_fapi2-request-without-using-par-fails
+        ;;
+      *)
+        echo "Unknown profile: $opt_run_profile";
+        show_help
+        exit 1
+        ;;
+    esac
+    _deactivate_venv
+    return
+  fi
+
+  after_all
+}
+
 # Show help for this script --------------------------------------------------------------------------------------------
 #
 if [[ ${opt_help} == true ]]; then
@@ -428,106 +548,7 @@ if [[ ${opt_help} == true ]]; then
   exit 0
 fi
 
-# Optionally clean existing test plans ---------------------------------------------------------------------------------
+# Call main entry ------------------------------------------------------------------------------------------------------
 #
-if [[ ${opt_clean} == true ]]; then
-  clean_plans
-fi
+main
 
-# Show client configuration --------------------------------------------------------------------------------------------
-#
-if [[ -n ${opt_show_client} ]]; then
-  show_client "${opt_show_client}"
-  exit 0
-fi
-
-# Show client scope configuration --------------------------------------------------------------------------------------
-#
-if [[ -n ${opt_show_client_scope} ]]; then
-  show_client_scope "${opt_show_client_scope}"
-  exit 0
-fi
-
-# Show help for this script --------------------------------------------------------------------------------------------
-#
-if [[ ${opt_help} == true ]]; then
-  show_help
-  exit 0
-fi
-
-# Show pre-configured modules for the given role -----------------------------------------------------------------------
-#
-if [[ -n ${opt_show_role} ]]; then
-  _activate_venv
-  case "${opt_show_role}" in
-    issuer)
-      show_modules "${opt_show_role}"
-      ;;
-    verifier)
-      show_modules "${opt_show_role}"
-      ;;
-  esac
-  _deactivate_venv
-  exit 0
-fi
-
-# Run all pre-configured modules for the given test plan ---------------------------------------------------------------
-#
-if [[ -n "${opt_run_role}" && -z ${opt_run_module} ]]; then
-  _activate_venv
-  case "${opt_run_role}" in
-    issuer)
-      run_profile_fapi2-request-without-using-par-fails
-      run_profile_fapi2_user_rejects_authentication
-      run_profile_oid4vci_credential_encryption
-      run_profile_oid4vci_default
-      ;;
-    verifier)
-      run_profile_oid4vcp_default
-      ;;
-  esac
-  _deactivate_venv
-  exit 0
-fi
-
-# Run a single module from the given test plan -------------------------------------------------------------------------
-#
-if [[ -n ${opt_run_role} && -n ${opt_run_module} ]]; then
-  _activate_venv
-
-  default_config="${SCRIPT_DIR}/config/$(jq -r ".${opt_run_role}.config_file" <<< "${SCRIPT_CONFIG}")"
-  run_modules "${opt_run_role}" "${opt_run_module}" "${opt_run_config:-$default_config}"
-
-  _deactivate_venv
-  exit 0
-fi
-
-# Run a given test profile ---------------------------------------------------------------------------------------------
-#
-if [[ -n ${opt_run_profile} ]]; then
-  _activate_venv
-  case "${opt_run_profile}" in
-    1|issuer)
-      run_profile_oid4vci_default
-      ;;
-    2|verifier)
-      run_profile_oid4vcp_default
-      ;;
-    3|oid4vci-credential-encryption)
-      run_profile_oid4vci_credential_encryption
-      ;;
-    4|fapi2-user-rejects-authentication)
-      run_profile_fapi2_user_rejects_authentication
-      ;;
-    5|fapi2-request-without-using-par-fails)
-      run_profile_fapi2-request-without-using-par-fails
-      ;;
-    *)
-      echo "Unknown profile: $opt_run_profile";
-      show_help
-      exit 1
-      ;;
-  esac
-  _deactivate_venv
-  exit 0
-fi

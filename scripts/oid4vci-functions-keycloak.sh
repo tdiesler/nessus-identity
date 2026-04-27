@@ -812,12 +812,26 @@ kc_set_client_attribute() {
   kcadm update -r "${realm}" "clients/${cid}" -s "attributes.\"${attrName}\"=${attrValue}"
 }
 
-kc_set_client_direct_access_grants() {
+kc_set_client_property() {
   local realm="$1"
   local clientId="$2"
-  local flag="$3"
+  local propName="$3"
+  local propValue="$4"
   cid=$(kc_get_client "${realm}" "${clientId}" | jq -r '.id')
-  kcadm update "clients/${cid}" -r "${realm}" -s "directAccessGrantsEnabled=${flag}"
+  kcadm update "clients/${cid}" -r "${realm}" -s "${propName}=${propValue}"
+}
+
+# Enable/Disable Client Policy
+#
+kc_set_client_policy_enabled() {
+  local realm="$1"
+  local policy="$2"
+  local enabled="$3"
+
+  echo "Set client policy ${policy}.enabled => ${enabled}"
+  kcadm get client-policies/policies -r "${realm}" \
+  | jq --arg policy "${policy}" --arg enabled "${enabled}" '(.policies[] | select(.name==$policy) | .enabled) = $enabled' \
+  | kcadm update client-policies/policies -r "${realm}" -f -
 }
 
 # Get a client scope config by name

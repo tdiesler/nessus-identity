@@ -141,7 +141,9 @@ if [[ ${skip_vc} == "false" ]]; then
   credential_configuration_id="oid4vc_natural_person_jwt"
   credential_identifier="oid4vc_natural_person_jwt_0000"
 
-  kc_set_client_direct_access_grants "${realm}" "${client_id}" "true"
+  kc_set_client_policy_enabled "${realm}" "oid4vc-haip-policy" "false"
+
+  kc_set_client_property "${realm}" "${client_id}" "directAccessGrantsEnabled" "true"
 
   if [[ ${auth_type} == "direct" ]]; then
     kc_access_token_direct "${realm}" "${client_id}" "${HOLDER[2]}" "${HOLDER[3]}" "${credential_configuration_id}"
@@ -162,6 +164,4 @@ if [[ ${skip_vc} == "false" ]]; then
     kc_access_token_preauth_code "${realm}"
     kc_credential_request "${realm}" "${credential_identifier}"
   fi
-
-  # kc_set_client_direct_access_grants "${realm}" "${client_id}" "false"
 fi
