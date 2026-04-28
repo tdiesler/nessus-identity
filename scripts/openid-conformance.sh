@@ -252,11 +252,19 @@ before_all() {
 
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
 
-  for clientId in "${KC_CLIENT}" "${KC_CLIENT2}"; do
-    kc_set_client_property "${KC_REALM}" "${clientId}" "redirectUris" '["https://localhost.emobix.co.uk:8443/test/a/keycloak/callback"]'
-    kc_set_client_property "${KC_REALM}" "${clientId}" "webOrigins" '["https://localhost.emobix.co.uk:8443"]'
-    kc_set_client_attribute "${KC_REALM}" "${clientId}" "request.object.required" "not required"
+  origin="https://localhost.emobix.co.uk:8443"
+  redirect_uri="${origin}/test/a/keycloak/callback"
+
+  for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
+    kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
+    kc_set_client_property "${KC_REALM}" "${client_id}" "webOrigins" "[\"${origin}\"]"
+    kc_set_client_attribute "${KC_REALM}" "${client_id}" "request.object.required" "not required"
   done
+
+  kc_set_client_property "${KC_REALM}" "${KC_CLIENT}" "redirectUris" "[\"${redirect_uri}\"]"
+
+  # [TODO] oid4vci-1_0-issuer-happy-flow-multiple-clients fails without the trailing '*'
+  kc_set_client_property "${KC_REALM}" "${KC_CLIENT2}" "redirectUris" "[\"${redirect_uri}*\"]"
 
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "true"
   kc_get_client ${KC_REALM} ${KC_CLIENT}
@@ -347,13 +355,9 @@ run_profile_oid4vci_credential_encryption() {
 run_profile_fapi2_user_rejects_authentication() {
   echo "Run profile: fapi2-user-rejects-authentication"
 
-  cid1=$(kc_get_client ${KC_REALM} ${KC_CLIENT} | jq -r '.id')
-  kcadm update "clients/${cid1}" -r ${KC_REALM} -s consentRequired=true
-  echo "${KC_CLIENT} ${cid1} consentRequired=true"
-
-  cid2=$(kc_get_client ${KC_REALM} ${KC_CLIENT2} | jq -r '.id')
-  kcadm update "clients/${cid2}" -r ${KC_REALM} -s consentRequired=true
-  echo "${KC_CLIENT2} ${cid2} consentRequired=true"
+  for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
+    kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "true"
+  done
 
   role="issuer"
   plan=$(_get_plan_name "${role}")
@@ -373,8 +377,9 @@ run_profile_fapi2_user_rejects_authentication() {
 
   _run_test_modules "${role}" "${plan}" "${variants}" "${modules}" "" "" "${config_out}"
 
-  kcadm update "clients/${cid1}" -r ${KC_REALM} -s consentRequired=false
-  kcadm update "clients/${cid2}" -r ${KC_REALM} -s consentRequired=false
+  for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
+    kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
+  done
 }
 
 # Run a profile 'fapi2-request-without-using-par-fails'

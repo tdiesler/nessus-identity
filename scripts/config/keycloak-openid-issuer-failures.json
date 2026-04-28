@@ -1,68 +1,5 @@
 [
   {
-    "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureHttpStatusCodeIs4xx",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "CheckTokenEndpointReturnedInvalidRequestGrantOrDPopProofError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "ValidateErrorFromTokenEndpointResponseError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
     "test-name": "fapi2-security-profile-final-dpop-negative-tests",
     "variant": {
       "sender_constrain": "dpop",
@@ -210,48 +147,6 @@
     "comment": "**CHANGE ME** explain why this failure occurs"
   },
   {
-    "test-name": "fapi2-security-profile-final-par-ensure-pkce-required",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureInvalidRequestError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-par-plain-pkce-rejected",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureInvalidRequestError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
     "test-name": "fapi2-security-profile-final-ensure-response-type-code-idtoken-fails",
     "variant": {
       "sender_constrain": "dpop",
@@ -294,7 +189,7 @@
     "comment": "**CHANGE ME** explain why this failure occurs"
   },
   {
-    "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required",
+    "test-name": "oid4vci-1_0-issuer-fail-client-attestation-no-sub",
     "variant": {
       "sender_constrain": "dpop",
       "client_auth_type": "client_attestation",
@@ -308,10 +203,157 @@
       "fapi_profile": "vci_haip",
       "fapi_response_mode": "plain_response"
     },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "CheckTokenEndpointHttpStatus400or401",
-    "expected-result": "warning",
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "Make request to PAR endpoint",
+    "condition": "EnsureHttpStatusCodeIs400or401",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "oid4vci-1_0-issuer-fail-client-attestation-no-sub",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "Make request to PAR endpoint",
+    "condition": "CheckErrorFromParEndpointResponseErrorInvalidClientOrInvalidRequestOrInvalidClientAttestation",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "oid4vci-1_0-issuer-fail-client-attestation-pop-wrong-aud",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "Make request to PAR endpoint",
+    "condition": "EnsureHttpStatusCodeIs400or401",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "oid4vci-1_0-issuer-fail-client-attestation-pop-wrong-aud",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "Make request to PAR endpoint",
+    "condition": "CheckErrorFromParEndpointResponseErrorInvalidClientOrInvalidRequestOrInvalidClientAttestation",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-state-only-outside-request-object-not-used",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "Make request to authorization endpoint",
+    "condition": "WebRunner",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-state-only-outside-request-object-not-used",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "Make request to authorization endpoint",
+    "condition": "fapi2-security-profile-final-state-only-outside-request-object-not-used",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-ensure-request-object-without-redirect-uri-fails",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "Make request to authorization endpoint",
+    "condition": "WebRunner",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-ensure-request-object-without-redirect-uri-fails",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "Make request to authorization endpoint",
+    "condition": "fapi2-security-profile-final-ensure-request-object-without-redirect-uri-fails",
+    "expected-result": "failure",
     "comment": "**CHANGE ME** explain why this failure occurs"
   },
   {
@@ -330,8 +372,29 @@
       "fapi_response_mode": "plain_response"
     },
     "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureInvalidRequestUriError",
+    "current-block": "",
+    "condition": "WebRunner",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-par-attempt-reuse-request_uri",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "",
+    "condition": "fapi2-security-profile-final-par-attempt-reuse-request_uri",
     "expected-result": "failure",
     "comment": "**CHANGE ME** explain why this failure occurs"
   },
@@ -351,8 +414,71 @@
       "fapi_response_mode": "plain_response"
     },
     "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureInvalidRequestUriError",
+    "current-block": "",
+    "condition": "WebRunner",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-par-attempt-to-use-expired-request_uri",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "",
+    "condition": "fapi2-security-profile-final-par-attempt-to-use-expired-request_uri",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-par-attempt-to-use-request_uri-for-different-client",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "",
+    "condition": "WebRunner",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-par-attempt-to-use-request_uri-for-different-client",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "",
+    "condition": "fapi2-security-profile-final-par-attempt-to-use-request_uri-for-different-client",
     "expected-result": "failure",
     "comment": "**CHANGE ME** explain why this failure occurs"
   }

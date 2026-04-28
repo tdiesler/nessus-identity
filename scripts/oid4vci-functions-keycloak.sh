@@ -807,7 +807,7 @@ kc_set_client_attribute() {
   local attrName="$3"
   local attrValue="$4"
 
-  echo "Set client attribute ${clientId}.${attrName} => ${attrValue}"
+  echo "Set client attribute ${clientId} ${attrName} => ${attrValue}"
   cid=$(kc_get_client "${realm}" "${clientId}" | jq -r '.id')
   kcadm update -r "${realm}" "clients/${cid}" -s "attributes.\"${attrName}\"=${attrValue}"
 }
@@ -817,6 +817,8 @@ kc_set_client_property() {
   local clientId="$2"
   local propName="$3"
   local propValue="$4"
+
+  echo "Set client property ${clientId} ${propName} => ${propValue}"
   cid=$(kc_get_client "${realm}" "${clientId}" | jq -r '.id')
   kcadm update "clients/${cid}" -r "${realm}" -s "${propName}=${propValue}"
 }
@@ -828,10 +830,10 @@ kc_set_client_policy_enabled() {
   local policy="$2"
   local enabled="$3"
 
-  echo "Set client policy ${policy}.enabled => ${enabled}"
+  echo "Set client policy ${policy} enabled => ${enabled}"
   kcadm get client-policies/policies -r "${realm}" \
   | jq --arg policy "${policy}" --arg enabled "${enabled}" '(.policies[] | select(.name==$policy) | .enabled) = $enabled' \
-  | kcadm update client-policies/policies -r "${realm}" -f -
+  | kcadm update "client-policies/policies" -r "${realm}" -f - 2>/dev/null
 }
 
 # Get a client scope config by name
@@ -840,6 +842,6 @@ kc_get_client_scope() {
   local realm="$1"
   local scopeName="$2"
   sid=$(kcadm get client-scopes -r "${realm}" | jq -r --arg name "${scopeName}" '.[] | select(.name == $name) | .id')
-  kcadm get client-scopes/${sid} -r "${realm}" 2>/dev/null | jq -r .
+  kcadm get "client-scopes/${sid}" -r "${realm}" 2>/dev/null | jq -r .
 }
 
