@@ -63,48 +63,6 @@
     "comment": "**CHANGE ME** explain why this failure occurs"
   },
   {
-    "test-name": "oid4vci-1_0-issuer-fail-client-attestation-no-sub",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Make request to PAR endpoint",
-    "condition": "EnsureHttpStatusCodeIs400or401",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "oid4vci-1_0-issuer-fail-client-attestation-no-sub",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "Make request to PAR endpoint",
-    "condition": "CheckErrorFromParEndpointResponseErrorInvalidClientOrInvalidRequestOrInvalidClientAttestation",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
     "test-name": "oid4vci-1_0-issuer-fail-client-attestation-pop-wrong-aud",
     "variant": {
       "sender_constrain": "dpop",
