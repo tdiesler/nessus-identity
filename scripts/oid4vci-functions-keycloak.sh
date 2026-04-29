@@ -76,6 +76,7 @@ kc_create_realm() {
     "enabled": true,
     "verifiableCredentialsEnabled": true,
     "attributes": {
+      "authorization.preferJsonError": true,
       "preAuthorizedCodeLifespanS": 120,
       "oid4vci.request.zip.algorithms": "DEF"
     },
@@ -260,12 +261,6 @@ kc_create_haip_conformance_client_policies() {
         "name": "oid4vc-haip-profile",
         "description": "Client profile, which enforces clients to conform to the OpenID4VC High Assurance Interoperability Profile 1.0",
         "executors": [
-          {
-            "executor": "consent-required",
-            "configuration": {
-              "auto-configure": true
-            }
-          },
           {
             "executor": "dpop-bind-enforcer",
             "configuration": {
@@ -831,7 +826,7 @@ kc_set_client_policy_enabled() {
   local enabled="$3"
 
   echo "Set client policy ${policy} enabled => ${enabled}"
-  kcadm get client-policies/policies -r "${realm}" \
+  kcadm get client-policies/policies -r "${realm}" 2>/dev/null \
   | jq --arg policy "${policy}" --arg enabled "${enabled}" '(.policies[] | select(.name==$policy) | .enabled) = $enabled' \
   | kcadm update "client-policies/policies" -r "${realm}" -f - 2>/dev/null
 }
@@ -843,5 +838,14 @@ kc_get_client_scope() {
   local scopeName="$2"
   sid=$(kcadm get client-scopes -r "${realm}" | jq -r --arg name "${scopeName}" '.[] | select(.name == $name) | .id')
   kcadm get "client-scopes/${sid}" -r "${realm}" 2>/dev/null | jq -r .
+}
+
+kc_set_realm_attribute() {
+  local realm="$1"
+  local attrName="$2"
+  local attrValue="$3"
+
+  echo "Set realm attribute ${realm} ${attrName} => ${attrValue}"
+  kcadm update "realms/${realm}" -s "attributes.\"${attrName}\"=${attrValue}"
 }
 

@@ -250,6 +250,8 @@ _run_test_modules() {
 before_all() {
   kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
 
+  kc_set_realm_attribute "${KC_REALM}" "authorization.preferJsonError" "true"
+  
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
 
   origin="https://localhost.emobix.co.uk:8443"
