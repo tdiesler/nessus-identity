@@ -76,9 +76,9 @@ kc_create_realm() {
     "enabled": true,
     "verifiableCredentialsEnabled": true,
     "attributes": {
-      "authorization.preferJsonError": true,
-      "preAuthorizedCodeLifespanS": 120,
-      "oid4vci.request.zip.algorithms": "DEF"
+      "authorization.preferErrorOnRedirect": true,
+      "oid4vci.request.zip.algorithms": "DEF",
+      "preAuthorizedCodeLifespanS": 120
     },
     "components": {
       "org.keycloak.userprofile.UserProfileProvider": [

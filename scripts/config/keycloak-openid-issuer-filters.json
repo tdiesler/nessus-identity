@@ -4,10 +4,6 @@
     "comment": "openid-conformance.sh --run-profile fapi2-user-rejects-authentication"
   },
   {
-    "test-name": "fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails",
-    "comment": "openid-conformance.sh --run-profile fapi2-request-without-using-par-fails"
-  },
-  {
     "test-name": "fapi2-security-profile-final-ensure-authorization-request-with-long-state",
     "comment": "https://github.com/keycloak/keycloak/issues/48058"
   }

@@ -63,90 +63,6 @@
     "comment": "**CHANGE ME** explain why this failure occurs"
   },
   {
-    "test-name": "fapi2-security-profile-final-par-attempt-reuse-request_uri",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "",
-    "condition": "WebRunner",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-par-attempt-reuse-request_uri",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "",
-    "condition": "fapi2-security-profile-final-par-attempt-reuse-request_uri",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-par-attempt-to-use-expired-request_uri",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "",
-    "condition": "WebRunner",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-par-attempt-to-use-expired-request_uri",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/keycloak-openid-issuer-config.json",
-    "current-block": "",
-    "condition": "fapi2-security-profile-final-par-attempt-to-use-expired-request_uri",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
     "test-name": "fapi2-security-profile-final-dpop-negative-tests",
     "variant": {
       "sender_constrain": "dpop",
@@ -206,6 +122,48 @@
     "configuration-filename": "*/keycloak-openid-issuer-config.json",
     "current-block": "Try DPoP proof where 'htu' has a query/fragment (which must be ignored in match as per 4.3-9 in DPoP spec)",
     "condition": "EnsureHttpStatusCodeIs200or201",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-par-attempt-reuse-request_uri",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "*/keycloak-openid-issuer-config.json",
+    "current-block": "Verify authorization endpoint response",
+    "condition": "EnsureInvalidRequestUriError",
+    "expected-result": "failure",
+    "comment": "**CHANGE ME** explain why this failure occurs"
+  },
+  {
+    "test-name": "fapi2-security-profile-final-par-attempt-to-use-expired-request_uri",
+    "variant": {
+      "sender_constrain": "dpop",
+      "client_auth_type": "client_attestation",
+      "credential_format": "sd_jwt_vc",
+      "vci_authorization_code_flow_variant": "wallet_initiated",
+      "authorization_request_type": "simple",
+      "openid": "plain_oauth",
+      "fapi_request_method": "unsigned",
+      "vci_grant_type": "authorization_code",
+      "vci_credential_encryption": "plain",
+      "fapi_profile": "vci_haip",
+      "fapi_response_mode": "plain_response"
+    },
+    "configuration-filename": "/Users/tdiesler/git/nessus-identity/scripts/config/keycloak-openid-issuer-config.json",
+    "current-block": "Verify authorization endpoint response",
+    "condition": "EnsureInvalidRequestUriError",
     "expected-result": "failure",
     "comment": "**CHANGE ME** explain why this failure occurs"
   }

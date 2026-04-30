@@ -88,7 +88,6 @@ show_help() {
   echo "    - [2|verifier]                              Run the default verifier profile"
   echo "    - [3|oid4vci-credential-encryption]         Variant [vci_credential_encryption=encrypted]"
   echo "    - [4|fapi2-user-rejects-authentication]     User rejects consent during authentication"
-  echo "    - [5|fapi2-request-without-using-par-fails] Authorization without using a request object"
   echo ""
 }
 
@@ -250,8 +249,8 @@ _run_test_modules() {
 before_all() {
   kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
 
-  kc_set_realm_attribute "${KC_REALM}" "authorization.preferJsonError" "true"
-  
+  kc_set_realm_attribute "${KC_REALM}" "authorization.preferErrorOnRedirect" "true"
+
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
 
   origin="https://localhost.emobix.co.uk:8443"
@@ -384,24 +383,6 @@ run_profile_fapi2_user_rejects_authentication() {
   done
 }
 
-# Run a profile 'fapi2-request-without-using-par-fails'
-#
-run_profile_fapi2-request-without-using-par-fails() {
-  echo "Run profile: fapi2-user-rejects-authentication"
-
-  kc_set_client_attribute ${KC_REALM} ${KC_CLIENT} "request.object.required" "request or request_uri"
-
-  role="issuer"
-  plan=$(_get_plan_name "${role}")
-  variants=$(jq -r ".${role}.variants" <<< "${SCRIPT_CONFIG}")
-  modules="fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails"
-  config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-
-  _run_test_modules "${role}" "${plan}" "${variants}" "${modules}" "" "" "${config}"
-
-  kc_set_client_attribute ${KC_REALM} ${KC_CLIENT} "request.object.required" "not required"
-}
-
 # Show client configuration
 #
 show_client() {
@@ -490,7 +471,6 @@ main() {
     _activate_venv
     case "${opt_run_role}" in
       issuer)
-        run_profile_fapi2-request-without-using-par-fails
         run_profile_fapi2_user_rejects_authentication
         run_profile_oid4vci_credential_encryption
         run_profile_oid4vci_default
@@ -531,9 +511,6 @@ main() {
         ;;
       4|fapi2-user-rejects-authentication)
         run_profile_fapi2_user_rejects_authentication
-        ;;
-      5|fapi2-request-without-using-par-fails)
-        run_profile_fapi2-request-without-using-par-fails
         ;;
       *)
         echo "Unknown profile: $opt_run_profile";
