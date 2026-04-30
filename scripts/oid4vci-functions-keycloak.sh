@@ -818,6 +818,14 @@ kc_set_client_property() {
   kcadm update "clients/${cid}" -r "${realm}" -s "${propName}=${propValue}"
 }
 
+# Get Client Policy
+#
+kc_get_client_policy() {
+  local realm="$1"
+  local policy="$2"
+  kcadm get client-policies/policies -r "${realm}" 2>/dev/null | jq --arg policy "${policy}" '.policies[] | select(.name==$policy)'
+}
+
 # Enable/Disable Client Policy
 #
 kc_set_client_policy_enabled() {

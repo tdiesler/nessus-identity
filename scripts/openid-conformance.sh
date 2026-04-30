@@ -86,8 +86,7 @@ show_help() {
   echo "  Profiles"
   echo "    - [1|issuer]                                Run the default issuer profile"
   echo "    - [2|verifier]                              Run the default verifier profile"
-  echo "    - [3|oid4vci-credential-encryption]         Variant [vci_credential_encryption=encrypted]"
-  echo "    - [4|fapi2-user-rejects-authentication]     User rejects consent during authentication"
+  echo "    - [3|fapi2-user-rejects-authentication]     User rejects consent during authentication"
   echo ""
 }
 
@@ -336,25 +335,14 @@ run_profile_oid4vcp_default() {
   run_modules "${role}" "" "${config}"
 }
 
-# Run a profile 'oid4vci-credential-encryption'
-#
-run_profile_oid4vci_credential_encryption() {
-  echo "Run profile: oid4vci-credential-encryption";
-
-  role="issuer"
-  plan="oid4vci-1_0-issuer-test-plan"
-  variants=$(jq -r ".${role}.variants" <<< "${SCRIPT_CONFIG}")
-  variants="${variants}[sender_constrain=dpop][client_auth_type=client_attestation][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=authorization_code][vci_credential_encryption=encrypted][fapi_profile=vci_haip][fapi_response_mode=plain_response]"
-  modules="oid4vci-1_0-issuer-happy-flow,oid4vci-1_0-issuer-fail-unknown-credential-configuration"
-  config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-
-  _run_test_modules "${role}" "${plan}" "${variants}" "${modules}" "" "" "${config}"
-}
-
 # Run a profile 'fapi2-user-rejects-authentication'
 #
 run_profile_fapi2_user_rejects_authentication() {
   echo "Run profile: fapi2-user-rejects-authentication"
+
+  enabled=$(kc_get_client_policy "${KC_REALM}" "oid4vc-haip-policy" | jq -r .enabled)
+
+  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
 
   for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
     kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "true"
@@ -381,6 +369,8 @@ run_profile_fapi2_user_rejects_authentication() {
   for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
     kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
   done
+
+  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "${enabled}"
 }
 
 # Show client configuration
@@ -472,7 +462,6 @@ main() {
     case "${opt_run_role}" in
       issuer)
         run_profile_fapi2_user_rejects_authentication
-        run_profile_oid4vci_credential_encryption
         run_profile_oid4vci_default
         ;;
       verifier)
@@ -506,10 +495,7 @@ main() {
       2|verifier)
         run_profile_oid4vcp_default
         ;;
-      3|oid4vci-credential-encryption)
-        run_profile_oid4vci_credential_encryption
-        ;;
-      4|fapi2-user-rejects-authentication)
+      3|fapi2-user-rejects-authentication)
         run_profile_fapi2_user_rejects_authentication
         ;;
       *)
