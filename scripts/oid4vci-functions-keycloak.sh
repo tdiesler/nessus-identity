@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
 
+KCADM_BIN="${KCADM_BIN:-}"
+if [[ -z "${KCADM_BIN}" ]]; then
+  if command -v kcadm >/dev/null 2>&1; then
+    KCADM_BIN="$(command -v kcadm)"
+  elif command -v kcadm.sh >/dev/null 2>&1; then
+    KCADM_BIN="$(command -v kcadm.sh)"
+  else
+    echo "Cannot find kcadm or kcadm.sh on PATH" >&2
+    return 127 2>/dev/null || exit 127
+  fi
+fi
+
+kcadm() {
+  "${KCADM_BIN}" "$@"
+}
+
 # Log in as Keycloak Admin
 #
 kc_admin_login() {
@@ -32,9 +48,14 @@ kc_create_abca_key() {
   abca_jwk_key_priv=".secret/keycloak_abca_jwk_priv.json"
   abca_jwk_key_pub=".secret/keycloak_abca_jwk.json"
 
-  if [[ ! -f "${abca_jwk_key_priv}" ]]; then
-    echo "Generate ABCA private key"
-    jbang "${SCRIPT_DIR}/keycloak_abca_sig_rsa.java" | jq . > "${abca_jwk_key_priv}"
+  if [[ ! -s "${abca_jwk_key_priv}" ]]; then
+    if command -v jbang >/dev/null 2>&1; then
+      echo "Generate ABCA private key"
+      jbang "${SCRIPT_DIR}/keycloak_abca_sig_rsa.java" | jq . > "${abca_jwk_key_priv}"
+    else
+      echo "Use ABCA private key from conformance issuer config"
+      jq '.vci.client_attester_keys_jwks' "${SCRIPT_DIR}/config/keycloak-openid-issuer-config.json" > "${abca_jwk_key_priv}"
+    fi
   fi
 
   jq '[ .keys[0] | del(.d, .p, .q, .dp, .dq, .qi) ]' "${abca_jwk_key_priv}" > "${abca_jwk_key_pub}"
@@ -132,6 +153,7 @@ EOF
     -s 'config.priority=["120"]' \
     -s 'config.enabled=["true"]' \
     -s 'config.active=["true"]' \
+    -s 'config.ecGenerateCertificate=["true"]' \
     -s 'config.algorithm=["ES256"]' -o)
 
   echo "ES256 Key: ${es256KeyProv}"
@@ -166,10 +188,12 @@ EOF
   x=$(echo "$jwks_json" | jq -r '.x')
   y=$(echo "$jwks_json" | jq -r '.y')
 
-  # Get the Issuer's DID
+  # Get the Issuer's DID when the optional JBang helper is available.
   #
-  issuer_did=$(jbang "${SCRIPT_DIR}/es256pub_to_didkey.java" "$x" "$y")
-  echo "Issuer Did: ${issuer_did}"
+  if command -v jbang >/dev/null 2>&1; then
+    issuer_did=$(jbang "${SCRIPT_DIR}/es256pub_to_didkey.java" "$x" "$y")
+    echo "Issuer Did: ${issuer_did}"
+  fi
 
   echo
   echo "Realm setup complete"
@@ -461,6 +485,85 @@ EOF
     echo "Client Scope Id for ${credential_identifier}: ${client_scope_id}"
     kcadm get "realms/${realm}/client-scopes/${client_scope_id}" 2>/dev/null | jq .
   done
+}
+
+kc_create_oid4vci_mdoc_credential_configuration() {
+  local realm="$1"
+  local scope_name="${2:-org.iso.18013.5.1.mDL}"
+  local credential_configuration_id="${3:-${scope_name}}"
+  local doctype="${4:-org.iso.18013.5.1.mDL}"
+
+  local scope_id
+  scope_id=$(kcadm get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${scope_name}\") | .id")
+
+  if [[ -z "${scope_id}" ]]; then
+    echo "Create mdoc Credential config for: ${credential_configuration_id}"
+    kcadm create "realms/${realm}/client-scopes" -f - <<EOF
+    {
+      "name": "${scope_name}",
+      "protocol": "oid4vc",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "vc.include_in_metadata": "true",
+        "vc.credential_configuration_id": "${credential_configuration_id}",
+        "vc.credential_identifier": "${credential_configuration_id}",
+        "vc.format": "mso_mdoc",
+        "vc.verifiable_credential_type": "${doctype}",
+        "vc.credential_signing_alg": "ES256",
+        "vc.binding_required": "true",
+        "vc.binding_required_proof_types": "jwt",
+        "vc.cryptographic_binding_methods_supported": "cose_key",
+        "vc.expiry_in_seconds": "31536000"
+      },
+      "protocolMappers": [
+        {
+          "name": "given-name",
+          "protocol": "oid4vc",
+          "protocolMapper": "oid4vc-user-attribute-mapper",
+          "config": {
+            "claim.name": "given_name",
+            "userAttribute": "firstName",
+            "mdoc.namespace": "org.iso.18013.5.1"
+          }
+        },
+        {
+          "name": "family-name",
+          "protocol": "oid4vc",
+          "protocolMapper": "oid4vc-user-attribute-mapper",
+          "config": {
+            "claim.name": "family_name",
+            "userAttribute": "lastName",
+            "mdoc.namespace": "org.iso.18013.5.1"
+          }
+        },
+        {
+          "name": "document-number",
+          "protocol": "oid4vc",
+          "protocolMapper": "oid4vc-subject-id-mapper",
+          "config": {
+            "claim.name": "document_number",
+            "userAttribute": "did",
+            "mdoc.namespace": "org.iso.18013.5.1"
+          }
+        }
+      ]
+    }
+EOF
+    scope_id=$(kcadm get "realms/${realm}/client-scopes" 2>/dev/null | jq -r ".[] | select(.name==\"${scope_name}\") | .id")
+  else
+    echo "mdoc Credential config '${scope_name}' already exists"
+  fi
+
+  for client_id in "${KC_CLIENT:-oid4vci-client}" "${KC_CLIENT2:-oid4vci-client2}"; do
+    local client_uuid
+    client_uuid=$(kcadm get "realms/${realm}/clients" -q clientId="${client_id}" --fields id --format csv --noquotes 2>/dev/null || true)
+    if [[ -n "${client_uuid}" ]]; then
+      echo "Add optional mdoc scope '${scope_name}' to client '${client_id}'"
+      kcadm update "realms/${realm}/clients/${client_uuid}/optional-client-scopes/${scope_id}" -n 2>/dev/null || true
+    fi
+  done
+
+  kcadm get "realms/${realm}/client-scopes/${scope_id}" 2>/dev/null | jq .
 }
 
 kc_create_oid4vci_client() {
@@ -856,4 +959,3 @@ kc_set_realm_attribute() {
   echo "Set realm attribute ${realm} ${attrName} => ${attrValue}"
   kcadm update "realms/${realm}" -s "attributes.\"${attrName}\"=${attrValue}"
 }
-

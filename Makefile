@@ -60,6 +60,14 @@ keycloak-build:
 	@cd ../keycloak && ./mvnw -pl quarkus/dist,tests,testsuite/integration-arquillian/tests/base -am -DskipTests clean install
 	@tar xzf ../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT.tar.gz -C ../keycloak/quarkus/dist/target
 
+KEYCLOAK_NGROK_DIR ?= ../keycloak
+KEYCLOAK_NGROK_HOME ?= $(KEYCLOAK_NGROK_DIR)/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT
+
+keycloak-build-ngrok:
+	@cd $(KEYCLOAK_NGROK_DIR) && ./mvnw -pl 'quarkus/dist,!crypto/fips1402' -am -DskipTests clean install
+	@rm -rf $(KEYCLOAK_NGROK_HOME)
+	@tar xzf $(KEYCLOAK_NGROK_DIR)/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT.tar.gz -C $(KEYCLOAK_NGROK_DIR)/quarkus/dist/target
+
 keycloak-image: keycloak-build
 	@cd ../keycloak/quarkus/container && cp ../dist/target/keycloak-999.0.0-SNAPSHOT.tar.gz . && \
 		docker buildx build --platform linux/amd64 --build-arg KEYCLOAK_DIST=keycloak-999.0.0-SNAPSHOT.tar.gz -t $(IMAGE_REGISTRY)keycloak:latest .
@@ -75,6 +83,17 @@ keycloak-run:
 			--bootstrap-admin-username=admin \
 			--bootstrap-admin-password=admin \
 			--features=oid4vc-vci
+
+keycloak-run-ngrok:
+	@if [ -z "$(NGROK_URL)" ]; then echo "Set NGROK_URL to the public https ngrok URL"; exit 1; fi
+	@KC_HOME="$(KEYCLOAK_NGROK_HOME)" && PRINT_ENV="true" \
+		$${KC_HOME}/bin/kc.sh start-dev \
+			--http-port=8080 \
+			--hostname=$(NGROK_URL) \
+			--proxy-headers=xforwarded \
+			--bootstrap-admin-username=admin \
+			--bootstrap-admin-password=admin \
+			--features=oid4vc-vci,oid4vc-vci-preauth-code,oid4vc-vci-mdoc,client-auth-abca
 
 keycloak-run-proxy:
 	@KC_HOME="../keycloak/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT" && PRINT_ENV="true" \
