@@ -19,6 +19,14 @@ SCRIPT_CONFIG='{
     "filters_file": "keycloak-openid-issuer-filters.json",
     "skips_file": "keycloak-openid-issuer-skips.json"
   },
+  "issuer_mdoc": {
+    "plan_name": "oid4vci-1_0-issuer-haip-test-plan",
+    "variants": "[credential_format=mdoc][vci_authorization_code_flow_variant=wallet_initiated]",
+    "config_file": "keycloak-openid-issuer-config.json",
+    "failures_file": "keycloak-openid-issuer-failures.json",
+    "filters_file": "keycloak-openid-issuer-filters.json",
+    "skips_file": "keycloak-openid-issuer-skips.json"
+  },
   "verifier": {
     "plan_name": "oid4vp-1final-verifier-haip-test-plan",
     "variants": "[credential_format=sd_jwt_vc][response_mode=direct_post.jwt]",
@@ -36,21 +44,40 @@ KC_ADMIN_PASSWORD="admin"
 
 KC_CLIENT="oid4vci-client"
 KC_CLIENT2="oid4vci-client2"
+MDOC_CREDENTIAL_CONFIGURATION_ID="${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18013.5.1.mDL}"
 
 # Default target if not set
 : "${TARGET:=proxy}"
+: "${CONFORMANCE_SERVER:=}"
 
 echo "OpenID Conformance Suite target: $TARGET"
 case "$TARGET" in
   proxy)
-    CONFORMANCE_SERVER="https://localhost.emobix.co.uk:8443"
+    CONFORMANCE_SERVER="${CONFORMANCE_SERVER:-https://localhost.emobix.co.uk:8443}"
     export ISSUER_BASE_URL="https://keycloak.nessustech.io:8443"
+    ;;
+  ngrok)
+    if [[ -z "${NGROK_URL:-}" ]]; then
+      NGROK_URL=$(curl -fsS http://127.0.0.1:4040/api/tunnels 2>/dev/null \
+        | jq -r '.tunnels[] | select(.proto=="https") | .public_url' \
+        | head -n 1)
+    fi
+    if [[ -z "${NGROK_URL:-}" || "${NGROK_URL}" == "null" ]]; then
+      echo "NGROK_URL is required, or start ngrok so http://127.0.0.1:4040/api/tunnels exposes an https tunnel" >&2
+      exit 1
+    fi
+    CONFORMANCE_SERVER="${CONFORMANCE_SERVER:-https://localhost.emobix.co.uk:8443}"
+    export CONFORMANCE_DEV_MODE="${CONFORMANCE_DEV_MODE:-true}"
+    export ISSUER_BASE_URL="${NGROK_URL}"
     ;;
   *)
     echo "Unsupported target: $TARGET"
     exit 1
     ;;
 esac
+export CONFORMANCE_SERVER
+: "${CONFORMANCE_SERVER_MTLS:=https://localhost.emobix.co.uk:8444}"
+export CONFORMANCE_SERVER_MTLS
 
 ## Parse args
 #
@@ -87,6 +114,7 @@ show_help() {
   echo "    - [1|issuer]                                Run the default issuer profile"
   echo "    - [2|verifier]                              Run the default verifier profile"
   echo "    - [3|fapi2-user-rejects-authentication]     User rejects consent during authentication"
+  echo "    - [oid4vci-mdoc-issuance]                   Run the mdoc issuer profile"
   echo ""
 }
 
@@ -219,6 +247,37 @@ _get_plan_name() {
   jq -r ".${role}.plan_name" <<< "${SCRIPT_CONFIG}"
 }
 
+_prepare_config() {
+  local role="${1//-/_}"
+  local config="$2"
+
+  if [[ "${role}" != issuer* ]]; then
+    echo "${config}"
+    return
+  fi
+
+  if [[ "${TARGET}" != "ngrok" && "${role}" != "issuer_mdoc" ]]; then
+    echo "${config}"
+    return
+  fi
+
+  local generated="${SCRIPT_DIR}/config/.generated-${role}-$(basename "${config}")"
+  local issuer="${ISSUER_BASE_URL}/realms/${KC_REALM}"
+  local jq_filter='.vci.credential_issuer_url = $issuer
+      | .vci.client_attestation_issuer = ($issuer + "/client-attester/attest")'
+
+  if [[ "${role}" == "issuer_mdoc" ]]; then
+    jq_filter="${jq_filter} | .vci.credential_configuration_id = \$mdoc_credential_configuration_id"
+  fi
+
+  jq \
+    --arg issuer "${issuer}" \
+    --arg mdoc_credential_configuration_id "${MDOC_CREDENTIAL_CONFIGURATION_ID}" \
+    "${jq_filter}" \
+    "${config}" > "${generated}"
+  echo "${generated}"
+}
+
 _run_test_modules() {
   local role="$1"
   local plan="$2"
@@ -227,6 +286,8 @@ _run_test_modules() {
   local failures="$5"
   local skips="$6"
   local config="$7"
+
+  config=$(_prepare_config "${role}" "${config}")
 
   local cmd_args=(--no-parallel --verbose)
 
@@ -252,7 +313,7 @@ before_all() {
 
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
 
-  origin="https://localhost.emobix.co.uk:8443"
+  origin="${CONFORMANCE_SERVER%/}"
   redirect_uri="${origin}/test/a/keycloak/callback"
 
   for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
@@ -324,6 +385,25 @@ run_profile_oid4vci_default() {
 
   config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
   run_modules "${role}" "" "${config}"
+}
+
+run_profile_oid4vci_mdoc_issuance() {
+  role="issuer_mdoc"
+  echo "Run profile: ${role}";
+
+  config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
+  modules="oid4vci-1_0-issuer-metadata-test,oid4vci-1_0-issuer-metadata-test-signed,oid4vci-1_0-issuer-happy-flow"
+  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
+  for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
+    kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
+    kc_set_client_attribute "${KC_REALM}" "${client_id}" "tls.client.certificate.bound.access.tokens" "false"
+  done
+  set +e
+  run_modules "${role}" "${modules}" "${config}"
+  status=$?
+  set -e
+  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "true"
+  return "${status}"
 }
 
 # Run the default verifier profile
@@ -464,6 +544,9 @@ main() {
         run_profile_fapi2_user_rejects_authentication
         run_profile_oid4vci_default
         ;;
+      issuer_mdoc)
+        run_profile_oid4vci_mdoc_issuance
+        ;;
       verifier)
         run_profile_oid4vcp_default
         ;;
@@ -498,6 +581,9 @@ main() {
       3|fapi2-user-rejects-authentication)
         run_profile_fapi2_user_rejects_authentication
         ;;
+      oid4vci-mdoc-issuance)
+        run_profile_oid4vci_mdoc_issuance
+        ;;
       *)
         echo "Unknown profile: $opt_run_profile";
         show_help
@@ -521,4 +607,3 @@ fi
 # Call main entry ------------------------------------------------------------------------------------------------------
 #
 main
-

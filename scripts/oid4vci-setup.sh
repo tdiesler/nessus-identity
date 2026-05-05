@@ -20,6 +20,21 @@ case "$TARGET" in
     export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
+  ngrok)
+    echo "Doing local ngrok setup..."
+    if [[ -z "${NGROK_URL:-}" ]]; then
+      NGROK_URL=$(curl -fsS http://127.0.0.1:4040/api/tunnels 2>/dev/null \
+        | jq -r '.tunnels[] | select(.proto=="https") | .public_url' \
+        | head -n 1)
+    fi
+    if [[ -z "${NGROK_URL:-}" || "${NGROK_URL}" == "null" ]]; then
+      echo "NGROK_URL is required, or start ngrok so http://127.0.0.1:4040/api/tunnels exposes an https tunnel" >&2
+      exit 1
+    fi
+    export ISSUER_BASE_URL="${NGROK_URL}"
+    export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
+    export WALLET_API_URL="${WALLET_API_URL:-https://waltid-wallet-api.localtest.me}"
+    ;;
   proxy)
     echo "Doing development setup..."
     export KUBE_CONTEXT="rancher-desktop"
@@ -52,6 +67,12 @@ source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
 auth_type="preauth_code"
 force="false"
 skip_vc="false"
+skip_wallet="false"
+create_mdoc="false"
+
+if [[ "${TARGET}" == "ngrok" ]]; then
+  skip_vc="true"
+fi
 
 for arg in "$@"; do
   case $arg in
@@ -75,6 +96,15 @@ for arg in "$@"; do
       skip_vc="true"
       shift
       ;;
+    --skip-wallet)
+      skip_wallet="true"
+      skip_vc="true"
+      shift
+      ;;
+    --mdoc)
+      create_mdoc="true"
+      shift
+      ;;
     *)
       echo "Unknown option: $arg"
       exit 1
@@ -84,17 +114,49 @@ done
 
 ## Setup EBSI Test Users -----------------------------------------------------------------------------------------------
 #
-wallet_create_user "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}" || exit 1
-wallet_create_user "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}" || exit 1
-wallet_create_user "verifier" "${VERIFIER[0]}" "${VERIFIER[1]}" "${VERIFIER[3]}" || exit 1
+if [[ "${skip_wallet}" == "true" ]]; then
+  mkdir -p ".secret"
+  jq -n \
+    --arg role "issuer" \
+    --arg name "${ISSUER[0]}" \
+    --arg email "${ISSUER[1]}" \
+    --arg password "${ISSUER[3]}" \
+    --arg did "did:example:issuer" \
+    '{role: $role, name: $name, email: $email, password: $password, did: $did}' > ".secret/issuer-details.json"
+  jq -n \
+    --arg role "holder" \
+    --arg name "${HOLDER[0]}" \
+    --arg email "${HOLDER[1]}" \
+    --arg password "${HOLDER[3]}" \
+    --arg did "did:example:holder" \
+    '{role: $role, name: $name, email: $email, password: $password, did: $did}' > ".secret/holder-details.json"
+  jq -n \
+    --arg role "verifier" \
+    --arg name "${VERIFIER[0]}" \
+    --arg email "${VERIFIER[1]}" \
+    --arg password "${VERIFIER[3]}" \
+    --arg did "did:example:verifier" \
+    '{role: $role, name: $name, email: $email, password: $password, did: $did}' > ".secret/verifier-details.json"
+else
+  wallet_create_user "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}" || exit 1
+  wallet_create_user "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}" || exit 1
+  wallet_create_user "verifier" "${VERIFIER[0]}" "${VERIFIER[1]}" "${VERIFIER[3]}" || exit 1
+fi
 
 ## Keycloak admin login ------------------------------------------------------------------------------------------------
 #
-kubecmd="kubectl --context ${KUBE_CONTEXT}"
-adminUser=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.ADMIN_USERNAME}' | base64 -d)
-adminPass=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d)
-oid4vciUser=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.OID4VCI_SERVICE_ID}' | base64 -d)
-oid4vciPass=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.OID4VCI_SERVICE_SECRET}' | base64 -d)
+if [[ "${TARGET}" == "ngrok" ]]; then
+  adminUser="${KC_ADMIN_USERNAME:-admin}"
+  adminPass="${KC_ADMIN_PASSWORD:-admin}"
+  oid4vciUser="${KC_OID4VCI_SERVICE_ID:-oid4vci-service}"
+  oid4vciPass="${KC_OID4VCI_SERVICE_SECRET:-secret}"
+else
+  kubecmd="kubectl --context ${KUBE_CONTEXT}"
+  adminUser=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.ADMIN_USERNAME}' | base64 -d)
+  adminPass=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d)
+  oid4vciUser=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.OID4VCI_SERVICE_ID}' | base64 -d)
+  oid4vciPass=$(${kubecmd} get secret keycloak-secret -o jsonpath='{.data.OID4VCI_SERVICE_SECRET}' | base64 -d)
+fi
 
 ## Setup Keycloak OID4VCI Realm ----------------------------------------------------------------------------------------
 #
@@ -124,6 +186,9 @@ if kc_create_realm "${realm}" "${force}"; then
   #
   kc_create_oid4vci_client "${realm}" "${client_id}"
   kc_create_oid4vci_client "${realm}" "${client_id}2"
+  if [[ "${create_mdoc}" == "true" ]]; then
+    kc_create_oid4vci_mdoc_credential_configuration "${realm}" "${MDOC_CREDENTIAL_SCOPE:-org.iso.18013.5.1.mDL}" "${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18013.5.1.mDL}" "${MDOC_DOCTYPE:-org.iso.18013.5.1.mDL}"
+  fi
 
   # Create the Attestation-Based Client Authorization Key --------------------------------------------------------------------
   #
