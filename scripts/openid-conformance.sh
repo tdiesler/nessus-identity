@@ -66,9 +66,11 @@ case "$TARGET" in
     exit 1
     ;;
 esac
-export CONFORMANCE_SERVER
-: "${CONFORMANCE_SERVER_MTLS:=https://localhost.emobix.co.uk:8444}"
-export CONFORMANCE_SERVER_MTLS
+
+# [TODO >>>] Exporting CONFORMANCE_SERVER breaks conformance suite on docker compose
+#export CONFORMANCE_SERVER
+#: "${CONFORMANCE_SERVER_MTLS:=https://localhost.emobix.co.uk:8444}"
+#export CONFORMANCE_SERVER_MTLS
 
 ## Parse args
 #
