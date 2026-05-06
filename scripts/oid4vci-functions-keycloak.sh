@@ -59,8 +59,12 @@ kc_create_realm() {
   realm_exists=$(kcadm get realms | jq -e ".[] | select(.realm==\"${realm}\")" >/dev/null 2>&1 && echo true || echo false)
   if [[ $realm_exists == true ]]; then
     if [[ ${force} == true ]]; then
-      kcadm delete "realms/${realm}" 2>/dev/null
-      echo "Deleting realm '${realm}'"
+      if kcadm delete "realms/${realm}"; then
+        echo "Deleted realm '${realm}'"
+      else
+        echo "Failed to delete realm '${realm}'" >&2
+        exit 1
+      fi
     else
       echo "Realm '${realm}' already exists"
       return 1
