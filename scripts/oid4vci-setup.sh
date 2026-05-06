@@ -16,36 +16,35 @@ case "$TARGET" in
   local)
     echo "Doing local setup..."
     export KUBE_CONTEXT="rancher-desktop"
-    export ISSUER_BASE_URL="http://localhost:8080"
+    export KEYCLOAK_HOSTNAME="http://localhost:8080"
     export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
   ngrok)
     echo "Doing local ngrok setup..."
-    if [[ -z "${NGROK_URL:-}" ]]; then
-      NGROK_URL=$(curl -fsS http://127.0.0.1:4040/api/tunnels 2>/dev/null \
+    if [[ -z "${KEYCLOAK_HOSTNAME:-}" ]]; then
+      KEYCLOAK_HOSTNAME=$(curl -fsS http://127.0.0.1:4040/api/tunnels 2>/dev/null \
         | jq -r '.tunnels[] | select(.proto=="https") | .public_url' \
         | head -n 1)
     fi
-    if [[ -z "${NGROK_URL:-}" || "${NGROK_URL}" == "null" ]]; then
-      echo "NGROK_URL is required, or start ngrok so http://127.0.0.1:4040/api/tunnels exposes an https tunnel" >&2
+    if [[ -z "${KEYCLOAK_HOSTNAME:-}" || "${KEYCLOAK_HOSTNAME}" == "null" ]]; then
+      echo "KEYCLOAK_HOSTNAME is required, or start ngrok so http://127.0.0.1:4040/api/tunnels exposes an https tunnel" >&2
       exit 1
     fi
-    export ISSUER_BASE_URL="${NGROK_URL}"
     export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
     export WALLET_API_URL="${WALLET_API_URL:-https://waltid-wallet-api.localtest.me}"
     ;;
   proxy)
     echo "Doing development setup..."
     export KUBE_CONTEXT="rancher-desktop"
-    export ISSUER_BASE_URL="https://keycloak.nessustech.io:8443"
+    export KEYCLOAK_HOSTNAME="https://keycloak.nessustech.io:8443"
     export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
   stage)
     echo "Doing staging setup..."
     export KUBE_CONTEXT="ebsi"
-    export ISSUER_BASE_URL="https://keycloak.nessustech.io"
+    export KEYCLOAK_HOSTNAME="https://keycloak.nessustech.io"
     export WALLET_REDIRECT_URI="https://console.nessustech.io/wallet/*"
     export WALLET_API_URL="https://waltid-wallet-api.nessustech.io"
     ;;
@@ -69,10 +68,6 @@ force="false"
 skip_vc="false"
 skip_wallet="false"
 create_mdoc="false"
-
-if [[ "${TARGET}" == "ngrok" ]]; then
-  skip_vc="true"
-fi
 
 for arg in "$@"; do
   case $arg in

@@ -15,7 +15,7 @@ We can run Keycloak ...
 ### Keycloak behind NGINX reverse proxy
 
 ```shell
-make keycloak-run-proxy
+make keycloak-build keycloak-run-proxy
 ```
 
 Then open an SSH tunnel like this
@@ -28,14 +28,8 @@ It should now be possible to access Keycloak on: https://keycloak.nessustech.io:
 
 ### Keycloak behind ngrok
 
-The `ngrok` target runs Keycloak locally and exposes it through an ngrok HTTPS
+The `ngrok` target runs Keycloak locally and exposes it through a ngrok HTTPS
 tunnel. The conformance suite uses the ngrok URL as the issuer base URL.
-
-Build only the Keycloak distribution, with tests skipped:
-
-```shell
-KEYCLOAK_NGROK_DIR=../keycloak make keycloak-build-ngrok
-```
 
 Start ngrok against the local Keycloak HTTP port:
 
@@ -47,7 +41,8 @@ export NGROK_URL="$(curl -fsS http://127.0.0.1:4040/api/tunnels | jq -r '.tunnel
 Run Keycloak locally with the public ngrok URL as its hostname:
 
 ```shell
-KEYCLOAK_NGROK_DIR=../keycloak NGROK_URL="${NGROK_URL}" make keycloak-run-ngrok
+make keycloak-build
+make keycloak-build keycloak-run-ngrok
 ```
 
 Put the freshly built Keycloak admin CLI on the path and import the conformance
@@ -55,9 +50,7 @@ realm. The `ngrok` target uses `admin` / `admin` for the local Keycloak admin
 user by default and `https://waltid-wallet-api.localtest.me` for WaltID.
 
 ```shell
-export KEYCLOAK_NGROK_DIR=../keycloak
-export PATH="$(realpath "${KEYCLOAK_NGROK_DIR}/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT/bin"):${PATH}"
-TARGET=ngrok NGROK_URL="${NGROK_URL}" ./scripts/oid4vci-setup.sh --force
+TARGET=ngrok ./scripts/oid4vci-setup.sh --force
 ```
 
 ### Keycloak on Kubernetes

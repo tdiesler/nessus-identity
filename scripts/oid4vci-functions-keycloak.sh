@@ -23,7 +23,7 @@ kc_admin_login() {
   local adminUser="$1"
   local adminPass="$2"
 
-  kcadm config credentials --server "${ISSUER_BASE_URL}" \
+  kcadm config credentials --server "${KEYCLOAK_HOSTNAME}" \
       --realm "${realm}" \
       --user "${adminUser}" \
       --password "${adminPass}"
@@ -36,7 +36,7 @@ kc_oid4vci_login() {
   local oid4vciUser="$2"
   local oid4vciPass="$3"
 
-  kcadm config credentials --server "${ISSUER_BASE_URL}" \
+  kcadm config credentials --server "${KEYCLOAK_HOSTNAME}" \
     --realm "${realm}" \
     --client "${oid4vciUser}" \
     --secret "${oid4vciPass}"
@@ -185,7 +185,7 @@ EOF
   es256KeyProvId=$(echo "${es256KeyProv}" | jq -r .id)
   es256Kid=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r --arg pid "${es256KeyProvId}" '.keys[] | select(.providerId==$pid) | .kid')
 
-  jwks_json=$(curl -s "${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/certs" | jq -r --arg kid "${es256Kid}" '.keys[] | select(.kid==$kid)')
+  jwks_json=$(curl -s "${KEYCLOAK_HOSTNAME}/realms/${realm}/protocol/openid-connect/certs" | jq -r --arg kid "${es256Kid}" '.keys[] | select(.kid==$kid)')
   echo "Realm JWK: $jwks_json"
 
   # Filter JWKS by kid
@@ -595,10 +595,10 @@ kc_create_oid4vci_client() {
       "oid4vc_natural_person_sd",
       "oid4vc_natural_person_jwt"
     ],
-    "baseUrl": "${ISSUER_BASE_URL}/realms/${realm}/.well-known/openid-credential-issuer",
+    "baseUrl": "${KEYCLOAK_HOSTNAME}/realms/${realm}/.well-known/openid-credential-issuer",
     "attributes": {
       "client.introspection.response.allow.jwt.claim.enabled": "false",
-      "post.logout.redirect.uris": "${ISSUER_BASE_URL}",
+      "post.logout.redirect.uris": "${KEYCLOAK_HOSTNAME}",
       "oid4vci.enabled": "true"
     }
   }
@@ -606,7 +606,7 @@ EOF
 
   # Inspect the Issuer's metadata
   # https://oauth.localtest.me/realms/oid4vci/.well-known/openid-credential-issuer
-  metadataUrl="${ISSUER_BASE_URL}/realms/${realm}/.well-known/openid-credential-issuer"
+  metadataUrl="${KEYCLOAK_HOSTNAME}/realms/${realm}/.well-known/openid-credential-issuer"
   echo "Inspect ${metadataUrl} ..."
 
   metadata=$(curl -s "${metadataUrl}")
@@ -674,14 +674,14 @@ kc_authorization_request() {
     openssl dgst -sha256 -binary | openssl base64 |
     tr '+/' '-_' | tr -d '=' | tr -d '\n')
 
-  local authUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/auth"
+  local authUrl="${KEYCLOAK_HOSTNAME}/realms/${realm}/protocol/openid-connect/auth"
 
   # Build JSON for authorization_details
   authorization_details=$(printf '[{
     "type": "openid_credential",
     "credential_configuration_id": "%s",
     "locations": [ "%s" ]
-  }]' "${credential_configuration_id}" "${ISSUER_BASE_URL}/realms/${realm}")
+  }]' "${credential_configuration_id}" "${KEYCLOAK_HOSTNAME}/realms/${realm}")
   echo "authorization_details=${authorization_details}"
   authorization_details_encoded=$(echo "${authorization_details}" | jq -sRr @uri)
 
@@ -703,7 +703,7 @@ kc_authorization_request() {
 kc_access_token_auth_code() {
   local realm="$1"
 
-  local tokenUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/token"
+  local tokenUrl="${KEYCLOAK_HOSTNAME}/realms/${realm}/protocol/openid-connect/token"
 
   tokenRes=$(curl -s -X POST "$tokenUrl" \
     -H "Content-Type: application/x-www-form-urlencoded" \
@@ -725,7 +725,7 @@ kc_access_token_auth_code() {
 kc_access_token_preauth_code() {
   local realm="$1"
 
-  local tokenUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/token"
+  local tokenUrl="${KEYCLOAK_HOSTNAME}/realms/${realm}/protocol/openid-connect/token"
 
   tokenRes=$(curl -s -X POST "$tokenUrl" \
     -H "Content-Type: application/x-www-form-urlencoded" \
@@ -753,14 +753,14 @@ kc_access_token_direct() {
   local password="$4"
   local credential_configuration_id="$5"
 
-  local authUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/openid-connect/token"
+  local authUrl="${KEYCLOAK_HOSTNAME}/realms/${realm}/protocol/openid-connect/token"
 
   # Build JSON for authorization_details
   authorization_details=$(printf '[{
     "type": "openid_credential",
     "credential_configuration_id": "%s",
     "locations": [ "%s" ]
-  }]' "${credential_configuration_id}" "${ISSUER_BASE_URL}/realms/${realm}")
+  }]' "${credential_configuration_id}" "${KEYCLOAK_HOSTNAME}/realms/${realm}")
   echo "authorization_details=${authorization_details}"
   authorization_details_encoded=$(echo "${authorization_details}" | jq -sRr @uri)
 
@@ -788,7 +788,7 @@ kc_credential_offer_uri() {
   local target_user="$3"
   local pre_authorized="$4"
 
-  local credOfferUriUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/oid4vc/create-credential-offer"
+  local credOfferUriUrl="${KEYCLOAK_HOSTNAME}/realms/${realm}/protocol/oid4vc/create-credential-offer"
   credOfferUriUrl="${credOfferUriUrl}?credential_configuration_id=${credential_configuration_id}&target_user=${target_user}&pre_authorized=${pre_authorized}"
 
   credOfferUriRes=$(curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" "${credOfferUriUrl}")
@@ -822,7 +822,7 @@ kc_credential_request() {
   local realm="$1"
   local credential_identifier="$2"
 
-  local nonceUrl="${ISSUER_BASE_URL}/realms/${realm}/protocol/oid4vc/nonce"
+  local nonceUrl="${KEYCLOAK_HOSTNAME}/realms/${realm}/protocol/oid4vc/nonce"
   c_nonce=$(curl -s -X POST "${nonceUrl}" | jq -r '.c_nonce')
 
   holder_details_json=".secret/holder-details.json"
@@ -840,7 +840,7 @@ kc_credential_request() {
     '{alg: "ES256", typ: "openid4vci-proof+jwt", jwk: $jwk}')
 
   proof_claims=$(jq -n -c \
-    --arg aud "${ISSUER_BASE_URL}/realms/${realm}" \
+    --arg aud "${KEYCLOAK_HOSTNAME}/realms/${realm}" \
     --argjson iat "$(date +%s)" \
     --arg nonce "${c_nonce}" \
     '{aud: $aud, iat:$iat, nonce: $nonce}')
@@ -870,7 +870,7 @@ kc_credential_request() {
   echo "${req_body}" | jq . >&2
   echo "================================" >&2
 
-  resp_json="$(curl -s -X POST "${ISSUER_BASE_URL}/realms/${realm}/protocol/oid4vc/credential" \
+  resp_json="$(curl -s -X POST "${KEYCLOAK_HOSTNAME}/realms/${realm}/protocol/oid4vc/credential" \
       -H "Authorization: Bearer ${ACCESS_TOKEN}" \
       -H "Content-Type: application/json" \
       -d "${req_body}")"

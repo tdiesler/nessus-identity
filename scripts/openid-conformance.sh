@@ -14,26 +14,18 @@ SCRIPT_CONFIG='{
   "issuer": {
     "plan_name": "oid4vci-1_0-issuer-haip-test-plan",
     "variants": "[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]",
-    "config_file": "keycloak-openid-issuer-config.json",
-    "failures_file": "keycloak-openid-issuer-failures.json",
-    "filters_file": "keycloak-openid-issuer-filters.json",
-    "skips_file": "keycloak-openid-issuer-skips.json"
-  },
-  "issuer_mdoc": {
-    "plan_name": "oid4vci-1_0-issuer-haip-test-plan",
-    "variants": "[credential_format=mdoc][vci_authorization_code_flow_variant=wallet_initiated]",
-    "config_file": "keycloak-openid-issuer-config.json",
-    "failures_file": "keycloak-openid-issuer-failures.json",
-    "filters_file": "keycloak-openid-issuer-filters.json",
-    "skips_file": "keycloak-openid-issuer-skips.json"
+    "config_file": "keycloak-issuer-config.json",
+    "failures_file": "keycloak-issuer-failures.json",
+    "filters_file": "keycloak-issuer-filters.json",
+    "skips_file": "keycloak-issuer-skips.json"
   },
   "verifier": {
     "plan_name": "oid4vp-1final-verifier-haip-test-plan",
     "variants": "[credential_format=sd_jwt_vc][response_mode=direct_post.jwt]",
-    "config_file": "keycloak-openid-verifier-config.json",
-    "failures_file": "keycloak-openid-verifier-failures.json",
-    "filters_file": "keycloak-openid-verifier-filters.json",
-    "skips_file": "keycloak-openid-verifier-skips.json"
+    "config_file": "keycloak-verifier-config.json",
+    "failures_file": "keycloak-verifier-failures.json",
+    "filters_file": "keycloak-verifier-filters.json",
+    "skips_file": "keycloak-verifier-skips.json"
   }
 }'
 
@@ -44,7 +36,6 @@ KC_ADMIN_PASSWORD="admin"
 
 KC_CLIENT="oid4vci-client"
 KC_CLIENT2="oid4vci-client2"
-MDOC_CREDENTIAL_CONFIGURATION_ID="${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18013.5.1.mDL}"
 
 # Default target if not set
 : "${TARGET:=proxy}"
@@ -52,10 +43,6 @@ MDOC_CREDENTIAL_CONFIGURATION_ID="${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18
 
 echo "OpenID Conformance Suite target: $TARGET"
 case "$TARGET" in
-  proxy)
-    CONFORMANCE_SERVER="${CONFORMANCE_SERVER:-https://localhost.emobix.co.uk:8443}"
-    export ISSUER_BASE_URL="https://keycloak.nessustech.io:8443"
-    ;;
   ngrok)
     if [[ -z "${NGROK_URL:-}" ]]; then
       NGROK_URL=$(curl -fsS http://127.0.0.1:4040/api/tunnels 2>/dev/null \
@@ -68,7 +55,11 @@ case "$TARGET" in
     fi
     CONFORMANCE_SERVER="${CONFORMANCE_SERVER:-https://localhost.emobix.co.uk:8443}"
     export CONFORMANCE_DEV_MODE="${CONFORMANCE_DEV_MODE:-true}"
-    export ISSUER_BASE_URL="${NGROK_URL}"
+    export KEYCLOAK_HOSTNAME="${NGROK_URL}"
+    ;;
+  proxy)
+    CONFORMANCE_SERVER="${CONFORMANCE_SERVER:-https://localhost.emobix.co.uk:8443}"
+    export KEYCLOAK_HOSTNAME="https://keycloak.nessustech.io:8443"
     ;;
   *)
     echo "Unsupported target: $TARGET"
@@ -88,7 +79,6 @@ init_opts() {
   opt_show_client_scope=""
   opt_show_role=""
   opt_run_role=""
-  opt_run_config=""
   opt_run_module=""
   opt_run_profile=""
 }
@@ -114,7 +104,7 @@ show_help() {
   echo "    - [1|issuer]                                Run the default issuer profile"
   echo "    - [2|verifier]                              Run the default verifier profile"
   echo "    - [3|fapi2-user-rejects-authentication]     User rejects consent during authentication"
-  echo "    - [oid4vci-mdoc-issuance]                   Run the mdoc issuer profile"
+  echo "    - [4|oid4vci-mdoc-issuance]                 Run the mdoc issuer profile"
   echo ""
 }
 
@@ -177,10 +167,6 @@ while [[ $# -gt 0 ]]; do
         esac
       else
         opt_run_module="$2"
-        shift
-      fi
-      if [[ -n "${2-}" && "${2-}" != --* ]]; then
-        opt_run_config="$2"
         shift
       fi
       ;;
@@ -247,37 +233,6 @@ _get_plan_name() {
   jq -r ".${role}.plan_name" <<< "${SCRIPT_CONFIG}"
 }
 
-_prepare_config() {
-  local role="${1//-/_}"
-  local config="$2"
-
-  if [[ "${role}" != issuer* ]]; then
-    echo "${config}"
-    return
-  fi
-
-  if [[ "${TARGET}" != "ngrok" && "${role}" != "issuer_mdoc" ]]; then
-    echo "${config}"
-    return
-  fi
-
-  local generated="${SCRIPT_DIR}/config/.generated-${role}-$(basename "${config}")"
-  local issuer="${ISSUER_BASE_URL}/realms/${KC_REALM}"
-  local jq_filter='.vci.credential_issuer_url = $issuer
-      | .vci.client_attestation_issuer = ($issuer + "/client-attester/attest")'
-
-  if [[ "${role}" == "issuer_mdoc" ]]; then
-    jq_filter="${jq_filter} | .vci.credential_configuration_id = \$mdoc_credential_configuration_id"
-  fi
-
-  jq \
-    --arg issuer "${issuer}" \
-    --arg mdoc_credential_configuration_id "${MDOC_CREDENTIAL_CONFIGURATION_ID}" \
-    "${jq_filter}" \
-    "${config}" > "${generated}"
-  echo "${generated}"
-}
-
 _run_test_modules() {
   local role="$1"
   local plan="$2"
@@ -286,8 +241,6 @@ _run_test_modules() {
   local failures="$5"
   local skips="$6"
   local config="$7"
-
-  config=$(_prepare_config "${role}" "${config}")
 
   local cmd_args=(--no-parallel --verbose)
 
@@ -313,13 +266,14 @@ before_all() {
 
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
 
-  origin="${CONFORMANCE_SERVER%/}"
-  redirect_uri="${origin}/test/a/keycloak/callback"
+  openid_origin="${CONFORMANCE_SERVER%/}"
+  redirect_uri="${openid_origin}/test/a/keycloak/callback"
 
   for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
     kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
-    kc_set_client_property "${KC_REALM}" "${client_id}" "webOrigins" "[\"${origin}\"]"
+    kc_set_client_property "${KC_REALM}" "${client_id}" "webOrigins" "[\"${openid_origin}\"]"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "request.object.required" "not required"
+    kc_set_client_attribute "${KC_REALM}" "${client_id}" "tls.client.certificate.bound.access.tokens" "false"
   done
 
   kc_set_client_property "${KC_REALM}" "${KC_CLIENT}" "redirectUris" "[\"${redirect_uri}\"]"
@@ -347,18 +301,24 @@ clean_plans() {
 
 # Run test modules
 #
+# - role is required, all else is optional
+# - modules, variants, config are generated from defaults when not provided by the caller
 run_modules() {
   local role="$1"
-  local modules="$2"
-  local config="$3"
+  local modules="${2:-}"
+  local variants="${3:-}"
+  local config="${4:-}"
 
   plan=$(_get_plan_name "${role}")
-  variants=$(jq -r ".${role}.variants" <<< "${SCRIPT_CONFIG}")
   failures="${SCRIPT_DIR}/config/$(jq -r ".${role}.failures_file" <<< "${SCRIPT_CONFIG}")"
   skips="${SCRIPT_DIR}/config/$(jq -r ".${role}.skips_file" <<< "${SCRIPT_CONFIG}")"
 
+  if [[ -z "${variants}" ]]; then
+    variants=$(jq -r ".${role}.variants" <<< "${SCRIPT_CONFIG}")
+  fi
+
   if [[ -z "${modules}" ]]; then
-    modules=$(printf "%s\n" "$(_get_effective_modules ${role})" | paste -sd "," -)
+    modules=$(printf "%s\n" "$(_get_effective_modules "${role}")" | paste -sd "," -)
 
     filtered_modules=$(_get_filtered_modules "${role}")
     if [ -n "$filtered_modules" ]; then
@@ -372,8 +332,17 @@ run_modules() {
     skips=""
   fi
 
+  if [[ -z "${config}" ]]; then
+    config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
+    config_out="${SCRIPT_DIR}/config/.keycloak-${TARGET}-${role}-config.json"
+    issuer_url="${KEYCLOAK_HOSTNAME}/realms/${KC_REALM}"
+    jq --arg issuer_url "${issuer_url}" '.vci.credential_issuer_url = $issuer_url' "${config_in}" > "${config_out}"
+  else
+    config_out="${config}"
+  fi
+
   if [ -n "${modules}" ]; then
-    _run_test_modules "${role}" "${plan}" "${variants}" "${modules}" "${failures}" "${skips}" "${config}"
+    _run_test_modules "${role}" "${plan}" "${variants}" "${modules}" "${failures}" "${skips}" "${config_out}"
   fi
 }
 
@@ -383,27 +352,33 @@ run_profile_oid4vci_default() {
   role="issuer"
   echo "Run profile: ${role}";
 
-  config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-  run_modules "${role}" "" "${config}"
+  run_modules "${role}"
 }
 
 run_profile_oid4vci_mdoc_issuance() {
-  role="issuer_mdoc"
+  role="issuer"
   echo "Run profile: ${role}";
 
-  config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
+  variants="[credential_format=mdoc][vci_authorization_code_flow_variant=wallet_initiated]"
   modules="oid4vci-1_0-issuer-metadata-test,oid4vci-1_0-issuer-metadata-test-signed,oid4vci-1_0-issuer-happy-flow"
-  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
-  for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
-    kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
-    kc_set_client_attribute "${KC_REALM}" "${client_id}" "tls.client.certificate.bound.access.tokens" "false"
-  done
-  set +e
-  run_modules "${role}" "${modules}" "${config}"
-  status=$?
-  set -e
-  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "true"
-  return "${status}"
+
+  config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
+  config_out="${SCRIPT_DIR}/config/.keycloak-${TARGET}-${role}-mdoc-config.json"
+
+  issuer_url="${KEYCLOAK_HOSTNAME}/realms/${KC_REALM}"
+  credential_configuration_id="${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18013.5.1.mDL}"
+  jq --arg issuer_url "${issuer_url}" --arg credential_configuration_id "${credential_configuration_id}" \
+    '.vci.credential_issuer_url = $issuer_url | .vci.credential_configuration_id = $credential_configuration_id' \
+    "${config_in}" > "${config_out}"
+
+  run_modules "${role}" "${modules}" "${variants}" "${config_out}"
+
+  # [TODO >>>] Explain why we'd want to do this. How does it affect after_all?
+  #  set +e
+  #  run_modules "${role}" "${modules}" "${variants}" "${config_out}"
+  #  status=$?
+  #  set -e
+  #  return "${status}"
 }
 
 # Run the default verifier profile
@@ -411,8 +386,7 @@ run_profile_oid4vci_mdoc_issuance() {
 run_profile_oid4vcp_default() {
   role="verifier"
   echo "Run profile: ${role}";
-  config="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-  run_modules "${role}" "" "${config}"
+  run_modules "${role}"
 }
 
 # Run a profile 'fapi2-user-rejects-authentication'
@@ -420,7 +394,7 @@ run_profile_oid4vcp_default() {
 run_profile_fapi2_user_rejects_authentication() {
   echo "Run profile: fapi2-user-rejects-authentication"
 
-  enabled=$(kc_get_client_policy "${KC_REALM}" "oid4vc-haip-policy" | jq -r .enabled)
+  haip_enabled=$(kc_get_client_policy "${KC_REALM}" "oid4vc-haip-policy" | jq -r .haip_enabled)
 
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
 
@@ -429,11 +403,9 @@ run_profile_fapi2_user_rejects_authentication() {
   done
 
   role="issuer"
-  plan=$(_get_plan_name "${role}")
-  variants=$(jq -r ".${role}.variants" <<< "${SCRIPT_CONFIG}")
   modules="fapi2-security-profile-final-user-rejects-authentication"
   config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-  config_out="${SCRIPT_DIR}/config/.keycloak-openid-config-fapi2-user-rejects-authentication.json"
+  config_out="${SCRIPT_DIR}/config/.keycloak-${TARGET}-${role}-config-fapi2-user-rejects-authentication.json"
 
   jq '.browser[0].tasks |=
     (.[:1] + [{
@@ -444,13 +416,13 @@ run_profile_fapi2_user_rejects_authentication() {
       ]
     }] + .[1:])' "${config_in}" > "${config_out}"
 
-  _run_test_modules "${role}" "${plan}" "${variants}" "${modules}" "" "" "${config_out}"
+  run_modules "${role}" "${modules}" "" "${config_out}"
 
   for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
     kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
   done
 
-  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "${enabled}"
+  kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "${haip_enabled}"
 }
 
 # Show client configuration
@@ -560,8 +532,7 @@ main() {
   if [[ -n ${opt_run_role} && -n ${opt_run_module} ]]; then
     _activate_venv
 
-    default_config="${SCRIPT_DIR}/config/$(jq -r ".${opt_run_role}.config_file" <<< "${SCRIPT_CONFIG}")"
-    run_modules "${opt_run_role}" "${opt_run_module}" "${opt_run_config:-$default_config}"
+    run_modules "${opt_run_role}" "${opt_run_module}"
 
     _deactivate_venv
     return
@@ -581,7 +552,7 @@ main() {
       3|fapi2-user-rejects-authentication)
         run_profile_fapi2_user_rejects_authentication
         ;;
-      oid4vci-mdoc-issuance)
+      4|oid4vci-mdoc-issuance)
         run_profile_oid4vci_mdoc_issuance
         ;;
       *)
