@@ -1,110 +1,5 @@
 [
   {
-    "test-name": "fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
-    "current-block": "Make request to authorization endpoint",
-    "condition": "WebRunner",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
-    "current-block": "Make request to authorization endpoint",
-    "condition": "fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureHttpStatusCodeIs4xx",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "CheckTokenEndpointReturnedInvalidRequestGrantOrDPopProofError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "ValidateErrorFromTokenEndpointResponseError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
     "test-name": "fapi2-security-profile-final-refresh-token",
     "variant": {
       "sender_constrain": "dpop",
@@ -119,7 +14,7 @@
       "fapi_profile": "vci_haip",
       "fapi_response_mode": "plain_response"
     },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
+    "configuration-filename": "*/.keycloak-issuer-config.json",
     "current-block": "",
     "condition": "CheckTokenEndpointHttpStatus200",
     "expected-result": "failure",
@@ -140,7 +35,7 @@
       "fapi_profile": "vci_haip",
       "fapi_response_mode": "plain_response"
     },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
+    "configuration-filename": "*/.keycloak-issuer-config.json",
     "current-block": "",
     "condition": "CheckIfTokenEndpointResponseError",
     "expected-result": "failure",
@@ -161,7 +56,7 @@
       "fapi_profile": "vci_haip",
       "fapi_response_mode": "plain_response"
     },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
+    "configuration-filename": "*/.keycloak-issuer-config.json",
     "current-block": "Make request to authorization endpoint",
     "condition": "fapi2-security-profile-final-par-ensure-reused-request-uri-prior-to-auth-completion-succeeds",
     "expected-result": "failure",
@@ -182,7 +77,7 @@
       "fapi_profile": "vci_haip",
       "fapi_response_mode": "plain_response"
     },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
+    "configuration-filename": "*/.keycloak-issuer-config.json",
     "current-block": "Verify authorization endpoint response",
     "condition": "EnsureInvalidRequestUriError",
     "expected-result": "failure",
@@ -203,73 +98,10 @@
       "fapi_profile": "vci_haip",
       "fapi_response_mode": "plain_response"
     },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
+    "configuration-filename": "*/.keycloak-issuer-config.json",
     "current-block": "Verify authorization endpoint response",
     "condition": "EnsureInvalidRequestUriError",
     "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-par-ensure-pkce-required",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureInvalidRequestError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-par-plain-pkce-rejected",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureInvalidRequestError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-holder-of-key-required",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-proxy-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "CheckTokenEndpointHttpStatus400or401",
-    "expected-result": "warning",
     "comment": "**CHANGE ME** explain why this failure occurs"
   }
 ]

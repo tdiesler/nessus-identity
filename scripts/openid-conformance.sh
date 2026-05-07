@@ -336,7 +336,7 @@ run_modules() {
 
   if [[ -z "${config}" ]]; then
     config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-    config_out="${SCRIPT_DIR}/config/.keycloak-${TARGET}-${role}-config.json"
+    config_out="${SCRIPT_DIR}/config/.keycloak-${role}-config.json"
     issuer_url="${KEYCLOAK_HOSTNAME}/realms/${KC_REALM}"
     jq --arg issuer_url "${issuer_url}" '.vci.credential_issuer_url = $issuer_url' "${config_in}" > "${config_out}"
   else
@@ -365,7 +365,7 @@ run_profile_oid4vci_mdoc_issuance() {
   modules="oid4vci-1_0-issuer-metadata-test,oid4vci-1_0-issuer-metadata-test-signed,oid4vci-1_0-issuer-happy-flow"
 
   config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-  config_out="${SCRIPT_DIR}/config/.keycloak-${TARGET}-${role}-mdoc-config.json"
+  config_out="${SCRIPT_DIR}/config/.keycloak-${role}-mdoc-config.json"
 
   issuer_url="${KEYCLOAK_HOSTNAME}/realms/${KC_REALM}"
   credential_configuration_id="${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18013.5.1.mDL}"
@@ -396,7 +396,7 @@ run_profile_oid4vcp_default() {
 run_profile_fapi2_user_rejects_authentication() {
   echo "Run profile: fapi2-user-rejects-authentication"
 
-  haip_enabled=$(kc_get_client_policy "${KC_REALM}" "oid4vc-haip-policy" | jq -r .haip_enabled)
+  haip_enabled=$(kc_get_client_policy "${KC_REALM}" "oid4vc-haip-policy" | jq -r .enabled)
 
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
 
@@ -407,7 +407,7 @@ run_profile_fapi2_user_rejects_authentication() {
   role="issuer"
   modules="fapi2-security-profile-final-user-rejects-authentication"
   config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-  config_out="${SCRIPT_DIR}/config/.keycloak-${TARGET}-${role}-config-fapi2-user-rejects-authentication.json"
+  config_out="${SCRIPT_DIR}/config/.keycloak-${role}-config-fapi2-user-rejects-authentication.json"
 
   jq '.browser[0].tasks |=
     (.[:1] + [{
