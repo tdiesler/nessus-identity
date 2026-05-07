@@ -292,42 +292,45 @@ kc_create_haip_conformance_client_policies() {
           {
             "executor": "dpop-bind-enforcer",
             "configuration": {
-              "auto-configure": "true",
-              "enforce-authorization-code-binding-to-dpop": "false",
-              "allow-only-refresh-token-binding": "false"
+              "auto-configure": false,
+              "enforce-authorization-code-binding-to-dpop": false,
+              "allow-only-refresh-token-binding": false
             }
           },
           {
             "executor": "full-scope-disabled",
             "configuration": {
-              "auto-configure": true
+              "auto-configure": false
             }
           },
           {
             "executor": "holder-of-key-enforcer",
             "configuration": {
-              "auto-configure": "true"
+              "auto-configure": false
             }
           },
           {
             "executor": "pkce-enforcer",
             "configuration": {
-              "auto-configure": "true"
+              "auto-configure": false
             }
           },
           {
             "executor": "reject-implicit-grant",
             "configuration": {
-              "auto-configure": "true"
+              "auto-configure": false
             }
           },
           {
             "executor": "secure-client-authentication-assertion",
-            "configuration": {}
+            "configuration": {
+              "auto-configure": false
+            }
           },
           {
             "executor": "secure-client-authenticator",
             "configuration": {
+              "auto-configure": false,
               "allowed-client-authenticators": [
                 "client-jwt",
                 "client-x509"
@@ -337,29 +340,36 @@ kc_create_haip_conformance_client_policies() {
           },
           {
             "executor": "secure-client-uris",
-            "configuration": {}
+            "configuration": {
+              "auto-configure": false
+            }
           },
           {
             "executor": "secure-par-content",
-            "configuration": {}
+            "configuration": {
+              "auto-configure": false
+            }
           },
           {
             "executor": "secure-request-object",
             "configuration": {
-              "verify-nbf": true,
+              "auto-configure": false,
               "available-period": "3600",
-              "encryption-required": false
+              "encryption-required": false,
+              "verify-nbf": true
             }
           },
           {
             "executor": "secure-signature-algorithm",
             "configuration": {
+              "auto-configure": false,
               "default-algorithm": "PS256"
             }
           },
           {
             "executor": "secure-signature-algorithm-signed-jwt",
             "configuration": {
+              "auto-configure": false,
               "require-client-assertion": false
             }
           }
