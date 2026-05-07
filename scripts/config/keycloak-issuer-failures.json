@@ -61,47 +61,5 @@
     "condition": "fapi2-security-profile-final-par-ensure-reused-request-uri-prior-to-auth-completion-succeeds",
     "expected-result": "failure",
     "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-par-attempt-reuse-request_uri",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureInvalidRequestUriError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-par-attempt-to-use-expired-request_uri",
-    "variant": {
-      "sender_constrain": "dpop",
-      "client_auth_type": "client_attestation",
-      "credential_format": "sd_jwt_vc",
-      "vci_authorization_code_flow_variant": "wallet_initiated",
-      "authorization_request_type": "simple",
-      "openid": "plain_oauth",
-      "fapi_request_method": "unsigned",
-      "vci_grant_type": "authorization_code",
-      "vci_credential_encryption": "plain",
-      "fapi_profile": "vci_haip",
-      "fapi_response_mode": "plain_response"
-    },
-    "configuration-filename": "*/.keycloak-issuer-config.json",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "EnsureInvalidRequestUriError",
-    "expected-result": "failure",
-    "comment": "**CHANGE ME** explain why this failure occurs"
   }
 ]
