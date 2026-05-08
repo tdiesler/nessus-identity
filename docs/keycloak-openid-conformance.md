@@ -178,6 +178,7 @@ Run one of the configured profiles:
 ./scripts/openid-conformance.sh --run-profile verifier
 ./scripts/openid-conformance.sh --run-profile fapi2-user-rejects-authentication
 ./scripts/openid-conformance.sh --run-profile oid4vci-mdoc-issuance
+TARGET=ngrok ./scripts/openid-conformance.sh --run-profile oid4vp-verifier-happy-flow
 ```
 
 The mdoc issuer profile runs the issuer metadata tests and the issuer happy-flow
@@ -188,6 +189,26 @@ credential configuration when the imported realm uses a different id:
 MDOC_CREDENTIAL_CONFIGURATION_ID="your-mdoc-config-id" \
 ./scripts/openid-conformance.sh --run-profile oid4vci-mdoc-issuance
 ```
+
+The OID4VP verifier happy-flow profile drives Keycloak as an OID4VP verifier
+through the `oid4vp` identity provider. It creates a conformance test module,
+updates the Keycloak IdP wallet endpoint to that module's authorization endpoint,
+and starts a broker login through Keycloak. For local runs use `TARGET=ngrok`
+and start Keycloak with `oid4vc-vp` enabled:
+
+```shell
+ngrok http 8080
+make keycloak-build
+TARGET=ngrok make keycloak-run-ngrok
+TARGET=ngrok ./scripts/oid4vci-setup.sh --force --skip-wallet --oid4vp
+TARGET=ngrok ./scripts/openid-conformance.sh --run-profile oid4vp-verifier-happy-flow
+```
+
+Use the latest tagged conformance-suite release for these runs, not `master`.
+The profile excludes direct_post.jwt variants because they require encrypted
+responses. It also excludes spec-invalid happy-flow combinations where
+`redirect_uri` would be used with a signed request object, or certificate-bound
+Client Identifier Prefixes would be used without one.
 
 ## HAIP Conformance Status
 

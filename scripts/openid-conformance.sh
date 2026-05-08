@@ -36,6 +36,8 @@ KC_ADMIN_PASSWORD="admin"
 
 KC_CLIENT="oid4vci-client"
 KC_CLIENT2="oid4vci-client2"
+KC_OID4VP_CLIENT="${KC_OID4VP_CLIENT:-oid4vp-test-client}"
+KC_OID4VP_IDP_ALIAS="${KC_OID4VP_IDP_ALIAS:-oid4vp-idp}"
 
 # Default target if not set
 : "${TARGET:=proxy}"
@@ -107,6 +109,7 @@ show_help() {
   echo "    - [2|verifier]                              Run the default verifier profile"
   echo "    - [3|fapi2-user-rejects-authentication]     User rejects consent during authentication"
   echo "    - [4|oid4vci-mdoc-issuance]                 Run the mdoc issuer profile"
+  echo "    - [5|oid4vp-verifier-happy-flow]            Run the OID4VP verifier happy-flow profile"
   echo ""
 }
 
@@ -258,6 +261,228 @@ _run_test_modules() {
   ./run-test-plan.py "${cmd_args[@]}" "${plan}${variants}:${modules}" "${config}"
 }
 
+_url_encode() {
+  jq -nr --arg value "$1" '$value | @uri'
+}
+
+# OID4VP verifier happy-flow needs per-variant Keycloak IdP updates from the
+# conformance module's exposed authorization_endpoint before broker login.
+_conformance_api() {
+  local method="$1"
+  local url="$2"
+  shift 2
+
+  local curl_args=(-ksfS -X "${method}" -H "Content-Type: application/json")
+  if [[ -z "${CONFORMANCE_DEV_MODE:-}" && -n "${CONFORMANCE_TOKEN:-}" ]]; then
+    curl_args+=(-H "Authorization: Bearer ${CONFORMANCE_TOKEN}")
+  fi
+
+  curl "${curl_args[@]}" "$@" "${url}"
+}
+
+_wait_for_oid4vp_module_state() {
+  local module_id="$1"
+  local states="$2"
+  local timeout_seconds="${3:-240}"
+  local deadline=$((SECONDS + timeout_seconds))
+  local last_status=""
+  local info
+  local status
+
+  while (( SECONDS < deadline )); do
+    info=$(_conformance_api GET "${CONFORMANCE_SERVER}/api/info/${module_id}")
+    status=$(jq -r '.status // ""' <<< "${info}")
+    if [[ "${status}" != "${last_status}" ]]; then
+      echo "module ${module_id} status: ${status}" >&2
+      last_status="${status}"
+    fi
+    if [[ ",${states}," == *",${status},"* ]]; then
+      printf "%s\n" "${info}"
+      return 0
+    fi
+    if [[ "${status}" == "INTERRUPTED" ]]; then
+      printf "%s\n" "${info}"
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "Timed out waiting for ${module_id} to reach one of: ${states}" >&2
+  return 1
+}
+
+_wait_for_oid4vp_exposed_value() {
+  local module_id="$1"
+  local name="$2"
+  local timeout_seconds="${3:-240}"
+  local deadline=$((SECONDS + timeout_seconds))
+  local value
+
+  while (( SECONDS < deadline )); do
+    value=$(_conformance_api GET "${CONFORMANCE_SERVER}/api/runner/${module_id}" | jq -r --arg name "${name}" '.exposed[$name] // ""')
+    if [[ -n "${value}" ]]; then
+      printf "%s\n" "${value}"
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "Timed out waiting for exposed value ${name} from ${module_id}" >&2
+  return 1
+}
+
+_oid4vp_variant_name() {
+  jq -r 'to_entries | sort_by(.key) | map("\(.key)=\(.value)") | join(",")' <<< "$1"
+}
+
+_oid4vp_authorization_request_transport() {
+  local request_method="$1"
+  case "${request_method}" in
+    url_query)
+      echo "query_parameters"
+      ;;
+    request_uri_signed)
+      echo "request_uri"
+      ;;
+    *)
+      echo "Unsupported OID4VP request method: ${request_method}" >&2
+      return 1
+      ;;
+  esac
+}
+
+_oid4vp_is_excluded_variant() {
+  local variant="$1"
+  local request_method
+  local client_id_prefix
+
+  request_method=$(jq -r '.request_method' <<< "${variant}")
+  client_id_prefix=$(jq -r '.client_id_prefix' <<< "${variant}")
+
+  if [[ "${request_method}" == "request_uri_signed" && "${client_id_prefix}" == "redirect_uri" ]]; then
+    return 0
+  fi
+
+  if [[ "${request_method}" == "url_query" && "${client_id_prefix}" =~ ^x509_(san_dns|hash)$ ]]; then
+    return 0
+  fi
+
+  return 1
+}
+
+_oid4vp_update_identity_provider() {
+  local variant="$1"
+  local authorization_endpoint="$2"
+  local request_method
+  local client_id_prefix
+  local authorization_request_transport
+  local idp_json
+
+  request_method=$(jq -r '.request_method' <<< "${variant}")
+  client_id_prefix=$(jq -r '.client_id_prefix' <<< "${variant}")
+  authorization_request_transport=$(_oid4vp_authorization_request_transport "${request_method}")
+
+  idp_json=$(kcadm get "identity-provider/instances/${KC_OID4VP_IDP_ALIAS}" -r "${KC_REALM}")
+  jq \
+    --arg wallet_scheme "${authorization_endpoint}" \
+    --arg authorization_request_transport "${authorization_request_transport}" \
+    --arg client_id_prefix "${client_id_prefix}" \
+    '.config.walletScheme = $wallet_scheme
+      | .config.authorizationRequestTransport = $authorization_request_transport
+      | .config.clientIdentifierPrefix = $client_id_prefix
+      | del(.config.x509SanDnsName)' <<< "${idp_json}" \
+    | kcadm update "identity-provider/instances/${KC_OID4VP_IDP_ALIAS}" -r "${KC_REALM}" -f -
+}
+
+_oid4vp_drive_keycloak_login() {
+  local redirect_uri="${CONFORMANCE_SERVER%/}/test/a/keycloak/callback"
+  local auth_url
+
+  auth_url="${KEYCLOAK_HOSTNAME%/}/realms/${KC_REALM}/protocol/openid-connect/auth"
+  auth_url="${auth_url}?client_id=$(_url_encode "${KC_OID4VP_CLIENT}")"
+  auth_url="${auth_url}&redirect_uri=$(_url_encode "${redirect_uri}")"
+  auth_url="${auth_url}&response_type=code"
+  auth_url="${auth_url}&scope=openid%20profile"
+  auth_url="${auth_url}&kc_idp_hint=$(_url_encode "${KC_OID4VP_IDP_ALIAS}")"
+
+  echo "Starting Keycloak broker login: ${auth_url}"
+  curl -ksfSL --cookie-jar /tmp/oid4vp-keycloak-login-cookies.txt --cookie /tmp/oid4vp-keycloak-login-cookies.txt "${auth_url}" > /dev/null
+}
+
+_run_oid4vp_happy_flow_variant() {
+  local plan_name="oid4vp-1final-verifier-test-plan"
+  local module_name="oid4vp-1final-verifier-happy-flow"
+  local variant="$1"
+  local signing_jwk="${CONFORMANCE_SCRIPTS_DIR}/certs-keys/vp-signing-jwk.json"
+  local config_out="${SCRIPT_DIR}/config/.keycloak-oid4vp-happy-flow-config.json"
+  local dns_name
+  local plan_id
+  local module_id
+  local info
+  local authorization_endpoint
+  local final_status
+  local final_result
+
+  dns_name=$(sed -E 's#^[^:]+://##; s#/.*$##; s#:.*$##' <<< "${KEYCLOAK_HOSTNAME}")
+  echo "Running variant: $(_oid4vp_variant_name "${variant}")"
+
+  if [[ "$(jq -r '.client_id_prefix' <<< "${variant}")" == "x509_san_dns" ]]; then
+    jq -n \
+      --slurpfile signing_jwk "${signing_jwk}" \
+      --arg dns_name "${dns_name}" \
+      '{
+        alias: "keycloak-oid4vp-happy-flow",
+        description: "Keycloak OID4VP verifier happy-flow",
+        credential: {
+          signing_jwk: $signing_jwk[0]
+        },
+        client: {
+          client_id: $dns_name
+        }
+      }' > "${config_out}"
+  else
+    jq -n \
+      --slurpfile signing_jwk "${signing_jwk}" \
+      '{
+        alias: "keycloak-oid4vp-happy-flow",
+        description: "Keycloak OID4VP verifier happy-flow",
+        credential: {
+          signing_jwk: $signing_jwk[0]
+        }
+      }' > "${config_out}"
+  fi
+
+  plan_id=$(_conformance_api POST \
+    "${CONFORMANCE_SERVER}/api/plan?planName=${plan_name}&variant=$(_url_encode "${variant}")" \
+    --data "@${config_out}" | jq -r '.id')
+  echo "Created test plan: ${CONFORMANCE_SERVER%/}/plan-detail.html?plan=${plan_id}"
+
+  module_id=$(_conformance_api POST \
+    "${CONFORMANCE_SERVER}/api/runner?test=${module_name}&plan=${plan_id}" | jq -r '.id')
+  echo "Created test module: ${CONFORMANCE_SERVER%/}/log-detail.html?log=${module_id}"
+
+  info=$(_wait_for_oid4vp_module_state "${module_id}" "CONFIGURED,WAITING,FINISHED")
+  if [[ "$(jq -r '.status // ""' <<< "${info}")" == "CONFIGURED" ]]; then
+    _conformance_api POST "${CONFORMANCE_SERVER}/api/runner/${module_id}" > /dev/null
+    _wait_for_oid4vp_module_state "${module_id}" "WAITING,FINISHED" > /dev/null
+  fi
+
+  authorization_endpoint=$(_wait_for_oid4vp_exposed_value "${module_id}" "authorization_endpoint")
+  echo "Authorization endpoint: ${authorization_endpoint}"
+  _oid4vp_update_identity_provider "${variant}" "${authorization_endpoint}"
+  _oid4vp_drive_keycloak_login
+
+  info=$(_wait_for_oid4vp_module_state "${module_id}" "FINISHED,INTERRUPTED")
+  final_status=$(jq -r '.status // ""' <<< "${info}")
+  final_result=$(jq -r '.result // ""' <<< "${info}")
+  echo "Final result: status=${final_status} result=${final_result}"
+
+  _conformance_api GET "${CONFORMANCE_SERVER}/api/log/${module_id}" \
+    | jq -r 'limit(20; .[] | select(.result == "FAILURE" or .result == "WARNING") | "\(.result): \(.condition // .conditionId // .src // "") \(.msg // .message // .error // "")")'
+
+  [[ "${final_status}" == "FINISHED" && ( "${final_result}" == "PASSED" || "${final_result}" == "WARNING" ) ]]
+}
+
 
 ## Commands ------------------------------------------------------------------------------------------------------------
 
@@ -389,6 +614,40 @@ run_profile_oid4vcp_default() {
   role="verifier"
   echo "Run profile: ${role}";
   run_modules "${role}"
+}
+
+run_profile_oid4vp_verifier_happy_flow() {
+  echo "Run profile: oid4vp-verifier-happy-flow"
+
+  kc_create_oid4vp_verifier_signing_key "${KC_REALM}"
+  kc_create_oid4vp_client "${KC_REALM}" "${KC_OID4VP_CLIENT}"
+  kc_create_oid4vp_identity_provider "${KC_REALM}" "${KC_OID4VP_IDP_ALIAS}" "openid4vp://"
+
+  local variant
+  local request_method
+  local client_id_prefix
+
+  for request_method in url_query request_uri_signed; do
+    for client_id_prefix in redirect_uri x509_san_dns x509_hash; do
+      variant=$(jq -cn \
+        --arg request_method "${request_method}" \
+        --arg client_id_prefix "${client_id_prefix}" \
+        '{
+          vp_profile: "plain_vp",
+          credential_format: "sd_jwt_vc",
+          response_mode: "direct_post",
+          request_method: $request_method,
+          client_id_prefix: $client_id_prefix
+        }')
+
+      if _oid4vp_is_excluded_variant "${variant}"; then
+        echo "Skipping excluded variant: $(_oid4vp_variant_name "${variant}")"
+        continue
+      fi
+
+      _run_oid4vp_happy_flow_variant "${variant}"
+    done
+  done
 }
 
 # Run a profile 'fapi2-user-rejects-authentication'
@@ -556,6 +815,9 @@ main() {
         ;;
       4|oid4vci-mdoc-issuance)
         run_profile_oid4vci_mdoc_issuance
+        ;;
+      5|oid4vp-verifier-happy-flow)
+        run_profile_oid4vp_verifier_happy_flow
         ;;
       *)
         echo "Unknown profile: $opt_run_profile";
