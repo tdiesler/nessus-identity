@@ -374,7 +374,6 @@ _oid4vp_is_excluded_variant() {
 _oid4vp_update_identity_provider() {
   local variant="$1"
   local authorization_endpoint="$2"
-  local dns_name="$3"
   local request_method
   local client_id_prefix
   local authorization_request_transport
@@ -389,14 +388,10 @@ _oid4vp_update_identity_provider() {
     --arg wallet_scheme "${authorization_endpoint}" \
     --arg authorization_request_transport "${authorization_request_transport}" \
     --arg client_id_prefix "${client_id_prefix}" \
-    --arg dns_name "${dns_name}" \
     '.config.walletScheme = $wallet_scheme
       | .config.authorizationRequestTransport = $authorization_request_transport
       | .config.clientIdentifierPrefix = $client_id_prefix
-      | if $client_id_prefix == "x509_san_dns"
-        then .config.x509SanDnsName = $dns_name
-        else del(.config.x509SanDnsName)
-        end' <<< "${idp_json}" \
+      | del(.config.x509SanDnsName)' <<< "${idp_json}" \
     | kcadm update "identity-provider/instances/${KC_OID4VP_IDP_ALIAS}" -r "${KC_REALM}" -f -
 }
 
@@ -475,7 +470,7 @@ _run_oid4vp_happy_flow_variant() {
 
   authorization_endpoint=$(_wait_for_oid4vp_exposed_value "${module_id}" "authorization_endpoint")
   echo "Authorization endpoint: ${authorization_endpoint}"
-  _oid4vp_update_identity_provider "${variant}" "${authorization_endpoint}" "${dns_name}"
+  _oid4vp_update_identity_provider "${variant}" "${authorization_endpoint}"
   _oid4vp_drive_keycloak_login
 
   info=$(_wait_for_oid4vp_module_state "${module_id}" "FINISHED,INTERRUPTED")
