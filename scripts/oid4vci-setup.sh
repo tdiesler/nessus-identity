@@ -68,6 +68,7 @@ force="false"
 skip_vc="false"
 skip_wallet="false"
 create_mdoc="false"
+create_oid4vp="false"
 
 for arg in "$@"; do
   case $arg in
@@ -98,6 +99,10 @@ for arg in "$@"; do
       ;;
     --mdoc)
       create_mdoc="true"
+      shift
+      ;;
+    --oid4vp)
+      create_oid4vp="true"
       shift
       ;;
     *)
@@ -193,6 +198,14 @@ if kc_create_realm "${realm}" "${force}"; then
   #
   kc_create_user "${realm}" "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}"
   kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
+fi
+
+if [[ "${create_oid4vp}" == "true" ]]; then
+  kc_create_oid4vp_verifier_signing_key "${realm}"
+  kc_create_oid4vp_client "${realm}" "${OID4VP_CLIENT_ID:-oid4vp-test-client}"
+  kc_create_oid4vp_identity_provider "${realm}" \
+    "${OID4VP_IDP_ALIAS:-oid4vp-idp}" \
+    "${OID4VP_WALLET_SCHEME:-openid4vp://}"
 fi
 
 # Fetch the Credential -------------------------------------------------------------------------------------------------
