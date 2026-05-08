@@ -4,10 +4,6 @@
     "comment": "openid-conformance.sh --run-profile fapi2-user-rejects-authentication"
   },
   {
-    "test-name": "fapi2-security-profile-final-ensure-authorization-request-with-long-state",
-    "comment": "https://github.com/keycloak/keycloak/issues/48058"
-  },
-  {
     "test-name": "fapi2-security-profile-final-par-ensure-reused-request-uri-prior-to-auth-completion-succeeds",
     "comment": "run manually, because it test requires a second login with the first being ignored"
   }
