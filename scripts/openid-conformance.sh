@@ -105,11 +105,12 @@ show_help() {
   echo "    - verifier      Verifier modules"
   echo ""
   echo "  Profiles"
-  echo "    - [1|issuer]                                Run the default issuer profile"
-  echo "    - [2|verifier]                              Run the default verifier profile"
-  echo "    - [3|fapi2-user-rejects-authentication]     User rejects consent during authentication"
-  echo "    - [4|oid4vci-mdoc-issuance]                 Run the mdoc issuer profile"
-  echo "    - [5|oid4vp-verifier-happy-flow]            Run the OID4VP verifier happy-flow profile"
+  echo "    - [1|issuer]                                              Run the default issuer profile"
+  echo "    - [2|verifier]                                            Run the default verifier profile"
+  echo "    - [3|fapi2-reused-request-uri-prior-to-auth-completion]   Server enforces one-time use of request_uri"
+  echo "    - [4|fapi2-user-rejects-authentication]                   User rejects consent during authentication"
+  echo "    - [5|oid4vci-mdoc-issuance]                               Run the mdoc issuer profile"
+  echo "    - [6|oid4vp-verifier-happy-flow]                          Run the OID4VP verifier happy-flow profile"
   echo ""
 }
 
@@ -655,6 +656,25 @@ run_profile_oid4vp_verifier_happy_flow() {
   done
 }
 
+# Run a profile 'fapi2-reused-request-uri-prior-to-auth-completion'
+#
+run_profile_fapi2_reused_request_uri_prior_to_auth_completion() {
+  echo "Run profile: fapi2-reused-request-uri-prior-to-auth-completion"
+
+  role="issuer"
+  modules="fapi2-security-profile-final-par-ensure-reused-request-uri-prior-to-auth-completion-succeeds"
+  config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
+  config_out="${SCRIPT_DIR}/config/.keycloak-${role}-config-fapi2-reused-request-uri-prior-to-auth-completion.json"
+
+  # This config has no automated browser interaction.
+  # While this runs, go the WebUI and complete the module there
+  jq 'del(.browser)' "${config_in}" > "${config_out}"
+
+  set +e
+  run_modules "${role}" "${modules}" "" "${config_out}"
+  set -e
+}
+
 # Run a profile 'fapi2-user-rejects-authentication'
 #
 run_profile_fapi2_user_rejects_authentication() {
@@ -779,6 +799,7 @@ main() {
     _activate_venv
     case "${opt_run_role}" in
       issuer)
+        run_profile_fapi2_reused_request_uri_prior_to_auth_completion
         run_profile_fapi2_user_rejects_authentication
         run_profile_oid4vci_default
         ;;
@@ -815,13 +836,16 @@ main() {
       2|verifier)
         run_profile_oid4vcp_default
         ;;
-      3|fapi2-user-rejects-authentication)
+      3|fapi2-reused-request-uri-prior-to-auth-completion)
+        run_profile_fapi2_reused_request_uri_prior_to_auth_completion
+        ;;
+      4|fapi2-user-rejects-authentication)
         run_profile_fapi2_user_rejects_authentication
         ;;
-      4|oid4vci-mdoc-issuance)
+      5|oid4vci-mdoc-issuance)
         run_profile_oid4vci_mdoc_issuance
         ;;
-      5|oid4vp-verifier-happy-flow)
+      6|oid4vp-verifier-happy-flow)
         run_profile_oid4vp_verifier_happy_flow
         ;;
       *)
