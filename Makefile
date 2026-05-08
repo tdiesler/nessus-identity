@@ -9,7 +9,7 @@ DOCKER_IMAGE_TAG := "latest"
 
 KEYCLOAK_DIR ?= ../keycloak
 KEYCLOAK_HOME_DIR ?= $(KEYCLOAK_DIR)/quarkus/dist/target/keycloak-999.0.0-SNAPSHOT
-KEYCLOAK_FEATURES ?= "client-auth-abca,oid4vc-vci,oid4vc-vci-preauth-code"
+KEYCLOAK_FEATURES ?= "client-auth-abca,oid4vc-vci,oid4vc-vci-preauth-code,oid4vc-vp"
 
 # Set the IMAGE_REGISTRY based on the deployment TARGET
 ifeq ($(TARGET), local)
@@ -79,10 +79,10 @@ keycloak-image: keycloak-build
 # 	--log-level=org.keycloak.protocol.oid4vc:debug,org.keycloak.services:debug,org.keycloak.events:debug,org.keycloak.authentication:debug,root:info
 keycloak-run:
 	@KC_HOME="$(KEYCLOAK_HOME_DIR)" && PRINT_ENV="true" \
-		$${KC_HOME}/bin/kc.sh start-dev
+		$${KC_HOME}/bin/kc.sh start-dev \
 			--bootstrap-admin-username=admin \
 			--bootstrap-admin-password=admin \
-			--features=oid4vc-vci
+			--features=$(KEYCLOAK_FEATURES)
 
 keycloak-run-ngrok:
 	@if [ -z "$(NGROK_URL)" ]; then echo "Set NGROK_URL to the public https ngrok URL"; exit 1; fi
