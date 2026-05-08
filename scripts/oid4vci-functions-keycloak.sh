@@ -203,6 +203,71 @@ EOF
   echo "Realm setup complete"
 }
 
+kc_create_oid4vp_verifier_signing_key() {
+  local realm="$1"
+
+  if ! command -v openssl >/dev/null 2>&1; then
+    echo "Cannot configure OID4VP verifier signing certificate: openssl is not on PATH" >&2
+    exit 1
+  fi
+
+  local hostname_no_scheme="${KEYCLOAK_HOSTNAME#*://}"
+  local verifier_dns="${hostname_no_scheme%%/*}"
+  verifier_dns="${verifier_dns%%:*}"
+  if [[ -z "${verifier_dns}" ]]; then
+    echo "Cannot derive OID4VP verifier DNS name from KEYCLOAK_HOSTNAME=${KEYCLOAK_HOSTNAME}" >&2
+    exit 1
+  fi
+
+  local cert_dir="${PWD}/.secret/oid4vp-verifier-cert"
+  rm -rf "${cert_dir}"
+  mkdir -p "${cert_dir}"
+
+  openssl ecparam -name prime256v1 -genkey -noout -out "${cert_dir}/ca.key"
+  openssl req -x509 -new -key "${cert_dir}/ca.key" -sha256 -days 30 \
+    -subj "/CN=OID4VP Conformance Root" \
+    -out "${cert_dir}/ca.crt"
+  openssl ecparam -name prime256v1 -genkey -noout -out "${cert_dir}/intermediate.key"
+  openssl req -new -key "${cert_dir}/intermediate.key" \
+    -subj "/CN=OID4VP Conformance Intermediate" \
+    -out "${cert_dir}/intermediate.csr"
+  cat > "${cert_dir}/intermediate.ext" <<-EOF
+basicConstraints=critical,CA:TRUE,pathlen:0
+keyUsage=critical,keyCertSign,cRLSign
+EOF
+  openssl x509 -req -in "${cert_dir}/intermediate.csr" \
+    -CA "${cert_dir}/ca.crt" \
+    -CAkey "${cert_dir}/ca.key" \
+    -CAcreateserial \
+    -out "${cert_dir}/intermediate.crt" \
+    -days 30 \
+    -sha256 \
+    -extfile "${cert_dir}/intermediate.ext"
+  openssl ecparam -name prime256v1 -genkey -noout -out "${cert_dir}/leaf.key"
+  openssl req -new -key "${cert_dir}/leaf.key" \
+    -subj "/CN=${verifier_dns}" \
+    -out "${cert_dir}/leaf.csr"
+  cat > "${cert_dir}/leaf.ext" <<-EOF
+basicConstraints=CA:FALSE
+keyUsage=digitalSignature
+subjectAltName=DNS:${verifier_dns}
+EOF
+  openssl x509 -req -in "${cert_dir}/leaf.csr" \
+    -CA "${cert_dir}/intermediate.crt" \
+    -CAkey "${cert_dir}/intermediate.key" \
+    -CAcreateserial \
+    -out "${cert_dir}/leaf.crt" \
+    -days 30 \
+    -sha256 \
+    -extfile "${cert_dir}/leaf.ext"
+  openssl pkcs8 -topk8 -nocrypt \
+    -in "${cert_dir}/leaf.key" \
+    -out "${cert_dir}/private-key.pem"
+  cp "${cert_dir}/leaf.crt" "${cert_dir}/certificate-chain.pem"
+
+  echo "Generated OID4VP verifier signing material with non self-signed certificate: ${verifier_dns}"
+}
+
 kc_create_oid4vci_client_policies() {
   local realm="$1"
 
@@ -447,6 +512,7 @@ EOF
     --uusername "service-account-${client_id}" \
     --cclientid realm-management \
     --rolename manage-clients \
+    --rolename manage-identity-providers \
     --rolename manage-realm \
     --rolename manage-users 2>/dev/null
 
@@ -621,6 +687,121 @@ EOF
 
   metadata=$(curl -s "${metadataUrl}")
   echo "${metadata}" | jq -r '.credential_configurations_supported | keys[]'
+}
+
+kc_create_oid4vp_client() {
+  local realm="$1"
+  local client_id="$2"
+
+  local client_uuid
+  client_uuid=$(kcadm get "realms/${realm}/clients" -q clientId="${client_id}" --fields id --format csv --noquotes 2>/dev/null || true)
+
+  local redirect_uri="${CONFORMANCE_SERVER:-https://localhost.emobix.co.uk:8443}/test/a/keycloak/callback"
+  local client_json
+  client_json=$(jq -n \
+    --arg client_id "${client_id}" \
+    --arg redirect_uri "${redirect_uri}" \
+    --arg keycloak_hostname "${KEYCLOAK_HOSTNAME}" \
+    '{
+      clientId: $client_id,
+      name: "OID4VP Conformance Broker Client",
+      enabled: true,
+      protocol: "openid-connect",
+      publicClient: true,
+      standardFlowEnabled: true,
+      directAccessGrantsEnabled: false,
+      redirectUris: [$redirect_uri],
+      webOrigins: [],
+      defaultClientScopes: ["profile"],
+      attributes: {
+        "post.logout.redirect.uris": $keycloak_hostname
+      }
+    }')
+
+  if [[ -n "${client_uuid}" ]]; then
+    echo "Update OID4VP conformance client: ${client_id}"
+    kcadm update "realms/${realm}/clients/${client_uuid}" -f - <<< "${client_json}"
+  else
+    echo "Create OID4VP conformance client: ${client_id}"
+    kcadm create "realms/${realm}/clients" -f - <<< "${client_json}"
+  fi
+}
+
+kc_create_oid4vp_identity_provider() {
+  local realm="$1"
+  local alias="$2"
+  local wallet_scheme="$3"
+
+  local signing_jwk="${CONFORMANCE_SCRIPTS_DIR:-${SCRIPT_DIR}/../../conformance-suite/scripts}/certs-keys/vp-signing-jwk.json"
+  if [[ ! -f "${signing_jwk}" ]]; then
+    echo "Cannot find conformance VP signing JWK: ${signing_jwk}" >&2
+    exit 1
+  fi
+
+  local trusted_issuer_certificate
+  trusted_issuer_certificate=$(
+    jq -r '.x5c[0]' "${signing_jwk}" \
+      | fold -w 64 \
+      | awk 'BEGIN { print "-----BEGIN CERTIFICATE-----" } { print } END { print "-----END CERTIFICATE-----" }'
+  )
+
+  local verifier_cert_dir="${PWD}/.secret/oid4vp-verifier-cert"
+  if [[ ! -s "${verifier_cert_dir}/certificate-chain.pem" || ! -s "${verifier_cert_dir}/private-key.pem" ]]; then
+    kc_create_oid4vp_verifier_signing_key "${realm}"
+  fi
+
+  local dcql_query
+  dcql_query=$(jq -cn '{
+    credentials: [
+      {
+        id: "credential",
+        format: "dc+sd-jwt",
+        meta: {
+          vct_values: ["urn:eudi:pid:1"]
+        },
+        claims: [
+          { path: ["given_name"] },
+          { path: ["family_name"] },
+          { path: ["birthdate"] }
+        ]
+      }
+    ]
+  }')
+
+  local idp_json
+  idp_json=$(jq -n \
+    --arg alias "${alias}" \
+    --arg wallet_scheme "${wallet_scheme}" \
+    --arg trusted_issuer_certificate "${trusted_issuer_certificate}" \
+    --arg dcql_query "${dcql_query}" \
+    --rawfile x509_certificate_pem "${verifier_cert_dir}/certificate-chain.pem" \
+    --rawfile x509_private_key_pem "${verifier_cert_dir}/private-key.pem" \
+    '{
+      alias: $alias,
+      displayName: "OID4VP Conformance Wallet",
+      providerId: "oid4vp",
+      enabled: true,
+      trustEmail: true,
+      config: {
+        walletScheme: $wallet_scheme,
+        authorizationRequestTransport: "query_parameters",
+        clientIdentifierPrefix: "redirect_uri",
+        requestObjectLifespan: "300",
+        subjectClaimName: "given_name",
+        x509CertificatePem: $x509_certificate_pem,
+        x509PrivateKeyPem: $x509_private_key_pem,
+        trustedIssuerCertificate: $trusted_issuer_certificate,
+        dcqlQuery: $dcql_query
+      }
+    }')
+
+  if kcadm get "identity-provider/instances/${alias}" -r "${realm}" >/dev/null 2>&1; then
+    echo "Update OID4VP conformance identity provider: ${alias}"
+    kcadm update "identity-provider/instances/${alias}" -r "${realm}" -f - <<< "${idp_json}"
+  else
+    echo "Create OID4VP conformance identity provider: ${alias}"
+    kcadm create "identity-provider/instances" -r "${realm}" -f - <<< "${idp_json}"
+  fi
 }
 
 kc_create_user() {
