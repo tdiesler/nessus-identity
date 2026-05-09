@@ -71,7 +71,7 @@ kc_create_abca_key() {
     -s "config.attester_jwks=${escaped_config_value}"
 }
 
-kc_create_realm() {
+kc_create_oid4vci_realm() {
   local realm="$1"
   local force="$2"
 
@@ -120,6 +120,15 @@ EOF
   #
   kcadm get "realms/${realm}" 2>/dev/null | jq -r '.attributes'
 
+  kc_create_oid4vci_realm_keys "${realm}"
+
+  echo
+  echo "Realm setup complete"
+}
+
+kc_create_oid4vci_realm_keys() {
+  local realm="$1"
+
   realmId=$(kcadm get "realms/${realm}" --fields id --format csv --noquotes)
 
   ## Delete Keys with unwanted algos
@@ -145,21 +154,60 @@ EOF
     fi
   done
 
-  ## Generate a signing key for signing VCs with the ES256
+  ## Generate a CA-backed ES256 signing key for VC signing
   #
-  echo "Creating a Key with algorithm: ES256"
+  echo "Creating CA-backed ES256 VC signing key"
+  
+  if ! command -v mkcert >/dev/null 2>&1; then
+    echo "mkcert is required"
+    exit 1
+  fi
+  
+  HOSTNAME_NO_SCHEME="${KEYCLOAK_HOSTNAME#*://}"
+  ISSUER_DNS="${HOSTNAME_NO_SCHEME%%/*}"
+  ISSUER_DNS="${ISSUER_DNS%%:*}"
+
+  MKCERT_DIR="${PWD}/.secret"
+  CERT_PEM="${MKCERT_DIR}/keycloak-issuer-${TARGET}-cert.pem"
+  KEY_PEM="${MKCERT_DIR}/keycloak-issuer-${TARGET}-cert-key.pem"
+  P12_FILE="${MKCERT_DIR}/keycloak-issuer-${TARGET}-cert.p12"
+
+  if [[ ! -f "${P12_FILE}" ]]; then
+
+    # Ensure local CA exists
+    mkcert -install >/dev/null 2>&1 || true
+
+    # Generate EC certificate for issuer hostname
+    mkcert -ecdsa -cert-file "${CERT_PEM}" -key-file "${KEY_PEM}" "${ISSUER_DNS}"
+
+    # Build PKCS12 keystore
+    openssl pkcs12 -export \
+      -inkey "${KEY_PEM}" \
+      -in "${CERT_PEM}" \
+      -certfile "$(mkcert -CAROOT)/rootCA.pem" \
+      -out "${P12_FILE}" \
+      -name es256-vc-signing \
+      -passout pass:changeit
+  fi
+
+  # Import into Keycloak
   es256KeyProv=$(kcadm create components -r "${realm}" \
     -s name="es256-vc-signing" \
-    -s providerId="ecdsa-generated" \
+    -s providerId="java-keystore" \
     -s providerType="org.keycloak.keys.KeyProvider" \
     -s parentId="${realmId}" \
     -s 'config.keyUse=["sig"]' \
     -s 'config.priority=["120"]' \
     -s 'config.enabled=["true"]' \
     -s 'config.active=["true"]' \
-    -s 'config.ecGenerateCertificate=["true"]' \
-    -s 'config.algorithm=["ES256"]' -o)
-
+    -s 'config.algorithm=["ES256"]' \
+    -s 'config.keyPassword=["changeit"]' \
+    -s 'config.storePassword=["changeit"]' \
+    -s 'config.keystorePassword=["changeit"]' \
+    -s 'config.keyAlias=["es256-vc-signing"]' \
+    -s "config.keystore=[\"${P12_FILE}\"]" \
+    -o)
+  
   echo "ES256 Key: ${es256KeyProv}"
 
   # Generate an EC encryption key provider for ECDH-ES
@@ -198,74 +246,6 @@ EOF
     issuer_did=$(jbang "${SCRIPT_DIR}/es256pub_to_didkey.java" "$x" "$y")
     echo "Issuer Did: ${issuer_did}"
   fi
-
-  echo
-  echo "Realm setup complete"
-}
-
-kc_create_oid4vp_verifier_signing_key() {
-  local realm="$1"
-
-  if ! command -v openssl >/dev/null 2>&1; then
-    echo "Cannot configure OID4VP verifier signing certificate: openssl is not on PATH" >&2
-    exit 1
-  fi
-
-  local hostname_no_scheme="${KEYCLOAK_HOSTNAME#*://}"
-  local verifier_dns="${hostname_no_scheme%%/*}"
-  verifier_dns="${verifier_dns%%:*}"
-  if [[ -z "${verifier_dns}" ]]; then
-    echo "Cannot derive OID4VP verifier DNS name from KEYCLOAK_HOSTNAME=${KEYCLOAK_HOSTNAME}" >&2
-    exit 1
-  fi
-
-  local cert_dir="${PWD}/.secret/oid4vp-verifier-cert"
-  rm -rf "${cert_dir}"
-  mkdir -p "${cert_dir}"
-
-  openssl ecparam -name prime256v1 -genkey -noout -out "${cert_dir}/ca.key"
-  openssl req -x509 -new -key "${cert_dir}/ca.key" -sha256 -days 30 \
-    -subj "/CN=OID4VP Conformance Root" \
-    -out "${cert_dir}/ca.crt"
-  openssl ecparam -name prime256v1 -genkey -noout -out "${cert_dir}/intermediate.key"
-  openssl req -new -key "${cert_dir}/intermediate.key" \
-    -subj "/CN=OID4VP Conformance Intermediate" \
-    -out "${cert_dir}/intermediate.csr"
-  cat > "${cert_dir}/intermediate.ext" <<-EOF
-basicConstraints=critical,CA:TRUE,pathlen:0
-keyUsage=critical,keyCertSign,cRLSign
-EOF
-  openssl x509 -req -in "${cert_dir}/intermediate.csr" \
-    -CA "${cert_dir}/ca.crt" \
-    -CAkey "${cert_dir}/ca.key" \
-    -CAcreateserial \
-    -out "${cert_dir}/intermediate.crt" \
-    -days 30 \
-    -sha256 \
-    -extfile "${cert_dir}/intermediate.ext"
-  openssl ecparam -name prime256v1 -genkey -noout -out "${cert_dir}/leaf.key"
-  openssl req -new -key "${cert_dir}/leaf.key" \
-    -subj "/CN=${verifier_dns}" \
-    -out "${cert_dir}/leaf.csr"
-  cat > "${cert_dir}/leaf.ext" <<-EOF
-basicConstraints=CA:FALSE
-keyUsage=digitalSignature
-subjectAltName=DNS:${verifier_dns}
-EOF
-  openssl x509 -req -in "${cert_dir}/leaf.csr" \
-    -CA "${cert_dir}/intermediate.crt" \
-    -CAkey "${cert_dir}/intermediate.key" \
-    -CAcreateserial \
-    -out "${cert_dir}/leaf.crt" \
-    -days 30 \
-    -sha256 \
-    -extfile "${cert_dir}/leaf.ext"
-  openssl pkcs8 -topk8 -nocrypt \
-    -in "${cert_dir}/leaf.key" \
-    -out "${cert_dir}/private-key.pem"
-  cp "${cert_dir}/leaf.crt" "${cert_dir}/certificate-chain.pem"
-
-  echo "Generated OID4VP verifier signing material with non self-signed certificate: ${verifier_dns}"
 }
 
 kc_create_oid4vci_client_policies() {
@@ -341,7 +321,7 @@ EOF
   kcadm get client-policies/policies -r "${realm}"
 }
 
-kc_create_haip_conformance_client_policies() {
+kc_create_oid4vci_client_profiles_haip() {
   local realm="$1"
 
   # Configure client profiles
@@ -567,7 +547,7 @@ EOF
   done
 }
 
-kc_create_oid4vci_mdoc_credential_configuration() {
+kc_create_oid4vci_credential_configurations_mdoc() {
   local realm="$1"
   local scope_name="${2:-org.iso.18013.5.1.mDL}"
   local credential_configuration_id="${3:-${scope_name}}"
@@ -802,6 +782,71 @@ kc_create_oid4vp_identity_provider() {
     echo "Create OID4VP conformance identity provider: ${alias}"
     kcadm create "identity-provider/instances" -r "${realm}" -f - <<< "${idp_json}"
   fi
+}
+
+kc_create_oid4vp_verifier_signing_key() {
+  local realm="$1"
+
+  if ! command -v openssl >/dev/null 2>&1; then
+    echo "Cannot configure OID4VP verifier signing certificate: openssl is not on PATH" >&2
+    exit 1
+  fi
+
+  local hostname_no_scheme="${KEYCLOAK_HOSTNAME#*://}"
+  local verifier_dns="${hostname_no_scheme%%/*}"
+  verifier_dns="${verifier_dns%%:*}"
+  if [[ -z "${verifier_dns}" ]]; then
+    echo "Cannot derive OID4VP verifier DNS name from KEYCLOAK_HOSTNAME=${KEYCLOAK_HOSTNAME}" >&2
+    exit 1
+  fi
+
+  local cert_dir="${PWD}/.secret/oid4vp-verifier-cert"
+  rm -rf "${cert_dir}"
+  mkdir -p "${cert_dir}"
+
+  openssl ecparam -name prime256v1 -genkey -noout -out "${cert_dir}/ca.key"
+  openssl req -x509 -new -key "${cert_dir}/ca.key" -sha256 -days 30 \
+    -subj "/CN=OID4VP Conformance Root" \
+    -out "${cert_dir}/ca.crt"
+  openssl ecparam -name prime256v1 -genkey -noout -out "${cert_dir}/intermediate.key"
+  openssl req -new -key "${cert_dir}/intermediate.key" \
+    -subj "/CN=OID4VP Conformance Intermediate" \
+    -out "${cert_dir}/intermediate.csr"
+  cat > "${cert_dir}/intermediate.ext" <<-EOF
+basicConstraints=critical,CA:TRUE,pathlen:0
+keyUsage=critical,keyCertSign,cRLSign
+EOF
+  openssl x509 -req -in "${cert_dir}/intermediate.csr" \
+    -CA "${cert_dir}/ca.crt" \
+    -CAkey "${cert_dir}/ca.key" \
+    -CAcreateserial \
+    -out "${cert_dir}/intermediate.crt" \
+    -days 30 \
+    -sha256 \
+    -extfile "${cert_dir}/intermediate.ext"
+  openssl ecparam -name prime256v1 -genkey -noout -out "${cert_dir}/leaf.key"
+  openssl req -new -key "${cert_dir}/leaf.key" \
+    -subj "/CN=${verifier_dns}" \
+    -out "${cert_dir}/leaf.csr"
+  cat > "${cert_dir}/leaf.ext" <<-EOF
+basicConstraints=CA:FALSE
+keyUsage=digitalSignature
+subjectAltName=DNS:${verifier_dns}
+EOF
+  openssl x509 -req -in "${cert_dir}/leaf.csr" \
+    -CA "${cert_dir}/intermediate.crt" \
+    -CAkey "${cert_dir}/intermediate.key" \
+    -CAcreateserial \
+    -out "${cert_dir}/leaf.crt" \
+    -days 30 \
+    -sha256 \
+    -extfile "${cert_dir}/leaf.ext"
+  openssl pkcs8 -topk8 -nocrypt \
+    -in "${cert_dir}/leaf.key" \
+    -out "${cert_dir}/private-key.pem"
+  cp "${cert_dir}/leaf.crt" "${cert_dir}/certificate-chain.pem"
+
+  echo "Generated OID4VP verifier signing material with non self-signed certificate: ${verifier_dns}"
 }
 
 kc_create_user() {
@@ -1144,6 +1189,17 @@ kc_get_client_scope() {
   local scopeName="$2"
   sid=$(kcadm get client-scopes -r "${realm}" | jq -r --arg name "${scopeName}" '.[] | select(.name == $name) | .id')
   kcadm get "client-scopes/${sid}" -r "${realm}" 2>/dev/null | jq -r .
+}
+
+kc_set_client_scope_attribute() {
+  local realm="$1"
+  local scopeName="$2"
+  local attrName="$3"
+  local attrValue="$4"
+  sid=$(kcadm get client-scopes -r "${realm}" | jq -r --arg name "${scopeName}" '.[] | select(.name == $name) | .id')
+
+  echo "Set client scope attribute ${scopeName} ${attrName} => ${attrValue}"
+  kcadm update "client-scopes/${sid}" -r "${realm}" -s "attributes.\"${attrName}\"=${attrValue}"
 }
 
 kc_set_realm_attribute() {

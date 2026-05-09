@@ -165,12 +165,12 @@ client_id="oid4vci-client"
 
 kc_admin_login "${adminUser}" "${adminPass}"
 
-if kc_create_realm "${realm}" "${force}"; then
+if kc_create_oid4vci_realm "${realm}" "${force}"; then
 
   ## Client Policies ---------------------------------------------------------------------------------------------------
   #
   # kc_create_oid4vci_client_policies "${realm}"
-  kc_create_haip_conformance_client_policies "${realm}"
+  kc_create_oid4vci_client_profiles_haip "${realm}"
 
   ## Service Client ----------------------------------------------------------------------------------------------------
   #
@@ -181,13 +181,16 @@ if kc_create_realm "${realm}" "${force}"; then
   ## Client Scopes -----------------------------------------------------------------------------------------------------
   #
   # kc_create_oid4vci_credential_configurations "${realm}"
+  kc_set_client_scope_attribute "${realm}" "oid4vc_natural_person_sd" "vc.credential_signing_alg" "ES256"
+  kc_set_client_scope_attribute "${realm}" "oid4vc_natural_person_jwt" "vc.credential_signing_alg" "ES256"
+
 
   ## Issuance Client ---------------------------------------------------------------------------------------------------
   #
   kc_create_oid4vci_client "${realm}" "${client_id}"
   kc_create_oid4vci_client "${realm}" "${client_id}2"
   if [[ "${create_mdoc}" == "true" ]]; then
-    kc_create_oid4vci_mdoc_credential_configuration "${realm}" "${MDOC_CREDENTIAL_SCOPE:-org.iso.18013.5.1.mDL}" "${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18013.5.1.mDL}" "${MDOC_DOCTYPE:-org.iso.18013.5.1.mDL}"
+    kc_create_oid4vci_credential_configurations_mdoc "${realm}" "${MDOC_CREDENTIAL_SCOPE:-org.iso.18013.5.1.mDL}" "${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18013.5.1.mDL}" "${MDOC_DOCTYPE:-org.iso.18013.5.1.mDL}"
   fi
 
   # Create the Attestation-Based Client Authorization Key --------------------------------------------------------------------

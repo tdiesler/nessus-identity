@@ -36,6 +36,7 @@ KC_ADMIN_PASSWORD="admin"
 
 KC_CLIENT="oid4vci-client"
 KC_CLIENT2="oid4vci-client2"
+KC_CLIENT_SCOPE_SD="oid4vc_natural_person_sd"
 KC_OID4VP_CLIENT="${KC_OID4VP_CLIENT:-oid4vp-test-client}"
 KC_OID4VP_IDP_ALIAS="${KC_OID4VP_IDP_ALIAS:-oid4vp-idp}"
 
@@ -90,7 +91,7 @@ init_opts() {
 init_opts
 
 show_help() {
-  echo "usage: $0 [--clean] [--help] [--show-modules role] [--run role] [--run-module role module] [--run-profile name]"
+  echo "Usage: openid-conformance [--clean] [--help] [--show-modules role] [--run role] [--run-module role module] [--run-profile name]"
   echo ""
   echo "  --clean           Cleans existing test plans from the database"
   echo "  --run-all         Run all profiles for a given role"
@@ -141,7 +142,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --show-scope)
       if [[ -z "${2-}" || "${2-}" == --* ]]; then
-        echo "Scope name required (e.g. --show-scope oid4vc_natural_person_sd)" >&2
+        echo "Scope name required (e.g. --show-scope ${KC_CLIENT_SCOPE_SD})" >&2
         exit 1
       fi
       opt_show_client_scope="$2"
@@ -564,7 +565,10 @@ run_modules() {
     config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
     config_out="${SCRIPT_DIR}/config/.keycloak-${role}-config.json"
     issuer_url="${KEYCLOAK_HOSTNAME}/realms/${KC_REALM}"
-    jq --arg issuer_url "${issuer_url}" '.vci.credential_issuer_url = $issuer_url' "${config_in}" > "${config_out}"
+    trust_anchor="$(cat "$(mkcert -CAROOT)/rootCA.pem")"
+    jq --arg issuer_url "${issuer_url}" --arg trust_anchor "${trust_anchor}" \
+      '.vci.credential_issuer_url = $issuer_url | .credential.trust_anchor_pem = $trust_anchor | .credential.status_list_trust_anchor_pem = $trust_anchor' \
+      "${config_in}" > "${config_out}"
   else
     config_out="${config}"
   fi

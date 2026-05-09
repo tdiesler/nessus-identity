@@ -1,5 +1,15 @@
 {
     "alias": "keycloak",
+    "client": {
+        "client_id": "oid4vci-client"
+    },
+    "client2": {
+        "client_id": "oid4vci-client2"
+    },
+    "credential": {
+        "trust_anchor_pem": "",
+        "status_list_trust_anchor_pem": ""
+    },
     "vci": {
         "credential_issuer_url": "https://keycloak.nessustech.io:8443/realms/oid4vci",
         "credential_configuration_id": "oid4vc_natural_person_sd",
@@ -46,12 +56,6 @@
                 }
             ]
         }
-    },
-    "client": {
-        "client_id": "oid4vci-client"
-    },
-    "client2": {
-        "client_id": "oid4vci-client2"
     },
     "browser": [
         {

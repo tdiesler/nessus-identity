@@ -8,11 +8,40 @@ To make this work, we need to run Keycloak behind a reverse proxy - see the [Con
 
 We can run Keycloak ...
 
-* locally and accessible through a reverse proxy (TARGET=proxy)
-* locally and accessible through ngrok (TARGET=ngrok)
-* remotely with direct access from Cloudflare (TARGET=stage)
+* locally behind NGROK (TARGET=ngrok)
+* locally behind NGINX (TARGET=proxy)
+* remotely nessustech.io (TARGET=stage)
 
-### Keycloak behind NGINX reverse proxy
+Running Keycloak behind ngrok is the most convenient and works (reasonably) when running individual conformance modules
+through the OpenID WebUI (see below). There is however an issue that NGROK allows ciphers reject by the HAIP-1.0 test profile.
+Also, the automated test run seems to hit the NGROK paywall because of too many requests/min.
+
+### Generate an x5c certificate for Keycloak
+
+Install the local root CA
+
+```shell
+brew install mkcert
+mkcert -install
+```
+
+Generate a certificate for Keycloak
+
+```shell
+mkcert -cert-file ".secret/keycloak-proxy.pem" -key-file ".secret/keycloak-proxy-key.pem" keycloak.nessustech.io
+```
+
+Build the x5c certificate chain
+
+```shell
+cat ".secret/keycloak-proxy.pem" "$(mkcert -CAROOT)/rootCA.pem" > ".secret/keycloak-proxy-chain.pem"
+```
+
+
+### Keycloak behind NGINX
+
+NGINX is deployed as a standalone service on nessustech.io. In order to use this method you need to granted SSH access
+to that server in order to open the tunnel. TODO: is there a way to tunnel access without general SSH access?
 
 ```shell
 make keycloak-build keycloak-run-proxy
@@ -26,7 +55,13 @@ ssh -R 127.0.0.1:8080:localhost:8080 core@vps4c.eu.ebsi
 
 It should now be possible to access Keycloak on: https://keycloak.nessustech.io:8443
 
-### Keycloak behind ngrok
+Now, setup test oid4vci realm, which assumes that you have `kcadm` on your path.
+
+```shell
+TARGET=proxy ./scripts/oid4vci-setup.sh --force
+```
+
+### Keycloak behind NGROK
 
 The `ngrok` target runs Keycloak locally and exposes it through a ngrok HTTPS
 tunnel. The conformance suite uses the ngrok URL as the issuer base URL.
@@ -41,13 +76,10 @@ export NGROK_URL="$(curl -fsS http://127.0.0.1:4040/api/tunnels | jq -r '.tunnel
 Run Keycloak locally with the public ngrok URL as its hostname:
 
 ```shell
-make keycloak-build
 make keycloak-build keycloak-run-ngrok
 ```
 
-Put the freshly built Keycloak admin CLI on the path and import the conformance
-realm. The `ngrok` target uses `admin` / `admin` for the local Keycloak admin
-user by default and `https://waltid-wallet-api.localtest.me` for WaltID.
+Now, setup test oid4vci realm, which assumes that you have `kcadm` on your path.
 
 ```shell
 TARGET=ngrok ./scripts/oid4vci-setup.sh --force
@@ -77,34 +109,25 @@ Also configure these ciphers
 
 It should now be possible to access Keycloak on: https://keycloak.nessustech.io
 
-## Import the test realm
+## Setup the oid4vci test realm
 
-We have a `oid4vci-setup.sh` script that we can use to prepare the Issuer for OpenID Conformance testing.
+We have a `oid4vci-setup.sh` script that we can use to prepare the Issuer/Verifier for OpenID Conformance testing.
 
-```
-TARGET=proxy ./scripts/oid4vci-setup.sh 
-```
-
-For `TARGET=ngrok`:
+The `--force` option creates the `oid4vci` realm from scratch
 
 ```shell
-TARGET=ngrok NGROK_URL="${NGROK_URL}" ./scripts/oid4vci-setup.sh --force
+TARGET=ngrok ./scripts/oid4vci-setup.sh --force
 ```
 
-For mdoc issuer tests, add `--mdoc` when importing the realm for the target:
+The `--mdoc` option enables that format
 
 ```shell
-TARGET=proxy ./scripts/oid4vci-setup.sh --force --mdoc
-TARGET=ngrok NGROK_URL="${NGROK_URL}" ./scripts/oid4vci-setup.sh --force --mdoc
+TARGET=ngrok ./scripts/oid4vci-setup.sh --mdoc
 ```
 
 Add `--skip-wallet` when only Keycloak conformance setup is needed and WaltID is
 not available. This writes local placeholder DID details for the Keycloak users
 and skips the sample credential fetch.
-
-```shell
-TARGET=ngrok NGROK_URL="${NGROK_URL}" ./scripts/oid4vci-setup.sh --force --mdoc --skip-wallet
-```
 
 ## Run the Conformance Tests in UI
 
@@ -115,7 +138,7 @@ git clone https://gitlab.com/openid/conformance-suite.git
 cd conformance-suite
 mvn clean package
 
-docker compose -f docker-compose-dev-mac.yml up --detach
+docker compose -f docker-compose-dev-mac.yml up
 ```
 
 It should now be possible to access the Conformance Suite on: https://localhost:8443
@@ -153,62 +176,40 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Run a given test
+### Run a given test module or profile
 
-First, try to run the first test in the plan - the result should look like this.
+First, try to run the first test through the WebUI - the result should look like this.
 
 <img src="docs/img/oid4vci-1_0-issuer-metadata-test.png" width="800"/>
 
-Next, try to run the same test from the python script
+For automated test have a look at `./scripts/openid-conformance.sh --help`
+
+At the time of writing the output looks like this ...
 
 ```shell
-CONFORMANCE_SERVER="https://localhost.emobix.co.uk:8443"
-NESSUS_IDENTITY_DIR="/path/to/nessus-identity"
-CONFIG_FILE="${NESSUS_IDENTITY_DIR}/scripts/config/keycloak-openid-issuer-config.json"
-PLAN_VARIANTS="[vci_authorization_code_flow_variant=wallet_initiated][credential_format=sd_jwt_vc]"
-./run-test-plan.py --no-parallel "oid4vci-1_0-issuer-haip-test-plan${PLAN_VARIANTS}:oid4vci-1_0-issuer-metadata-test,oid4vci-1_0-issuer-metadata-test-signed" "${CONFIG_FILE}"
+OpenID Conformance Suite target: proxy
+Usage: openid-conformance [--clean] [--help] [--show-modules role] [--run role] [--run-module role module] [--run-profile name]
+
+  --clean           Cleans existing test plans from the database
+  --run-all         Run all profiles for a given role
+  --run-module      Run a single test module
+  --run-profile     Run the given test profile
+  --show-client     Show the configuration for a given client
+  --show-scope      Show the configuration for a given client scope
+  --show-modules    Show effective test modules for a given role
+
+  Roles
+    - issuer        Issuer modules
+    - verifier      Verifier modules
+
+  Profiles
+    - [1|issuer]                                              Run the default issuer profile
+    - [2|verifier]                                            Run the default verifier profile
+    - [3|fapi2-reused-request-uri-prior-to-auth-completion]   Server enforces one-time use of request_uri
+    - [4|fapi2-user-rejects-authentication]                   User rejects consent during authentication
+    - [5|oid4vci-mdoc-issuance]                               Run the mdoc issuer profile
+    - [6|oid4vp-verifier-happy-flow]                          Run the OID4VP verifier happy-flow profile
 ```
-
-### Run a profile
-
-Run one of the configured profiles:
-
-```shell
-./scripts/openid-conformance.sh --run-profile issuer
-./scripts/openid-conformance.sh --run-profile verifier
-./scripts/openid-conformance.sh --run-profile fapi2-user-rejects-authentication
-./scripts/openid-conformance.sh --run-profile oid4vci-mdoc-issuance
-TARGET=ngrok ./scripts/openid-conformance.sh --run-profile oid4vp-verifier-happy-flow
-```
-
-The mdoc issuer profile runs the issuer metadata tests and the issuer happy-flow
-module for the `org.iso.18013.5.1.mDL` credential configuration. Override the
-credential configuration when the imported realm uses a different id:
-
-```shell
-MDOC_CREDENTIAL_CONFIGURATION_ID="your-mdoc-config-id" \
-./scripts/openid-conformance.sh --run-profile oid4vci-mdoc-issuance
-```
-
-The OID4VP verifier happy-flow profile drives Keycloak as an OID4VP verifier
-through the `oid4vp` identity provider. It creates a conformance test module,
-updates the Keycloak IdP wallet endpoint to that module's authorization endpoint,
-and starts a broker login through Keycloak. For local runs use `TARGET=ngrok`
-and start Keycloak with `oid4vc-vp` enabled:
-
-```shell
-ngrok http 8080
-make keycloak-build
-TARGET=ngrok make keycloak-run-ngrok
-TARGET=ngrok ./scripts/oid4vci-setup.sh --force --skip-wallet --oid4vp
-TARGET=ngrok ./scripts/openid-conformance.sh --run-profile oid4vp-verifier-happy-flow
-```
-
-Use the latest tagged conformance-suite release for these runs, not `master`.
-The profile excludes direct_post.jwt variants because they require encrypted
-responses. It also excludes spec-invalid happy-flow combinations where
-`redirect_uri` would be used with a signed request object, or certificate-bound
-Client Identifier Prefixes would be used without one.
 
 ## HAIP Conformance Status
 
