@@ -16,7 +16,8 @@ ifeq ($(TARGET), local)
   KUBE_CONTEXT := "rancher-desktop"
   KEYCLOAK_HOSTNAME ?= "http://localhost:8080"
 else ifeq ($(TARGET), ngrok)
-  NGROK_URL ?= "https://buzz-junior-passing.ngrok-free.dev"
+  # ngrok http 8080
+  NGROK_URL ?= $(shell curl -fsS http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[] | select(.proto=="https") | .public_url' | head -n 1)
   KEYCLOAK_HOSTNAME ?= $(NGROK_URL)
 else ifeq ($(TARGET), proxy)
   KEYCLOAK_HOSTNAME ?= "https://keycloak.nessustech.io:8443"

@@ -368,14 +368,11 @@ kc_create_oid4vci_client_profiles_haip() {
           },
           {
             "executor": "secure-client-authentication-assertion",
-            "configuration": {
-              "auto-configure": false
-            }
+            "configuration": {}
           },
           {
             "executor": "secure-client-authenticator",
             "configuration": {
-              "auto-configure": false,
               "allowed-client-authenticators": [
                 "client-jwt",
                 "client-x509"
@@ -385,20 +382,15 @@ kc_create_oid4vci_client_profiles_haip() {
           },
           {
             "executor": "secure-client-uris",
-            "configuration": {
-              "auto-configure": false
-            }
+            "configuration": {}
           },
           {
             "executor": "secure-par-content",
-            "configuration": {
-              "auto-configure": false
-            }
+            "configuration": {}
           },
           {
             "executor": "secure-request-object",
             "configuration": {
-              "auto-configure": false,
               "available-period": "3600",
               "encryption-required": false,
               "verify-nbf": true
@@ -407,14 +399,12 @@ kc_create_oid4vci_client_profiles_haip() {
           {
             "executor": "secure-signature-algorithm",
             "configuration": {
-              "auto-configure": false,
               "default-algorithm": "PS256"
             }
           },
           {
             "executor": "secure-signature-algorithm-signed-jwt",
             "configuration": {
-              "auto-configure": false,
               "require-client-assertion": false
             }
           }

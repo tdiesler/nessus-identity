@@ -491,18 +491,17 @@ _run_oid4vp_happy_flow_variant() {
 before_all() {
   kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
 
-  kc_set_realm_attribute "${KC_REALM}" "authorization.preferErrorOnRedirect" "true"
-
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "false"
 
   openid_origin="${CONFORMANCE_SERVER%/}"
   redirect_uri="${openid_origin}/test/a/keycloak/callback"
 
   for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
-    kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
-    kc_set_client_property "${KC_REALM}" "${client_id}" "webOrigins" "[\"${openid_origin}\"]"
+    kc_set_client_attribute "${KC_REALM}" "${client_id}" "dpop.bound.access.tokens" "true"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "request.object.required" "not required"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "tls.client.certificate.bound.access.tokens" "false"
+    kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
+    kc_set_client_property "${KC_REALM}" "${client_id}" "webOrigins" "[\"${openid_origin}\"]"
   done
 
   kc_set_client_property "${KC_REALM}" "${KC_CLIENT}" "redirectUris" "[\"${redirect_uri}\"]"
@@ -583,7 +582,6 @@ run_modules() {
 run_profile_oid4vci_default() {
   role="issuer"
   echo "Run profile: ${role}";
-
   run_modules "${role}"
 }
 
@@ -604,13 +602,6 @@ run_profile_oid4vci_mdoc_issuance() {
     "${config_in}" > "${config_out}"
 
   run_modules "${role}" "${modules}" "${variants}" "${config_out}"
-
-  # [TODO >>>] Explain why we'd want to do this. How does it affect after_all?
-  #  set +e
-  #  run_modules "${role}" "${modules}" "${variants}" "${config_out}"
-  #  status=$?
-  #  set -e
-  #  return "${status}"
 }
 
 # Run the default verifier profile
@@ -747,7 +738,13 @@ show_client_scope() {
 }
 
 main() {
-  before_all
+
+  # Show help for this script ------------------------------------------------------------------------------------------
+  #
+  if [[ ${opt_help} == true ]]; then
+    show_help
+    return
+  fi
 
   # Optionally clean existing test plans -------------------------------------------------------------------------------
   #
@@ -766,13 +763,6 @@ main() {
   #
   if [[ -n ${opt_show_client_scope} ]]; then
     show_client_scope "${opt_show_client_scope}"
-    return
-  fi
-
-  # Show help for this script ------------------------------------------------------------------------------------------
-  #
-  if [[ ${opt_help} == true ]]; then
-    show_help
     return
   fi
 
@@ -795,7 +785,10 @@ main() {
   # Run all pre-configured modules for the given test plan -------------------------------------------------------------
   #
   if [[ -n "${opt_run_role}" && -z ${opt_run_module} ]]; then
+
+    before_all
     _activate_venv
+
     case "${opt_run_role}" in
       issuer)
         run_profile_fapi2_reused_request_uri_prior_to_auth_completion
@@ -809,31 +802,40 @@ main() {
         run_profile_oid4vcp_default
         ;;
     esac
+
     _deactivate_venv
+    after_all
     return
   fi
 
   # Run a single module from the given test plan -----------------------------------------------------------------------
   #
   if [[ -n ${opt_run_role} && -n ${opt_run_module} ]]; then
+
+    before_all
     _activate_venv
 
     run_modules "${opt_run_role}" "${opt_run_module}"
 
     _deactivate_venv
+    after_all
     return
   fi
 
   # Run a given test profile -------------------------------------------------------------------------------------------
   #
   if [[ -n ${opt_run_profile} ]]; then
+
+    before_all
     _activate_venv
+
     case "${opt_run_profile}" in
       1|issuer)
         run_profile_oid4vci_default
         ;;
       2|verifier)
-        run_profile_oid4vcp_default
+        run_profile_oid4vp_verifier_happy_flow
+        # run_profile_oid4vcp_default
         ;;
       3|fapi2-reused-request-uri-prior-to-auth-completion)
         run_profile_fapi2_reused_request_uri_prior_to_auth_completion
@@ -853,19 +855,12 @@ main() {
         exit 1
         ;;
     esac
+
     _deactivate_venv
+    after_all
     return
   fi
-
-  after_all
 }
-
-# Show help for this script --------------------------------------------------------------------------------------------
-#
-if [[ ${opt_help} == true ]]; then
-  show_help
-  exit 0
-fi
 
 # Call main entry ------------------------------------------------------------------------------------------------------
 #
