@@ -500,11 +500,12 @@ before_all() {
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "dpop.bound.access.tokens" "true"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "request.object.required" "not required"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "tls.client.certificate.bound.access.tokens" "false"
+    kc_set_client_property "${KC_REALM}" "${client_id}" "clientAuthenticatorType" "attestation-based"
     kc_set_client_property "${KC_REALM}" "${client_id}" "consentRequired" "false"
+    kc_set_client_property "${KC_REALM}" "${client_id}" "publicClient" "false"
+    kc_set_client_property "${KC_REALM}" "${KC_CLIENT}" "redirectUris" "[\"${redirect_uri}\"]"
     kc_set_client_property "${KC_REALM}" "${client_id}" "webOrigins" "[\"${openid_origin}\"]"
   done
-
-  kc_set_client_property "${KC_REALM}" "${KC_CLIENT}" "redirectUris" "[\"${redirect_uri}\"]"
 
   # [TODO] oid4vci-1_0-issuer-happy-flow-multiple-clients fails without the trailing '*'
   kc_set_client_property "${KC_REALM}" "${KC_CLIENT2}" "redirectUris" "[\"${redirect_uri}*\"]"
@@ -705,6 +706,7 @@ run_profile_fapi2_user_rejects_authentication() {
 #
 show_client() {
   local name="$1"
+  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
   kc_get_client ${KC_REALM} "${name}"
 }
 
@@ -734,6 +736,7 @@ show_modules() {
 #
 show_client_scope() {
   local name="$1"
+  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
   kc_get_client_scope ${KC_REALM} "${name}"
 }
 

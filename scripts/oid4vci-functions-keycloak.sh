@@ -328,90 +328,81 @@ kc_create_oid4vci_client_profiles_haip() {
   #
   echo "Configure realm client policy profiles ..."
   kcadm update "client-policies/profiles" -r "${realm}" -f - <<-EOF
-  {
-    "profiles": [
-      {
-        "name": "oid4vc-haip-profile",
-        "description": "Client profile, which enforces clients to conform to the OpenID4VC High Assurance Interoperability Profile 1.0",
-        "executors": [
-          {
-            "executor": "dpop-bind-enforcer",
-            "configuration": {
-              "auto-configure": false,
-              "enforce-authorization-code-binding-to-dpop": false,
-              "allow-only-refresh-token-binding": false
-            }
-          },
-          {
-            "executor": "full-scope-disabled",
-            "configuration": {
-              "auto-configure": false
-            }
-          },
-          {
-            "executor": "holder-of-key-enforcer",
-            "configuration": {
-              "auto-configure": false
-            }
-          },
-          {
-            "executor": "pkce-enforcer",
-            "configuration": {
-              "auto-configure": false
-            }
-          },
-          {
-            "executor": "reject-implicit-grant",
-            "configuration": {
-              "auto-configure": false
-            }
-          },
-          {
-            "executor": "secure-client-authentication-assertion",
-            "configuration": {}
-          },
-          {
-            "executor": "secure-client-authenticator",
-            "configuration": {
-              "allowed-client-authenticators": [
-                "client-jwt",
-                "client-x509"
-              ],
-              "default-client-authenticator": "client-jwt"
-            }
-          },
-          {
-            "executor": "secure-client-uris",
-            "configuration": {}
-          },
-          {
-            "executor": "secure-par-content",
-            "configuration": {}
-          },
-          {
-            "executor": "secure-request-object",
-            "configuration": {
-              "available-period": "3600",
-              "encryption-required": false,
-              "verify-nbf": true
-            }
-          },
-          {
-            "executor": "secure-signature-algorithm",
-            "configuration": {
-              "default-algorithm": "PS256"
-            }
-          },
-          {
-            "executor": "secure-signature-algorithm-signed-jwt",
-            "configuration": {
-              "require-client-assertion": false
-            }
+{
+  "profiles": [
+    {
+      "name": "oid4vc-haip-profile",
+      "description": "Client profile, which enforces clients to conform to the OpenID4VC High Assurance Interoperability Profile 1.0",
+      "executors": [
+        {
+          "executor": "confidential-client",
+          "configuration": {}
+        },
+        {
+          "executor": "secure-client-authenticator",
+          "configuration": {
+            "allowed-client-authenticators": [
+              "client-jwt",
+              "client-x509",
+              "attestation-based"
+            ],
+            "default-client-authenticator": "attestation-based"
           }
-        ]
-      }
-    ]
-  }
+        },
+        {
+          "executor": "secure-client-uris",
+          "configuration": {}
+        },
+        {
+          "executor": "secure-signature-algorithm",
+          "configuration": {
+            "default-algorithm": "PS256"
+          }
+        },
+        {
+          "executor": "secure-signature-algorithm-signed-jwt",
+          "configuration": {
+            "require-client-assertion": false
+          }
+        },
+        {
+          "executor": "full-scope-disabled",
+          "configuration": {
+            "auto-configure": false
+          }
+        },
+        {
+          "executor": "reject-implicit-grant",
+          "configuration": {
+            "auto-configure": false
+          }
+        },
+        {
+          "executor": "pkce-enforcer",
+          "configuration": {
+            "auto-configure": false
+          }
+        },
+        {
+          "executor": "secure-client-authentication-assertion",
+          "configuration": {}
+        },
+        {
+          "executor": "secure-par-content",
+          "configuration": {}
+        },
+        {
+          "executor": "dpop-bind-enforcer",
+          "configuration": {
+            "auto-configure": false,
+            "enforce-authorization-code-binding-to-dpop": false,
+            "allow-only-refresh-token-binding": false
+          }
+        }
+      ]
+    }
+  ]
+}
 EOF
 
   ## Show client profiles
