@@ -70,11 +70,6 @@ case "$TARGET" in
     ;;
 esac
 
-# [TODO >>>] Exporting CONFORMANCE_SERVER breaks conformance suite on docker compose
-#export CONFORMANCE_SERVER
-#: "${CONFORMANCE_SERVER_MTLS:=https://localhost.emobix.co.uk:8444}"
-#export CONFORMANCE_SERVER_MTLS
-
 ## Parse args
 #
 init_opts() {
@@ -242,7 +237,7 @@ _get_filtered_modules() {
 
 _get_modules() {
   local plan="$1"
-  curl -ksfS "${CONFORMANCE_SERVER}/api/plan/info/${plan}" | jq -r '.modules[].testModule'
+  openid GET "${CONFORMANCE_SERVER}/api/plan/info/${plan}" | jq -r '.modules[].testModule'
 }
 
 _get_plan_name() {
@@ -277,21 +272,6 @@ _url_encode() {
   jq -nr --arg value "$1" '$value | @uri'
 }
 
-# OID4VP verifier happy-flow needs per-variant Keycloak IdP updates from the
-# conformance module's exposed authorization_endpoint before broker login.
-_conformance_api() {
-  local method="$1"
-  local url="$2"
-  shift 2
-
-  local curl_args=(-ksfS -X "${method}" -H "Content-Type: application/json")
-  if [[ -z "${CONFORMANCE_DEV_MODE:-}" && -n "${CONFORMANCE_TOKEN:-}" ]]; then
-    curl_args+=(-H "Authorization: Bearer ${CONFORMANCE_TOKEN}")
-  fi
-
-  curl "${curl_args[@]}" "$@" "${url}"
-}
-
 _wait_for_oid4vp_module_state() {
   local module_id="$1"
   local states="$2"
@@ -302,7 +282,7 @@ _wait_for_oid4vp_module_state() {
   local status
 
   while (( SECONDS < deadline )); do
-    info=$(_conformance_api GET "${CONFORMANCE_SERVER}/api/info/${module_id}")
+    info=$(openid GET "${CONFORMANCE_SERVER}/api/info/${module_id}")
     status=$(jq -r '.status // ""' <<< "${info}")
     if [[ "${status}" != "${last_status}" ]]; then
       echo "module ${module_id} status: ${status}" >&2
@@ -331,7 +311,7 @@ _wait_for_oid4vp_exposed_value() {
   local value
 
   while (( SECONDS < deadline )); do
-    value=$(_conformance_api GET "${CONFORMANCE_SERVER}/api/runner/${module_id}" | jq -r --arg name "${name}" '.exposed[$name] // ""')
+    value=$(openid GET "${CONFORMANCE_SERVER}/api/runner/${module_id}" | jq -r --arg name "${name}" '.exposed[$name] // ""')
     if [[ -n "${value}" ]]; then
       printf "%s\n" "${value}"
       return 0
@@ -464,18 +444,18 @@ _run_oid4vp_happy_flow_variant() {
       }' > "${config_out}"
   fi
 
-  plan_id=$(_conformance_api POST \
+  plan_id=$(openid POST \
     "${CONFORMANCE_SERVER}/api/plan?planName=${plan_name}&variant=$(_url_encode "${variant}")" \
     --data "@${config_out}" | jq -r '.id')
   echo "Created test plan: ${CONFORMANCE_SERVER%/}/plan-detail.html?plan=${plan_id}"
 
-  module_id=$(_conformance_api POST \
+  module_id=$(openid POST \
     "${CONFORMANCE_SERVER}/api/runner?test=${module_name}&plan=${plan_id}" | jq -r '.id')
   echo "Created test module: ${CONFORMANCE_SERVER%/}/log-detail.html?log=${module_id}"
 
   info=$(_wait_for_oid4vp_module_state "${module_id}" "CONFIGURED,WAITING,FINISHED")
   if [[ "$(jq -r '.status // ""' <<< "${info}")" == "CONFIGURED" ]]; then
-    _conformance_api POST "${CONFORMANCE_SERVER}/api/runner/${module_id}" > /dev/null
+    openid POST "${CONFORMANCE_SERVER}/api/runner/${module_id}" > /dev/null
     _wait_for_oid4vp_module_state "${module_id}" "WAITING,FINISHED" > /dev/null
   fi
 
@@ -489,7 +469,7 @@ _run_oid4vp_happy_flow_variant() {
   final_result=$(jq -r '.result // ""' <<< "${info}")
   echo "Final result: status=${final_status} result=${final_result}"
 
-  _conformance_api GET "${CONFORMANCE_SERVER}/api/log/${module_id}" \
+  openid GET "${CONFORMANCE_SERVER}/api/log/${module_id}" \
     | jq -r 'limit(20; .[] | select(.result == "FAILURE" or .result == "WARNING") | "\(.result): \(.condition // .conditionId // .src // "") \(.msg // .message // .error // "")")'
 
   [[ "${final_status}" == "FINISHED" && ( "${final_result}" == "PASSED" || "${final_result}" == "WARNING" ) ]]
@@ -529,13 +509,28 @@ after_all() {
   echo "Done!"
 }
 
+# Call the OpenID API
+#
+openid() {
+  local method="$1"
+  local url="$2"
+  shift 2
+
+  local curl_args=(-ksfS -X "${method}" -H "Content-Type: application/json")
+  if [[ -z "${CONFORMANCE_DEV_MODE:-}" && -n "${CONFORMANCE_TOKEN:-}" ]]; then
+    curl_args+=(-H "Authorization: Bearer ${CONFORMANCE_TOKEN}")
+  fi
+
+  curl "${curl_args[@]}" "$@" "${url}"
+}
+
 # Remove existing test plans
 #
 clean_plans() {
-  plan_ids=$(curl -ksfS "${CONFORMANCE_SERVER}/api/plan" | jq -r '.data[]._id')
+  plan_ids=$(openid GET "${CONFORMANCE_SERVER}/api/plan" | jq -r '.data[]._id')
   for id in $plan_ids; do
     echo "Deleting: ${id}"
-    curl -ksfS -X DELETE "${CONFORMANCE_SERVER}/api/plan/${id}"
+    openid DELETE "${CONFORMANCE_SERVER}/api/plan/${id}"
   done
 }
 
