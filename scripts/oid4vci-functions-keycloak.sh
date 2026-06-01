@@ -42,7 +42,35 @@ kc_oid4vci_login() {
     --secret "${oid4vciPass}"
 }
 
-kc_create_abca_key() {
+kc_configure_trust_identity_provider() {
+  local realm="$1"
+  local alias="$2"
+  local provider_id="$3"
+  local config_json="$4"
+
+  local existing_idp
+  existing_idp="$(kcadm get "realms/${realm}/identity-provider/instances/${alias}" 2>/dev/null || true)"
+
+  local payload
+  payload="$(jq -n \
+    --arg alias "$alias" \
+    --arg providerId "$provider_id" \
+    --argjson config "$config_json" \
+    '{
+      alias: $alias,
+      providerId: $providerId,
+      enabled: true,
+      config: $config
+    }')"
+
+  if [[ -z "$existing_idp" ]]; then
+    kcadm create "realms/${realm}/identity-provider/instances" -f <(echo "$payload")
+  else
+    kcadm update "realms/${realm}/identity-provider/instances/${alias}" -f <(echo "$payload")
+  fi
+}
+
+kc_configure_abca_identity_provider() {
   local realm="$1"
 
   abca_jwk_key_priv=".secret/keycloak_abca_jwk_priv.json"
@@ -58,17 +86,18 @@ kc_create_abca_key() {
     fi
   fi
 
-  jq '[ .keys[0] | del(.d, .p, .q, .dp, .dq, .qi) ]' "${abca_jwk_key_priv}" > "${abca_jwk_key_pub}"
-
-  abca_config_value=$(jq -c . "${abca_jwk_key_priv}")
-  escaped_config_value=$(printf '%s' "${abca_config_value}" | jq -Rs .)
-
-  authenticator_id=$(kcadm get authentication/flows/clients/executions -r "${realm}" 2>/dev/null | jq -r '.[] | select(.providerId=="attestation-based") | .id')
+  jq '{keys: [ .keys[0] | del(.d, .p, .q, .dp, .dq, .qi) ]}' "${abca_jwk_key_priv}" > "${abca_jwk_key_pub}"
 
   echo "Creating ABCA config"
-  kcadm create authentication/executions/"${authenticator_id}"/config -r "${realm}" \
-    -s alias="attestation-based" \
-    -s "config.attester_jwks=${escaped_config_value}"
+  trust_idp_config="$(jq -n \
+    --arg publicKeySignatureVerifier "$(jq -c . "${abca_jwk_key_pub}")" \
+    '{ publicKeySignatureVerifier: $publicKeySignatureVerifier }')"
+
+  kc_configure_trust_identity_provider \
+    "${realm}" \
+    "abca-attester-default-trust" \
+    "default-trust" \
+    "${trust_idp_config}"
 }
 
 kc_create_oid4vci_realm() {
@@ -611,9 +640,9 @@ kc_create_oid4vci_client() {
   local realm="$1"
   local client_id="$2"
 
+  # [TODO] oid4vci-1_0-issuer-happy-flow-multiple-clients fails without the trailing '*'
   openid_redirect_uri="https://localhost.emobix.co.uk:8443/test/a/keycloak/callback"
   if [[ "${client_id}" == "oid4vci-client2" ]]; then
-    # [TODO] oid4vci-1_0-issuer-happy-flow-multiple-clients fails without the trailing '*'
     openid_redirect_uri="${openid_redirect_uri}*"
   fi
 
@@ -634,6 +663,7 @@ kc_create_oid4vci_client() {
     ],
     "baseUrl": "${KEYCLOAK_HOSTNAME}/realms/${realm}/.well-known/openid-credential-issuer",
     "attributes": {
+      "attester_trust_idps": "abca-attester-default-trust",
       "client.introspection.response.allow.jwt.claim.enabled": "false",
       "post.logout.redirect.uris": "${KEYCLOAK_HOSTNAME}",
       "oid4vci.enabled": "true"
@@ -1190,4 +1220,12 @@ kc_set_realm_attribute() {
 
   echo "Set realm attribute ${realm} ${attrName} => ${attrValue}"
   kcadm update "realms/${realm}" -s "attributes.\"${attrName}\"=${attrValue}"
+}
+
+# Get a client config by clientId
+#
+kc_get_user() {
+  local realm="$1"
+  local username="$2"
+  kcadm get users -r "${realm}" -q username="${username}" 2>/dev/null | jq -r '.[0]'
 }

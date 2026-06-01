@@ -169,8 +169,8 @@ if kc_create_oid4vci_realm "${realm}" "${force}"; then
 
   ## Client Policies ---------------------------------------------------------------------------------------------------
   #
-  # kc_create_oid4vci_client_policies "${realm}"
   kc_create_oid4vci_client_profiles_haip "${realm}"
+  # kc_create_oid4vci_client_policies "${realm}"
 
   ## Service Client ----------------------------------------------------------------------------------------------------
   #
@@ -195,7 +195,7 @@ if kc_create_oid4vci_realm "${realm}" "${force}"; then
 
   # Create the Attestation-Based Client Authorization Key --------------------------------------------------------------------
   #
-  kc_create_abca_key "${realm}"
+  kc_configure_abca_identity_provider "${realm}"
 
   ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
   #

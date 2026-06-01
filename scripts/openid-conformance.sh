@@ -83,6 +83,7 @@ init_opts() {
   opt_show_client=""
   opt_show_client_scope=""
   opt_show_role=""
+  opt_show_user=""
   opt_run_role=""
   opt_run_module=""
   opt_run_profile=""
@@ -100,6 +101,7 @@ show_help() {
   echo "  --show-client     Show the configuration for a given client"
   echo "  --show-scope      Show the configuration for a given client scope"
   echo "  --show-modules    Show effective test modules for a given role"
+  echo "  --show-user       Show the configuration for a given user"
   echo ""
   echo "  Roles"
   echo "    - issuer        Issuer modules"
@@ -146,6 +148,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       opt_show_client_scope="$2"
+      break
+      ;;
+    --show-user)
+      if [[ -z "${2-}" || "${2-}" == --* ]]; then
+        echo "Username required (e.g. --show-user alice)" >&2
+        exit 1
+      fi
+      opt_show_user="$2"
       break
       ;;
     --run-all)
@@ -497,6 +507,7 @@ before_all() {
   redirect_uri="${openid_origin}/test/a/keycloak/callback"
 
   for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
+    kc_set_client_attribute "${KC_REALM}" "${client_id}" "authorization.preferErrorOnRedirect" "true"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "dpop.bound.access.tokens" "true"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "request.object.required" "not required"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "tls.client.certificate.bound.access.tokens" "false"
@@ -710,6 +721,14 @@ show_client() {
   kc_get_client ${KC_REALM} "${name}"
 }
 
+# Show client configuration
+#
+show_user() {
+  local name="$1"
+  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
+  kc_get_user ${KC_REALM} "${name}"
+}
+
 # Show effective test modules
 #
 show_modules() {
@@ -766,6 +785,13 @@ main() {
   #
   if [[ -n ${opt_show_client_scope} ]]; then
     show_client_scope "${opt_show_client_scope}"
+    return
+  fi
+
+  # Show user configuration --------------------------------------------------------------------------------------------
+  #
+  if [[ -n ${opt_show_user} ]]; then
+    show_user "${opt_show_user}"
     return
   fi
 
