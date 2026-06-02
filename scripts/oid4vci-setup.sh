@@ -184,7 +184,6 @@ if kc_create_oid4vci_realm "${realm}" "${force}"; then
   kc_set_client_scope_attribute "${realm}" "oid4vc_natural_person_sd" "vc.credential_signing_alg" "ES256"
   kc_set_client_scope_attribute "${realm}" "oid4vc_natural_person_jwt" "vc.credential_signing_alg" "ES256"
 
-
   ## Issuance Client ---------------------------------------------------------------------------------------------------
   #
   kc_create_oid4vci_client "${realm}" "${client_id}"
@@ -193,14 +192,19 @@ if kc_create_oid4vci_realm "${realm}" "${force}"; then
     kc_create_oid4vci_credential_configurations_mdoc "${realm}" "${MDOC_CREDENTIAL_SCOPE:-org.iso.18013.5.1.mDL}" "${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18013.5.1.mDL}" "${MDOC_DOCTYPE:-org.iso.18013.5.1.mDL}"
   fi
 
-  # Create the Attestation-Based Client Authorization Key --------------------------------------------------------------------
+  # Create the Attestation-Based Client Authorization Key --------------------------------------------------------------
   #
   kc_configure_abca_identity_provider "${realm}"
 
-  ## Setup Alice as Holder -----------------------------------------------------------------------------------------------
+  ## Setup Users for Roles ---------------------------------------------------------------------------------------------
   #
   kc_create_user "${realm}" "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}"
   kc_create_user "${realm}" "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}"
+
+  ## Associate Users with Credential Scopes ----------------------------------------------------------------------------
+  #
+  kc_create_user_scope_association "${realm}" "${HOLDER[2]}" "oid4vc_natural_person_sd"
+  kc_create_user_scope_association "${realm}" "${HOLDER[2]}" "oid4vc_natural_person_jwt"
 fi
 
 if [[ "${create_oid4vp}" == "true" ]]; then

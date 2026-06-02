@@ -873,11 +873,11 @@ kc_create_user() {
   username="$(echo "${firstName}" | tr '[:upper:]' '[:lower:]')"
 
   # Check if user already exists
-  local userId
-  userId=$(kcadm get users -r "${realm}" -q username="${username}" --fields id --format csv --noquotes)
+  local user_id
+  user_id=$(kcadm get users -r "${realm}" -q username="${username}" --fields id --format csv --noquotes)
 
-  if [[ -n "${userId}" ]]; then
-    echo "User '${fullName}' already exists (id=${userId})" >&2
+  if [[ -n "${user_id}" ]]; then
+    echo "User '${fullName}' already exists (id=${user_id})" >&2
   else
     echo "Creating user '${fullName}' with role '${role}' in realm '${realm}'" >&2
     user_did=$(jq -r '.did' ".secret/${role}-details.json")
@@ -900,9 +900,21 @@ kc_create_user() {
       kcadm add-roles -r "${realm}" --uusername "${username}" --rolename "${roleName}"
     fi
 
-    user_id=$(kcadm get users -r "${realm}" -q username="${username}" --fields id --format json | jq -r '.[0].id')
-    kcadm get -r "${realm}" "users/${user_id}"
+    user_id=$(kc_get_user "${realm}" "${username}" | jq -r '.id')
+    kcadm get -r "${realm}" "users/${user_id}" | jq .
   fi
+}
+
+kc_create_user_scope_association() {
+  local realm="$1"
+  local username="$2"
+  local scope="$3"
+
+  local user_id
+  user_id=$(kc_get_user "${realm}" "${username}" | jq -r '.id')
+
+  kcadm create -r "${realm}" "users/${user_id}/vc/credentials" \
+    -s credentialScopeName="${scope}"
 }
 
 # Verification ---------------------------------------------------------------------------------------------------------
