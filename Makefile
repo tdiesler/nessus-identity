@@ -113,10 +113,6 @@ keycloak-tests:
 	@cd $(KEYCLOAK_DIR) && \
 		mvn -pl tests/base clean test -Dtest='org.keycloak.tests.oid4vc.**'
 
-keycloak-testsuite:
-	@cd $(KEYCLOAK_DIR) && \
-		mvn -pl testsuite/integration-arquillian/tests/base clean test -Dtest='org.keycloak.testsuite.oid4vc.**'
-
 run-services: package
 	trap 'kill 0' INT TERM; \
 	(mvn -pl console exec:java) & \
