@@ -45,10 +45,7 @@ spec:
             - name: DB_NAME
               value: 'waltid'
             - name: DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_USER
+              value: 'postgres'
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
