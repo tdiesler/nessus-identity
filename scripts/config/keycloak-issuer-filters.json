@@ -9,17 +9,7 @@
     "comment": "run manually, because of error page upload"
   },
   {
-    "test-name": "fapi2-security-profile-final-ensure-request-object-without-redirect-uri-fails",
-    "issue": "https://github.com/keycloak/keycloak/issues/48579",
-    "comment": "[#48542] run manually, because of error page upload"
-  },
-  {
     "test-name": "fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails",
-    "issue": "https://github.com/keycloak/keycloak/issues/48066",
-    "comment": "[#48542] run manually, because of error page upload"
-  },
-  {
-    "test-name": "fapi2-security-profile-final-ensure-redirect-uri-in-authorization-request",
     "issue": "https://github.com/keycloak/keycloak/issues/48066",
     "comment": "[#48542] run manually, because of error page upload"
   },

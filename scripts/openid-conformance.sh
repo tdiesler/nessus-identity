@@ -155,7 +155,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --run-all)
       if [[ -z "${2-}" || "${2-}" == --* ]]; then
-        echo "Role name required (e.g. --run issuer)" >&2
+        echo "Role name required (e.g. --run-all issuer)" >&2
         exit 1
       fi
       opt_run_role="$2"
@@ -661,9 +661,7 @@ run_profile_fapi2_without_browser_automation() {
   role="issuer"
   modules="fapi2-security-profile-final-par-ensure-reused-request-uri-prior-to-auth-completion-succeeds"
   modules="${modules},fapi2-security-profile-final-state-only-outside-request-object-not-used"
-  modules="${modules},fapi2-security-profile-final-ensure-request-object-without-redirect-uri-fails"
   modules="${modules},fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails"
-  modules="${modules},fapi2-security-profile-final-ensure-redirect-uri-in-authorization-request"
   modules="${modules},fapi2-security-profile-final-par-attempt-reuse-request_uri"
   modules="${modules},fapi2-security-profile-final-par-attempt-to-use-expired-request_uri"
   modules="${modules},fapi2-security-profile-final-par-attempt-to-use-request_uri-for-different-client"
@@ -822,7 +820,7 @@ main() {
 
     case "${opt_run_role}" in
       issuer)
-        run_profile_fapi2_reused_request_uri_prior_to_auth_completion
+        run_profile_fapi2_without_browser_automation
         run_profile_fapi2_user_rejects_authentication
         run_profile_oid4vci_default
         ;;
