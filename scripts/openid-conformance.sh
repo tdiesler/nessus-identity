@@ -660,11 +660,6 @@ run_profile_fapi2_without_browser_automation() {
 
   role="issuer"
   modules="fapi2-security-profile-final-par-ensure-reused-request-uri-prior-to-auth-completion-succeeds"
-  modules="${modules},fapi2-security-profile-final-state-only-outside-request-object-not-used"
-  modules="${modules},fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails"
-  modules="${modules},fapi2-security-profile-final-par-attempt-reuse-request_uri"
-  modules="${modules},fapi2-security-profile-final-par-attempt-to-use-expired-request_uri"
-  modules="${modules},fapi2-security-profile-final-par-attempt-to-use-request_uri-for-different-client"
   config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
   config_out="${SCRIPT_DIR}/config/.keycloak-${role}-config-fapi2-without-browser-automation.json"
 
