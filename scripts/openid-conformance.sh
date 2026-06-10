@@ -103,12 +103,13 @@ show_help() {
   echo "    - verifier      Verifier modules"
   echo ""
   echo "  Profiles"
-  echo "    - [1|issuer]                              Run the default issuer profile"
-  echo "    - [2|verifier]                            Run the default verifier profile"
-  echo "    - [3|fapi2-without-browser-automation]    Run selected modules that require manual interaction"
-  echo "    - [4|fapi2-user-rejects-authentication]   User rejects consent during authentication"
-  echo "    - [5|oid4vci-mdoc-issuance]               Run the mdoc issuer profile"
-  echo "    - [6|oid4vp-verifier-happy-flow]          Run the OID4VP verifier happy-flow profile"
+  echo "    - [1|issuer]                                Run the default issuer profile"
+  echo "    - [2|verifier]                              Run the default verifier profile"
+  echo "    - [3|fapi2-without-browser-automation]      Server enforces one-time use of request_uri"
+  echo "    - [4|fapi2-with-authorization-error-page]   Run selected modules that expect an authorization error"
+  echo "    - [5|fapi2-user-rejects-authentication]     User rejects consent during authentication"
+  echo "    - [6|oid4vci-mdoc-issuance]                 Run the mdoc issuer profile"
+  echo "    - [7|oid4vp-verifier-happy-flow]            Run the OID4VP verifier happy-flow profile"
   echo ""
 }
 
@@ -660,17 +661,47 @@ run_profile_fapi2_without_browser_automation() {
 
   role="issuer"
   modules="fapi2-security-profile-final-par-ensure-reused-request-uri-prior-to-auth-completion-succeeds"
-  modules="${modules},fapi2-security-profile-final-state-only-outside-request-object-not-used"
-  modules="${modules},fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails"
   modules="${modules},fapi2-security-profile-final-par-attempt-reuse-request_uri"
-  modules="${modules},fapi2-security-profile-final-par-attempt-to-use-expired-request_uri"
-  modules="${modules},fapi2-security-profile-final-par-attempt-to-use-request_uri-for-different-client"
   config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-  config_out="${SCRIPT_DIR}/config/.keycloak-${role}-config-fapi2-without-browser-automation.json"
+  config_out="${SCRIPT_DIR}/config/.keycloak-${role}-config-fapi2_without_browser_automation.json"
 
   # This config has no automated browser interaction.
   # While this runs, go the WebUI and complete the module there
   jq 'del(.browser)' "${config_in}" > "${config_out}"
+
+  set +e
+  run_modules "${role}" "${modules}" "" "${config_out}"
+  set -e
+}
+
+# Run profile 'fapi2-with-authorization-error-page'
+#
+run_profile_fapi2_with_authorization_error_page() {
+  echo "Run profile: fapi2-with-authorization-error-page"
+
+  role="issuer"
+  modules="fapi2-security-profile-final-state-only-outside-request-object-not-used"
+  modules="${modules},fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails"
+  modules="${modules},fapi2-security-profile-final-par-attempt-to-use-expired-request_uri"
+  modules="${modules},fapi2-security-profile-final-par-attempt-to-use-request_uri-for-different-client"
+  config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
+  config_out="${SCRIPT_DIR}/config/.keycloak-${role}-config-fapi2-with-authorization-error-page.json"
+
+  jq '.browser[0].tasks[1] =
+  {
+    "task": "Keycloak Error Page",
+    "match": "https://*/realms/oid4vci/protocol/openid-connect/auth*",
+    "commands": [
+      [
+        "wait",
+        "id",
+        "kc-error-message",
+        10,
+        ".+",
+        "update-image-placeholder"
+      ]
+    ]
+  }' "${config_in}" > "${config_out}"
 
   set +e
   run_modules "${role}" "${modules}" "" "${config_out}"
@@ -820,7 +851,8 @@ main() {
 
     case "${opt_run_role}" in
       issuer)
-        run_profile_fapi2_without_browser_automation
+        # run_profile_fapi2_without_browser_automation
+        run_profile_fapi2_with_authorization_error_page
         run_profile_fapi2_user_rejects_authentication
         run_profile_oid4vci_default
         ;;
@@ -869,13 +901,16 @@ main() {
       3|fapi2-without-browser-automation)
         run_profile_fapi2_without_browser_automation
         ;;
-      4|fapi2-user-rejects-authentication)
+      4|fapi2-with-authorization-error-page)
+        run_profile_fapi2_with_authorization_error_page
+        ;;
+      5|fapi2-user-rejects-authentication)
         run_profile_fapi2_user_rejects_authentication
         ;;
-      5|oid4vci-mdoc-issuance)
+      6|oid4vci-mdoc-issuance)
         run_profile_oid4vci_mdoc_issuance
         ;;
-      6|oid4vp-verifier-happy-flow)
+      7|oid4vp-verifier-happy-flow)
         run_profile_oid4vp_verifier_happy_flow
         ;;
       *)
