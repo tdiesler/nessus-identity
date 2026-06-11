@@ -488,7 +488,6 @@ before_all() {
   redirect_uri="${openid_origin}/test/a/keycloak/callback"
 
   for client_id in "${KC_CLIENT}" "${KC_CLIENT2}"; do
-    kc_set_client_attribute "${KC_REALM}" "${client_id}" "authorization.preferErrorOnRedirect" "true"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "dpop.bound.access.tokens" "true"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "request.object.required" "not required"
     kc_set_client_attribute "${KC_REALM}" "${client_id}" "tls.client.certificate.bound.access.tokens" "false"
@@ -504,6 +503,9 @@ before_all() {
 
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "true"
   kc_get_client ${KC_REALM} ${KC_CLIENT}
+
+  user_id=$(kc_get_user "${KC_REALM}" "alice" | jq -r '.id')
+  kcadm create "users/${user_id}/logout" -r "${KC_REALM}"
 }
 
 after_all() {
@@ -844,14 +846,14 @@ main() {
 
   # Run all pre-configured modules for the given test plan -------------------------------------------------------------
   #
-  if [[ -n "${opt_run_role}" && -z ${opt_run_module} ]]; then
+  if [[ -n ${opt_run_role} && -z ${opt_run_module} ]]; then
 
     before_all
     _activate_venv
 
     case "${opt_run_role}" in
       issuer)
-        # run_profile_fapi2_without_browser_automation
+        run_profile_fapi2_without_browser_automation
         run_profile_fapi2_with_authorization_error_page
         run_profile_fapi2_user_rejects_authentication
         run_profile_oid4vci_default
@@ -890,7 +892,7 @@ main() {
     before_all
     _activate_venv
 
-    case "${opt_run_profile}" in
+    case ${opt_run_profile} in
       1|issuer)
         run_profile_oid4vci_default
         ;;
