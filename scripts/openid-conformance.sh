@@ -200,8 +200,13 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+if [[ -n "${opt_run_role}" ]] && [[ "${opt_run_role}" != "issuer" && "${opt_run_role}" != "verifier" ]]; then
+  echo "Role must be: issuer or verifier" >&2
+  exit 1
+fi
+
 if [[ -n "${opt_run_module}" && -n "${opt_run_profile}" ]]; then
-  echo "Cannot specify both: --run-test AND --run-profile" >&2
+  echo "Cannot specify both: --run-module and --run-profile" >&2
   exit 1
 fi
 
