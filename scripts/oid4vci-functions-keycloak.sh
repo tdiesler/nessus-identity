@@ -130,8 +130,9 @@ kc_create_oid4vci_realm() {
     "enabled": true,
     "verifiableCredentialsEnabled": true,
     "attributes": {
-      "authorization.preferErrorOnRedirect": true,
       "oid4vci.request.zip.algorithms": "DEF",
+      "oid4vci.time.claims.strategy": "round",
+      "oid4vci.time.round.unit": "minute",
       "preAuthorizedCodeLifespanS": 120
     },
     "components": {
