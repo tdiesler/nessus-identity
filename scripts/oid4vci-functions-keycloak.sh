@@ -130,9 +130,10 @@ kc_create_oid4vci_realm() {
     "enabled": true,
     "verifiableCredentialsEnabled": true,
     "attributes": {
+      "oid4vci.batch_credential_issuance.batch_size": 24,
       "oid4vci.request.zip.algorithms": "DEF",
-      "oid4vci.time.claims.strategy": "round",
-      "oid4vci.time.round.unit": "minute",
+      "oid4vci.time.claims.strategy": "randomize",
+      "oid4vci.time.randomize.window.seconds": "300",
       "preAuthorizedCodeLifespanS": 120
     },
     "components": {
@@ -1224,6 +1225,11 @@ kc_set_client_scope_attribute() {
 
   echo "Set client scope attribute ${scopeName} ${attrName} => ${attrValue}"
   kcadm update "client-scopes/${sid}" -r "${realm}" -s "attributes.\"${attrName}\"=${attrValue}"
+}
+
+kc_get_realm() {
+  local realm="$1"
+  kcadm get "realms/${realm}" 2>/dev/null | jq -r .
 }
 
 kc_set_realm_attribute() {

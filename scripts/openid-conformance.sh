@@ -76,8 +76,9 @@ init_opts() {
   opt_clean=false
   opt_help=false
   opt_show_client=""
-  opt_show_client_scope=""
+  opt_show_scope=""
   opt_show_role=""
+  opt_show_realm=""
   opt_show_user=""
   opt_run_role=""
   opt_run_module=""
@@ -96,6 +97,7 @@ show_help() {
   echo "  --show-client     Show the configuration for a given client"
   echo "  --show-scope      Show the configuration for a given client scope"
   echo "  --show-modules    Show effective test modules for a given role"
+  echo "  --show-realm      Show the realm configuration"
   echo "  --show-user       Show the configuration for a given user"
   echo ""
   echo "  Roles"
@@ -138,12 +140,20 @@ while [[ $# -gt 0 ]]; do
       opt_show_role="$2"
       shift
       ;;
+    --show-realm)
+      if [[ -z "${2-}" || "${2-}" == --* ]]; then
+        echo "Realm name required (e.g. --show-realm ${KC_REALM})" >&2
+        exit 1
+      fi
+      opt_show_realm="$2"
+      break
+      ;;
     --show-scope)
       if [[ -z "${2-}" || "${2-}" == --* ]]; then
         echo "Scope name required (e.g. --show-scope ${KC_CLIENT_SCOPE_SD})" >&2
         exit 1
       fi
-      opt_show_client_scope="$2"
+      opt_show_scope="$2"
       break
       ;;
     --show-user)
@@ -751,7 +761,7 @@ run_profile_fapi2_user_rejects_authentication() {
   kc_set_client_policy_enabled "${KC_REALM}" "oid4vc-haip-policy" "${haip_enabled}"
 }
 
-# Show client configuration
+# Show client config
 #
 show_client() {
   local name="$1"
@@ -759,7 +769,15 @@ show_client() {
   kc_get_client ${KC_REALM} "${name}"
 }
 
-# Show client configuration
+# Show realm config
+#
+show_realm() {
+  local realm="$1"
+  kc_admin_login "${KC_ADMIN_USERNAME}" "${KC_ADMIN_PASSWORD}"
+  kc_get_realm "${realm}"
+}
+
+# Show user config
 #
 show_user() {
   local name="$1"
@@ -819,10 +837,17 @@ main() {
     return
   fi
 
-  # Show client scope configuration ------------------------------------------------------------------------------------
+  # Show realm configuration --------------------------------------------------------------------------------------------
   #
-  if [[ -n ${opt_show_client_scope} ]]; then
-    show_client_scope "${opt_show_client_scope}"
+  if [[ -n ${opt_show_realm} ]]; then
+    show_realm "${opt_show_realm}"
+    return
+  fi
+
+  # Show scope configuration ------------------------------------------------------------------------------------
+  #
+  if [[ -n ${opt_show_scope} ]]; then
+    show_client_scope "${opt_show_scope}"
     return
   fi
 
