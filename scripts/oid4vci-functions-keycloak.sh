@@ -658,7 +658,7 @@ kc_create_oid4vci_client() {
     "publicClient": true,
     "directAccessGrantsEnabled": true,
     "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}", "https://oauth.pstmn.io/v1/callback", "${openid_redirect_uri}"],
-    "defaultClientScopes": ["profile"],
+    "defaultClientScopes": ["basic", "profile"],
     "optionalClientScopes": [
       "oid4vc_natural_person_sd",
       "oid4vc_natural_person_jwt"
