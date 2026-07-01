@@ -201,9 +201,14 @@ kc_create_oid4vci_realm_keys() {
   MKCERT_DIR="${PWD}/.secret"
   CERT_PEM="${MKCERT_DIR}/keycloak-issuer-${TARGET}-cert.pem"
   KEY_PEM="${MKCERT_DIR}/keycloak-issuer-${TARGET}-cert-key.pem"
-  P12_FILE="${MKCERT_DIR}/keycloak-issuer-${TARGET}-cert.p12"
+  P12_FILE="${KEYCLOAK_KEYSTORES_PATH}/${realm}/keycloak-issuer-${TARGET}-cert.p12"
 
   if [[ ! -f "${P12_FILE}" ]]; then
+
+    if ! mkdir -p "${KEYCLOAK_KEYSTORES_PATH}/${realm}"; then
+        echo "ERROR: Failed to create directory: ${KEYCLOAK_KEYSTORES_PATH}/${realm}" >&2
+        exit 1
+    fi
 
     # Ensure local CA exists
     mkcert -install >/dev/null 2>&1 || true
@@ -221,7 +226,8 @@ kc_create_oid4vci_realm_keys() {
       -passout pass:changeit
   fi
 
-  # Import into Keycloak
+  # Generate an EC signing key provider for ECDH-ES
+  #
   es256KeyProv=$(kcadm create components -r "${realm}" \
     -s name="es256-vc-signing" \
     -s providerId="java-keystore" \
@@ -238,8 +244,13 @@ kc_create_oid4vci_realm_keys() {
     -s 'config.keyAlias=["es256-vc-signing"]' \
     -s "config.keystore=[\"${P12_FILE}\"]" \
     -o)
-  
-  echo "ES256 Key: ${es256KeyProv}"
+
+  if [[ -n "$es256KeyProv" ]]; then
+    echo "ES256 Key: ${es256KeyProv}"
+  else
+    echo "Failed to create key provider" >&2
+    exit 1
+  fi
 
   # Generate an EC encryption key provider for ECDH-ES
   #
@@ -253,9 +264,15 @@ kc_create_oid4vci_realm_keys() {
     -s 'config.priority=["130"]' \
     -s 'config.enabled=["true"]' \
     -s 'config.active=["true"]' \
-    -s 'config.ecdhAlgorithm=["ECDH-ES"]' -o)
+    -s 'config.ecdhAlgorithm=["ECDH-ES"]' \
+    -o)
 
-  echo "ECDH-ES Key: ${ecdhKeyProv}"
+  if [[ -n "$es256KeyProv" ]]; then
+    echo "ECDH-ES Key: ${ecdhKeyProv}"
+  else
+    echo "Failed to create encryption key provider" >&2
+    exit 1
+  fi
 
   curr_algos=$(kcadm get keys -r "${realm}" 2>/dev/null | jq -r '.keys[].algorithm' | xargs | sort -u)
   echo "Current key algorithms: ${curr_algos[*]}"

@@ -12,16 +12,18 @@ CONFORMANCE_SCRIPTS_DIR="${CONFORMANCE_DIR}/scripts"
 
 SCRIPT_CONFIG='{
   "issuer": {
+    "credential_format": "sd_jwt_vc",
     "plan_name": "oid4vci-1_0-issuer-haip-test-plan",
-    "variants": "[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]",
+    "variants": "[vci_authorization_code_flow_variant=wallet_initiated]",
     "config_file": "keycloak-issuer-config.json",
     "failures_file": "keycloak-issuer-failures.json",
     "filters_file": "keycloak-issuer-filters.json",
     "skips_file": "keycloak-issuer-skips.json"
   },
   "verifier": {
+    "credential_format": "sd_jwt_vc",
     "plan_name": "oid4vp-1final-verifier-haip-test-plan",
-    "variants": "[credential_format=sd_jwt_vc][response_mode=direct_post.jwt]",
+    "variants": "[response_mode=direct_post.jwt]",
     "config_file": "keycloak-verifier-config.json",
     "failures_file": "keycloak-verifier-failures.json",
     "filters_file": "keycloak-verifier-filters.json",
@@ -36,7 +38,6 @@ KC_ADMIN_PASSWORD="admin"
 
 KC_CLIENT="oid4vci-client"
 KC_CLIENT2="oid4vci-client2"
-KC_CLIENT_SCOPE_SD="oid4vc_natural_person_sd"
 KC_OID4VP_CLIENT="${KC_OID4VP_CLIENT:-oid4vp-test-client}"
 KC_OID4VP_IDP_ALIAS="${KC_OID4VP_IDP_ALIAS:-oid4vp-idp}"
 
@@ -150,7 +151,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --show-scope)
       if [[ -z "${2-}" || "${2-}" == --* ]]; then
-        echo "Scope name required (e.g. --show-scope ${KC_CLIENT_SCOPE_SD})" >&2
+        echo "Scope name required (e.g. --show-scope oid4vc_natural_person_sd)" >&2
         exit 1
       fi
       opt_show_scope="$2"
@@ -174,28 +175,21 @@ while [[ $# -gt 0 ]]; do
       ;;
     --run-module)
       if [[ -z "${2-}" || "${2-}" == --* ]]; then
-        echo "Role name required (e.g. --run-module issuer)" >&2
+        echo "Role name required (e.g. --run-module issuer oid4vci-1_0-issuer-happy-flow)" >&2
         exit 1
       fi
       opt_run_role="$2"
       shift
       if [[ -z "${2-}" || "${2-}" == --* ]]; then
-        case "${opt_run_role}" in
-          issuer)
-            opt_run_module="oid4vci-1_0-issuer-happy-flow"
-            ;;
-          verifier)
-            opt_run_module="oid4vp-1final-verifier-happy-flow"
-            ;;
-        esac
-      else
-        opt_run_module="$2"
-        shift
+        echo "Module name required (e.g. --run-module issuer oid4vci-1_0-issuer-happy-flow)" >&2
+        exit 1
       fi
+      opt_run_module="$2"
+      shift
       ;;
     --run-profile)
       if [[ -z "${2-}" || "${2-}" == --* ]]; then
-        echo "Profile name/index is required (e.g. --run-profile default)" >&2
+        echo "Profile name/index is required (e.g. --run-profile issuer)" >&2
         exit 1
       fi
       opt_run_profile="$2"
@@ -567,7 +561,9 @@ run_modules() {
   skips="${SCRIPT_DIR}/config/$(jq -r ".${role}.skips_file" <<< "${SCRIPT_CONFIG}")"
 
   if [[ -z "${variants}" ]]; then
+    format=$(jq -r ".${role}.credential_format" <<< "${SCRIPT_CONFIG}")
     variants=$(jq -r ".${role}.variants" <<< "${SCRIPT_CONFIG}")
+    variants="[credential_format=${format}]${variants}"
   fi
 
   if [[ -z "${modules}" ]]; then

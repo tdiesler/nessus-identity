@@ -54,6 +54,11 @@ case "$TARGET" in
     ;;
 esac
 
+# Configure the Keycloak keystores path like this ...
+# --spi-keys-java-keystore-keystores-path=/opt/keycloak/data/keystores
+
+export KEYCLOAK_KEYSTORES_PATH="/opt/keycloak/data/keystores"
+
 ISSUER=("Max Mustermann" "user@email.com" "max" "password")
 HOLDER=("Alice Wonderland" "alice@email.com" "alice" "password")
 VERIFIER=("Bob Baumeister" "bob@email.com" "bob" "password")
