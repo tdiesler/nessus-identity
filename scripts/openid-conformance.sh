@@ -111,8 +111,7 @@ show_help() {
   echo "    - [3|fapi2-without-browser-automation]      Server enforces one-time use of request_uri"
   echo "    - [4|fapi2-with-authorization-error-page]   Run selected modules that expect an authorization error"
   echo "    - [5|fapi2-user-rejects-authentication]     User rejects consent during authentication"
-  echo "    - [6|oid4vci-mdoc-issuance]                 Run the mdoc issuer profile"
-  echo "    - [7|oid4vp-verifier-happy-flow]            Run the OID4VP verifier happy-flow profile"
+  echo "    - [6|oid4vp-verifier-happy-flow]            Run the OID4VP verifier happy-flow profile"
   echo ""
 }
 
@@ -560,8 +559,9 @@ run_modules() {
   failures="${SCRIPT_DIR}/config/$(jq -r ".${role}.failures_file" <<< "${SCRIPT_CONFIG}")"
   skips="${SCRIPT_DIR}/config/$(jq -r ".${role}.skips_file" <<< "${SCRIPT_CONFIG}")"
 
+  format=$(jq -r ".${role}.credential_format" <<< "${SCRIPT_CONFIG}")
+
   if [[ -z "${variants}" ]]; then
-    format=$(jq -r ".${role}.credential_format" <<< "${SCRIPT_CONFIG}")
     variants=$(jq -r ".${role}.variants" <<< "${SCRIPT_CONFIG}")
     variants="[credential_format=${format}]${variants}"
   fi
@@ -582,13 +582,24 @@ run_modules() {
   fi
 
   if [[ -z "${config}" ]]; then
+    cred_config_id="oid4vc_natural_person_sd"
+    if [[ "${format}" == "mdoc" ]]; then
+      cred_config_id="oid4vc_natural_person_mdoc"
+    fi
     config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
     config_out="${SCRIPT_DIR}/config/.keycloak-${role}-config.json"
     issuer_url="${KEYCLOAK_HOSTNAME}/realms/${KC_REALM}"
     trust_anchor="$(cat "$(mkcert -CAROOT)/rootCA.pem")"
-    jq --arg issuer_url "${issuer_url}" --arg trust_anchor "${trust_anchor}" \
-      '.vci.credential_issuer_url = $issuer_url | .credential.trust_anchor_pem = $trust_anchor | .credential.status_list_trust_anchor_pem = $trust_anchor' \
-      "${config_in}" > "${config_out}"
+    jq \
+      --arg cred_config_id "${cred_config_id}" \
+      --arg issuer_url "${issuer_url}" \
+      --arg trust_anchor "${trust_anchor}" \
+      '(
+        .vci.credential_configuration_id = $cred_config_id |
+        .vci.credential_issuer_url = $issuer_url |
+        .credential.trust_anchor_pem = $trust_anchor |
+        .credential.status_list_trust_anchor_pem = $trust_anchor
+      )' "${config_in}" > "${config_out}"
   else
     config_out="${config}"
   fi
@@ -604,25 +615,6 @@ run_profile_oid4vci_default() {
   role="issuer"
   echo "Run profile: ${role}";
   run_modules "${role}"
-}
-
-run_profile_oid4vci_mdoc_issuance() {
-  role="issuer"
-  echo "Run profile: ${role}";
-
-  variants="[credential_format=mdoc][vci_authorization_code_flow_variant=wallet_initiated]"
-  modules="oid4vci-1_0-issuer-metadata-test,oid4vci-1_0-issuer-metadata-test-signed,oid4vci-1_0-issuer-happy-flow"
-
-  config_in="${SCRIPT_DIR}/config/$(jq -r ".${role}.config_file" <<< "${SCRIPT_CONFIG}")"
-  config_out="${SCRIPT_DIR}/config/.keycloak-${role}-mdoc-config.json"
-
-  issuer_url="${KEYCLOAK_HOSTNAME}/realms/${KC_REALM}"
-  credential_configuration_id="${MDOC_CREDENTIAL_CONFIGURATION_ID:-org.iso.18013.5.1.mDL}"
-  jq --arg issuer_url "${issuer_url}" --arg credential_configuration_id "${credential_configuration_id}" \
-    '.vci.credential_issuer_url = $issuer_url | .vci.credential_configuration_id = $credential_configuration_id' \
-    "${config_in}" > "${config_out}"
-
-  run_modules "${role}" "${modules}" "${variants}" "${config_out}"
 }
 
 # Run the default verifier profile
@@ -884,9 +876,6 @@ main() {
         run_profile_fapi2_user_rejects_authentication
         run_profile_oid4vci_default
         ;;
-      issuer_mdoc)
-        run_profile_oid4vci_mdoc_issuance
-        ;;
       verifier)
         run_profile_oid4vcp_default
         ;;
@@ -935,10 +924,7 @@ main() {
       5|fapi2-user-rejects-authentication)
         run_profile_fapi2_user_rejects_authentication
         ;;
-      6|oid4vci-mdoc-issuance)
-        run_profile_oid4vci_mdoc_issuance
-        ;;
-      7|oid4vp-verifier-happy-flow)
+      6|oid4vp-verifier-happy-flow)
         run_profile_oid4vp_verifier_happy_flow
         ;;
       *)
