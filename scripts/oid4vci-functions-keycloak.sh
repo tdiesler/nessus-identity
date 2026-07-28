@@ -552,7 +552,7 @@ kc_create_oid4vci_credential_configurations() {
           "protocolMapper": "oid4vc-subject-id-mapper",
           "config": {
             "claim.name": "id",
-            "userAttribute": "did",
+            "userAttribute": "username",
             "vc.mandatory": "false"
           }
         },
@@ -631,7 +631,7 @@ kc_create_oid4vci_credential_configurations_mdoc() {
           "protocolMapper": "oid4vc-subject-id-mapper",
           "config": {
             "claim.name": "document_number",
-            "userAttribute": "did",
+            "userAttribute": "username",
             "mdoc.namespace": "org.iso.18013.5.1"
           }
         }
@@ -674,7 +674,7 @@ kc_create_oid4vci_client() {
     "protocol": "openid-connect",
     "publicClient": true,
     "directAccessGrantsEnabled": true,
-    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "${WALLET_REDIRECT_URI}", "https://oauth.pstmn.io/v1/callback", "${openid_redirect_uri}"],
+    "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", "https://oauth.pstmn.io/v1/callback", "${openid_redirect_uri}"],
     "defaultClientScopes": ["basic", "profile"],
     "optionalClientScopes": [
       "oid4vc_natural_person_sd",
@@ -899,16 +899,13 @@ kc_create_user() {
     echo "User '${fullName}' already exists (id=${user_id})" >&2
   else
     echo "Creating user '${fullName}' with role '${role}' in realm '${realm}'" >&2
-    user_did=$(jq -r '.did' ".secret/${role}-details.json")
-    echo "${firstName}'s DID: ${user_did}" >&2
     kcadm create users -r "${realm}" \
       -s username="${username}" \
       -s email="${userEmail}" \
       -s firstName="${firstName}" \
       -s lastName="${lastName}" \
       -s emailVerified=true \
-      -s enabled=true \
-      -s attributes.did="${user_did}"
+      -s enabled=true
 
     echo "Setting password [username=${username}, password=${userPassword}]" >&2
     kcadm set-password -r "${realm}" --username "${username}" --new-password "${userPassword}" --temporary=false
@@ -1100,48 +1097,11 @@ kc_credential_request() {
   local realm="$1"
   local credential_identifier="$2"
 
-  local nonceUrl="${KEYCLOAK_HOSTNAME}/realms/${realm}/protocol/oid4vc/nonce"
-  c_nonce=$(curl -s -X POST "${nonceUrl}" | jq -r '.c_nonce')
-
-  holder_details_json=".secret/holder-details.json"
-
-  email=$(jq -r '.email' "${holder_details_json}")
-  password=$(jq -r '.password' "${holder_details_json}")
-  wid=$(jq -r '.wid' "${holder_details_json}")
-  kid=$(jq -r '.kid' "${holder_details_json}")
-
-  token=$(wallet_auth_login "${email}" "${password}")
-  pub_jwk=$(wallet_keys_export "${token}" "${wid}" "${kid}")
-
-  proof_header=$(jq -n -c \
-    --argjson jwk "${pub_jwk}" \
-    '{alg: "ES256", typ: "openid4vci-proof+jwt", jwk: $jwk}')
-
-  proof_claims=$(jq -n -c \
-    --arg aud "${KEYCLOAK_HOSTNAME}/realms/${realm}" \
-    --argjson iat "$(date +%s)" \
-    --arg nonce "${c_nonce}" \
-    '{aud: $aud, iat:$iat, nonce: $nonce}')
-
-  # Build the unsigned flat proof JWS
-  proof_jws=$(jq -n -c \
-    --arg header "$(echo -n "${proof_header}" | openssl base64 -A | tr '+/' '-_' | tr -d '=')" \
-    --arg claims "$(echo -n "${proof_claims}" | openssl base64 -A | tr '+/' '-_' | tr -d '=')" \
-    '{protected: $header, payload: $claims}')
-
-  echo "ProofHeader: $(echo -n "${proof_header}" | jq .)"
-  echo "ProofClaims: $(echo -n "${proof_claims}" | jq .)"
-  echo "UnsignedJws: $(echo -n "${proof_jws}" | jq .)"
-
-  proof=$(wallet_keys_sign "${token}" "${wid}" "${kid}" "${proof_jws}")
-
   # Credential request body
   req_body=$(jq -n \
     --arg cid "${credential_identifier}" \
-    --arg proof "${proof}" \
     '{
-      credential_identifier: $cid,
-      proofs: { jwt: [ $proof ] }
+      credential_identifier: $cid
     }')
 
   echo "==== Credential Request Body ====" >&2

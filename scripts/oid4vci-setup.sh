@@ -17,8 +17,6 @@ case "$TARGET" in
     echo "Doing local setup..."
     export KUBE_CONTEXT="rancher-desktop"
     export KEYCLOAK_HOSTNAME="http://localhost:8080"
-    export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
-    export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
   ngrok)
     echo "Doing local ngrok setup..."
@@ -31,22 +29,16 @@ case "$TARGET" in
       echo "KEYCLOAK_HOSTNAME is required, or start ngrok so http://127.0.0.1:4040/api/tunnels exposes an https tunnel" >&2
       exit 1
     fi
-    export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
-    export WALLET_API_URL="${WALLET_API_URL:-https://waltid-wallet-api.localtest.me}"
     ;;
   proxy)
     echo "Doing development setup..."
     export KUBE_CONTEXT="rancher-desktop"
     export KEYCLOAK_HOSTNAME="https://keycloak.nessustech.io:8443"
-    export WALLET_REDIRECT_URI="http://localhost:9000/wallet/*"
-    export WALLET_API_URL="https://waltid-wallet-api.localtest.me"
     ;;
   stage)
     echo "Doing staging setup..."
     export KUBE_CONTEXT="ebsi"
     export KEYCLOAK_HOSTNAME="https://keycloak.nessustech.io"
-    export WALLET_REDIRECT_URI="https://console.nessustech.io/wallet/*"
-    export WALLET_API_URL="https://waltid-wallet-api.nessustech.io"
     ;;
   *)
     echo "Unknown target: $TARGET"
@@ -64,7 +56,6 @@ HOLDER=("Alice Wonderland" "alice@email.com" "alice" "password")
 VERIFIER=("Bob Baumeister" "bob@email.com" "bob" "password")
 
 source "${SCRIPT_DIR}/oid4vci-functions-keycloak.sh"
-source "${SCRIPT_DIR}/oid4vci-functions-waltid.sh"
 
 ## Parse args
 #
@@ -117,36 +108,27 @@ for arg in "$@"; do
   esac
 done
 
-## Setup EBSI Test Users -----------------------------------------------------------------------------------------------
+## Setup Test Users ----------------------------------------------------------------------------------------------------
 #
-if [[ "${skip_wallet}" == "true" ]]; then
-  mkdir -p ".secret"
-  jq -n \
-    --arg role "issuer" \
-    --arg name "${ISSUER[0]}" \
-    --arg email "${ISSUER[1]}" \
-    --arg password "${ISSUER[3]}" \
-    --arg did "did:example:issuer" \
-    '{role: $role, name: $name, email: $email, password: $password, did: $did}' > ".secret/issuer-details.json"
-  jq -n \
-    --arg role "holder" \
-    --arg name "${HOLDER[0]}" \
-    --arg email "${HOLDER[1]}" \
-    --arg password "${HOLDER[3]}" \
-    --arg did "did:example:holder" \
-    '{role: $role, name: $name, email: $email, password: $password, did: $did}' > ".secret/holder-details.json"
-  jq -n \
-    --arg role "verifier" \
-    --arg name "${VERIFIER[0]}" \
-    --arg email "${VERIFIER[1]}" \
-    --arg password "${VERIFIER[3]}" \
-    --arg did "did:example:verifier" \
-    '{role: $role, name: $name, email: $email, password: $password, did: $did}' > ".secret/verifier-details.json"
-else
-  wallet_create_user "issuer" "${ISSUER[0]}" "${ISSUER[1]}" "${ISSUER[3]}" || exit 1
-  wallet_create_user "holder" "${HOLDER[0]}" "${HOLDER[1]}" "${HOLDER[3]}" || exit 1
-  wallet_create_user "verifier" "${VERIFIER[0]}" "${VERIFIER[1]}" "${VERIFIER[3]}" || exit 1
-fi
+mkdir -p ".secret"
+jq -n \
+  --arg role "issuer" \
+  --arg name "${ISSUER[0]}" \
+  --arg email "${ISSUER[1]}" \
+  --arg password "${ISSUER[3]}" \
+  '{role: $role, name: $name, email: $email, password: $password}' > ".secret/issuer-details.json"
+jq -n \
+  --arg role "holder" \
+  --arg name "${HOLDER[0]}" \
+  --arg email "${HOLDER[1]}" \
+  --arg password "${HOLDER[3]}" \
+  '{role: $role, name: $name, email: $email, password: $password}' > ".secret/holder-details.json"
+jq -n \
+  --arg role "verifier" \
+  --arg name "${VERIFIER[0]}" \
+  --arg email "${VERIFIER[1]}" \
+  --arg password "${VERIFIER[3]}" \
+  '{role: $role, name: $name, email: $email, password: $password}' > ".secret/verifier-details.json"
 
 ## Keycloak admin login ------------------------------------------------------------------------------------------------
 #
@@ -229,6 +211,7 @@ if [[ ${skip_vc} == "false" ]]; then
   kc_set_client_policy_enabled "${realm}" "oid4vc-haip-policy" "false"
 
   kc_set_client_property "${realm}" "${client_id}" "directAccessGrantsEnabled" "true"
+  kc_set_client_scope_attribute "${realm}" "${credential_configuration_id}" "vc.binding_required" "false"
 
   if [[ ${auth_type} == "direct" ]]; then
     kc_access_token_direct "${realm}" "${client_id}" "${HOLDER[2]}" "${HOLDER[3]}" "${credential_configuration_id}"
